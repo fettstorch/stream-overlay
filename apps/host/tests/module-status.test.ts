@@ -6,6 +6,21 @@ async function read(reader: ReadableStreamDefaultReader<Uint8Array>) {
   return JSON.parse(new TextDecoder().decode(chunk.value).slice(6));
 }
 
+test("configuration changes share the control channel and survive reconnects", async () => {
+  const service = new ModuleStatusService(new Map([["chat", true]]));
+  service.setConfiguration("chat", { fadeOut: 0 });
+  const request = () => new Request("http://localhost/events");
+  const reader = service.events(request(), "chat").body!.getReader();
+  try {
+    expect(await read(reader)).toEqual({ enabled: true, configuration: { fadeOut: 0 } });
+    service.setConfiguration("chat", { fadeOut: 80 });
+    expect(await read(reader)).toEqual({ enabled: true, configuration: { fadeOut: 80 } });
+  } finally { await reader.cancel(); }
+  const reconnected = service.events(request(), "chat").body!.getReader();
+  try { expect(await read(reconnected)).toEqual({ enabled: true, configuration: { fadeOut: 80 } }); }
+  finally { await reconnected.cancel(); }
+});
+
 test("status streams deliver initial state, live changes, and current state after reconnect", async () => {
   const service = new ModuleStatusService(new Map([["pokemon-blue", false]]));
   const request = () => new Request("http://localhost/api/modules/pokemon-blue/events");

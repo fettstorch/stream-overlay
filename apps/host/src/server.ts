@@ -12,6 +12,7 @@ import { FileLogger } from "./logger.ts";
 import { PaintService, parseSegments, parseCursor } from "../../../modules/overlay-paint/src/service.ts";
 import { getStreamDimensions } from "./stream-dimensions.ts";
 import { defaultPaintConfiguration, parsePaintConfiguration } from "../../../modules/overlay-paint/src/config.ts";
+import { defaultChatConfiguration, parseChatConfiguration } from "../../../modules/chat/src/config.ts";
 import { buildStaticOverlay } from "./static-overlay.ts";
 import { ModuleStatusService } from "./module-status.ts";
 
@@ -55,6 +56,7 @@ function isEnabled(id: string) {
     ?? defaults.modules.find((module) => module.id === id)?.enabled ?? false;
 }
 const moduleStatus = new ModuleStatusService(new Map(modules.map(module => [module.id, isEnabled(module.id)])));
+moduleStatus.setConfiguration("chat", configStore.read().chat ?? defaultChatConfiguration);
 
 function moduleResponse(module: (typeof modules)[number]) {
   const runtime = supervisor.status(module);
@@ -65,6 +67,7 @@ function moduleResponse(module: (typeof modules)[number]) {
     requirements: module.requirements ?? [],
     chatCommands: module.chatCommands ?? [],
     preview: module.preview,
+    obsSize: module.obsSize,
     streamerQuery: module.streamerQuery ?? true,
     enabled: isEnabled(module.id),
     status: runtime.status,
@@ -195,6 +198,22 @@ const server = Bun.serve({
         if (!segments) return Response.json({ error: "Invalid paint input" }, { status: 400 });
         paintService.append(segments);
         return new Response(null, { status: 204 });
+      },
+    },
+    "/api/chat/config": {
+      GET: () => Response.json(configStore.read().chat ?? defaultChatConfiguration),
+      PATCH: async request => {
+        let body: unknown;
+        try { body = await request.json(); } catch {
+          return Response.json({ error: "Invalid Chat configuration" }, { status: 400 });
+        }
+        const chat = parseChatConfiguration(body);
+        if (!chat) return Response.json({ error: "Choose a fade-out from 0 to 100 percent" }, { status: 400 });
+        const configuration = configStore.read();
+        configuration.chat = chat;
+        configStore.write(configuration);
+        moduleStatus.setConfiguration("chat", chat);
+        return Response.json(chat);
       },
     },
     "/api/overlay-paint/config": {

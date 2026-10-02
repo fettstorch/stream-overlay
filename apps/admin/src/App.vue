@@ -8,6 +8,7 @@ interface ModuleStatus {
   requirements: string[];
   chatCommands: Array<{ command: string; description: string }>;
   preview?: { streamBackground?: boolean; interactive?: boolean };
+  obsSize?: "stream-height";
   streamerQuery?: boolean;
   enabled: boolean;
   status: "running" | "stopped" | "failed";
@@ -72,6 +73,9 @@ const copiedModuleId = ref<string | null>(null);
 const streamMessage = ref("");
 const pokemonMessage = ref("");
 const paintConfiguration = ref({ color: "#ff5cbe", decaySeconds: 4 });
+const chatConfiguration = ref({ fadeOut: 0 });
+const chatMessage = ref("");
+let chatSaveTimer: ReturnType<typeof setTimeout> | undefined;
 const paintMessage = ref("");
 let paintSaveTimer: ReturnType<typeof setTimeout> | undefined;
 const obsDimensions = computed(() => streamDimensions.value ?? { width: 1920, height: 1080 });
@@ -107,7 +111,7 @@ function previewUrl(module: ModuleStatus) {
 async function refreshStreamDimensions() {
   const sequence = ++dimensionsSequence;
   const did = streamConfiguration.value.streamerDid;
-  if (!did || !modules.value.some(module => module.preview?.streamBackground)) {
+  if (!did || !modules.value.some(module => module.preview?.streamBackground || module.obsSize)) {
     streamDimensions.value = null;
     return;
   }
@@ -147,6 +151,13 @@ async function load() {
     fetch("/api/config", { cache: "no-store" }),
   ]);
   modules.value = await modulesResponse.json() as ModuleStatus[];
+  if (modules.value.some(module => module.id === "chat")) {
+    const response = await fetch("/api/chat/config", { cache: "no-store" });
+    if (response.ok) {
+      const settings = await response.json();
+      if (typeof settings.fadeOut === "number") chatConfiguration.value = settings;
+    }
+  }
   if (modules.value.some(module => module.id === "overlay-paint")) {
     const response = await fetch("/api/overlay-paint/config", { cache: "no-store" });
     if (response.ok) paintConfiguration.value = await response.json();
@@ -191,6 +202,21 @@ async function savePaintConfiguration(configuration: { color: string; decaySecon
     paintMessage.value = response.ok ? "Saved" : "Could not save Paint settings";
   } catch { paintMessage.value = "Could not save Paint settings"; }
 }
+
+watch(chatConfiguration, value => {
+  if (!loaded) return;
+  clearTimeout(chatSaveTimer);
+  const configuration = { ...value };
+  chatMessage.value = "Saving…";
+  chatSaveTimer = setTimeout(() => enqueueSave(async () => {
+    try {
+      const response = await fetch("/api/chat/config", {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(configuration),
+      });
+      chatMessage.value = response.ok ? "Saved" : "Could not save Chat settings";
+    } catch { chatMessage.value = "Could not save Chat settings"; }
+  }), 250);
+}, { deep: true });
 
 watch(paintConfiguration, value => {
   if (!loaded) return;
@@ -277,6 +303,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  clearTimeout(chatSaveTimer);
   if (paintSaveTimer) clearTimeout(paintSaveTimer);
   dimensionsSequence++;
   if (dimensionsTimer) clearInterval(dimensionsTimer);
@@ -409,11 +436,12 @@ onBeforeUnmount(() => {
               <span>{{ chatCommand.description }}</span>
             </div>
           </section>
-          <section v-if="module.preview?.streamBackground" class="module-commands obs-dimensions">
+          <section v-if="module.preview?.streamBackground || module.obsSize" class="module-commands obs-dimensions">
             <h4>OBS Browser Source size</h4>
             <div class="chat-command">
-              <code>Width: {{ obsDimensions.width }} px<br>Height: {{ obsDimensions.height }} px</code>
-              <span v-if="streamDimensions">Matches your stream's video aspect ratio. Place this source above your video.</span>
+              <code><template v-if="module.preview?.streamBackground">Width: {{ obsDimensions.width }} px<br></template>Height: {{ obsDimensions.height }} px</code>
+              <span v-if="module.obsSize">Set your OBS browser source to this height; choose the width for your chat column. {{ streamDimensions ? "Height matches your stream." : "1080 px fallback — stream height is not available yet." }}</span>
+              <span v-else-if="streamDimensions">Matches your stream's video aspect ratio. Place this source above your video.</span>
               <span v-else>16:9 fallback — stream dimensions are not available yet.</span>
             </div>
           </section>
@@ -440,6 +468,13 @@ onBeforeUnmount(() => {
           <div v-if="module.preview?.interactive" class="paint-instructions">
             <p>Draw using a mouse, pen or touch. New input postpones fading for the whole drawing.</p>
             <p v-if="!streamEmbedUrl">Select your streamer account above to see your stream behind the canvas.</p>
+          </div>
+          <div v-if="module.id === 'chat'" class="module-settings chat-settings">
+            <label>Fade out from top: {{ chatConfiguration.fadeOut }}%
+              <input v-model.number="chatConfiguration.fadeOut" type="range" min="0" max="100" step="1" aria-label="Chat fade-out percentage">
+            </label>
+            <span>0% shows the full height; 80% hides the upper 80% with a soft edge; 100% hides all messages.</span>
+            <span class="module-message" aria-live="polite">{{ chatMessage }}</span>
           </div>
           <div v-if="module.id === 'overlay-paint'" class="module-settings paint-settings">
             <h4>Brush settings</h4>
@@ -549,5 +584,9 @@ code { display: block; min-width: 0; padding: 12px 52px 12px 12px; overflow: aut
 .module-settings { grid-template-columns: auto auto 1fr; align-items: center; margin-top: 22px; padding-top: 20px; border-top: 1px solid #28334b; }
 .module-settings h4 { grid-column: 1 / -1; margin: 0; color: #b9c3da; }
 .module-settings label { display: flex; align-items: center; gap: 8px; }
+.chat-settings { grid-template-columns: 1fr; }
+.chat-settings label { flex-direction: column; align-items: stretch; }
+.chat-settings input[type="range"] { width: 100%; accent-color: #a78bfa; cursor: pointer; }
+.chat-settings > span { color: #9aa6c1; font-size: .85rem; }
 .module-message, .save-status { justify-self: end; min-width: 3.5em; color: #9aa6c1; font-size: .85rem; }
 </style>

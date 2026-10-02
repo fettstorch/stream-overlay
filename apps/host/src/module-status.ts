@@ -1,11 +1,17 @@
 /** Live control channel independent of overlay content and chat connections. */
 export class ModuleStatusService {
-  private readonly listeners = new Map<string, Set<(enabled: boolean) => void>>();
+  private readonly listeners = new Map<string, Set<() => void>>();
+  private readonly configurations = new Map<string, unknown>();
   constructor(private readonly states: Map<string, boolean>) {}
 
   setEnabled(id: string, enabled: boolean) {
     this.states.set(id, enabled);
-    for (const listener of this.listeners.get(id) ?? []) listener(enabled);
+    for (const listener of this.listeners.get(id) ?? []) listener();
+  }
+
+  setConfiguration(id: string, configuration: unknown) {
+    this.configurations.set(id, structuredClone(configuration));
+    for (const listener of this.listeners.get(id) ?? []) listener();
   }
 
   events(request: Request, id: string) {
@@ -21,7 +27,10 @@ export class ModuleStatusService {
           if (closed) return;
           try { controller.enqueue(encoder.encode(text)); } catch { close(); }
         };
-        const listener = (enabled: boolean) => send(`data: ${JSON.stringify({ enabled })}\n\n`);
+        const listener = () => send(`data: ${JSON.stringify({
+          enabled: this.states.get(id) ?? false,
+          ...(this.configurations.has(id) ? { configuration: this.configurations.get(id) } : {}),
+        })}\n\n`);
         close = () => {
           if (closed) return;
           closed = true;
@@ -33,7 +42,7 @@ export class ModuleStatusService {
         };
         listeners.add(listener);
         // Always send current state, including after an EventSource reconnect.
-        listener(this.states.get(id) ?? false);
+        listener();
         heartbeat = setInterval(() => send(": keepalive\n\n"), 15_000);
         request.signal.addEventListener("abort", close, { once: true });
         if (request.signal.aborted) close();

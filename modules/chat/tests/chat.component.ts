@@ -20,8 +20,8 @@ function setup() {
   }
   vi.stubGlobal("EventSource", FakeEvents);
   const wrapper = mount(App);
-  const state = async (enabled: boolean) => {
-    sources[0]!.onmessage!({ data: JSON.stringify({ enabled }) });
+  const state = async (enabled: boolean, configuration?: unknown) => {
+    sources[0]!.onmessage!({ data: JSON.stringify({ enabled, configuration }) });
     await flushPromises();
   };
   const message = async (value: unknown) => {
@@ -34,6 +34,24 @@ function setup() {
 function message(id = "1", text = "Hello stream!"): StreamChatMessage {
   return { id, text, streamerDid: "did:plc:streamer", author: { did: "did:plc:alice", handle: "alice.bsky.social", displayName: "Alice" }, createdAt: "2026-10-02T12:00:00Z" };
 }
+
+test("fade settings update live without losing chat or reconnecting the feed", async () => {
+  const app = setup();
+  try {
+    await app.state(true, { fadeOut: 0 });
+    await app.message(message());
+    expect(app.wrapper.get("ol").attributes("style")).toContain("mask-image: none");
+    await app.state(true, { fadeOut: 80 });
+    expect(app.wrapper.get("ol").attributes("style")).toContain("transparent 80%, black 88%");
+    expect(app.wrapper.text()).toContain("Hello stream!");
+    expect(app.sources).toHaveLength(2);
+    expect(app.sources[1]!.close).not.toHaveBeenCalled();
+    await app.state(true, { fadeOut: 100 });
+    expect(app.wrapper.get("ol").attributes("style")).toContain("linear-gradient(transparent, transparent)");
+    await app.state(true, { fadeOut: -1 });
+    expect(app.wrapper.get("ol").attributes("style")).toContain("linear-gradient(transparent, transparent)");
+  } finally { app.wrapper.unmount(); }
+});
 
 test("renders author and text from the shared chat feed, without HTML interpretation", async () => {
   const app = setup();

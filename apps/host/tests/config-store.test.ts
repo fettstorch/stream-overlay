@@ -23,6 +23,15 @@ function createStore() {
 }
 
 describe("ConfigStore", () => {
+  test("persists chat fade settings and rejects invalid percentages", () => {
+    const store = createStore();
+    const configuration = { ...store.read(), chat: { fadeOut: 80 } };
+    store.write(configuration);
+    expect(store.read().chat).toEqual({ fadeOut: 80 });
+    for (const fadeOut of [-1, 101, NaN, Infinity]) {
+      expect(() => store.write({ ...configuration, chat: { fadeOut } })).toThrow();
+    }
+  });
   test("returns defaults when no persisted configuration exists", () => {
     expect(createStore().read()).toEqual({
       modules: [{ id: "pokemon-blue", enabled: true }],

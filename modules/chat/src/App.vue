@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { observeStreamChat, type StreamChatMessage } from "@stream-overlay/stream-chat";
+import { chatMask, defaultChatConfiguration, parseChatConfiguration } from "./config";
 
 const enabled = ref(false);
+const configuration = ref(defaultChatConfiguration);
+const maskStyle = computed(() => ({ maskImage: chatMask(configuration.value.fadeOut), WebkitMaskImage: chatMask(configuration.value.fadeOut) }));
 const messages = ref<StreamChatMessage[]>([]);
 let status: EventSource | undefined;
 let closeChat: (() => void) | undefined;
@@ -36,7 +39,9 @@ onMounted(() => {
   status = new EventSource("/api/modules/chat/events");
   status.onmessage = event => {
     try {
-      const state = JSON.parse(event.data) as { enabled?: unknown };
+      const state = JSON.parse(event.data) as { enabled?: unknown; configuration?: unknown };
+      const settings = parseChatConfiguration(state.configuration);
+      if (settings) configuration.value = settings;
       if (typeof state.enabled === "boolean") setEnabled(state.enabled);
     } catch { /* Wait for the next valid state. */ }
   };
@@ -50,7 +55,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <ol v-if="enabled" class="chat-messages" aria-label="Stream chat" aria-live="polite" aria-relevant="additions">
+  <ol v-if="enabled" class="chat-messages" :style="maskStyle" aria-label="Stream chat" aria-live="polite" aria-relevant="additions">
     <li v-for="message in messages" :key="message.id" class="chat-message">
       <strong>{{ message.author.displayName || message.author.handle || message.author.did }}</strong>
       <span>{{ message.text }}</span>

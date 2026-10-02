@@ -53,6 +53,35 @@ function mockFetch() {
 }
 
 describe("Admin App", () => {
+  test("Chat recommends stream height and automatically saves its spatial fade", async () => {
+    vi.useFakeTimers();
+    const fetchMock = mockFetch();
+    const fallback = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url === "/api/modules") return Response.json([{
+        ...moduleResponse[0], id: "chat", name: "Chat", obsSize: "stream-height", streamerQuery: false,
+        overlayUrl: "/overlays/chat/",
+      }]);
+      if (url === "/api/chat/config") return Response.json({ fadeOut: 0 });
+      if (url === "/api/stream/dimensions") return Response.json({ streamerDid: "did:plc:test", dimensions: { width: 1280, height: 720 } });
+      return fallback(input, init);
+    });
+    const wrapper = mount(App);
+    try {
+      await flushPromises();
+      expect(wrapper.get(".obs-dimensions code").text()).toBe("Height: 720 px");
+      expect(wrapper.find(".stream-background").exists()).toBe(false);
+      const preview = wrapper.get("iframe").element;
+      await wrapper.get('input[aria-label="Chat fade-out percentage"]').setValue(80);
+      await vi.advanceTimersByTimeAsync(300);
+      await flushPromises();
+      const write = fetchMock.mock.calls.find(([url, init]) => url === "/api/chat/config" && init?.method === "PATCH");
+      expect(JSON.parse(String(write?.[1]?.body))).toEqual({ fadeOut: 80 });
+      expect(wrapper.get("iframe").element).toBe(preview);
+      expect(wrapper.text()).toContain("Saved");
+    } finally { wrapper.unmount(); }
+  });
   test("shows the Chat module with its preview and DID-free OBS URL", async () => {
     const fetchMock = mockFetch();
     fetchMock.mockResolvedValueOnce(Response.json([{

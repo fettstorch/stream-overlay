@@ -24,6 +24,8 @@ export interface OverlayModule {
   requirements?: string[];
   streamerQuery?: boolean;
   preview?: { streamBackground?: boolean; interactive?: boolean };
+  /** Recommend the source height without requiring a background stream preview. */
+  obsSize?: "stream-height";
   chatCommands?: Array<{
     command: string;
     description: string;
