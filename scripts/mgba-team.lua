@@ -1,7 +1,15 @@
 -- Live Pokémon Blue party exporter for mGBA 0.10+.
 -- Reads emulated WRAM and writes live data beside the project runtime config.
 
-local outputDirectory = script.dir .. "/../runtime/pokemon-blue"
+local function getScriptDirectory()
+  if script and script.dir then return script.dir end
+
+  local source = debug.getinfo(1, "S").source
+  if source:sub(1, 1) == "@" then source = source:sub(2) end
+  return source:match("^(.*)[/\\]") or "."
+end
+
+local outputDirectory = getScriptDirectory() .. "/../runtime/pokemon-blue"
 local outputPath = outputDirectory .. "/team.json"
 local temporaryPath = outputPath .. ".tmp"
 local badgesOutputPath = outputDirectory .. "/badges.json"
