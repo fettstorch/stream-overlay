@@ -35,6 +35,18 @@
         "typescript": "^5.9.0",
       },
     },
+    "modules/overlay-paint": {
+      "name": "@stream-overlay/overlay-paint",
+      "dependencies": {
+        "@fettstorch/jule": "^3.1.0",
+        "@stream-overlay/sdk": "workspace:*",
+      },
+      "devDependencies": {
+        "jsdom": "^27.0.0",
+        "typescript": "^5.9.0",
+        "vitest": "^3.2.0",
+      },
+    },
     "modules/pokemon-blue": {
       "name": "@stream-overlay/pokemon-blue",
       "dependencies": {
@@ -235,6 +247,8 @@
     "@stream-overlay/admin": ["@stream-overlay/admin@workspace:apps/admin"],
 
     "@stream-overlay/host": ["@stream-overlay/host@workspace:apps/host"],
+
+    "@stream-overlay/overlay-paint": ["@stream-overlay/overlay-paint@workspace:modules/overlay-paint"],
 
     "@stream-overlay/pokemon-blue": ["@stream-overlay/pokemon-blue@workspace:modules/pokemon-blue"],
 

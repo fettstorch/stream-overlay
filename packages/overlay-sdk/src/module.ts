@@ -22,6 +22,7 @@ export interface OverlayModule {
   name: string;
   description: string;
   requirements?: string[];
+  preview?: { streamBackground?: boolean; interactive?: boolean };
   chatCommands?: Array<{
     command: string;
     description: string;

@@ -14,6 +14,7 @@ Then open:
 - Admin: <http://localhost:3001/admin/>
 - Pokémon Blue mGBA: <http://localhost:3001/overlays/pokemon-blue/>
 - Streamplace Pets: <http://localhost:3001/overlays/stream-pets/>
+- Overlay Paint: <http://localhost:3001/overlays/overlay-paint/>
 
 The original Pokémon URL remains compatible:
 
@@ -32,6 +33,7 @@ apps/host                 Bun API and module supervisor
 apps/admin                Vue administration UI
 modules/pokemon-blue      Pokémon Blue mGBA overlay and adapter
 modules/streamplace-pets  Adapter for the upstream submodule
+modules/overlay-paint     Shared temporary canvas, served by the host
 packages/overlay-sdk      Shared module contracts
 packages/pokemon-model    Normalized Pokémon data
 packages/pokemon-ui       Reusable team and badge components
@@ -44,6 +46,27 @@ source. Clone this repository with submodules:
 ```sh
 git clone --recurse-submodules <repository-url>
 ```
+
+## Overlay Paint
+
+Add the module's copied URL as an OBS Browser Source above your video. Set its
+width and height to the stream's dimensions (for example 1920 × 1080). It shows
+only a transparent canvas, never the background player.
+
+Select your streamer account in the admin, then draw in Overlay Paint's preview
+using a mouse, pen, or touch. The official Stream.place embed sits behind the
+canvas as a visual reference. Uncheck **Draw in preview** temporarily to start,
+mute, or otherwise interact with the player. Its live-video delay also applies
+to this reference; the drawing itself is sent directly through the local host.
+
+All open Paint overlays share one temporary drawing. Input postpones the entire
+drawing's fade via Jules debounce: four seconds after the last input, it fades
+over one second. Turning the module off clears connected canvases immediately;
+turning it on starts empty. Nothing is saved to disk. Coordinates and brush size
+are relative to the canvas, so use the same aspect ratio in OBS and the preview.
+
+The host serves this module itself, using SSE for live drawing updates. It adds
+no ports or extra processes, and starts with the same `bun run overlay` command.
 
 ## Pokémon Blue data
 

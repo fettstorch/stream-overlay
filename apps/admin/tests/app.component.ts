@@ -140,4 +140,25 @@ describe("Admin App", () => {
     }));
     expect(wrapper.text()).toContain("Saved");
   });
+
+  test("layers the interactive paint preview over the stream without changing the OBS URL", async () => {
+    const fetchMock = mockFetch();
+    fetchMock.mockImplementation(async input => {
+      const url = String(input);
+      if (url === "/api/modules") return Response.json([{
+        ...moduleResponse[0], id: "overlay-paint", name: "Overlay Paint",
+        overlayUrl: "/overlays/overlay-paint/", preview: { streamBackground: true, interactive: true },
+      }]);
+      if (url === "/api/config") return Response.json(streamConfigResponse);
+      return Response.json(configResponse);
+    });
+    const wrapper = mount(App);
+    await flushPromises();
+    expect(wrapper.get(".stream-background").attributes("src")).toBe("https://stream.place/embed/streamer.bsky.social");
+    expect(wrapper.get(".paint-foreground").attributes("src")).toContain("interactive=1");
+    expect(wrapper.get(".overlay-url code").text()).not.toContain("interactive");
+    await wrapper.get('.paint-instructions input').setValue(false);
+    expect(wrapper.get(".paint-foreground").classes()).toContain("player-interaction");
+    expect(wrapper.text()).toContain("stream player controls");
+  });
 });

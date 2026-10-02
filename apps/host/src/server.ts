@@ -9,6 +9,7 @@ import { MgbaFileProvider } from "../../../modules/pokemon-blue/src/mgba-file-pr
 import { getActorProfile, resolveStreamerIdentity, searchActors } from "./identity.ts";
 import { StreamChatService } from "@stream-overlay/stream-chat";
 import { FileLogger } from "./logger.ts";
+import { PaintService, parseSegments } from "../../../modules/overlay-paint/src/service.ts";
 
 const projectRoot = join(import.meta.dir, "../../..");
 const port = Number(process.env.PORT ?? 3001);
@@ -23,6 +24,15 @@ const configStore = new ConfigStore(join(projectRoot, "runtime/config.json"), de
 const logger = new FileLogger(join(tmpdir(), "stream-overlay", "overlay.log"));
 const supervisor = new ModuleSupervisor((event, details) => logger.log(event, details));
 const chatService = new StreamChatService(getActorProfile, (event, details) => logger.log(event, details));
+const paintService = new PaintService();
+// Bundle the canvas client in memory: no extra development server or port.
+const paintBundle = await Bun.build({
+  entrypoints: [join(projectRoot, "modules/overlay-paint/src/client.ts")],
+  target: "browser",
+  minify: true,
+});
+if (!paintBundle.success) throw new AggregateError(paintBundle.logs, "Could not build Overlay Paint");
+const paintJavascript = await paintBundle.outputs[0]!.text();
 const pokemonRuntimeDirectory = join(projectRoot, "runtime/pokemon-blue");
 mkdirSync(pokemonRuntimeDirectory, { recursive: true });
 const pokemonProvider = new MgbaFileProvider(
@@ -32,7 +42,8 @@ const pokemonProvider = new MgbaFileProvider(
 let pokemonSnapshot: PokemonSnapshot | null = null;
 
 function isEnabled(id: string) {
-  return configStore.read().modules.find((module) => module.id === id)?.enabled ?? false;
+  return configStore.read().modules.find((module) => module.id === id)?.enabled
+    ?? defaults.modules.find((module) => module.id === id)?.enabled ?? false;
 }
 
 function moduleResponse(module: (typeof modules)[number]) {
@@ -43,6 +54,7 @@ function moduleResponse(module: (typeof modules)[number]) {
     description: module.description,
     requirements: module.requirements ?? [],
     chatCommands: module.chatCommands ?? [],
+    preview: module.preview,
     enabled: isEnabled(module.id),
     status: runtime.status,
     overlayUrl: module.routes[0]?.path ?? "",
@@ -132,6 +144,34 @@ const server = Bun.serve({
     "/": (request) => proxyPokemonOverlay(request, "/"),
     "/overlay.html": (request) => proxyPokemonOverlay(request, "/overlay.html"),
     "/overlays/pokemon-blue/": (request) => proxyPokemonOverlay(request, "/"),
+    "/overlays/overlay-paint": (request) => {
+      const url = new URL(request.url);
+      url.pathname += "/";
+      return Response.redirect(url, 302);
+    },
+    "/overlays/overlay-paint/": () => new Response(Bun.file(join(projectRoot, "modules/overlay-paint/index.html")), {
+      headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
+    }),
+    "/overlays/overlay-paint/client.js": () => new Response(paintJavascript, {
+      headers: { "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "no-store" },
+    }),
+    "/api/overlay-paint/events": (request, server) => {
+      server.timeout(request, 0);
+      return paintService.events(request);
+    },
+    "/api/overlay-paint/segments": {
+      POST: async request => {
+        if (!isEnabled("overlay-paint")) return Response.json({ error: "Paint module disabled" }, { status: 409 });
+        let body: { segments?: unknown };
+        try { body = await request.json(); } catch {
+          return Response.json({ error: "Invalid paint input" }, { status: 400 });
+        }
+        const segments = parseSegments(body?.segments);
+        if (!segments) return Response.json({ error: "Invalid paint input" }, { status: 400 });
+        paintService.append(segments);
+        return new Response(null, { status: 204 });
+      },
+    },
     "/team.json": (request) => proxyPokemonOverlay(request),
     "/badges.json": (request) => proxyPokemonOverlay(request),
     "/overlays/stream-pets/": (request) => {
@@ -227,6 +267,7 @@ const server = Bun.serve({
           return Response.json({ error: "enabled must be a boolean" }, { status: 400 });
         }
         configStore.setModuleEnabled(module.id, body.enabled);
+        if (module.id === "overlay-paint") paintService.setEnabled(body.enabled);
         if (body.enabled) supervisor.enable(module);
         else supervisor.disable(module);
         return Response.json(moduleResponse(module));
@@ -245,6 +286,7 @@ for (const module of modules) {
   if (isEnabled(module.id)) supervisor.enable(module);
 }
 chatService.setStreamerDid(configStore.read().stream.streamerDid);
+paintService.setEnabled(isEnabled("overlay-paint"));
 await pokemonProvider.start((snapshot) => {
   pokemonSnapshot = snapshot;
 });
@@ -253,6 +295,7 @@ const shutDown = () => {
   logger.log("host.stopping");
   supervisor.stopAll(modules);
   chatService.stop();
+  paintService.stop();
   void pokemonProvider.stop();
   void server.stop();
 };

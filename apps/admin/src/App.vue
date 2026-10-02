@@ -7,6 +7,7 @@ interface ModuleStatus {
   description: string;
   requirements: string[];
   chatCommands: Array<{ command: string; description: string }>;
+  preview?: { streamBackground?: boolean; interactive?: boolean };
   enabled: boolean;
   status: "running" | "stopped" | "failed";
   overlayUrl: string;
@@ -40,6 +41,11 @@ const actorSearchOpen = ref(false);
 const copiedModuleId = ref<string | null>(null);
 const streamMessage = ref("");
 const pokemonMessage = ref("");
+const drawingEnabled = ref(true);
+const streamEmbedUrl = computed(() => {
+  const handle = streamConfiguration.value.profile?.handle;
+  return handle ? `https://stream.place/embed/${encodeURIComponent(handle)}` : "";
+});
 const origin = computed(() => location.origin);
 let loaded = false;
 let actorSearchTimer: ReturnType<typeof setTimeout> | undefined;
@@ -51,6 +57,12 @@ let copyResetTimer: ReturnType<typeof setTimeout> | undefined;
 function overlayUrl(module: ModuleStatus) {
   const url = new URL(module.overlayUrl, origin.value);
   if (streamConfiguration.value.streamerDid) url.searchParams.set("streamer", streamConfiguration.value.streamerDid);
+  return url.toString();
+}
+
+function previewUrl(module: ModuleStatus) {
+  const url = new URL(overlayUrl(module));
+  if (module.preview?.interactive) url.searchParams.set("interactive", "1");
   return url.toString();
 }
 
@@ -291,10 +303,25 @@ onBeforeUnmount(() => {
           </section>
           <div class="module-preview">
             <iframe
-              :src="overlayUrl(module)"
+              v-if="module.preview?.streamBackground && streamEmbedUrl"
+              class="stream-background"
+              :src="streamEmbedUrl"
+              title="Stream.place background stream"
+              allow="autoplay; fullscreen"
+              loading="lazy"
+            />
+            <iframe
+              :src="previewUrl(module)"
+              :class="{ 'paint-foreground': module.preview?.interactive, 'player-interaction': module.preview?.interactive && !drawingEnabled }"
               :title="`${module.name} live preview`"
               loading="lazy"
             />
+          </div>
+          <div v-if="module.preview?.interactive" class="paint-instructions">
+            <label><input v-model="drawingEnabled" type="checkbox"> Draw in preview</label>
+            <p>Mouse, pen or touch. The drawing fades after four seconds without input.</p>
+            <p v-if="!drawingEnabled">You can now use the stream player controls.</p>
+            <p v-if="!streamEmbedUrl">Select your streamer account above to see your stream behind the canvas.</p>
           </div>
           <p v-if="module.error" class="error">{{ module.error }}</p>
           <div v-if="module.id === 'pokemon-blue'" class="module-settings">
@@ -351,6 +378,12 @@ code { display: block; min-width: 0; padding: 12px 52px 12px 12px; overflow: aut
 .chat-command span { color: #9aa6c1; font-size: .84rem; }
 .module-preview { position: relative; margin-top: 16px; overflow: hidden; aspect-ratio: 16 / 9; border: 1px solid #28334b; border-radius: 10px; background-color: #0b101c; background-image: linear-gradient(45deg, #141c2b 25%, transparent 25%), linear-gradient(-45deg, #141c2b 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #141c2b 75%), linear-gradient(-45deg, transparent 75%, #141c2b 75%); background-position: 0 0, 0 8px, 8px -8px, -8px 0; background-size: 16px 16px; }
 .module-preview iframe { width: 100%; height: 100%; border: 0; background: transparent; }
+.module-preview .stream-background, .module-preview .paint-foreground { position: absolute; inset: 0; }
+.module-preview .paint-foreground { z-index: 1; }
+.module-preview .player-interaction { pointer-events: none; }
+.paint-instructions { margin-top: 14px; color: #9aa6c1; font-size: .85rem; }
+.paint-instructions label { display: flex; align-items: center; gap: 8px; color: #b9c3da; }
+.paint-instructions p { margin: 8px 0 0; }
 .error { color: #ff7f91; }
 .switch input { position: absolute; opacity: 0; }
 .switch span { display: block; width: 48px; height: 28px; padding: 3px; border-radius: 99px; background: #3a4356; cursor: pointer; transition: background .2s; }
