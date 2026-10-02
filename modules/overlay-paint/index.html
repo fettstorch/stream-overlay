@@ -7,7 +7,7 @@
     <style>
       html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
       canvas { display: block; width: 100%; height: 100%; touch-action: none; }
-      body[data-interactive="true"] canvas { cursor: crosshair; }
+      body[data-interactive="true"] canvas { cursor: url("/overlays/overlay-paint/pencil-cursor.svg") 4 28, crosshair; }
       #status { position: absolute; bottom: 8px; left: 8px; padding: 5px 8px; border-radius: 6px; color: white; background: #111827dd; font: 12px system-ui; pointer-events: none; }
       #status:empty { display: none; }
     </style>

@@ -159,6 +159,9 @@ const server = Bun.serve({
     "/overlays/overlay-paint/client.js": () => new Response(paintJavascript, {
       headers: { "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "no-store" },
     }),
+    "/overlays/overlay-paint/pencil-cursor.svg": () => new Response(Bun.file(join(projectRoot, "modules/overlay-paint/assets/pencil-cursor.svg")), {
+      headers: { "Content-Type": "image/svg+xml", "Cache-Control": "no-store" },
+    }),
     "/api/overlay-paint/events": (request, server) => {
       server.timeout(request, 0);
       return paintService.events(request);
