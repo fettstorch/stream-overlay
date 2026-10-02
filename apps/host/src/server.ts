@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { mkdirSync } from "node:fs";
 import { ConfigStore } from "./config-store.ts";
 import { findModule, modules } from "./modules.ts";
 import { ModuleSupervisor } from "./module-supervisor.ts";
@@ -17,9 +18,11 @@ const defaults = {
 };
 const configStore = new ConfigStore(join(projectRoot, "runtime/config.json"), defaults);
 const supervisor = new ModuleSupervisor();
+const pokemonRuntimeDirectory = join(projectRoot, "runtime/pokemon-blue");
+mkdirSync(pokemonRuntimeDirectory, { recursive: true });
 const pokemonProvider = new MgbaFileProvider(
-  join(projectRoot, "team.json"),
-  join(projectRoot, "badges.json"),
+  join(pokemonRuntimeDirectory, "team.json"),
+  join(pokemonRuntimeDirectory, "badges.json"),
 );
 let pokemonSnapshot: PokemonSnapshot | null = null;
 

@@ -1,9 +1,10 @@
 -- Live Pokémon Blue party exporter for mGBA 0.10+.
--- Reads emulated WRAM and writes only to the overlay's team.json.
+-- Reads emulated WRAM and writes live data beside the project runtime config.
 
-local outputPath = "/Users/julian/Developer/stream-overlay/team.json"
+local outputDirectory = script.dir .. "/../runtime/pokemon-blue"
+local outputPath = outputDirectory .. "/team.json"
 local temporaryPath = outputPath .. ".tmp"
-local badgesOutputPath = "/Users/julian/Developer/stream-overlay/badges.json"
+local badgesOutputPath = outputDirectory .. "/badges.json"
 local badgesTemporaryPath = badgesOutputPath .. ".tmp"
 
 local PARTY_COUNT = 0xD163

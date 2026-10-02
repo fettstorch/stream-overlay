@@ -48,8 +48,9 @@ git clone --recurse-submodules <repository-url>
 ## Pokémon Blue data
 
 The Pokémon team is read live from mGBA by `scripts/mgba-team.lua`. When the
-party changes, the script writes `team.json` and `badges.json`. The Pokémon Blue
-adapter normalizes those files for the reusable UI.
+party changes, the script writes `team.json` and `badges.json` into
+`runtime/pokemon-blue/`. The Pokémon Blue adapter normalizes those files for the
+reusable UI.
 
 With Pokémon Blue running in mGBA:
 
@@ -58,10 +59,13 @@ With Pokémon Blue running in mGBA:
 3. Keep the scripting window open while playing.
 
 The Lua script reads the emulated Game Boy's live memory. It does not modify
-game memory or save data. Its output path is:
+game memory or save data. mGBA exposes the loaded script's directory, so the
+script derives its output path from its own location. The repository can be
+installed anywhere; no path in the Lua script needs to be edited.
 
 ```text
-/Users/julian/Developer/stream-overlay/team.json
+runtime/pokemon-blue/team.json
+runtime/pokemon-blue/badges.json
 ```
 
 ## Checks
