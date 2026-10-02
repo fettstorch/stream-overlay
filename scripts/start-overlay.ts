@@ -3,7 +3,6 @@ import { createServer } from "node:net";
 const requiredPorts = [
   { port: 3000, service: "Streamplace Pets" },
   { port: 3001, service: "public overlay host and admin URL" },
-  { port: 3002, service: "Pokémon Blue mGBA" },
   { port: 3003, service: "admin UI" },
 ];
 

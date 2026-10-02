@@ -12,6 +12,7 @@ import { FileLogger } from "./logger.ts";
 import { PaintService, parseSegments, parseCursor } from "../../../modules/overlay-paint/src/service.ts";
 import { getStreamDimensions } from "./stream-dimensions.ts";
 import { defaultPaintConfiguration, parsePaintConfiguration } from "../../../modules/overlay-paint/src/config.ts";
+import { buildPokemonOverlay } from "./pokemon-overlay.ts";
 
 const projectRoot = join(import.meta.dir, "../../..");
 const port = Number(process.env.PORT ?? 3001);
@@ -36,6 +37,7 @@ const paintBundle = await Bun.build({
 });
 if (!paintBundle.success) throw new AggregateError(paintBundle.logs, "Could not build Overlay Paint");
 const paintJavascript = await paintBundle.outputs[0]!.text();
+const pokemonOverlay = await buildPokemonOverlay(projectRoot);
 const pokemonRuntimeDirectory = join(projectRoot, "runtime/pokemon-blue");
 mkdirSync(pokemonRuntimeDirectory, { recursive: true });
 const pokemonProvider = new MgbaFileProvider(
@@ -122,14 +124,9 @@ const transparentPage = new Response("<!doctype html><body style='margin:0;backg
   headers: { "Content-Type": "text/html; charset=utf-8" },
 });
 
-function proxyPokemonOverlay(request: Request, path = new URL(request.url).pathname) {
+function servePokemonOverlay(path = "index.html") {
   if (!isEnabled("pokemon-blue")) return transparentPage.clone();
-  const source = new URL(request.url);
-  source.protocol = "http:";
-  source.hostname = "localhost";
-  source.port = "3002";
-  source.pathname = path;
-  return fetch(source, request);
+  return pokemonOverlay(path);
 }
 
 function proxyAdmin(request: Request) {
@@ -145,9 +142,11 @@ const server = Bun.serve({
   port,
   development: true,
   routes: {
-    "/": (request) => proxyPokemonOverlay(request, "/"),
-    "/overlay.html": (request) => proxyPokemonOverlay(request, "/overlay.html"),
-    "/overlays/pokemon-blue/": (request) => proxyPokemonOverlay(request, "/"),
+    "/": () => servePokemonOverlay(),
+    "/overlay.html": () => servePokemonOverlay(),
+    "/overlays/pokemon-blue": request => Response.redirect(new URL("/overlays/pokemon-blue/", request.url), 302),
+    "/overlays/pokemon-blue/": () => servePokemonOverlay(),
+    "/overlays/pokemon-blue/*": request => pokemonOverlay(new URL(request.url).pathname.slice("/overlays/pokemon-blue/".length)),
     "/overlays/overlay-paint": (request) => {
       const url = new URL(request.url);
       url.pathname += "/";
@@ -206,8 +205,8 @@ const server = Bun.serve({
         return Response.json(paint);
       },
     },
-    "/team.json": (request) => proxyPokemonOverlay(request),
-    "/badges.json": (request) => proxyPokemonOverlay(request),
+    "/team.json": () => new Response(Bun.file(join(pokemonRuntimeDirectory, "team.json"))),
+    "/badges.json": () => new Response(Bun.file(join(pokemonRuntimeDirectory, "badges.json"))),
     "/overlays/stream-pets/": (request) => {
       if (!isEnabled("streamplace-pets")) return transparentPage.clone();
       const query = new URL(request.url).search;
@@ -323,7 +322,7 @@ const server = Bun.serve({
     "/admin/": (request) => proxyAdmin(request),
     "/admin/*": (request) => proxyAdmin(request),
   },
-  fetch: (request) => proxyPokemonOverlay(request),
+  fetch: () => new Response("Not found", { status: 404 }),
 });
 
 logger.log("host.started", { port, logPath: logger.path });

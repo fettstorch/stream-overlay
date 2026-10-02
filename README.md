@@ -2,6 +2,11 @@
 
 A local overlay control room built with Bun, Vue, TypeScript, and Vite.
 
+Pokémon Blue and Overlay Paint are served directly by the central host.
+Pokémon's Vue interface is compiled once at startup; the compiler then exits.
+There is no Pokémon webserver process or port 3002. Restart the host after
+changing Pokémon UI source files. Existing OBS URLs remain unchanged.
+
 ## Start everything
 
 ```sh
