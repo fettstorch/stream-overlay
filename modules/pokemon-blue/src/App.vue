@@ -26,6 +26,15 @@ let refreshTimer: ReturnType<typeof setInterval> | undefined;
 let closeChat: (() => void) | undefined;
 let unsubscribeChat: (() => void) | undefined;
 
+function diagnose(event: string, details: Record<string, unknown> = {}) {
+  void fetch("/api/diagnostics", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ event, details }),
+    keepalive: true,
+  }).catch(() => {});
+}
+
 const images: Record<number, string> = {
   3: "https://media.giphy.com/media/EJOdcxm52IWNq/giphy.gif",
   25: "https://media.giphy.com/media/31vamYdZV5ISQ/giphy.gif",
@@ -55,6 +64,7 @@ const badges: BadgeDefinition[] = [
 const petQueues = new PokemonPetQueues(
   10_000,
   (pokemonId, author) => {
+    diagnose("pokemon.pet-animation-started", { pokemonId, authorDid: author.did });
     activePets[pokemonId] = {
       avatar: author.avatar,
       handImage: petEffectImage,
@@ -62,7 +72,10 @@ const petQueues = new PokemonPetQueues(
       startedAt: Date.now(),
     };
   },
-  (pokemonId) => { delete activePets[pokemonId]; },
+  (pokemonId, author) => {
+    diagnose("pokemon.pet-animation-ended", { pokemonId, authorDid: author.did });
+    delete activePets[pokemonId];
+  },
 );
 
 async function refreshSnapshot() {
@@ -91,18 +104,34 @@ async function refreshOverlay() {
 }
 
 function connectChat() {
+  diagnose("pokemon.chat-connecting");
   const chat = observeStreamChat();
   closeChat = chat.close;
   unsubscribeChat = chat.messages.subscribe((message) => {
+    diagnose("pokemon.chat-message-received", { id: message.id, text: message.text });
     const match = message.text.match(/^\s*!pet\s+(.+?)\s*$/i);
-    if (!match) return;
+    if (!match) {
+      diagnose("pokemon.chat-message-ignored", { id: message.id, reason: "not-a-pet-command" });
+      return;
+    }
     const author: PetAuthor = { did: message.author.did, avatar: message.author.avatar };
-    petQueues.enqueue(match[1], Promise.resolve(author));
+    const queued = petQueues.enqueue(match[1], Promise.resolve(author));
+    diagnose(queued ? "pokemon.pet-queued" : "pokemon.pet-rejected", {
+      id: message.id,
+      requestedName: match[1],
+      authorDid: author.did,
+      party: snapshot.value.party.map(({ id, name }) => ({ id, name })),
+      reason: queued ? undefined : "pokemon-not-in-party",
+    });
   });
 }
 
 onMounted(async () => {
+  diagnose("pokemon.overlay-mounted");
   await refreshOverlay();
+  diagnose("pokemon.snapshot-ready", {
+    party: snapshot.value.party.map(({ id, name }) => ({ id, name })),
+  });
   refreshTimer = setInterval(refreshOverlay, 1000);
   connectChat();
 });

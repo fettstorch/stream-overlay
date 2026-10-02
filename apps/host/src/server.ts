@@ -181,6 +181,19 @@ const server = Bun.serve({
       }
     },
     "/api/chat/events": (request) => streamChatEvents(request),
+    "/api/diagnostics": {
+      POST: async (request) => {
+        const body = await request.json() as { event?: unknown; details?: unknown };
+        if (typeof body.event !== "string" || !body.event.startsWith("pokemon.")) {
+          return Response.json({ error: "Invalid diagnostic event" }, { status: 400 });
+        }
+        const details = body.details && typeof body.details === "object"
+          ? body.details as Record<string, unknown>
+          : {};
+        logger.log(body.event, details);
+        return new Response(null, { status: 204 });
+      },
+    },
     "/api/pokemon-blue/snapshot": () => pokemonSnapshot
       ? Response.json(pokemonSnapshot, { headers: { "Cache-Control": "no-store" } })
       : Response.json({ error: "Pokémon data is unavailable" }, { status: 503 }),
