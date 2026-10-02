@@ -36,6 +36,7 @@ describe("Admin App", () => {
     await flushPromises();
     expect(wrapper.text()).toContain("Pokémon Blue");
     expect(wrapper.text()).toContain("running");
+    expect(wrapper.get('[role="tooltip"]').text()).toContain("OBS source stays available but becomes transparent");
     expect(wrapper.get("code").text()).toContain("streamer=did%3Aplc%3Atest");
   });
 
