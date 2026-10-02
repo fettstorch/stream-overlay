@@ -66,10 +66,41 @@ const petQueues = new PokemonPetQueues(
 );
 
 async function refreshSnapshot() {
-  const response = await fetch("/api/pokemon-blue/snapshot", { cache: "no-store" });
-  if (!response.ok) return;
-  snapshot.value = await response.json() as PokemonSnapshot;
-  petQueues.updateParty(snapshot.value.party);
+  try {
+    const response = await fetch("/api/pokemon-blue/snapshot", { cache: "no-store" });
+    if (!response.ok) return;
+    snapshot.value = await response.json() as PokemonSnapshot;
+    petQueues.updateParty(snapshot.value.party);
+  } catch {
+    // Keep the last valid game snapshot while the host is temporarily unavailable.
+  }
+}
+
+async function refreshConfiguration() {
+  const [pokemonResult, streamResult] = await Promise.allSettled([
+    fetch("/api/pokemon-blue/config", { cache: "no-store" }).then(async (response) => {
+      if (!response.ok) return null;
+      return await response.json() as PokemonBlueConfiguration & { streamerDid?: string };
+    }),
+    fetch("/api/config", { cache: "no-store" }).then(async (response) => {
+      if (!response.ok) return null;
+      return await response.json() as StreamConfiguration;
+    }),
+  ]);
+
+  if (pokemonResult.status === "fulfilled" && pokemonResult.value?.components) {
+    configuration.value = { components: pokemonResult.value.components };
+    if (!streamConfiguration.value.streamerDid && pokemonResult.value.streamerDid) {
+      streamConfiguration.value = { streamerDid: pokemonResult.value.streamerDid };
+    }
+  }
+  if (streamResult.status === "fulfilled" && streamResult.value?.streamerDid !== undefined) {
+    streamConfiguration.value = streamResult.value;
+  }
+}
+
+async function refreshOverlay() {
+  await Promise.all([refreshSnapshot(), refreshConfiguration()]);
 }
 
 function getProfile(did: string) {
@@ -130,14 +161,8 @@ function connectChat() {
 }
 
 onMounted(async () => {
-  const [configResponse, streamConfigResponse] = await Promise.all([
-    fetch("/api/pokemon-blue/config", { cache: "no-store" }),
-    fetch("/api/config", { cache: "no-store" }),
-  ]);
-  if (configResponse.ok) configuration.value = await configResponse.json() as PokemonBlueConfiguration;
-  if (streamConfigResponse.ok) streamConfiguration.value = await streamConfigResponse.json() as StreamConfiguration;
-  await refreshSnapshot();
-  refreshTimer = setInterval(refreshSnapshot, 1000);
+  await refreshOverlay();
+  refreshTimer = setInterval(refreshOverlay, 1000);
   connectChat();
 });
 
