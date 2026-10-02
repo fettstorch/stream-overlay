@@ -18,21 +18,32 @@ interface PokemonBlueConfiguration {
 
 interface StreamConfiguration {
   streamerDid: string;
+  profile: ActorProfile | null;
+}
+
+interface ActorProfile {
+  did: string;
+  handle: string;
+  displayName: string;
+  avatar: string;
 }
 
 const modules = ref<ModuleStatus[]>([]);
 const configuration = ref<PokemonBlueConfiguration>({
   components: { team: true, badges: true },
 });
-const streamConfiguration = ref<StreamConfiguration>({ streamerDid: "" });
+const streamConfiguration = ref<StreamConfiguration>({ streamerDid: "", profile: null });
+const streamerQuery = ref("");
+const actorSuggestions = ref<ActorProfile[]>([]);
+const actorSearchOpen = ref(false);
 const streamMessage = ref("");
 const pokemonMessage = ref("");
 const origin = computed(() => location.origin);
 let loaded = false;
-let streamSaveTimer: ReturnType<typeof setTimeout> | undefined;
+let actorSearchTimer: ReturnType<typeof setTimeout> | undefined;
 let pokemonSaveTimer: ReturnType<typeof setTimeout> | undefined;
 let saveQueue = Promise.resolve();
-let suppressNextStreamSave = false;
+let actorSearchSequence = 0;
 
 function overlayUrl(module: ModuleStatus) {
   const url = new URL(module.overlayUrl, origin.value);
@@ -49,6 +60,7 @@ async function load() {
   modules.value = await modulesResponse.json() as ModuleStatus[];
   configuration.value = await configResponse.json() as PokemonBlueConfiguration;
   streamConfiguration.value = await streamConfigResponse.json() as StreamConfiguration;
+  streamerQuery.value = streamConfiguration.value.profile?.handle || streamConfiguration.value.streamerDid;
 }
 
 async function toggle(module: ModuleStatus) {
@@ -75,28 +87,40 @@ async function savePokemonConfiguration() {
   }
 }
 
-async function saveStreamConfiguration() {
-  streamMessage.value = "Saving…";
+async function selectStreamer(identity: string) {
+  streamMessage.value = "Loading profile…";
+  actorSearchOpen.value = false;
   try {
     const response = await fetch("/api/config", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(streamConfiguration.value),
+      body: JSON.stringify({ streamerDid: identity }),
     });
     const result = await response.json() as StreamConfiguration | { error?: string };
     if (!response.ok) {
       streamMessage.value = "error" in result && result.error ? result.error : "Could not save configuration";
       return;
     }
-    const saved = result as StreamConfiguration;
-    const wasResolved = saved.streamerDid !== streamConfiguration.value.streamerDid;
-    if (wasResolved) {
-      suppressNextStreamSave = true;
-      streamConfiguration.value = saved;
-    }
-    streamMessage.value = wasResolved ? "Handle resolved and saved" : "Saved";
+    streamConfiguration.value = result as StreamConfiguration;
+    streamerQuery.value = streamConfiguration.value.profile?.handle || streamConfiguration.value.streamerDid;
+    actorSuggestions.value = [];
+    streamMessage.value = "Selected and saved";
   } catch {
     streamMessage.value = "Could not save configuration";
+  }
+}
+
+async function searchStreamer(query: string, sequence: number) {
+  try {
+    const response = await fetch(`/api/actors/search?q=${encodeURIComponent(query)}`, { cache: "no-store" });
+    const result = await response.json() as { actors?: Array<{
+      did: string; handle: string; displayName: string; avatar: string;
+    }> };
+    if (sequence !== actorSearchSequence) return;
+    actorSuggestions.value = result.actors ?? [];
+    actorSearchOpen.value = actorSuggestions.value.length > 0;
+  } catch {
+    if (sequence === actorSearchSequence) actorSearchOpen.value = false;
   }
 }
 
@@ -104,16 +128,22 @@ function enqueueSave(save: () => Promise<void>) {
   saveQueue = saveQueue.then(save, save);
 }
 
-watch(streamConfiguration, () => {
+watch(streamerQuery, (query) => {
   if (!loaded) return;
-  if (suppressNextStreamSave) {
-    suppressNextStreamSave = false;
+  if (query === streamConfiguration.value.profile?.handle || query === streamConfiguration.value.streamerDid) {
+    actorSearchOpen.value = false;
     return;
   }
-  streamMessage.value = "Saving…";
-  if (streamSaveTimer) clearTimeout(streamSaveTimer);
-  streamSaveTimer = setTimeout(() => enqueueSave(saveStreamConfiguration), 350);
-}, { deep: true });
+  streamMessage.value = "";
+  if (actorSearchTimer) clearTimeout(actorSearchTimer);
+  const sequence = ++actorSearchSequence;
+  if (query.trim().replace(/^@/, "").length < 2) {
+    actorSuggestions.value = [];
+    actorSearchOpen.value = false;
+    return;
+  }
+  actorSearchTimer = setTimeout(() => void searchStreamer(query, sequence), 300);
+});
 
 watch(configuration, () => {
   if (!loaded) return;
@@ -128,7 +158,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
-  if (streamSaveTimer) clearTimeout(streamSaveTimer);
+  if (actorSearchTimer) clearTimeout(actorSearchTimer);
   if (pokemonSaveTimer) clearTimeout(pokemonSaveTimer);
 });
 </script>
@@ -143,9 +173,43 @@ onBeforeUnmount(() => {
 
     <section class="settings stream-settings">
       <h2>Stream</h2>
-      <label>
-        Streamer DID or handle
-        <input v-model.trim="streamConfiguration.streamerDid" placeholder="did:plc:… or handle.bsky.social">
+      <div v-if="streamConfiguration.streamerDid" class="selected-streamer">
+        <img v-if="streamConfiguration.profile?.avatar" :src="streamConfiguration.profile.avatar" alt="">
+        <span v-else class="avatar-placeholder" aria-hidden="true" />
+        <span>
+          <strong>{{ streamConfiguration.profile?.displayName || streamConfiguration.profile?.handle || "Profile unavailable" }}</strong>
+          <small v-if="streamConfiguration.profile">@{{ streamConfiguration.profile.handle }}</small>
+          <small v-else>{{ streamConfiguration.streamerDid }}</small>
+        </span>
+      </div>
+      <label class="actor-search">
+        Streamer account
+        <input
+          v-model="streamerQuery"
+          placeholder="Search name, handle, or paste a DID"
+          role="combobox"
+          aria-autocomplete="list"
+          :aria-expanded="actorSearchOpen"
+          @focus="actorSearchOpen = actorSuggestions.length > 0"
+          @keydown.enter.prevent="selectStreamer(streamerQuery)"
+          @keydown.esc="actorSearchOpen = false"
+        >
+        <span v-if="actorSearchOpen" class="actor-suggestions" role="listbox">
+          <button
+            v-for="actor in actorSuggestions"
+            :key="actor.did"
+            type="button"
+            role="option"
+            @click="selectStreamer(actor.did)"
+          >
+            <img v-if="actor.avatar" :src="actor.avatar" alt="">
+            <span v-else class="avatar-placeholder" aria-hidden="true" />
+            <span>
+              <strong>{{ actor.displayName || actor.handle }}</strong>
+              <small>@{{ actor.handle }}</small>
+            </span>
+          </button>
+        </span>
       </label>
       <span class="save-status" aria-live="polite">{{ streamMessage }}</span>
     </section>
@@ -215,6 +279,14 @@ h2 { margin-bottom: 18px; font-size: 1rem; text-transform: uppercase; letter-spa
 .module-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
 .module-card, .settings { padding: 24px; border: 1px solid #28334b; border-radius: 18px; background: rgba(18, 24, 38, 0.88); box-shadow: 0 16px 48px rgba(0,0,0,.24); }
 .stream-settings { margin-bottom: 44px; }
+.selected-streamer { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; background: #0b101c; }
+.selected-streamer img, .actor-suggestions img, .avatar-placeholder { width: 44px; height: 44px; flex: 0 0 44px; border-radius: 50%; object-fit: cover; background: #303a51; }
+.selected-streamer > span:last-child, .actor-suggestions button > span:last-child { display: grid; gap: 2px; min-width: 0; }
+.selected-streamer small, .actor-suggestions small { color: #8f9bb4; font-weight: 500; }
+.actor-search { position: relative; }
+.actor-suggestions { position: absolute; z-index: 20; top: calc(100% + 8px); left: 0; right: 0; overflow: hidden; border: 1px solid #36425d; border-radius: 12px; background: #111827; box-shadow: 0 16px 40px rgba(0,0,0,.42); }
+.actor-suggestions button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border: 0; color: #eaf0ff; background: transparent; text-align: left; font: inherit; cursor: pointer; }
+.actor-suggestions button:hover, .actor-suggestions button:focus-visible { background: #202a40; outline: none; }
 .module-heading { display: flex; justify-content: space-between; gap: 24px; }
 h3 { margin: 0 0 8px; font-size: 1.25rem; }
 .status { color: #9aa6c1; font-size: .8rem; text-transform: uppercase; letter-spacing: .1em; }

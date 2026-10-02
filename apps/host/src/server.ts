@@ -4,7 +4,7 @@ import { findModule, modules } from "./modules.ts";
 import { ModuleSupervisor } from "./module-supervisor.ts";
 import type { PokemonSnapshot } from "@stream-overlay/pokemon-model";
 import { MgbaFileProvider } from "../../../modules/pokemon-blue/src/mgba-file-provider.ts";
-import { resolveStreamerIdentity } from "./identity.ts";
+import { getActorProfile, resolveStreamerIdentity, searchActors } from "./identity.ts";
 
 const projectRoot = join(import.meta.dir, "../../..");
 const port = Number(process.env.PORT ?? 3001);
@@ -39,6 +39,16 @@ function moduleResponse(module: (typeof modules)[number]) {
     overlayUrl: module.routes[0]?.path ?? "",
     error: runtime.error,
   };
+}
+
+async function streamConfigurationResponse() {
+  const stream = configStore.read().stream;
+  if (!stream.streamerDid) return { ...stream, profile: null };
+  try {
+    return { ...stream, profile: await getActorProfile(stream.streamerDid) };
+  } catch {
+    return { ...stream, profile: null };
+  }
 }
 
 const transparentPage = new Response("<!doctype html><body style='margin:0;background:transparent'></body>", {
@@ -80,7 +90,7 @@ const server = Bun.serve({
     },
     "/api/modules": () => Response.json(modules.map(moduleResponse)),
     "/api/config": {
-      GET: () => Response.json(configStore.read().stream),
+      GET: async () => Response.json(await streamConfigurationResponse()),
       PATCH: async (request) => {
         const body = await request.json() as { streamerDid?: unknown };
         if (!body || typeof body.streamerDid !== "string") {
@@ -94,11 +104,29 @@ const server = Bun.serve({
             error: error instanceof Error ? error.message : "Could not resolve streamer identity",
           }, { status: 400 });
         }
+        let profile;
+        try {
+          profile = await getActorProfile(streamerDid);
+        } catch (error) {
+          return Response.json({
+            error: error instanceof Error ? error.message : "Could not load streamer profile",
+          }, { status: 400 });
+        }
         const configuration = configStore.read();
-        configuration.stream = { streamerDid };
+        configuration.stream = { streamerDid: profile.did };
         configStore.write(configuration);
-        return Response.json(configuration.stream);
+        return Response.json({ ...configuration.stream, profile });
       },
+    },
+    "/api/actors/search": async (request) => {
+      const query = new URL(request.url).searchParams.get("q") ?? "";
+      try {
+        return Response.json({ actors: await searchActors(query) });
+      } catch (error) {
+        return Response.json({
+          error: error instanceof Error ? error.message : "Could not search Bluesky profiles",
+        }, { status: 502 });
+      }
     },
     "/api/pokemon-blue/snapshot": () => pokemonSnapshot
       ? Response.json(pokemonSnapshot, { headers: { "Cache-Control": "no-store" } })

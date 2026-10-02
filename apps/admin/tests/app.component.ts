@@ -15,7 +15,15 @@ const moduleResponse = [{
 const configResponse = {
   components: { team: true, badges: true },
 };
-const streamConfigResponse = { streamerDid: "did:plc:test" };
+const streamConfigResponse = {
+  streamerDid: "did:plc:test",
+  profile: {
+    did: "did:plc:test",
+    handle: "streamer.bsky.social",
+    displayName: "Streamer",
+    avatar: "https://cdn.example/avatar.jpg",
+  },
+};
 
 afterEach(() => {
   vi.useRealTimers();
@@ -28,6 +36,12 @@ function mockFetch() {
     if (url === "/api/modules") return Response.json(moduleResponse);
     if (url === "/api/config" && !init?.method) return Response.json(streamConfigResponse);
     if (url === "/api/pokemon-blue/config" && !init?.method) return Response.json(configResponse);
+    if (url.startsWith("/api/actors/search")) return Response.json({ actors: [{
+      did: "did:plc:alice",
+      handle: "alice.bsky.social",
+      displayName: "Alice",
+      avatar: "https://cdn.example/alice.jpg",
+    }] });
     if (url.startsWith("/api/modules/")) {
       return Response.json({ ...moduleResponse[0], enabled: false, status: "stopped" });
     }
@@ -59,13 +73,12 @@ describe("Admin App", () => {
     expect(wrapper.text()).toContain("stopped");
   });
 
-  test("saves global stream settings independently of modules", async () => {
-    vi.useFakeTimers();
+  test("saves a pasted DID independently of modules", async () => {
     const fetchMock = mockFetch();
     const wrapper = mount(App);
     await flushPromises();
     await wrapper.get('.stream-settings input').setValue("did:plc:updated");
-    await vi.advanceTimersByTimeAsync(350);
+    await wrapper.get('.stream-settings input').trigger("keydown.enter");
     await flushPromises();
     expect(fetchMock).toHaveBeenCalledWith("/api/config", expect.objectContaining({
       method: "PATCH",
@@ -73,20 +86,21 @@ describe("Admin App", () => {
     }));
   });
 
-  test("replaces a resolved handle with its canonical DID", async () => {
+  test("searches for a profile and saves only its DID when selected", async () => {
     vi.useFakeTimers();
     const fetchMock = mockFetch();
-    fetchMock.mockImplementationOnce(async () => Response.json(moduleResponse));
-    fetchMock.mockImplementationOnce(async () => Response.json(configResponse));
-    fetchMock.mockImplementationOnce(async () => Response.json(streamConfigResponse));
-    fetchMock.mockImplementationOnce(async () => Response.json({ streamerDid: "did:plc:resolved" }));
     const wrapper = mount(App);
     await flushPromises();
-    await wrapper.get('.stream-settings input').setValue("Alice.Bsky.Social");
-    await vi.advanceTimersByTimeAsync(350);
+    await wrapper.get('.stream-settings input').setValue("Alice");
+    await vi.advanceTimersByTimeAsync(300);
     await flushPromises();
-    expect(wrapper.get<HTMLInputElement>('.stream-settings input').element.value).toBe("did:plc:resolved");
-    expect(wrapper.text()).toContain("Handle resolved and saved");
+    expect(wrapper.text()).toContain("@alice.bsky.social");
+    await wrapper.get('[role="option"]').trigger("click");
+    await flushPromises();
+    expect(fetchMock).toHaveBeenCalledWith("/api/config", expect.objectContaining({
+      method: "PATCH",
+      body: JSON.stringify({ streamerDid: "did:plc:alice" }),
+    }));
   });
 
   test("saves Pokémon Blue component settings", async () => {

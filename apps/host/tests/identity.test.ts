@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import { resolveStreamerIdentity } from "../src/identity.ts";
+import { getActorProfile, resolveStreamerIdentity, searchActors } from "../src/identity.ts";
 
 describe("resolveStreamerIdentity", () => {
   test("keeps an existing DID without making a request", async () => {
@@ -25,5 +25,30 @@ describe("resolveStreamerIdentity", () => {
   test("reports handles that cannot be resolved", async () => {
     const fetcher = mock(async () => new Response(null, { status: 404 }));
     expect(resolveStreamerIdentity("missing.bsky.social", fetcher as typeof fetch)).rejects.toThrow("Could not resolve");
+  });
+
+  test("searches public profiles without authentication", async () => {
+    const fetcher = mock(async (input: URL | RequestInfo) => {
+      expect(String(input)).toBe("https://public.api.bsky.app/xrpc/app.bsky.actor.searchActors?q=alice&limit=6");
+      return Response.json({ actors: [{
+        did: "did:plc:alice",
+        handle: "alice.bsky.social",
+        displayName: "Alice",
+        avatar: "https://cdn.example/alice.jpg",
+      }] });
+    });
+    expect(await searchActors("@alice", fetcher as typeof fetch)).toEqual([{
+      did: "did:plc:alice",
+      handle: "alice.bsky.social",
+      displayName: "Alice",
+      avatar: "https://cdn.example/alice.jpg",
+    }]);
+  });
+
+  test("loads the canonical public profile", async () => {
+    const fetcher = mock(async () => Response.json({ did: "did:plc:alice", handle: "alice.test" }));
+    expect(await getActorProfile("did:plc:alice", fetcher as typeof fetch)).toEqual({
+      did: "did:plc:alice", handle: "alice.test", displayName: "", avatar: "",
+    });
   });
 });
