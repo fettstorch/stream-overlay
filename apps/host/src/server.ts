@@ -117,6 +117,7 @@ const server = Bun.serve({
         return Response.json(moduleResponse(module));
       },
     },
+    "/admin": (request) => Response.redirect(new URL("/admin/", request.url), 302),
     "/admin/": (request) => proxyAdmin(request),
     "/admin/*": (request) => proxyAdmin(request),
   },
