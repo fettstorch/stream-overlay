@@ -73,6 +73,22 @@ describe("Admin App", () => {
     }));
   });
 
+  test("replaces a resolved handle with its canonical DID", async () => {
+    vi.useFakeTimers();
+    const fetchMock = mockFetch();
+    fetchMock.mockImplementationOnce(async () => Response.json(moduleResponse));
+    fetchMock.mockImplementationOnce(async () => Response.json(configResponse));
+    fetchMock.mockImplementationOnce(async () => Response.json(streamConfigResponse));
+    fetchMock.mockImplementationOnce(async () => Response.json({ streamerDid: "did:plc:resolved" }));
+    const wrapper = mount(App);
+    await flushPromises();
+    await wrapper.get('.stream-settings input').setValue("Alice.Bsky.Social");
+    await vi.advanceTimersByTimeAsync(350);
+    await flushPromises();
+    expect(wrapper.get<HTMLInputElement>('.stream-settings input').element.value).toBe("did:plc:resolved");
+    expect(wrapper.text()).toContain("Handle resolved and saved");
+  });
+
   test("saves Pokémon Blue component settings", async () => {
     vi.useFakeTimers();
     const fetchMock = mockFetch();

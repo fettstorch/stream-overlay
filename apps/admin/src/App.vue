@@ -32,6 +32,7 @@ let loaded = false;
 let streamSaveTimer: ReturnType<typeof setTimeout> | undefined;
 let pokemonSaveTimer: ReturnType<typeof setTimeout> | undefined;
 let saveQueue = Promise.resolve();
+let suppressNextStreamSave = false;
 
 function overlayUrl(module: ModuleStatus) {
   const url = new URL(module.overlayUrl, origin.value);
@@ -82,7 +83,18 @@ async function saveStreamConfiguration() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(streamConfiguration.value),
     });
-    streamMessage.value = response.ok ? "Saved" : "Could not save configuration";
+    const result = await response.json() as StreamConfiguration | { error?: string };
+    if (!response.ok) {
+      streamMessage.value = "error" in result && result.error ? result.error : "Could not save configuration";
+      return;
+    }
+    const saved = result as StreamConfiguration;
+    const wasResolved = saved.streamerDid !== streamConfiguration.value.streamerDid;
+    if (wasResolved) {
+      suppressNextStreamSave = true;
+      streamConfiguration.value = saved;
+    }
+    streamMessage.value = wasResolved ? "Handle resolved and saved" : "Saved";
   } catch {
     streamMessage.value = "Could not save configuration";
   }
@@ -94,6 +106,10 @@ function enqueueSave(save: () => Promise<void>) {
 
 watch(streamConfiguration, () => {
   if (!loaded) return;
+  if (suppressNextStreamSave) {
+    suppressNextStreamSave = false;
+    return;
+  }
   streamMessage.value = "Saving…";
   if (streamSaveTimer) clearTimeout(streamSaveTimer);
   streamSaveTimer = setTimeout(() => enqueueSave(saveStreamConfiguration), 350);
@@ -128,8 +144,8 @@ onBeforeUnmount(() => {
     <section class="settings stream-settings">
       <h2>Stream</h2>
       <label>
-        Streamer DID
-        <input v-model.trim="streamConfiguration.streamerDid" placeholder="did:plc:…">
+        Streamer DID or handle
+        <input v-model.trim="streamConfiguration.streamerDid" placeholder="did:plc:… or handle.bsky.social">
       </label>
       <span class="save-status" aria-live="polite">{{ streamMessage }}</span>
     </section>

@@ -4,6 +4,7 @@ import { findModule, modules } from "./modules.ts";
 import { ModuleSupervisor } from "./module-supervisor.ts";
 import type { PokemonSnapshot } from "@stream-overlay/pokemon-model";
 import { MgbaFileProvider } from "../../../modules/pokemon-blue/src/mgba-file-provider.ts";
+import { resolveStreamerIdentity } from "./identity.ts";
 
 const projectRoot = join(import.meta.dir, "../../..");
 const port = Number(process.env.PORT ?? 3001);
@@ -85,8 +86,16 @@ const server = Bun.serve({
         if (!body || typeof body.streamerDid !== "string") {
           return Response.json({ error: "Invalid stream configuration" }, { status: 400 });
         }
+        let streamerDid: string;
+        try {
+          streamerDid = await resolveStreamerIdentity(body.streamerDid);
+        } catch (error) {
+          return Response.json({
+            error: error instanceof Error ? error.message : "Could not resolve streamer identity",
+          }, { status: 400 });
+        }
         const configuration = configStore.read();
-        configuration.stream = { streamerDid: body.streamerDid };
+        configuration.stream = { streamerDid };
         configStore.write(configuration);
         return Response.json(configuration.stream);
       },
