@@ -4,7 +4,7 @@ import App from "../src/App.vue";
 
 const moduleResponse = [{
   id: "pokemon-blue",
-  name: "Pokémon Blue",
+  name: "Pokémon Blue mGBA",
   description: "Shows the live Pokémon team.",
   requirements: ["Pokémon Blue must be running in mGBA."],
   chatCommands: [{ command: "!pet <Pokémon name>", description: "Pet an active team member." }],
@@ -55,14 +55,14 @@ describe("Admin App", () => {
     mockFetch();
     const wrapper = mount(App);
     await flushPromises();
-    expect(wrapper.text()).toContain("Pokémon Blue");
+    expect(wrapper.text()).toContain("Pokémon Blue mGBA");
     expect(wrapper.text()).toContain("running");
     expect(wrapper.get('[role="tooltip"]').text()).toContain("Add a Browser Source and paste the URL shown below");
     expect(wrapper.get('[role="tooltip"]').text()).toContain("Pokémon Blue must be running in mGBA");
     expect(wrapper.get(".chat-command code").text()).toBe("!pet <Pokémon name>");
     expect(wrapper.get(".chat-command").text()).toContain("Pet an active team member");
-    expect(wrapper.get('button[aria-label="About Pokémon Blue"]')).toBeTruthy();
-    expect(wrapper.get('input[aria-label="Enable Pokémon Blue"]').attributes("aria-describedby")).toBeUndefined();
+    expect(wrapper.get('button[aria-label="About Pokémon Blue mGBA"]')).toBeTruthy();
+    expect(wrapper.get('input[aria-label="Enable Pokémon Blue mGBA"]').attributes("aria-describedby")).toBeUndefined();
     expect(wrapper.get("code").text()).toContain("streamer=did%3Aplc%3Atest");
     expect(wrapper.get("iframe").attributes("src")).toContain("/overlays/pokemon-blue/?streamer=did%3Aplc%3Atest");
   });
@@ -71,7 +71,7 @@ describe("Admin App", () => {
     const fetchMock = mockFetch();
     const wrapper = mount(App);
     await flushPromises();
-    await wrapper.get('input[aria-label="Enable Pokémon Blue"]').setValue(false);
+    await wrapper.get('input[aria-label="Enable Pokémon Blue mGBA"]').setValue(false);
     await flushPromises();
     expect(fetchMock).toHaveBeenCalledWith("/api/modules/pokemon-blue", expect.objectContaining({
       method: "PATCH",
@@ -85,12 +85,12 @@ describe("Admin App", () => {
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
     const wrapper = mount(App);
     await flushPromises();
-    await wrapper.get('button[aria-label="Copy Pokémon Blue OBS URL"]').trigger("click");
+    await wrapper.get('button[aria-label="Copy Pokémon Blue mGBA OBS URL"]').trigger("click");
     await flushPromises();
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining(
       "/overlays/pokemon-blue/?streamer=did%3Aplc%3Atest",
     ));
-    expect(wrapper.get('button[aria-label="Pokémon Blue OBS URL copied"]')).toBeTruthy();
+    expect(wrapper.get('button[aria-label="Pokémon Blue mGBA OBS URL copied"]')).toBeTruthy();
   });
 
   test("saves a pasted DID independently of modules", async () => {

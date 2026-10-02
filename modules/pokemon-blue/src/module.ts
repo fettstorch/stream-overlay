@@ -3,7 +3,7 @@ import type { OverlayModule } from "@stream-overlay/sdk";
 
 export const pokemonBlueModule: OverlayModule = {
   id: "pokemon-blue",
-  name: "Pokémon Blue",
+  name: "Pokémon Blue mGBA",
   description: "Shows the live party, levels, health, experience, badges, and chat pet interactions.",
   requirements: [
     "Open Pokémon Blue in mGBA. OpenEmu cannot provide the live game data this module needs.",

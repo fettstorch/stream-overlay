@@ -12,7 +12,7 @@ bun run overlay
 Then open:
 
 - Admin: <http://localhost:3001/admin/>
-- Pokémon Blue: <http://localhost:3001/overlays/pokemon-blue/>
+- Pokémon Blue mGBA: <http://localhost:3001/overlays/pokemon-blue/>
 - Streamplace Pets: <http://localhost:3001/overlays/stream-pets/>
 
 The original Pokémon URL remains compatible:
@@ -30,7 +30,7 @@ not need to be removed.
 ```text
 apps/host                 Bun API and module supervisor
 apps/admin                Vue administration UI
-modules/pokemon-blue      Pokémon Blue overlay and mGBA adapter
+modules/pokemon-blue      Pokémon Blue mGBA overlay and adapter
 modules/streamplace-pets  Adapter for the upstream submodule
 packages/overlay-sdk      Shared module contracts
 packages/pokemon-model    Normalized Pokémon data
