@@ -53,6 +53,20 @@ function mockFetch() {
 }
 
 describe("Admin App", () => {
+  test("shows the Chat module with its preview and DID-free OBS URL", async () => {
+    const fetchMock = mockFetch();
+    fetchMock.mockResolvedValueOnce(Response.json([{
+      ...moduleResponse[0], id: "chat", name: "Chat", description: "Live stream chat", requirements: [], chatCommands: [],
+      overlayUrl: "/overlays/chat/", streamerQuery: false,
+    }]));
+    const wrapper = mount(App);
+    await flushPromises();
+    expect(wrapper.get("h3").text()).toBe("Chat");
+    expect(wrapper.get(".overlay-url code").text()).toContain("/overlays/chat/");
+    expect(wrapper.get(".overlay-url code").text()).not.toContain("streamer=");
+    expect(wrapper.get('iframe[title="Chat live preview"]').attributes("src")).toContain("/overlays/chat/");
+    wrapper.unmount();
+  });
   test("disabled modules collapse, can show details, and collapse again after switching off", async () => {
     const fetchMock = mockFetch();
     fetchMock.mockResolvedValueOnce(Response.json([{ ...moduleResponse[0], enabled: false, status: "stopped" }]));

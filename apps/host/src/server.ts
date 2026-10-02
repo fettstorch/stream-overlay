@@ -12,7 +12,7 @@ import { FileLogger } from "./logger.ts";
 import { PaintService, parseSegments, parseCursor } from "../../../modules/overlay-paint/src/service.ts";
 import { getStreamDimensions } from "./stream-dimensions.ts";
 import { defaultPaintConfiguration, parsePaintConfiguration } from "../../../modules/overlay-paint/src/config.ts";
-import { buildPokemonOverlay } from "./pokemon-overlay.ts";
+import { buildStaticOverlay } from "./static-overlay.ts";
 import { ModuleStatusService } from "./module-status.ts";
 
 const projectRoot = join(import.meta.dir, "../../..");
@@ -38,7 +38,10 @@ const paintBundle = await Bun.build({
 });
 if (!paintBundle.success) throw new AggregateError(paintBundle.logs, "Could not build Overlay Paint");
 const paintJavascript = await paintBundle.outputs[0]!.text();
-const pokemonOverlay = await buildPokemonOverlay(projectRoot);
+const [pokemonOverlay, chatOverlay] = await Promise.all([
+  buildStaticOverlay(projectRoot, "pokemon-blue"),
+  buildStaticOverlay(projectRoot, "chat"),
+]);
 const pokemonRuntimeDirectory = join(projectRoot, "runtime/pokemon-blue");
 mkdirSync(pokemonRuntimeDirectory, { recursive: true });
 const pokemonProvider = new MgbaFileProvider(
@@ -149,6 +152,9 @@ const server = Bun.serve({
     "/overlays/pokemon-blue": request => Response.redirect(new URL("/overlays/pokemon-blue/", request.url), 302),
     "/overlays/pokemon-blue/": () => servePokemonOverlay(),
     "/overlays/pokemon-blue/*": request => pokemonOverlay(new URL(request.url).pathname.slice("/overlays/pokemon-blue/".length)),
+    "/overlays/chat": request => Response.redirect(new URL("/overlays/chat/", request.url), 302),
+    "/overlays/chat/": () => chatOverlay(),
+    "/overlays/chat/*": request => chatOverlay(new URL(request.url).pathname.slice("/overlays/chat/".length)),
     "/overlays/overlay-paint": (request) => {
       const url = new URL(request.url);
       url.pathname += "/";

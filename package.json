@@ -13,8 +13,8 @@
     "overlay": "bun --no-orphans scripts/start-overlay.ts",
     "overlay:host": "bun --no-orphans apps/host/src/server.ts",
     "admin:dev": "bun run --filter @stream-overlay/admin dev -- --host 127.0.0.1 --port 3003",
-    "test": "bun test && bun run --filter @stream-overlay/admin test && bun run --filter @stream-overlay/pokemon-ui test && bun run --filter @stream-overlay/overlay-paint test && bun run --filter @stream-overlay/pokemon-blue test",
-    "typecheck": "bun run --filter @stream-overlay/host typecheck && bun run --filter @stream-overlay/admin typecheck && bun run --filter @stream-overlay/pokemon-ui typecheck && bun run --filter @stream-overlay/pokemon-blue typecheck && bun run --filter @stream-overlay/overlay-paint typecheck",
-    "build": "bun run --filter @stream-overlay/admin build && bun run --filter @stream-overlay/pokemon-blue build && bun build apps/host/src/server.ts --target bun --outdir dist/host"
+    "test": "bun test && bun run --filter @stream-overlay/admin test && bun run --filter @stream-overlay/pokemon-ui test && bun run --filter @stream-overlay/overlay-paint test && bun run --filter @stream-overlay/pokemon-blue test && bun run --filter @stream-overlay/chat test",
+    "typecheck": "bun run --filter @stream-overlay/host typecheck && bun run --filter @stream-overlay/admin typecheck && bun run --filter @stream-overlay/pokemon-ui typecheck && bun run --filter @stream-overlay/pokemon-blue typecheck && bun run --filter @stream-overlay/overlay-paint typecheck && bun run --filter @stream-overlay/chat typecheck",
+    "build": "bun run --filter @stream-overlay/admin build && bun run --filter @stream-overlay/pokemon-blue build && bun run --filter @stream-overlay/chat build && bun build apps/host/src/server.ts --target bun --outdir dist/host"
   }
 }

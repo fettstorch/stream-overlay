@@ -2,8 +2,8 @@
 
 A local overlay control room built with Bun, Vue, TypeScript, and Vite.
 
-Pokémon Blue and Overlay Paint are served directly by the central host.
-Pokémon's Vue interface is compiled once at startup; the compiler then exits.
+Pokémon Blue, Chat, and Overlay Paint are served directly by the central host.
+The Vue interfaces are compiled once at startup; the compilers then exit.
 There is no Pokémon webserver process or port 3002. Restart the host after
 changing Pokémon UI source files. Existing OBS URLs remain unchanged.
 
@@ -20,6 +20,7 @@ Then open:
 - Pokémon Blue mGBA: <http://localhost:3001/overlays/pokemon-blue/>
 - Streamplace Pets: <http://localhost:3001/overlays/stream-pets/>
 - Overlay Paint: <http://localhost:3001/overlays/overlay-paint/>
+- Chat: <http://localhost:3001/overlays/chat/>
 
 The original Pokémon URL remains compatible:
 
@@ -31,7 +32,7 @@ toggle the Pokémon team and badges, and copy stable OBS browser-source URLs.
 Disabled overlay URLs remain available as transparent pages, so OBS sources do
 not need to be removed.
 
-Pokémon Blue and Paint react live to the module toggle without an OBS refresh.
+Pokémon Blue, Chat, and Paint react live to the module toggle without an OBS refresh.
 Pokémon keeps a dedicated SSE status connection open, even when disabled;
 its UI, snapshot refreshes, chat subscription, and pet queues stop while off.
 Re-enabling resumes with current game data and no previously queued pets.
@@ -46,6 +47,7 @@ apps/admin                Vue administration UI
 modules/pokemon-blue      Pokémon Blue mGBA overlay and adapter
 modules/streamplace-pets  Adapter for the upstream submodule
 modules/overlay-paint     Shared temporary canvas, served by the host
+modules/chat              Stream.place chat display, served by the host
 packages/overlay-sdk      Shared module contracts
 packages/pokemon-model    Normalized Pokémon data
 packages/pokemon-ui       Reusable team and badge components
@@ -58,6 +60,16 @@ source. Clone this repository with submodules:
 ```sh
 git clone --recurse-submodules <repository-url>
 ```
+
+## Chat
+
+Select your streamer account in the admin, then copy the Chat module's URL into
+an OBS Browser Source. New messages appear with their author's display name
+(or handle/DID fallback) on a transparent background, newest at the bottom.
+The overlay retains at most 50 messages; previous chat history is not fetched.
+Switching Chat off clears the display and stops its subscription; switching on
+resumes with new incoming messages. It uses the existing shared Jetstream service,
+not a separate Jetstream connection, and requires no additional port or server.
 
 ## Overlay Paint
 

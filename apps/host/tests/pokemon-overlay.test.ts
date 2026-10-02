@@ -1,20 +1,22 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
-import { buildPokemonOverlay } from "../src/pokemon-overlay.ts";
+import { buildStaticOverlay } from "../src/static-overlay.ts";
 import { pokemonBlueModule } from "../../../modules/pokemon-blue/src/module.ts";
+import { chatModule } from "../../../modules/chat/src/module.ts";
 
-test("Pokémon is served with all its built assets and no module process", async () => {
-  expect(pokemonBlueModule.process).toBeUndefined();
-  const serve = await buildPokemonOverlay(join(import.meta.dir, "../../.."));
+for (const module of [pokemonBlueModule, chatModule]) test(`${module.name} is served with all its built assets and no module process`, async () => {
+  expect(module.process).toBeUndefined();
+  const serve = await buildStaticOverlay(join(import.meta.dir, "../../.."), module.id as "pokemon-blue" | "chat");
   const page = serve();
   expect(page.headers.get("Content-Type")).toContain("text/html");
   const html = await page.text();
   expect(html).toContain('id="app"');
   expect(html).not.toContain("/src/main.ts");
-  const references = [...html.matchAll(/(?:src|href)="(\/overlays\/pokemon-blue\/[^\"]+)"/g)];
+  const references = [...html.matchAll(/(?:src|href)="(\/overlays\/[^\"]+)"/g)];
   expect(references.length).toBeGreaterThanOrEqual(2);
   for (const [, url] of references) {
-    const asset = serve(url!.slice("/overlays/pokemon-blue/".length));
+    expect(url).toStartWith(module.routes[0]!.path);
+    const asset = serve(url!.slice(module.routes[0]!.path.length));
     expect(asset.status).toBe(200);
     expect((await asset.arrayBuffer()).byteLength).toBeGreaterThan(0);
   }
