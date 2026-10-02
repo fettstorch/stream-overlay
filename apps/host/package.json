@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@stream-overlay/pokemon-model": "workspace:*",
     "@stream-overlay/sdk": "workspace:*"
   }
 }

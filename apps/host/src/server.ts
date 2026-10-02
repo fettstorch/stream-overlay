@@ -2,6 +2,8 @@ import { join } from "node:path";
 import { ConfigStore } from "./config-store.ts";
 import { findModule, modules } from "./modules.ts";
 import { ModuleSupervisor } from "./module-supervisor.ts";
+import type { PokemonSnapshot } from "@stream-overlay/pokemon-model";
+import { MgbaFileProvider } from "../../../modules/pokemon-blue/src/mgba-file-provider.ts";
 
 const projectRoot = join(import.meta.dir, "../../..");
 const port = Number(process.env.PORT ?? 3001);
@@ -10,6 +12,11 @@ const defaults = {
 };
 const configStore = new ConfigStore(join(projectRoot, "runtime/config.json"), defaults);
 const supervisor = new ModuleSupervisor();
+const pokemonProvider = new MgbaFileProvider(
+  join(projectRoot, "team.json"),
+  join(projectRoot, "badges.json"),
+);
+let pokemonSnapshot: PokemonSnapshot | null = null;
 
 function isEnabled(id: string) {
   return configStore.read().modules.find((module) => module.id === id)?.enabled ?? false;
@@ -30,6 +37,9 @@ function moduleResponse(module: (typeof modules)[number]) {
 for (const module of modules) {
   if (isEnabled(module.id)) supervisor.enable(module);
 }
+await pokemonProvider.start((snapshot) => {
+  pokemonSnapshot = snapshot;
+});
 
 const transparentPage = new Response("<!doctype html><body style='margin:0;background:transparent'></body>", {
   headers: { "Content-Type": "text/html; charset=utf-8" },
@@ -60,6 +70,9 @@ const server = Bun.serve({
       return Response.redirect(`http://localhost:3000/pets.html${query}`, 302);
     },
     "/api/modules": () => Response.json(modules.map(moduleResponse)),
+    "/api/pokemon-blue/snapshot": () => pokemonSnapshot
+      ? Response.json(pokemonSnapshot, { headers: { "Cache-Control": "no-store" } })
+      : Response.json({ error: "Pokémon data is unavailable" }, { status: 503 }),
     "/api/modules/:id": {
       PATCH: async (request) => {
         const module = findModule(request.params.id);
@@ -86,6 +99,7 @@ const server = Bun.serve({
 
 const shutDown = () => {
   supervisor.stopAll(modules);
+  void pokemonProvider.stop();
   void server.stop();
 };
 process.once("SIGINT", shutDown);

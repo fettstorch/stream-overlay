@@ -8,6 +8,7 @@
     "apps/host": {
       "name": "@stream-overlay/host",
       "dependencies": {
+        "@stream-overlay/pokemon-model": "workspace:*",
         "@stream-overlay/sdk": "workspace:*",
       },
     },
