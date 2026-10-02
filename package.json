@@ -1,0 +1,9 @@
+{
+  "name": "stream-overlay",
+  "private": true,
+  "scripts": {
+    "overlay": "bun run --parallel overlay:main overlay:pets",
+    "overlay:main": "bun --hot server.ts",
+    "overlay:pets": "bun --port 3000 streamplace-pets/pets.html"
+  }
+}

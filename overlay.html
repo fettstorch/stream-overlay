@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overlay</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    .giphy-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      column-gap: 16px;
+      row-gap: 52px;
+    }
+    .giphy-grid figure {
+      position: relative;
+      margin: 0;
+      aspect-ratio: 1 / 1;
+    }
+    .giphy-grid img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .giphy-grid .pet-effect {
+      z-index: 2;
+      top: 2%;
+      left: 40%;
+      width: 44%;
+      height: auto;
+      transform: translateX(-50%);
+      object-fit: contain;
+      pointer-events: none;
+    }
+    .giphy-grid .pet-hearts {
+      z-index: 2;
+      top: 3%;
+      left: 49%;
+      width: 38%;
+      height: auto;
+      object-fit: contain;
+      pointer-events: none;
+    }
+    .pet-author {
+      position: absolute;
+      z-index: 3;
+      top: 2%;
+      left: 4%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      max-width: 62%;
+      color: #fff;
+      font: 700 clamp(0.8rem, 2vw, 1.2rem)/1 "Fredoka", sans-serif;
+      text-shadow: 0 2px 3px #000, 1px 0 2px #000, -1px 0 2px #000;
+      pointer-events: none;
+    }
+    .giphy-grid .pet-author-avatar {
+      position: static;
+      flex: none;
+      width: clamp(56px, 16vw, 96px);
+      height: clamp(56px, 16vw, 96px);
+      border: 2px solid #fff;
+      border-radius: 50%;
+      background: #333;
+      object-fit: cover;
+      box-shadow: 0 2px 5px #000;
+    }
+    .status-panel {
+      position: absolute;
+      z-index: 1;
+      left: 4%;
+      bottom: 0;
+      transform: translate(7%, 30%);
+      box-sizing: border-box;
+      width: 92%;
+      padding: 8px 10px;
+      color: #fff;
+      font-family: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+      font-weight: 900;
+      text-shadow:
+        -2px -2px 0 #000,
+         2px -2px 0 #000,
+        -2px  2px 0 #000,
+         2px  2px 0 #000;
+    }
+    .status-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 10px;
+      font-size: clamp(1.5rem, 3.6vw, 2.4rem);
+      line-height: 1;
+    }
+    .pokemon-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .pokemon-level {
+      flex: none;
+      font-size: 0.72em;
+    }
+    .status-row {
+      display: grid;
+      grid-template-columns: 3.5rem 1fr;
+      align-items: center;
+      gap: 8px;
+    }
+    .status-label {
+      font-size: 1.2rem;
+      letter-spacing: -0.08em;
+    }
+    .meter {
+      height: 12px;
+      overflow: hidden;
+      border: 3px solid #fff;
+      border-radius: 999px;
+      background: #303030;
+    }
+    .meter-fill {
+      height: 100%;
+      border-radius: inherit;
+      transition: width 300ms ease;
+    }
+    .hp-meter .meter-fill {
+      background: #35d94b;
+    }
+    .hp-meter[data-health="medium"] .meter-fill {
+      background: #f4cf35;
+    }
+    .hp-meter[data-health="low"] .meter-fill {
+      background: #ef4949;
+    }
+    .xp-meter .meter-fill {
+      background: #5faaf5;
+    }
+    .xp-row {
+      margin-top: 8px;
+    }
+    .badge-strip {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(0, 1fr));
+      align-items: center;
+      gap: 12px;
+      margin-top: 64px;
+      padding: 0 7%;
+    }
+    .badge {
+      width: 100%;
+      max-width: 72px;
+      justify-self: center;
+      image-rendering: pixelated;
+      transition: filter 250ms ease, opacity 250ms ease;
+    }
+    .badge.unowned {
+      opacity: 0.28;
+      filter: grayscale(1) brightness(0.3);
+    }
+    .badge.owned {
+      opacity: 1;
+      filter: drop-shadow(2px 2px 0 #000);
+    }
+  </style>
+</head>
+<body>
+  <!-- Active team: populated from team.json. -->
+  <div class="giphy-grid" id="team"></div>
+  <div class="badge-strip" id="badges" aria-label="Gym badges"></div>
+
+  <script type="module" src="./overlay.ts"></script>
+</body>
+</html>

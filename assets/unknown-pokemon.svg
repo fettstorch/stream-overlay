@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480" role="img" aria-labelledby="title">
+  <title id="title">Unknown Pokémon</title>
+  <circle cx="240" cy="240" r="188" fill="#f5f5f5" stroke="#171717" stroke-width="24"/>
+  <path d="M54 240h372" stroke="#171717" stroke-width="24"/>
+  <circle cx="240" cy="240" r="62" fill="#fff" stroke="#171717" stroke-width="24"/>
+  <text x="240" y="172" text-anchor="middle" font-family="system-ui, sans-serif" font-size="116" font-weight="700" fill="#171717">?</text>
+</svg>

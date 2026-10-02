@@ -1,0 +1,3 @@
+[submodule "streamplace-pets"]
+	path = streamplace-pets
+	url = https://github.com/streamplace/streamplace-pets.git
