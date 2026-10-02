@@ -10,6 +10,7 @@ export interface PaintSegment {
 }
 
 export interface PaintState {
+  cursor: PaintCursor | null;
   enabled: boolean;
   segments: PaintSegment[];
   fadeAt: number | null;
@@ -17,12 +18,22 @@ export interface PaintState {
 }
 
 export type PaintEvent =
+  | { type: "cursor"; cursor: PaintCursor | null }
   | { type: "state"; state: PaintState }
   | { type: "segments"; segments: PaintSegment[]; fadeAt: number }
   | { type: "fade"; fadeAt: number }
   | { type: "clear" };
 
 const maxSegments = 6000;
+
+export interface PaintCursor { x: number; y: number }
+export function parseCursor(value: unknown): PaintCursor | null | undefined {
+  if (value === null) return null;
+  if (!value || typeof value !== "object") return undefined;
+  const point = value as PaintCursor;
+  if ([point.x, point.y].some(n => typeof n !== "number" || !Number.isFinite(n) || n < 0 || n > 1)) return undefined;
+  return { x: point.x, y: point.y };
+}
 
 export function parseSegments(value: unknown): PaintSegment[] | null {
   if (!Array.isArray(value) || !value.length || value.length > 128) return null;
@@ -38,6 +49,8 @@ export class PaintService {
   private segments: PaintSegment[] = [];
   private fadeAt: number | null = null;
   private enabled = false;
+  private cursor: PaintCursor | null = null;
+  private cursorExpiry: ReturnType<typeof setTimeout> | undefined;
   private color: string | undefined;
   private readonly idle = getDebouncer();
   private readonly cleanup = getDebouncer();
@@ -58,13 +71,25 @@ export class PaintService {
   }
 
   snapshot(): PaintState {
-    return { enabled: this.enabled, segments: [...this.segments], fadeAt: this.fadeAt, fadeDuration: this.fadeDuration };
+    return { cursor: this.cursor, enabled: this.enabled, segments: [...this.segments], fadeAt: this.fadeAt, fadeDuration: this.fadeDuration };
+  }
+
+  moveCursor(cursor: PaintCursor | null) {
+    if (!this.enabled) return false;
+    clearTimeout(this.cursorExpiry);
+    this.cursor = cursor;
+    this.emit({ type: "cursor", cursor });
+    // A lost browser must not leave a permanent pencil in the stream.
+    if (cursor) this.cursorExpiry = setTimeout(() => this.moveCursor(null), 5000);
+    return true;
   }
 
   setEnabled(enabled: boolean) {
     this.idle.clear();
     this.cleanup.clear();
     this.enabled = enabled;
+    clearTimeout(this.cursorExpiry);
+    this.cursor = null;
     this.segments = [];
     this.fadeAt = null;
     this.emit({ type: "state", state: this.snapshot() });

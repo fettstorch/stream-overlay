@@ -1,10 +1,31 @@
 import { describe, expect, test } from "bun:test";
-import { PaintService, parseSegments, type PaintEvent } from "../src/service.ts";
+import { PaintService, parseCursor, parseSegments, type PaintEvent } from "../src/service.ts";
 import { parsePaintConfiguration } from "../src/config.ts";
 
 const segment = { x: 0.5, y: 0.4, fromX: 0.3, fromY: 0.2 };
 
 describe("Overlay Paint", () => {
+  test("cursor is separate from paint and never postpones its decay", () => {
+    const service = new PaintService();
+    try {
+      service.setEnabled(true);
+      service.append([segment]);
+      const fadeAt = service.snapshot().fadeAt;
+      service.moveCursor({ x: 0.2, y: 0.7 });
+      expect(service.snapshot().cursor).toEqual({ x: 0.2, y: 0.7 });
+      expect(service.snapshot().fadeAt).toBe(fadeAt);
+      expect(service.snapshot().segments).toEqual([segment]);
+      service.moveCursor(null);
+      expect(service.snapshot().cursor).toBeNull();
+      service.moveCursor({ x: 0.4, y: 0.5 });
+      service.setEnabled(false);
+      expect(service.snapshot().cursor).toBeNull();
+      expect(service.moveCursor({ x: 0, y: 0 })).toBe(false);
+    } finally { service.stop(); }
+    expect(parseCursor(null)).toBeNull();
+    expect(parseCursor({ x: 1, y: 0 })).toEqual({ x: 1, y: 0 });
+    for (const input of [undefined, {}, { x: -1, y: 0 }, { x: NaN, y: 0 }]) expect(parseCursor(input)).toBeUndefined();
+  });
   test("validates color and fade delay settings", () => {
     expect(parsePaintConfiguration({ color: "#ABCDEF", decaySeconds: 8 })).toEqual({ color: "#abcdef", decaySeconds: 8 });
     for (const value of [null, {}, { color: "pink", decaySeconds: 4 },

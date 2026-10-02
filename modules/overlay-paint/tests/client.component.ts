@@ -11,11 +11,11 @@ afterEach(() => {
 async function setup(interactive = true) {
   vi.useFakeTimers();
   history.replaceState({}, "", interactive ? "/?interactive=1" : "/");
-  document.body.innerHTML = '<canvas></canvas><span id="status"></span>';
+  document.body.innerHTML = '<canvas></canvas><img id="pencil" hidden><span id="status"></span>';
   const canvas = document.querySelector("canvas")!;
   const context = { clearRect: vi.fn(), beginPath: vi.fn(), arc: vi.fn(), fill: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), stroke: vi.fn() };
   vi.spyOn(canvas, "getContext").mockReturnValue(context as unknown as CanvasRenderingContext2D);
-  vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({ left: 0, top: 0, width: 400, height: 225 } as DOMRect);
+  vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({ left: 0, top: 0, right: 400, bottom: 225, width: 400, height: 225 } as DOMRect);
   Object.assign(canvas, { setPointerCapture: vi.fn() });
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
   let draw = () => {};
@@ -46,7 +46,7 @@ test("a click and drag send normalized paint, including empty coalesced-event fa
   app.pointer("pointermove", 200, 112.5);
   app.pointer("pointerup", 200, 112.5);
   await vi.advanceTimersByTimeAsync(20);
-  const input = JSON.parse(app.fetch.mock.calls[0]![1].body);
+  const input = JSON.parse(app.fetch.mock.calls.find(call => call[0] === "/api/overlay-paint/segments")![1].body);
   expect(input.segments[0]).toEqual({ x: 0.25, y: 0.5, fromX: 0.25, fromY: 0.5 });
   expect(input.segments[1]).toEqual({ x: 0.5, y: 0.5, fromX: 0.25, fromY: 0.5 });
 });
@@ -67,4 +67,34 @@ test("OBS renders received paint and its fade but cannot send drawing input", as
   app.message({ type: "state", state: { enabled: false, segments: [], fadeAt: null, fadeDuration: 1000 } });
   app.draw();
   expect(app.context.clearRect).toHaveBeenCalled();
+});
+
+test("hover shares only the current pencil position and leaving hides it", async () => {
+  const app = await setup();
+  app.pointer("pointermove", 100, 112.5);
+  const pencil = document.querySelector<HTMLImageElement>("#pencil")!;
+  expect(pencil.hidden).toBe(false);
+  expect(pencil.style.left).toBe("25%");
+  await vi.advanceTimersByTimeAsync(40);
+  expect(app.fetch.mock.calls[0]![0]).toBe("/api/overlay-paint/cursor");
+  expect(JSON.parse(app.fetch.mock.calls[0]![1].body)).toEqual({ cursor: { x: 0.25, y: 0.5 } });
+  expect(app.fetch.mock.calls.some(call => call[0] === "/api/overlay-paint/segments")).toBe(false);
+  app.pointer("pointerleave", 100, 112.5);
+  expect(pencil.hidden).toBe(true);
+  await vi.advanceTimersByTimeAsync(40);
+  expect(JSON.parse(app.fetch.mock.calls.at(-1)![1].body)).toEqual({ cursor: null });
+});
+
+test("OBS pencil moves on its own layer without clearing or fading the drawing", async () => {
+  const app = await setup(false);
+  app.draw();
+  app.context.clearRect.mockClear();
+  app.message({ type: "cursor", cursor: { x: 0.5, y: 0.25 } });
+  app.draw();
+  const pencil = document.querySelector<HTMLImageElement>("#pencil")!;
+  expect(pencil.hidden).toBe(false);
+  expect(pencil.style.top).toBe("25%");
+  expect(app.context.clearRect).not.toHaveBeenCalled();
+  app.message({ type: "cursor", cursor: null });
+  expect(pencil.hidden).toBe(true);
 });

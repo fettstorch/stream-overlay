@@ -57,6 +57,9 @@ Select your streamer account in the admin, then draw in Overlay Paint's preview
 using a mouse, pen, or touch. The official Stream.place embed sits behind the
 canvas as a visual reference. Its live-video delay also applies
 to this reference; the drawing itself is sent directly through the local host.
+The pencil follows your pointer in the preview and all OBS Paint overlays on
+a separate transparent layer. Leaving the drawing area hides it; hovering never
+adds marks or postpones the drawing's fade.
 
 All open Paint overlays share one temporary drawing. Input postpones the entire
 drawing's fade via Jules debounce: after the configured delay (four seconds by

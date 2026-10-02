@@ -9,7 +9,7 @@ import { MgbaFileProvider } from "../../../modules/pokemon-blue/src/mgba-file-pr
 import { getActorProfile, resolveStreamerIdentity, searchActors } from "./identity.ts";
 import { StreamChatService } from "@stream-overlay/stream-chat";
 import { FileLogger } from "./logger.ts";
-import { PaintService, parseSegments } from "../../../modules/overlay-paint/src/service.ts";
+import { PaintService, parseSegments, parseCursor } from "../../../modules/overlay-paint/src/service.ts";
 import { getStreamDimensions } from "./stream-dimensions.ts";
 import { defaultPaintConfiguration, parsePaintConfiguration } from "../../../modules/overlay-paint/src/config.ts";
 
@@ -165,6 +165,17 @@ const server = Bun.serve({
     "/api/overlay-paint/events": (request, server) => {
       server.timeout(request, 0);
       return paintService.events(request);
+    },
+    "/api/overlay-paint/cursor": {
+      POST: async request => {
+        if (!isEnabled("overlay-paint")) return Response.json({ error: "Paint module disabled" }, { status: 409 });
+        let body: { cursor?: unknown };
+        try { body = await request.json(); } catch { return new Response(null, { status: 400 }); }
+        const cursor = parseCursor(body?.cursor);
+        if (cursor === undefined) return new Response(null, { status: 400 });
+        paintService.moveCursor(cursor);
+        return new Response(null, { status: 204 });
+      },
     },
     "/api/overlay-paint/segments": {
       POST: async request => {
