@@ -17,7 +17,10 @@ const configResponse = {
 };
 const streamConfigResponse = { streamerDid: "did:plc:test" };
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 function mockFetch() {
   return vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
@@ -56,11 +59,12 @@ describe("Admin App", () => {
   });
 
   test("saves global stream settings independently of modules", async () => {
+    vi.useFakeTimers();
     const fetchMock = mockFetch();
     const wrapper = mount(App);
     await flushPromises();
     await wrapper.get('.stream-settings input').setValue("did:plc:updated");
-    await wrapper.get(".stream-settings button").trigger("click");
+    await vi.advanceTimersByTimeAsync(350);
     await flushPromises();
     expect(fetchMock).toHaveBeenCalledWith("/api/config", expect.objectContaining({
       method: "PATCH",
@@ -69,12 +73,13 @@ describe("Admin App", () => {
   });
 
   test("saves Pokémon Blue component settings", async () => {
+    vi.useFakeTimers();
     const fetchMock = mockFetch();
     const wrapper = mount(App);
     await flushPromises();
     const checkboxes = wrapper.findAll('.module-settings input[type="checkbox"]');
     await checkboxes[1]!.setValue(false);
-    await wrapper.get(".module-settings button").trigger("click");
+    await vi.advanceTimersByTimeAsync(350);
     await flushPromises();
     expect(fetchMock).toHaveBeenCalledWith("/api/pokemon-blue/config", expect.objectContaining({
       method: "PATCH",

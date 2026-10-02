@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 interface ModuleStatus {
   id: string;
@@ -25,11 +25,13 @@ const configuration = ref<PokemonBlueConfiguration>({
   components: { team: true, badges: true },
 });
 const streamConfiguration = ref<StreamConfiguration>({ streamerDid: "" });
-const streamSaving = ref(false);
 const streamMessage = ref("");
-const pokemonSaving = ref(false);
 const pokemonMessage = ref("");
 const origin = computed(() => location.origin);
+let loaded = false;
+let streamSaveTimer: ReturnType<typeof setTimeout> | undefined;
+let pokemonSaveTimer: ReturnType<typeof setTimeout> | undefined;
+let saveQueue = Promise.resolve();
 
 function overlayUrl(module: ModuleStatus) {
   const url = new URL(module.overlayUrl, origin.value);
@@ -59,30 +61,60 @@ async function toggle(module: ModuleStatus) {
 }
 
 async function savePokemonConfiguration() {
-  pokemonSaving.value = true;
-  pokemonMessage.value = "";
-  const response = await fetch("/api/pokemon-blue/config", {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(configuration.value),
-  });
-  pokemonSaving.value = false;
-  pokemonMessage.value = response.ok ? "Saved" : "Could not save configuration";
+  pokemonMessage.value = "Saving…";
+  try {
+    const response = await fetch("/api/pokemon-blue/config", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(configuration.value),
+    });
+    pokemonMessage.value = response.ok ? "Saved" : "Could not save configuration";
+  } catch {
+    pokemonMessage.value = "Could not save configuration";
+  }
 }
 
 async function saveStreamConfiguration() {
-  streamSaving.value = true;
-  streamMessage.value = "";
-  const response = await fetch("/api/config", {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(streamConfiguration.value),
-  });
-  streamSaving.value = false;
-  streamMessage.value = response.ok ? "Saved" : "Could not save configuration";
+  streamMessage.value = "Saving…";
+  try {
+    const response = await fetch("/api/config", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(streamConfiguration.value),
+    });
+    streamMessage.value = response.ok ? "Saved" : "Could not save configuration";
+  } catch {
+    streamMessage.value = "Could not save configuration";
+  }
 }
 
-onMounted(load);
+function enqueueSave(save: () => Promise<void>) {
+  saveQueue = saveQueue.then(save, save);
+}
+
+watch(streamConfiguration, () => {
+  if (!loaded) return;
+  streamMessage.value = "Saving…";
+  if (streamSaveTimer) clearTimeout(streamSaveTimer);
+  streamSaveTimer = setTimeout(() => enqueueSave(saveStreamConfiguration), 350);
+}, { deep: true });
+
+watch(configuration, () => {
+  if (!loaded) return;
+  pokemonMessage.value = "Saving…";
+  if (pokemonSaveTimer) clearTimeout(pokemonSaveTimer);
+  pokemonSaveTimer = setTimeout(() => enqueueSave(savePokemonConfiguration), 350);
+}, { deep: true });
+
+onMounted(async () => {
+  await load();
+  loaded = true;
+});
+
+onBeforeUnmount(() => {
+  if (streamSaveTimer) clearTimeout(streamSaveTimer);
+  if (pokemonSaveTimer) clearTimeout(pokemonSaveTimer);
+});
 </script>
 
 <template>
@@ -99,12 +131,7 @@ onMounted(load);
         Streamer DID
         <input v-model.trim="streamConfiguration.streamerDid" placeholder="did:plc:…">
       </label>
-      <div class="actions">
-        <button :disabled="streamSaving" @click="saveStreamConfiguration">
-          {{ streamSaving ? "Saving…" : "Save stream settings" }}
-        </button>
-        <span aria-live="polite">{{ streamMessage }}</span>
-      </div>
+      <span class="save-status" aria-live="polite">{{ streamMessage }}</span>
     </section>
 
     <section>
@@ -143,9 +170,6 @@ onMounted(load);
             <h4>Visible components</h4>
             <label><input v-model="configuration.components.team" type="checkbox"> Team</label>
             <label><input v-model="configuration.components.badges" type="checkbox"> Badges</label>
-            <button :disabled="pokemonSaving" @click="savePokemonConfiguration">
-              {{ pokemonSaving ? "Saving…" : "Save Pokémon settings" }}
-            </button>
             <span class="module-message" aria-live="polite">{{ pokemonMessage }}</span>
           </div>
         </article>
@@ -192,12 +216,8 @@ code { display: block; margin-top: 22px; padding: 12px; overflow: auto; border-r
 .settings > h2 { margin: 0; }
 .settings > label { display: grid; gap: 8px; color: #b9c3da; font-weight: 650; }
 .settings input:not([type]) { width: 100%; padding: 12px 14px; border: 1px solid #36425d; border-radius: 9px; color: white; background: #0b101c; font: inherit; }
-.module-settings { grid-template-columns: auto auto 1fr auto; align-items: center; margin-top: 22px; padding-top: 20px; border-top: 1px solid #28334b; }
+.module-settings { grid-template-columns: auto auto 1fr; align-items: center; margin-top: 22px; padding-top: 20px; border-top: 1px solid #28334b; }
 .module-settings h4 { grid-column: 1 / -1; margin: 0; color: #b9c3da; }
 .module-settings label { display: flex; align-items: center; gap: 8px; }
-.module-settings button { justify-self: end; }
-.module-message { min-width: 3.5em; }
-.actions { display: flex; align-items: center; gap: 14px; }
-button { padding: 11px 18px; border: 0; border-radius: 9px; color: white; background: #5d7cff; font: inherit; font-weight: 750; cursor: pointer; }
-button:disabled { opacity: .55; cursor: wait; }
+.module-message, .save-status { justify-self: end; min-width: 3.5em; color: #9aa6c1; font-size: .85rem; }
 </style>
