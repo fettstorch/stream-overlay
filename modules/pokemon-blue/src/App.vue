@@ -156,8 +156,15 @@ onBeforeUnmount(() => {
     :badges="badges"
     :owned-badge-ids="snapshot.badges?.ownedBadgeIds ?? []"
   />
+  <p v-if="configuration.components.team && snapshot.party.length" class="pet-hint">
+    Pet a Pokémon in chat: <code>!pet &lt;Pokémon name&gt;</code>
+    <span>Use the name shown above.</span>
+  </p>
 </template>
 
 <style>
 html, body, #app { margin: 0; min-height: 100%; background: transparent; }
+.pet-hint { margin: 24px 7% 16px; color: #fff; text-align: center; font: 700 20px/1.5 ui-monospace, monospace; text-shadow: 1px 1px 2px #000, -1px -1px 2px #000; }
+.pet-hint code { color: #ffb6de; font: inherit; }
+.pet-hint span { display: block; font-size: 0.75em; }
 </style>
