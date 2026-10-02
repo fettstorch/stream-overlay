@@ -20,6 +20,7 @@ const defaults = {
 const configStore = new ConfigStore(join(projectRoot, "runtime/config.json"), defaults);
 const supervisor = new ModuleSupervisor();
 const chatService = new StreamChatService(getActorProfile);
+const moduleStateListeners = new Set<(id: string, enabled: boolean) => void>();
 const pokemonRuntimeDirectory = join(projectRoot, "runtime/pokemon-blue");
 mkdirSync(pokemonRuntimeDirectory, { recursive: true });
 const pokemonProvider = new MgbaFileProvider(
@@ -100,48 +101,85 @@ const transparentPage = new Response("<!doctype html><body style='margin:0;backg
   headers: { "Content-Type": "text/html; charset=utf-8" },
 });
 
+function escapeHtmlAttribute(value: string) {
+  return value.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;");
+}
+
 function overlayShell(moduleId: string, sourceUrl: string) {
   const enabled = isEnabled(moduleId);
   return new Response(`<!doctype html>
 <html>
   <head>
     <meta charset="utf-8">
-    <style>html,body,iframe{width:100%;height:100%;margin:0;overflow:hidden;background:transparent;border:0}</style>
+    <style>html,body,iframe{width:100%;height:100%;margin:0;overflow:hidden;background:transparent;border:0}iframe[hidden]{display:none}</style>
   </head>
   <body>
+    <iframe data-source="${escapeHtmlAttribute(sourceUrl)}"${enabled ? ` src="${escapeHtmlAttribute(sourceUrl)}"` : " hidden"}></iframe>
     <script>
-      const sourceUrl = ${JSON.stringify(sourceUrl)};
-      let frame;
+      const frame = document.querySelector("iframe");
       let enableTimer;
-      let currentEnabled;
       function setEnabled(enabled) {
-        if (enabled === currentEnabled) return;
-        currentEnabled = enabled;
         clearTimeout(enableTimer);
         if (!enabled) {
-          frame?.remove();
-          frame = undefined;
+          frame.hidden = true;
+          frame.src = "about:blank";
           return;
         }
         enableTimer = setTimeout(() => {
-          if (frame) return;
-          frame = document.createElement("iframe");
-          frame.src = sourceUrl;
-          document.body.append(frame);
+          frame.src = frame.dataset.source;
+          frame.hidden = false;
         }, 250);
       }
-      async function syncState() {
-        try {
-          const modules = await fetch("/api/modules", { cache: "no-store" }).then(response => response.json());
-          const module = modules.find(({ id }) => id === ${JSON.stringify(moduleId)});
-          if (module) setEnabled(module.enabled);
-        } catch { /* Retry on the next poll. */ }
-      }
-      setEnabled(${JSON.stringify(enabled)});
-      setInterval(syncState, 500);
+      const events = new EventSource("/api/module-events");
+      events.onmessage = ({ data }) => {
+        const state = JSON.parse(data);
+        if (state.id === ${JSON.stringify(moduleId)}) setEnabled(state.enabled);
+      };
     </script>
   </body>
 </html>`, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
+}
+
+function moduleStateEvents(request: Request) {
+  let listener: ((id: string, enabled: boolean) => void) | undefined;
+  let heartbeat: ReturnType<typeof setInterval> | undefined;
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const encoder = new TextEncoder();
+      const send = (id: string, enabled: boolean) => {
+        try { controller.enqueue(encoder.encode(`data: ${JSON.stringify({ id, enabled })}\n\n`)); } catch { close(); }
+      };
+      const close = () => {
+        if (listener) moduleStateListeners.delete(listener);
+        listener = undefined;
+        if (heartbeat) clearInterval(heartbeat);
+        heartbeat = undefined;
+        try { controller.close(); } catch { /* Already closed by the browser. */ }
+      };
+      listener = send;
+      moduleStateListeners.add(listener);
+      for (const module of modules) send(module.id, isEnabled(module.id));
+      heartbeat = setInterval(() => {
+        try { controller.enqueue(encoder.encode(": keepalive\n\n")); } catch { close(); }
+      }, 15_000);
+      request.signal.addEventListener("abort", close, { once: true });
+    },
+    cancel() {
+      if (listener) moduleStateListeners.delete(listener);
+      if (heartbeat) clearInterval(heartbeat);
+    },
+  });
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+    },
+  });
+}
+
+function publishModuleState(id: string, enabled: boolean) {
+  for (const listener of moduleStateListeners) listener(id, enabled);
 }
 
 function proxyPokemonOverlay(request: Request, path = new URL(request.url).pathname) {
@@ -219,6 +257,7 @@ const server = Bun.serve({
       }
     },
     "/api/chat/events": (request) => streamChatEvents(request),
+    "/api/module-events": (request) => moduleStateEvents(request),
     "/api/pokemon-blue/snapshot": () => pokemonSnapshot
       ? Response.json(pokemonSnapshot, { headers: { "Cache-Control": "no-store" } })
       : Response.json({ error: "Pokémon data is unavailable" }, { status: 503 }),
@@ -250,6 +289,7 @@ const server = Bun.serve({
         configStore.setModuleEnabled(module.id, body.enabled);
         if (body.enabled) supervisor.enable(module);
         else supervisor.disable(module);
+        publishModuleState(module.id, body.enabled);
         return Response.json(moduleResponse(module));
       },
     },
