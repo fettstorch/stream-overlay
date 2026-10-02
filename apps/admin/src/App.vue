@@ -210,7 +210,7 @@ watch(chatConfiguration, value => {
   clearTimeout(chatSaveTimer);
   const configuration = parseChatConfiguration(value);
   if (!configuration) {
-    chatMessage.value = "Use a font size from 8 to 72 px and percentages from 0 to 100";
+    chatMessage.value = "Use a font size from 8 to 72 px, percentages from 0 to 100, and rotation from −180° to 180°";
     return;
   }
   chatMessage.value = "Saving…";
@@ -476,6 +476,12 @@ onBeforeUnmount(() => {
             <p v-if="!streamEmbedUrl">Select your streamer account above to see your stream behind the canvas.</p>
           </div>
           <div v-if="module.id === 'chat'" class="module-settings chat-settings">
+            <label>3D rotation X (tilt up/down): {{ chatConfiguration.rotationX }}°
+              <input v-model.number="chatConfiguration.rotationX" type="range" min="-180" max="180" step="1" aria-label="Chat X rotation">
+            </label>
+            <label>3D rotation Y (tilt left/right): {{ chatConfiguration.rotationY }}°
+              <input v-model.number="chatConfiguration.rotationY" type="range" min="-180" max="180" step="1" aria-label="Chat Y rotation">
+            </label>
             <label>Font size (px)
               <input v-model.number="chatConfiguration.fontSize" type="number" min="8" max="72" step="1" aria-label="Chat font size">
             </label>

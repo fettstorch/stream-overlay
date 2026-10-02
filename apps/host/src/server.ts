@@ -208,7 +208,7 @@ const server = Bun.serve({
           return Response.json({ error: "Invalid Chat configuration" }, { status: 400 });
         }
         const chat = parseChatConfiguration(body);
-        if (!chat) return Response.json({ error: "Use a font size from 8 to 72 px, a hex background color and percentages from 0 to 100" }, { status: 400 });
+        if (!chat) return Response.json({ error: "Use a font size from 8 to 72 px, a hex background color, percentages from 0 to 100 and rotation from -180 to 180 degrees" }, { status: 400 });
         const configuration = configStore.read();
         configuration.chat = chat;
         configStore.write(configuration);

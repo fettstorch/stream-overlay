@@ -40,8 +40,12 @@ test("freezes an evicted bubble's position and size without shifting its neighbo
   const parent = document.createElement("ol");
   const bubble = document.createElement("li");
   parent.append(bubble);
-  vi.spyOn(parent, "getBoundingClientRect").mockReturnValue({ left: 10, top: 20 } as DOMRect);
-  vi.spyOn(bubble, "getBoundingClientRect").mockReturnValue({ left: 26, top: 52, width: 280, height: 72 } as DOMRect);
+  // Projected bounds must not be used for layout inside a rotated chat plane.
+  vi.spyOn(bubble, "getBoundingClientRect").mockReturnValue({ left: 500, top: 400, width: 150, height: 30 } as DOMRect);
+  Object.defineProperties(bubble, {
+    offsetLeft: { value: 16 }, offsetTop: { value: 32 },
+    offsetWidth: { value: 280 }, offsetHeight: { value: 72 },
+  });
   freezeLeavingMessage(bubble);
   expect(bubble.style.left).toBe("16px");
   expect(bubble.style.top).toBe("32px");
@@ -85,6 +89,22 @@ test("fade settings update live without losing chat or reconnecting the feed", a
     expect(app.wrapper.get("ol").attributes("style")).toContain("linear-gradient(transparent, transparent)");
     await app.state(true, { fadeOut: -1 });
     expect(app.wrapper.get("ol").attributes("style")).toContain("linear-gradient(transparent, transparent)");
+  } finally { app.wrapper.unmount(); }
+});
+
+test("rotates the whole chat plane on independent 3D axes without changing chat subscriptions", async () => {
+  const app = setup();
+  try {
+    await app.state(true, { fadeOut: 0 });
+    await app.message(message());
+    expect(app.wrapper.get(".chat-plane").attributes("style")).toContain("rotateX(0deg) rotateY(0deg)");
+    await app.state(true, { fadeOut: 0, rotationX: 25, rotationY: -35 });
+    expect(app.wrapper.get(".chat-plane").attributes("style")).toContain("perspective(200vh) rotateX(25deg) rotateY(-35deg)");
+    expect(app.wrapper.get("ol").attributes("style")).not.toContain("rotateX");
+    expect(app.wrapper.text()).toContain("Hello stream!");
+    expect(app.sources).toHaveLength(2);
+    await app.state(true, { fadeOut: 0, rotationX: 0, rotationY: -35 });
+    expect(app.wrapper.get(".chat-plane").attributes("style")).toContain("rotateX(0deg) rotateY(-35deg)");
   } finally { app.wrapper.unmount(); }
 });
 

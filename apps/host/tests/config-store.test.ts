@@ -32,10 +32,11 @@ describe("ConfigStore", () => {
     for (const fadeOut of [-1, 101, NaN, Infinity]) {
       expect(() => store.write({ ...configuration, chat: { ...configuration.chat, fadeOut } })).toThrow();
     }
-    for (const settings of [{ fontSize: 0 }, { fontSize: 73 }, { backgroundColor: "red" }, { backgroundOpacity: 101 }]) {
+    for (const settings of [{ fontSize: 0 }, { fontSize: 73 }, { backgroundColor: "red" }, { backgroundOpacity: 101 },
+      { rotationX: 181 }, { rotationY: -181 }, { rotationX: NaN }, { rotationY: Infinity }]) {
       expect(() => store.write({ ...configuration, chat: { ...configuration.chat, ...settings } })).toThrow();
     }
-    const appearance = { ...configuration.chat, fontSize: 32, backgroundColor: "#123456", backgroundOpacity: 40 };
+    const appearance = { ...configuration.chat, fontSize: 32, backgroundColor: "#123456", backgroundOpacity: 40, rotationX: 25, rotationY: -35 };
     store.write({ ...configuration, chat: appearance });
     expect(store.read().chat).toEqual(appearance);
     writeFileSync(store.path, JSON.stringify({ ...configuration, chat: { fadeOut: 80 } }));

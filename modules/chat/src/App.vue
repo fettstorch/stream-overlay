@@ -6,6 +6,11 @@ import { freezeLeavingMessage, restoreLeavingMessage } from "./message-transitio
 
 const enabled = ref(false);
 const configuration = ref(defaultChatConfiguration);
+// Transform the whole chat plane, separately from bubble entrance/move transforms.
+// A viewport-relative camera distance keeps perspective usable at different OBS sizes.
+const rotationStyle = computed(() => ({
+  transform: `perspective(200vh) rotateX(${configuration.value.rotationX}deg) rotateY(${configuration.value.rotationY}deg)`,
+}));
 const maskStyle = computed(() => ({
   maskImage: chatMask(configuration.value.fadeOut), WebkitMaskImage: chatMask(configuration.value.fadeOut),
   fontSize: `${configuration.value.fontSize}px`, "--message-background": chatBackground(configuration.value),
@@ -63,7 +68,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <ol v-if="enabled" class="chat-messages" :style="maskStyle" aria-label="Stream chat" aria-live="polite" aria-relevant="additions">
+  <div v-if="enabled" class="chat-plane" :style="rotationStyle">
+  <ol class="chat-messages" :style="maskStyle" aria-label="Stream chat" aria-live="polite" aria-relevant="additions">
     <TransitionGroup name="chat-bubble" @before-leave="freezeLeavingMessage" @leave-cancelled="restoreLeavingMessage">
     <li v-for="message in messages" :key="message.id" class="chat-message">
       <img v-if="message.author.avatar && !failedAvatars.has(message.author.avatar)" class="chat-avatar" :src="message.author.avatar" alt="" @error="failedAvatars.add(message.author.avatar!)">
@@ -75,12 +81,14 @@ onBeforeUnmount(() => {
     </li>
     </TransitionGroup>
   </ol>
+  </div>
 </template>
 
 <style>
 html, body, #app { margin: 0; width: 100%; height: 100%; background: transparent; }
 * { box-sizing: border-box; }
-.chat-messages { position: fixed; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; gap: 8px; margin: 0; padding: 16px; overflow: hidden; list-style: none; font: 20px/1.4 system-ui, sans-serif; color: white; }
+.chat-plane { position: fixed; inset: 0; transform-origin: center center; }
+.chat-messages { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; gap: 8px; margin: 0; padding: 16px; overflow: hidden; list-style: none; font: 20px/1.4 system-ui, sans-serif; color: white; }
 .chat-message { flex: none; display: flex; align-items: flex-start; gap: .6em; max-width: 100%; padding: .4em .6em; background: var(--message-background); border-radius: 4px; overflow-wrap: anywhere; }
 .chat-avatar { width: 2.4em; height: 2.4em; flex: 0 0 2.4em; object-fit: cover; border-radius: 50%; }
 .avatar-fallback { display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, .15); }

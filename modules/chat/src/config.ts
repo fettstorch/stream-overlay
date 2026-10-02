@@ -3,9 +3,12 @@ export interface ChatConfiguration {
   fontSize: number;
   backgroundColor: string;
   backgroundOpacity: number;
+  rotationX: number;
+  rotationY: number;
 }
 export const defaultChatConfiguration: ChatConfiguration = {
   fadeOut: 0, fontSize: 20, backgroundColor: "#000000", backgroundOpacity: 65,
+  rotationX: 0, rotationY: 0,
 };
 
 export function parseChatConfiguration(value: unknown): ChatConfiguration | null {
@@ -18,9 +21,12 @@ export function parseChatConfiguration(value: unknown): ChatConfiguration | null
     || settings.fontSize < 8 || settings.fontSize > 72
     || typeof settings.backgroundColor !== "string" || !/^#[0-9a-f]{6}$/i.test(settings.backgroundColor)
     || typeof settings.backgroundOpacity !== "number" || !Number.isFinite(settings.backgroundOpacity)
-    || settings.backgroundOpacity < 0 || settings.backgroundOpacity > 100) return null;
+    || settings.backgroundOpacity < 0 || settings.backgroundOpacity > 100
+    || [settings.rotationX, settings.rotationY].some(angle => typeof angle !== "number"
+      || !Number.isFinite(angle) || angle < -180 || angle > 180)) return null;
   return { fadeOut: value.fadeOut, fontSize: settings.fontSize,
-    backgroundColor: settings.backgroundColor, backgroundOpacity: settings.backgroundOpacity };
+    backgroundColor: settings.backgroundColor, backgroundOpacity: settings.backgroundOpacity,
+    rotationX: settings.rotationX, rotationY: settings.rotationY };
 }
 
 export function chatBackground(configuration: ChatConfiguration): string {
