@@ -287,15 +287,9 @@ const server = Bun.serve({
           return Response.json({ error: "enabled must be a boolean" }, { status: 400 });
         }
         configStore.setModuleEnabled(module.id, body.enabled);
-        if (body.enabled) {
-          supervisor.enable(module);
-          publishModuleState(module.id, true);
-        } else {
-          // Let OBS clear the module's last rendered frame before its server disappears.
-          publishModuleState(module.id, false);
-          await Bun.sleep(100);
-          if (!isEnabled(module.id)) supervisor.disable(module);
-        }
+        if (body.enabled) supervisor.enable(module);
+        else supervisor.disable(module);
+        publishModuleState(module.id, body.enabled);
         return Response.json(moduleResponse(module));
       },
     },
