@@ -22,6 +22,10 @@ export interface OverlayModule {
   name: string;
   description: string;
   requirements?: string[];
+  chatCommands?: Array<{
+    command: string;
+    description: string;
+  }>;
   routes: OverlayRoute[];
   process?: {
     command: string[];

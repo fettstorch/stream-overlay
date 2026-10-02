@@ -7,6 +7,7 @@ const moduleResponse = [{
   name: "Pokémon Blue",
   description: "Shows the live Pokémon team.",
   requirements: ["Pokémon Blue must be running in mGBA."],
+  chatCommands: [{ command: "!pet <Pokémon name>", description: "Pet an active team member." }],
   enabled: true,
   status: "running",
   overlayUrl: "/overlays/pokemon-blue/",
@@ -58,6 +59,8 @@ describe("Admin App", () => {
     expect(wrapper.text()).toContain("running");
     expect(wrapper.get('[role="tooltip"]').text()).toContain("Add a Browser Source and paste the URL shown below");
     expect(wrapper.get('[role="tooltip"]').text()).toContain("Pokémon Blue must be running in mGBA");
+    expect(wrapper.get(".chat-command code").text()).toBe("!pet <Pokémon name>");
+    expect(wrapper.get(".chat-command").text()).toContain("Pet an active team member");
     expect(wrapper.get('button[aria-label="About Pokémon Blue"]')).toBeTruthy();
     expect(wrapper.get('input[aria-label="Enable Pokémon Blue"]').attributes("aria-describedby")).toBeUndefined();
     expect(wrapper.get("code").text()).toContain("streamer=did%3Aplc%3Atest");

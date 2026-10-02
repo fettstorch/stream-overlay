@@ -6,6 +6,7 @@ interface ModuleStatus {
   name: string;
   description: string;
   requirements: string[];
+  chatCommands: Array<{ command: string; description: string }>;
   enabled: boolean;
   status: "running" | "stopped" | "failed";
   overlayUrl: string;
@@ -281,6 +282,13 @@ onBeforeUnmount(() => {
             </button>
             <span class="sr-only" aria-live="polite">{{ copiedModuleId === module.id ? "Copied" : "" }}</span>
           </div>
+          <section v-if="module.chatCommands?.length" class="module-commands">
+            <h4>Chat interactions</h4>
+            <div v-for="chatCommand in module.chatCommands" :key="chatCommand.command" class="chat-command">
+              <code>{{ chatCommand.command }}</code>
+              <span>{{ chatCommand.description }}</span>
+            </div>
+          </section>
           <div class="module-preview">
             <iframe
               :src="overlayUrl(module)"
@@ -335,6 +343,11 @@ code { display: block; min-width: 0; padding: 12px 52px 12px 12px; overflow: aut
 .copy-button.copied { color: #70e7a1; }
 .copy-icon { width: 100%; height: 100%; background: currentColor; -webkit-mask: url("./assets/copy-document.svg") center / contain no-repeat; mask: url("./assets/copy-document.svg") center / contain no-repeat; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.module-commands { display: grid; gap: 10px; margin-top: 16px; }
+.module-commands h4 { margin: 0; color: #aebbd7; font-size: .78rem; text-transform: uppercase; letter-spacing: .1em; }
+.chat-command { display: grid; gap: 7px; padding: 12px 14px; border: 1px solid #28334b; border-radius: 10px; background: #0b101c; }
+.chat-command code { color: #9db2ff; font: 650 .95rem/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+.chat-command span { color: #9aa6c1; font-size: .84rem; }
 .module-preview { position: relative; margin-top: 16px; overflow: hidden; aspect-ratio: 16 / 9; border: 1px solid #28334b; border-radius: 10px; background-color: #0b101c; background-image: linear-gradient(45deg, #141c2b 25%, transparent 25%), linear-gradient(-45deg, #141c2b 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #141c2b 75%), linear-gradient(-45deg, transparent 75%, #141c2b 75%); background-position: 0 0, 0 8px, 8px -8px, -8px 0; background-size: 16px 16px; }
 .module-preview iframe { width: 100%; height: 100%; border: 0; background: transparent; }
 .error { color: #ff7f91; }

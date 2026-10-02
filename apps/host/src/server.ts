@@ -39,6 +39,7 @@ function moduleResponse(module: (typeof modules)[number]) {
     name: module.name,
     description: module.description,
     requirements: module.requirements ?? [],
+    chatCommands: module.chatCommands ?? [],
     enabled: isEnabled(module.id),
     status: runtime.status,
     overlayUrl: module.routes[0]?.path ?? "",
