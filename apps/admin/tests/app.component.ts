@@ -75,6 +75,20 @@ describe("Admin App", () => {
     expect(wrapper.text()).toContain("stopped");
   });
 
+  test("copies the complete OBS URL", async () => {
+    mockFetch();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    const wrapper = mount(App);
+    await flushPromises();
+    await wrapper.get('button[aria-label="Copy Pokémon Blue OBS URL"]').trigger("click");
+    await flushPromises();
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining(
+      "/overlays/pokemon-blue/?streamer=did%3Aplc%3Atest",
+    ));
+    expect(wrapper.text()).toContain("Copied");
+  });
+
   test("saves a pasted DID independently of modules", async () => {
     const fetchMock = mockFetch();
     const wrapper = mount(App);

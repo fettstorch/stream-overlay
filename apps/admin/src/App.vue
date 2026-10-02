@@ -36,6 +36,7 @@ const streamConfiguration = ref<StreamConfiguration>({ streamerDid: "", profile:
 const streamerQuery = ref("");
 const actorSuggestions = ref<ActorProfile[]>([]);
 const actorSearchOpen = ref(false);
+const copiedModuleId = ref<string | null>(null);
 const streamMessage = ref("");
 const pokemonMessage = ref("");
 const origin = computed(() => location.origin);
@@ -44,11 +45,23 @@ let actorSearchTimer: ReturnType<typeof setTimeout> | undefined;
 let pokemonSaveTimer: ReturnType<typeof setTimeout> | undefined;
 let saveQueue = Promise.resolve();
 let actorSearchSequence = 0;
+let copyResetTimer: ReturnType<typeof setTimeout> | undefined;
 
 function overlayUrl(module: ModuleStatus) {
   const url = new URL(module.overlayUrl, origin.value);
   if (streamConfiguration.value.streamerDid) url.searchParams.set("streamer", streamConfiguration.value.streamerDid);
   return url.toString();
+}
+
+async function copyOverlayUrl(module: ModuleStatus) {
+  try {
+    await navigator.clipboard.writeText(overlayUrl(module));
+    copiedModuleId.value = module.id;
+    if (copyResetTimer) clearTimeout(copyResetTimer);
+    copyResetTimer = setTimeout(() => { copiedModuleId.value = null; }, 1800);
+  } catch {
+    copiedModuleId.value = null;
+  }
 }
 
 async function load() {
@@ -160,6 +173,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   if (actorSearchTimer) clearTimeout(actorSearchTimer);
   if (pokemonSaveTimer) clearTimeout(pokemonSaveTimer);
+  if (copyResetTimer) clearTimeout(copyResetTimer);
 });
 </script>
 
@@ -250,7 +264,20 @@ onBeforeUnmount(() => {
               </label>
             </div>
           </div>
-          <code>{{ overlayUrl(module) }}</code>
+          <div class="overlay-url">
+            <code>{{ overlayUrl(module) }}</code>
+            <button
+              type="button"
+              class="copy-button"
+              :aria-label="`Copy ${module.name} OBS URL`"
+              @click="copyOverlayUrl(module)"
+            >
+              <span aria-hidden="true">{{ copiedModuleId === module.id ? "✓" : "⧉" }}</span>
+            </button>
+            <span class="copy-status" aria-live="polite">
+              {{ copiedModuleId === module.id ? "Copied" : "" }}
+            </span>
+          </div>
           <div class="module-preview">
             <iframe
               :src="overlayUrl(module)"
@@ -298,7 +325,11 @@ h3 { margin: 0 0 8px; font-size: 1.25rem; }
 .status { color: #9aa6c1; font-size: .8rem; text-transform: uppercase; letter-spacing: .1em; }
 .status[data-status="running"] { color: #70e7a1; }
 .status[data-status="failed"] { color: #ff7f91; }
-code { display: block; margin-top: 22px; padding: 12px; overflow: auto; border-radius: 9px; color: #a9bdf9; background: #090d16; }
+.overlay-url { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: stretch; margin-top: 22px; }
+code { display: block; min-width: 0; padding: 12px; overflow: auto; border-radius: 9px; color: #a9bdf9; background: #090d16; }
+.copy-button { width: 42px; border: 1px solid #36425d; border-radius: 9px; color: #c7d3ed; background: #111827; font: 700 1.15rem/1 system-ui; cursor: pointer; }
+.copy-button:hover, .copy-button:focus-visible { color: white; border-color: #7794e8; outline: none; background: #1a2540; }
+.copy-status { position: absolute; top: 100%; right: 0; padding-top: 4px; color: #70e7a1; font-size: .78rem; }
 .module-preview { position: relative; margin-top: 16px; overflow: hidden; aspect-ratio: 16 / 9; border: 1px solid #28334b; border-radius: 10px; background-color: #0b101c; background-image: linear-gradient(45deg, #141c2b 25%, transparent 25%), linear-gradient(-45deg, #141c2b 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #141c2b 75%), linear-gradient(-45deg, transparent 75%, #141c2b 75%); background-position: 0 0, 0 8px, 8px -8px, -8px 0; background-size: 16px 16px; }
 .module-preview iframe { width: 100%; height: 100%; border: 0; background: transparent; }
 .error { color: #ff7f91; }
