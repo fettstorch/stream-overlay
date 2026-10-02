@@ -121,6 +121,8 @@ const cards = computed(() => props.party.map((pokemon) => ({
 <style scoped>
 .pokemon-grid {
   display: grid;
+  box-sizing: border-box;
+  padding-inline: 10%;
   grid-template-columns: repeat(2, 1fr);
   column-gap: 16px;
   row-gap: 52px;
