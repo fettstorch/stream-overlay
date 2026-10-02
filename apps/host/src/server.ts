@@ -6,6 +6,7 @@ import { ModuleSupervisor } from "./module-supervisor.ts";
 import type { PokemonSnapshot } from "@stream-overlay/pokemon-model";
 import { MgbaFileProvider } from "../../../modules/pokemon-blue/src/mgba-file-provider.ts";
 import { getActorProfile, resolveStreamerIdentity, searchActors } from "./identity.ts";
+import { StreamChatService } from "@stream-overlay/stream-chat";
 
 const projectRoot = join(import.meta.dir, "../../..");
 const port = Number(process.env.PORT ?? 3001);
@@ -18,6 +19,14 @@ const defaults = {
 };
 const configStore = new ConfigStore(join(projectRoot, "runtime/config.json"), defaults);
 const supervisor = new ModuleSupervisor();
+const chatProfileCache = new Map<string, { expiresAt: number; profile: Promise<Awaited<ReturnType<typeof getActorProfile>>> }>();
+const chatService = new StreamChatService((did) => {
+  const cached = chatProfileCache.get(did);
+  if (cached && cached.expiresAt > Date.now()) return cached.profile;
+  const profile = getActorProfile(did);
+  chatProfileCache.set(did, { expiresAt: Date.now() + 5 * 60_000, profile });
+  return profile;
+});
 const pokemonRuntimeDirectory = join(projectRoot, "runtime/pokemon-blue");
 mkdirSync(pokemonRuntimeDirectory, { recursive: true });
 const pokemonProvider = new MgbaFileProvider(
@@ -52,6 +61,45 @@ async function streamConfigurationResponse() {
   } catch {
     return { ...stream, profile: null };
   }
+}
+
+function streamChatEvents(request: Request) {
+  let unsubscribe: (() => void) | undefined;
+  let heartbeat: ReturnType<typeof setInterval> | undefined;
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const encoder = new TextEncoder();
+      const close = () => {
+        unsubscribe?.();
+        unsubscribe = undefined;
+        if (heartbeat) clearInterval(heartbeat);
+        heartbeat = undefined;
+        try { controller.close(); } catch { /* Already closed by the browser. */ }
+      };
+      unsubscribe = chatService.messages.subscribe((message) => {
+        try {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(message)}\n\n`));
+        } catch {
+          close();
+        }
+      });
+      heartbeat = setInterval(() => {
+        try { controller.enqueue(encoder.encode(": keepalive\n\n")); } catch { close(); }
+      }, 15_000);
+      request.signal.addEventListener("abort", close, { once: true });
+    },
+    cancel() {
+      unsubscribe?.();
+      if (heartbeat) clearInterval(heartbeat);
+    },
+  });
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+    },
+  });
 }
 
 const transparentPage = new Response("<!doctype html><body style='margin:0;background:transparent'></body>", {
@@ -118,6 +166,7 @@ const server = Bun.serve({
         const configuration = configStore.read();
         configuration.stream = { streamerDid: profile.did };
         configStore.write(configuration);
+        chatService.setStreamerDid(profile.did);
         return Response.json({ ...configuration.stream, profile });
       },
     },
@@ -131,6 +180,7 @@ const server = Bun.serve({
         }, { status: 502 });
       }
     },
+    "/api/chat/events": (request) => streamChatEvents(request),
     "/api/pokemon-blue/snapshot": () => pokemonSnapshot
       ? Response.json(pokemonSnapshot, { headers: { "Cache-Control": "no-store" } })
       : Response.json({ error: "Pokémon data is unavailable" }, { status: 503 }),
@@ -175,12 +225,14 @@ const server = Bun.serve({
 for (const module of modules) {
   if (isEnabled(module.id)) supervisor.enable(module);
 }
+chatService.setStreamerDid(configStore.read().stream.streamerDid);
 await pokemonProvider.start((snapshot) => {
   pokemonSnapshot = snapshot;
 });
 
 const shutDown = () => {
   supervisor.stopAll(modules);
+  chatService.stop();
   void pokemonProvider.stop();
   void server.stop();
 };

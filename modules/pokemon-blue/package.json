@@ -12,6 +12,7 @@
     "@stream-overlay/sdk": "workspace:*",
     "@stream-overlay/pokemon-model": "workspace:*",
     "@stream-overlay/pokemon-ui": "workspace:*",
+    "@stream-overlay/stream-chat": "workspace:*",
     "vue": "^3.5.0"
   },
   "devDependencies": {

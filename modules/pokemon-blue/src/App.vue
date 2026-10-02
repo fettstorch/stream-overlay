@@ -3,7 +3,8 @@ import { onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { BadgeStrip, PokemonTeam, type BadgeDefinition, type PetAppearance } from "@stream-overlay/pokemon-ui";
 import type { PokemonSnapshot } from "@stream-overlay/pokemon-model";
 import { PokemonPetQueues, type PetAuthor } from "./pet-queue.ts";
-import type { PokemonBlueConfiguration, StreamConfiguration } from "./config.ts";
+import { observeStreamChat } from "@stream-overlay/stream-chat";
+import type { PokemonBlueConfiguration } from "./config.ts";
 import fallbackImage from "../../../assets/unknown-pokemon.svg";
 import petEffectImage from "../../../assets/pat-pat-pet-pet.gif";
 import heartsEffectImage from "../../../assets/hearts.gif";
@@ -20,11 +21,10 @@ const snapshot = ref<PokemonSnapshot>({ party: [], badges: null, capturedAt: "" 
 const configuration = ref<PokemonBlueConfiguration>({
   components: { team: true, badges: true },
 });
-const streamConfiguration = ref<StreamConfiguration>({ streamerDid: "" });
 const activePets = reactive<Record<string, PetAppearance>>({});
-const profileCache = new Map<string, Promise<PetAuthor>>();
 let refreshTimer: ReturnType<typeof setInterval> | undefined;
-let chatSocket: WebSocket | undefined;
+let closeChat: (() => void) | undefined;
+let unsubscribeChat: (() => void) | undefined;
 
 const images: Record<number, string> = {
   3: "https://media.giphy.com/media/EJOdcxm52IWNq/giphy.gif",
@@ -77,25 +77,12 @@ async function refreshSnapshot() {
 }
 
 async function refreshConfiguration() {
-  const [pokemonResult, streamResult] = await Promise.allSettled([
-    fetch("/api/pokemon-blue/config", { cache: "no-store" }).then(async (response) => {
-      if (!response.ok) return null;
-      return await response.json() as PokemonBlueConfiguration & { streamerDid?: string };
-    }),
-    fetch("/api/config", { cache: "no-store" }).then(async (response) => {
-      if (!response.ok) return null;
-      return await response.json() as StreamConfiguration;
-    }),
-  ]);
-
-  if (pokemonResult.status === "fulfilled" && pokemonResult.value?.components) {
-    configuration.value = { components: pokemonResult.value.components };
-    if (!streamConfiguration.value.streamerDid && pokemonResult.value.streamerDid) {
-      streamConfiguration.value = { streamerDid: pokemonResult.value.streamerDid };
-    }
-  }
-  if (streamResult.status === "fulfilled" && streamResult.value?.streamerDid !== undefined) {
-    streamConfiguration.value = streamResult.value;
+  try {
+    const response = await fetch("/api/pokemon-blue/config", { cache: "no-store" });
+    if (!response.ok) return;
+    configuration.value = await response.json() as PokemonBlueConfiguration;
+  } catch {
+    // Keep the last valid module configuration while the host is unavailable.
   }
 }
 
@@ -103,61 +90,15 @@ async function refreshOverlay() {
   await Promise.all([refreshSnapshot(), refreshConfiguration()]);
 }
 
-function getProfile(did: string) {
-  let profile = profileCache.get(did);
-  if (!profile) {
-    profile = fetch(`https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(did)}`)
-      .then(async (response) => {
-        if (!response.ok) throw new Error(`Profile request returned ${response.status}`);
-        const data = await response.json() as { avatar?: string };
-        return { did, avatar: data.avatar };
-      })
-      .catch(() => ({ did }));
-    profileCache.set(did, profile);
-  }
-  return profile;
-}
-
-const jetstreamHosts = [
-  "jetstream2.us-east.bsky.network",
-  "jetstream1.us-east.bsky.network",
-  "jetstream2.us-west.bsky.network",
-  "jetstream1.us-west.bsky.network",
-];
-
 function connectChat() {
-  const streamerDid = new URLSearchParams(location.search).get("streamer")
-    || streamConfiguration.value.streamerDid;
-  if (!streamerDid?.startsWith("did:")) return;
-  let hostIndex = 0;
-  let reconnectDelay = 1000;
-
-  const connect = () => {
-    const host = jetstreamHosts[hostIndex % jetstreamHosts.length];
-    const socket = new WebSocket(`wss://${host}/subscribe?wantedCollections=place.stream.chat.message`);
-    chatSocket = socket;
-    socket.addEventListener("open", () => { reconnectDelay = 1000; });
-    socket.addEventListener("message", (event) => {
-      try {
-        const message = JSON.parse(String(event.data));
-        const commit = message?.commit;
-        if (message?.kind !== "commit" || commit?.operation !== "create") return;
-        if (commit.collection !== "place.stream.chat.message") return;
-        if (commit.record?.streamer !== streamerDid || typeof commit.record?.text !== "string") return;
-        const match = commit.record.text.match(/^\s*!pet\s+(.+?)\s*$/i);
-        if (match && typeof message.did === "string") petQueues.enqueue(match[1], getProfile(message.did));
-      } catch {
-        // Ignore malformed or unrelated Jetstream events.
-      }
-    });
-    socket.addEventListener("close", () => {
-      if (chatSocket !== socket) return;
-      hostIndex++;
-      setTimeout(connect, reconnectDelay);
-      reconnectDelay = Math.min(reconnectDelay * 1.5, 15_000);
-    });
-  };
-  connect();
+  const chat = observeStreamChat();
+  closeChat = chat.close;
+  unsubscribeChat = chat.messages.subscribe((message) => {
+    const match = message.text.match(/^\s*!pet\s+(.+?)\s*$/i);
+    if (!match) return;
+    const author: PetAuthor = { did: message.author.did, avatar: message.author.avatar };
+    petQueues.enqueue(match[1], Promise.resolve(author));
+  });
 }
 
 onMounted(async () => {
@@ -168,7 +109,8 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   if (refreshTimer) clearInterval(refreshTimer);
-  chatSocket = undefined;
+  unsubscribeChat?.();
+  closeChat?.();
 });
 </script>
 
