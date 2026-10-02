@@ -21,6 +21,22 @@ function fixture(team: unknown, mask: number) {
 }
 
 describe("MgbaFileProvider", () => {
+  test("waits quietly while mGBA has not written its output yet", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "pokemon-provider-empty-"));
+    directories.push(directory);
+    const originalError = console.error;
+    const errors: unknown[][] = [];
+    console.error = (...args) => errors.push(args);
+    const provider = new MgbaFileProvider(join(directory, "team.json"), join(directory, "badges.json"), 10);
+    try {
+      await provider.start(() => {});
+      expect(errors).toEqual([]);
+    } finally {
+      await provider.stop();
+      console.error = originalError;
+    }
+  });
+
   test("converts mGBA output into a normalized Pokémon snapshot", async () => {
     const provider = fixture([{
       id: "1234-abcd",

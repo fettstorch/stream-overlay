@@ -62,6 +62,7 @@ export class MgbaFileProvider implements GameDataProvider<PokemonSnapshot> {
         this.lastSerializedSnapshot = serialized;
         publish(snapshot);
       } catch (error) {
+        if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return;
         console.error("Could not read Pokémon Blue mGBA output", error);
       }
     };
