@@ -4,6 +4,13 @@ import type { ModuleConfiguration } from "@stream-overlay/sdk";
 
 export interface HostConfiguration {
   modules: ModuleConfiguration[];
+  pokemonBlue: {
+    streamerDid: string;
+    components: {
+      team: boolean;
+      badges: boolean;
+    };
+  };
 }
 
 export class ConfigStore {
@@ -53,6 +60,20 @@ export class ConfigStore {
     ))) {
       throw new TypeError("Configuration modules are invalid");
     }
-    return { modules: modules as ModuleConfiguration[] };
+    const pokemonBlue = "pokemonBlue" in value
+      ? (value as HostConfiguration).pokemonBlue
+      : this.defaults.pokemonBlue;
+    if (
+      !pokemonBlue || typeof pokemonBlue !== "object"
+      || typeof pokemonBlue.streamerDid !== "string"
+      || !pokemonBlue.components || typeof pokemonBlue.components.team !== "boolean"
+      || typeof pokemonBlue.components.badges !== "boolean"
+    ) {
+      throw new TypeError("Pokémon Blue configuration is invalid");
+    }
+    return {
+      modules: modules as ModuleConfiguration[],
+      pokemonBlue: structuredClone(pokemonBlue),
+    };
   }
 }

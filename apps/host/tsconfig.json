@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "types": ["bun"],
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "../../modules/pokemon-blue/src/mgba-file-provider.ts",
+    "../../modules/pokemon-blue/src/module.ts",
+    "../../modules/streamplace-pets/src/module.ts",
+    "../../packages/overlay-sdk/src/**/*.ts",
+    "../../packages/pokemon-model/src/**/*.ts"
+  ]
+}

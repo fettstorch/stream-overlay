@@ -15,6 +15,10 @@ function createStore() {
   directories.push(directory);
   return new ConfigStore(join(directory, "config.json"), {
     modules: [{ id: "pokemon-blue", enabled: true }],
+    pokemonBlue: {
+      streamerDid: "",
+      components: { team: true, badges: true },
+    },
   });
 }
 
@@ -22,6 +26,10 @@ describe("ConfigStore", () => {
   test("returns defaults when no persisted configuration exists", () => {
     expect(createStore().read()).toEqual({
       modules: [{ id: "pokemon-blue", enabled: true }],
+      pokemonBlue: {
+        streamerDid: "",
+        components: { team: true, badges: true },
+      },
     });
   });
 
@@ -34,7 +42,13 @@ describe("ConfigStore", () => {
 
   test("rejects malformed persisted configuration", () => {
     const store = createStore();
-    store.write({ modules: [] });
-    expect(() => store.write({ modules: [{ id: "broken", enabled: "yes" as never }] })).toThrow();
+    store.write({
+      modules: [],
+      pokemonBlue: { streamerDid: "", components: { team: true, badges: true } },
+    });
+    expect(() => store.write({
+      modules: [{ id: "broken", enabled: "yes" as never }],
+      pokemonBlue: { streamerDid: "", components: { team: true, badges: true } },
+    })).toThrow();
   });
 });

@@ -3,6 +3,7 @@ import { onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { BadgeStrip, PokemonTeam, type BadgeDefinition, type PetAppearance } from "@stream-overlay/pokemon-ui";
 import type { PokemonSnapshot } from "@stream-overlay/pokemon-model";
 import { PokemonPetQueues, type PetAuthor } from "./pet-queue.ts";
+import type { PokemonBlueConfiguration } from "./config.ts";
 import fallbackImage from "../../../assets/unknown-pokemon.svg";
 import petEffectImage from "../../../assets/pat-pat-pet-pet.gif";
 import heartsEffectImage from "../../../assets/hearts.gif";
@@ -16,6 +17,10 @@ import volcanoBadge from "../../../assets/badges/volcano.png";
 import earthBadge from "../../../assets/badges/earth.png";
 
 const snapshot = ref<PokemonSnapshot>({ party: [], badges: null, capturedAt: "" });
+const configuration = ref<PokemonBlueConfiguration>({
+  streamerDid: "",
+  components: { team: true, badges: true },
+});
 const activePets = reactive<Record<string, PetAppearance>>({});
 const profileCache = new Map<string, Promise<PetAuthor>>();
 let refreshTimer: ReturnType<typeof setInterval> | undefined;
@@ -90,7 +95,8 @@ const jetstreamHosts = [
 ];
 
 function connectChat() {
-  const streamerDid = new URLSearchParams(location.search).get("streamer");
+  const streamerDid = new URLSearchParams(location.search).get("streamer")
+    || configuration.value.streamerDid;
   if (!streamerDid?.startsWith("did:")) return;
   let hostIndex = 0;
   let reconnectDelay = 1000;
@@ -124,6 +130,8 @@ function connectChat() {
 }
 
 onMounted(async () => {
+  const configResponse = await fetch("/api/pokemon-blue/config", { cache: "no-store" });
+  if (configResponse.ok) configuration.value = await configResponse.json() as PokemonBlueConfiguration;
   await refreshSnapshot();
   refreshTimer = setInterval(refreshSnapshot, 1000);
   connectChat();
@@ -137,12 +145,14 @@ onBeforeUnmount(() => {
 
 <template>
   <PokemonTeam
+    v-if="configuration.components.team"
     :party="snapshot.party"
     :images="images"
     :fallback-image="fallbackImage"
     :active-pets="activePets"
   />
   <BadgeStrip
+    v-if="configuration.components.badges"
     :badges="badges"
     :owned-badge-ids="snapshot.badges?.ownedBadgeIds ?? []"
   />

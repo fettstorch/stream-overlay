@@ -9,6 +9,10 @@ const projectRoot = join(import.meta.dir, "../../..");
 const port = Number(process.env.PORT ?? 3001);
 const defaults = {
   modules: modules.map(({ id }) => ({ id, enabled: true })),
+  pokemonBlue: {
+    streamerDid: "",
+    components: { team: true, badges: true },
+  },
 };
 const configStore = new ConfigStore(join(projectRoot, "runtime/config.json"), defaults);
 const supervisor = new ModuleSupervisor();
@@ -55,6 +59,14 @@ function proxyPokemonOverlay(request: Request, path = new URL(request.url).pathn
   return fetch(source, request);
 }
 
+function proxyAdmin(request: Request) {
+  const source = new URL(request.url);
+  source.protocol = "http:";
+  source.hostname = "localhost";
+  source.port = "3003";
+  return fetch(source, request);
+}
+
 const server = Bun.serve({
   port,
   development: true,
@@ -73,6 +85,24 @@ const server = Bun.serve({
     "/api/pokemon-blue/snapshot": () => pokemonSnapshot
       ? Response.json(pokemonSnapshot, { headers: { "Cache-Control": "no-store" } })
       : Response.json({ error: "Pokémon data is unavailable" }, { status: 503 }),
+    "/api/pokemon-blue/config": {
+      GET: () => Response.json(configStore.read().pokemonBlue),
+      PATCH: async (request) => {
+        const body = await request.json() as unknown;
+        if (
+          !body || typeof body !== "object"
+          || typeof (body as typeof defaults.pokemonBlue).streamerDid !== "string"
+          || typeof (body as typeof defaults.pokemonBlue).components?.team !== "boolean"
+          || typeof (body as typeof defaults.pokemonBlue).components?.badges !== "boolean"
+        ) {
+          return Response.json({ error: "Invalid Pokémon Blue configuration" }, { status: 400 });
+        }
+        const configuration = configStore.read();
+        configuration.pokemonBlue = body as typeof defaults.pokemonBlue;
+        configStore.write(configuration);
+        return Response.json(configuration.pokemonBlue);
+      },
+    },
     "/api/modules/:id": {
       PATCH: async (request) => {
         const module = findModule(request.params.id);
@@ -87,12 +117,8 @@ const server = Bun.serve({
         return Response.json(moduleResponse(module));
       },
     },
-    "/admin/": new Response(`<!doctype html>
-      <meta charset="utf-8">
-      <title>Stream Overlay Admin</title>
-      <body><h1>Stream Overlay Admin</h1><p>The Vue admin UI is coming in the next migration step.</p></body>`, {
-      headers: { "Content-Type": "text/html; charset=utf-8" },
-    }),
+    "/admin/": (request) => proxyAdmin(request),
+    "/admin/*": (request) => proxyAdmin(request),
   },
   fetch: (request) => proxyPokemonOverlay(request),
 });

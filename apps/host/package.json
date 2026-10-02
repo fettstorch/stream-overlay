@@ -2,8 +2,15 @@
   "name": "@stream-overlay/host",
   "private": true,
   "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
   "dependencies": {
     "@stream-overlay/pokemon-model": "workspace:*",
     "@stream-overlay/sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.0",
+    "typescript": "^5.9.0"
   }
 }
