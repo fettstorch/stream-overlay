@@ -1,0 +1,8 @@
+{
+  "name": "@stream-overlay/host",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@stream-overlay/sdk": "workspace:*"
+  }
+}

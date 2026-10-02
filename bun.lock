@@ -5,6 +5,25 @@
     "": {
       "name": "stream-overlay",
     },
+    "apps/host": {
+      "name": "@stream-overlay/host",
+      "dependencies": {
+        "@stream-overlay/sdk": "workspace:*",
+      },
+    },
+    "modules/pokemon-blue": {
+      "name": "@stream-overlay/pokemon-blue",
+      "dependencies": {
+        "@stream-overlay/pokemon-model": "workspace:*",
+        "@stream-overlay/sdk": "workspace:*",
+      },
+    },
+    "modules/streamplace-pets": {
+      "name": "@stream-overlay/streamplace-pets",
+      "dependencies": {
+        "@stream-overlay/sdk": "workspace:*",
+      },
+    },
     "packages/overlay-sdk": {
       "name": "@stream-overlay/sdk",
     },
@@ -13,8 +32,14 @@
     },
   },
   "packages": {
+    "@stream-overlay/host": ["@stream-overlay/host@workspace:apps/host"],
+
+    "@stream-overlay/pokemon-blue": ["@stream-overlay/pokemon-blue@workspace:modules/pokemon-blue"],
+
     "@stream-overlay/pokemon-model": ["@stream-overlay/pokemon-model@workspace:packages/pokemon-model"],
 
     "@stream-overlay/sdk": ["@stream-overlay/sdk@workspace:packages/overlay-sdk"],
+
+    "@stream-overlay/streamplace-pets": ["@stream-overlay/streamplace-pets@workspace:modules/streamplace-pets"],
   }
 }

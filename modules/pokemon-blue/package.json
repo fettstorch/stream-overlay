@@ -1,0 +1,9 @@
+{
+  "name": "@stream-overlay/pokemon-blue",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@stream-overlay/sdk": "workspace:*",
+    "@stream-overlay/pokemon-model": "workspace:*"
+  }
+}

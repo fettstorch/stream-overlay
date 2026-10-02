@@ -7,8 +7,10 @@
     "packages/*"
   ],
   "scripts": {
-    "overlay": "bun run --parallel overlay:main overlay:pets",
+    "overlay": "bun --hot apps/host/src/server.ts",
+    "overlay:legacy": "bun run --parallel overlay:main overlay:pets",
     "overlay:main": "bun --hot server.ts",
-    "overlay:pets": "bun --port 3000 streamplace-pets/pets.html"
+    "overlay:pets": "bun --port 3000 streamplace-pets/pets.html",
+    "test": "bun test"
   }
 }

@@ -24,6 +24,7 @@ export interface OverlayModule {
   process?: {
     command: string[];
     cwd: string;
+    env?: Record<string, string>;
   };
 }
 
