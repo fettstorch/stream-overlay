@@ -5,6 +5,7 @@ import App from "../src/App.vue";
 const moduleResponse = [{
   id: "pokemon-blue",
   name: "Pokémon Blue mGBA",
+  streamerQuery: false,
   description: "Shows the live Pokémon team.",
   requirements: ["Pokémon Blue must be running in mGBA."],
   chatCommands: [{ command: "!pet <Pokémon name>", description: "Pet an active team member." }],
@@ -180,8 +181,9 @@ describe("Admin App", () => {
     expect(wrapper.get(".chat-command").text()).toContain("Pet an active team member");
     expect(wrapper.get('button[aria-label="About Pokémon Blue mGBA"]')).toBeTruthy();
     expect(wrapper.get('input[aria-label="Enable Pokémon Blue mGBA"]').attributes("aria-describedby")).toBeUndefined();
-    expect(wrapper.get("code").text()).toContain("streamer=did%3Aplc%3Atest");
-    expect(wrapper.get("iframe").attributes("src")).toContain("/overlays/pokemon-blue/?streamer=did%3Aplc%3Atest");
+    expect(wrapper.get("code").text()).not.toContain("streamer=");
+    expect(wrapper.get("iframe").attributes("src")).toContain("/overlays/pokemon-blue/");
+    expect(wrapper.get("iframe").attributes("src")).not.toContain("streamer=");
   });
 
   test("enables and disables a module through the host API", async () => {
@@ -205,8 +207,9 @@ describe("Admin App", () => {
     await wrapper.get('button[aria-label="Copy Pokémon Blue mGBA OBS URL"]').trigger("click");
     await flushPromises();
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining(
-      "/overlays/pokemon-blue/?streamer=did%3Aplc%3Atest",
+      "/overlays/pokemon-blue/",
     ));
+    expect(writeText.mock.calls[0]![0]).not.toContain("streamer=");
     expect(wrapper.get('button[aria-label="Pokémon Blue mGBA OBS URL copied"]')).toBeTruthy();
   });
 

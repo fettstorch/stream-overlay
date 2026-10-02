@@ -6,6 +6,7 @@ import { chatModule } from "../../../modules/chat/src/module.ts";
 
 for (const module of [pokemonBlueModule, chatModule]) test(`${module.name} is served with all its built assets and no module process`, async () => {
   expect(module.process).toBeUndefined();
+  expect(module.streamerQuery).toBe(false);
   const serve = await buildStaticOverlay(join(import.meta.dir, "../../.."), module.id as "pokemon-blue" | "chat");
   const page = serve();
   expect(page.headers.get("Content-Type")).toContain("text/html");
