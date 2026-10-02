@@ -1,5 +1,7 @@
-import { Observable } from "@fettstorch/jule";
+import { cached, Observable } from "@fettstorch/jule";
 import type { StreamChatAuthor, StreamChatMessage } from "./model.ts";
+
+const authorProfileTtlMs = 2 * 60 * 60_000;
 
 const jetstreamHosts = [
   "jetstream2.us-east.bsky.network",
@@ -53,7 +55,7 @@ export class StreamChatService {
   private reconnectDelay = 1000;
 
   constructor(loadAuthor: (did: string) => Promise<StreamChatAuthor>) {
-    this.loadAuthor = loadAuthor;
+    this.loadAuthor = cached(loadAuthor, { ttlMs: authorProfileTtlMs });
   }
 
   setStreamerDid(streamerDid: string) {
