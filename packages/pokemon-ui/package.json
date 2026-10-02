@@ -1,17 +1,14 @@
 {
-  "name": "@stream-overlay/pokemon-blue",
+  "name": "@stream-overlay/pokemon-ui",
   "private": true,
   "type": "module",
+  "exports": "./src/index.ts",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "typecheck": "vue-tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --config vitest.config.ts",
+    "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "@stream-overlay/sdk": "workspace:*",
     "@stream-overlay/pokemon-model": "workspace:*",
-    "@stream-overlay/pokemon-ui": "workspace:*",
     "vue": "^3.5.0"
   },
   "devDependencies": {

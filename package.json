@@ -6,6 +6,9 @@
     "modules/*",
     "packages/*"
   ],
+  "devDependencies": {
+    "@types/bun": "^1.3.0"
+  },
   "scripts": {
     "overlay": "bun --hot apps/host/src/server.ts",
     "overlay:legacy": "bun run --parallel overlay:main overlay:pets",
