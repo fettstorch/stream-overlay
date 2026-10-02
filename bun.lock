@@ -1,0 +1,20 @@
+{
+  "lockfileVersion": 1,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "stream-overlay",
+    },
+    "packages/overlay-sdk": {
+      "name": "@stream-overlay/sdk",
+    },
+    "packages/pokemon-model": {
+      "name": "@stream-overlay/pokemon-model",
+    },
+  },
+  "packages": {
+    "@stream-overlay/pokemon-model": ["@stream-overlay/pokemon-model@workspace:packages/pokemon-model"],
+
+    "@stream-overlay/sdk": ["@stream-overlay/sdk@workspace:packages/overlay-sdk"],
+  }
+}

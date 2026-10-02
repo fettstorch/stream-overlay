@@ -1,6 +1,11 @@
 {
   "name": "stream-overlay",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "modules/*",
+    "packages/*"
+  ],
   "scripts": {
     "overlay": "bun run --parallel overlay:main overlay:pets",
     "overlay:main": "bun --hot server.ts",
