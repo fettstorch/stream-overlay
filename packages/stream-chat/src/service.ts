@@ -24,6 +24,20 @@ interface JetstreamEvent {
   commit?: JetstreamCommit;
 }
 
+function ignoredReason(value: unknown, streamerDid: string) {
+  if (!value || typeof value !== "object") return "not-an-object";
+  const event = value as JetstreamEvent;
+  const commit = event.commit;
+  if (event.kind !== "commit") return "not-a-commit";
+  if (commit?.operation !== "create") return "not-a-create";
+  if (commit.collection !== "place.stream.chat.message") return "wrong-collection";
+  if (!commit.record || typeof commit.record !== "object") return "missing-record";
+  if (commit.record.streamer !== streamerDid) return "different-streamer";
+  if (typeof commit.record.text !== "string") return "missing-text";
+  if (typeof event.did !== "string") return "missing-author-did";
+  return "unknown";
+}
+
 export function parseChatEvent(value: unknown, streamerDid: string): Omit<StreamChatMessage, "author"> & { authorDid: string } | null {
   if (!value || typeof value !== "object") return null;
   const event = value as JetstreamEvent;
@@ -96,6 +110,9 @@ export class StreamChatService {
       this.log("chat.jetstream-connected", { host, streamerDid });
     });
     socket.addEventListener("message", (event) => void this.receive(event.data, streamerDid));
+    socket.addEventListener("error", () => {
+      this.log("chat.jetstream-error", { host, streamerDid });
+    });
     socket.addEventListener("close", () => {
       if (this.socket !== socket || this.streamerDid !== streamerDid) return;
       this.socket = undefined;
@@ -107,22 +124,57 @@ export class StreamChatService {
   }
 
   private async receive(raw: unknown, streamerDid: string) {
+    const rawText = String(raw);
+    this.log("chat.jetstream-message-received", { streamerDid, bytes: rawText.length });
     try {
-      const parsed = parseChatEvent(JSON.parse(String(raw)), streamerDid);
-      if (!parsed || this.streamerDid !== streamerDid) return;
+      const value = JSON.parse(rawText) as unknown;
+      const event = value && typeof value === "object" ? value as JetstreamEvent : undefined;
+      this.log("chat.jetstream-event-decoded", {
+        kind: event?.kind,
+        authorDid: event?.did,
+        operation: event?.commit?.operation,
+        collection: event?.commit?.collection,
+        recordStreamer: event?.commit?.record?.streamer,
+        text: event?.commit?.record?.text,
+      });
+      const parsed = parseChatEvent(value, streamerDid);
+      if (!parsed) {
+        this.log("chat.message-filtered", { reason: ignoredReason(value, streamerDid) });
+        return;
+      }
+      if (this.streamerDid !== streamerDid) {
+        this.log("chat.message-filtered", { reason: "streamer-changed", id: parsed.id });
+        return;
+      }
       this.log("chat.message-matched", {
         id: parsed.id,
         authorDid: parsed.authorDid,
         streamerDid,
         text: parsed.text,
       });
-      const author = await this.loadAuthor(parsed.authorDid).catch(() => ({ did: parsed.authorDid }));
-      if (this.streamerDid !== streamerDid) return;
+      this.log("chat.author-loading", { authorDid: parsed.authorDid });
+      const author = await this.loadAuthor(parsed.authorDid).then((profile) => {
+        this.log("chat.author-loaded", { authorDid: parsed.authorDid, hasAvatar: Boolean(profile.avatar) });
+        return profile;
+      }).catch((error: unknown) => {
+        this.log("chat.author-load-failed", {
+          authorDid: parsed.authorDid,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return { did: parsed.authorDid };
+      });
+      if (this.streamerDid !== streamerDid) {
+        this.log("chat.message-filtered", { reason: "streamer-changed-after-profile", id: parsed.id });
+        return;
+      }
       const { authorDid: _, ...message } = parsed;
       this.messages.emit({ ...message, author });
       this.log("chat.message-emitted", { id: message.id, authorDid: author.did });
-    } catch {
-      // Ignore malformed Jetstream events and keep the service alive.
+    } catch (error) {
+      this.log("chat.jetstream-message-failed", {
+        error: error instanceof Error ? error.message : String(error),
+        preview: rawText.slice(0, 500),
+      });
     }
   }
 }
