@@ -14,7 +14,7 @@ export const pokemonBlueModule: OverlayModule = {
     entrypoint: join(import.meta.dir, "../../../overlay.html"),
   }],
   process: {
-    command: ["bun", "run", "dev", "--", "--host", "127.0.0.1", "--port", "3002"],
+    command: ["bun", "--no-orphans", "run", "dev", "--", "--host", "127.0.0.1", "--port", "3002"],
     cwd: join(import.meta.dir, ".."),
     env: { PORT: "3002" },
   },

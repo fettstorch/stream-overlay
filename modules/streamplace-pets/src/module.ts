@@ -15,8 +15,8 @@ export const streamplacePetsModule: OverlayModule = {
     entrypoint: join(projectRoot, "streamplace-pets/pets.html"),
   }],
   process: {
-    command: ["bun", "--port", "3000", "streamplace-pets/pets.html"],
-    cwd: projectRoot,
+    command: ["bun", "--no-orphans", "src/server.ts"],
+    cwd: join(import.meta.dir, ".."),
     env: { PORT: "3000" },
   },
 };

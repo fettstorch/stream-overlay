@@ -40,13 +40,6 @@ function moduleResponse(module: (typeof modules)[number]) {
   };
 }
 
-for (const module of modules) {
-  if (isEnabled(module.id)) supervisor.enable(module);
-}
-await pokemonProvider.start((snapshot) => {
-  pokemonSnapshot = snapshot;
-});
-
 const transparentPage = new Response("<!doctype html><body style='margin:0;background:transparent'></body>", {
   headers: { "Content-Type": "text/html; charset=utf-8" },
 });
@@ -70,6 +63,7 @@ function proxyAdmin(request: Request) {
 }
 
 const server = Bun.serve({
+  hostname: "127.0.0.1",
   port,
   development: true,
   routes: {
@@ -124,6 +118,13 @@ const server = Bun.serve({
     "/admin/*": (request) => proxyAdmin(request),
   },
   fetch: (request) => proxyPokemonOverlay(request),
+});
+
+for (const module of modules) {
+  if (isEnabled(module.id)) supervisor.enable(module);
+}
+await pokemonProvider.start((snapshot) => {
+  pokemonSnapshot = snapshot;
 });
 
 const shutDown = () => {
