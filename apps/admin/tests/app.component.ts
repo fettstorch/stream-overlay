@@ -106,13 +106,12 @@ describe("Admin App", () => {
     expect(wrapper.get('iframe[title="Chat live preview"]').attributes("src")).toContain("/overlays/chat/");
     wrapper.unmount();
   });
-  test("disabled modules collapse, can show details, and collapse again after switching off", async () => {
+  test("disabled modules start collapsed and toggles do not change the chosen expansion state", async () => {
     const fetchMock = mockFetch();
     fetchMock.mockResolvedValueOnce(Response.json([{ ...moduleResponse[0], enabled: false, status: "stopped" }]));
     const wrapper = mount(App);
     await flushPromises();
-    expect(wrapper.find(".module-body").exists()).toBe(false);
-    expect(wrapper.find("iframe").exists()).toBe(false);
+    expect(wrapper.get(".module-body").attributes("style")).toContain("display: none");
     await wrapper.get('button[aria-label="Show Pokémon Blue mGBA details"]').trigger("click");
     expect(wrapper.find(".module-body").exists()).toBe(true);
     expect(fetchMock.mock.calls.filter(([url]) => String(url).startsWith("/api/modules/")).length).toBe(0);
@@ -121,9 +120,30 @@ describe("Admin App", () => {
     expect(wrapper.find(".module-body").exists()).toBe(true);
     await wrapper.get('input[aria-label="Enable Pokémon Blue mGBA"]').setValue(false);
     await flushPromises();
-    expect(wrapper.find(".module-body").exists()).toBe(false);
-    expect(wrapper.get('button[aria-label="Show Pokémon Blue mGBA details"]').attributes("aria-expanded")).toBe("false");
+    expect(wrapper.get(".module-body").attributes("style") ?? "").not.toContain("display: none");
+    expect(wrapper.get('button[aria-label="Hide Pokémon Blue mGBA details"]').attributes("aria-expanded")).toBe("true");
     wrapper.unmount();
+  });
+
+  test("enabled modules can fold independently without host writes or reloading their preview", async () => {
+    const fetchMock = mockFetch();
+    const wrapper = mount(App);
+    try {
+      await flushPromises();
+      const preview = wrapper.get("iframe").element;
+      await wrapper.get('button[aria-label="Hide Pokémon Blue mGBA details"]').trigger("click");
+      expect(wrapper.get(".module-body").attributes("style")).toContain("display: none");
+      expect(wrapper.get('input[aria-label="Enable Pokémon Blue mGBA"]').element).toHaveProperty("checked", true);
+      expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PATCH")).toBe(false);
+      await wrapper.get('input[aria-label="Enable Pokémon Blue mGBA"]').setValue(false);
+      await flushPromises();
+      await wrapper.get('input[aria-label="Enable Pokémon Blue mGBA"]').setValue(true);
+      await flushPromises();
+      expect(wrapper.get(".module-body").attributes("style")).toContain("display: none");
+      await wrapper.get('button[aria-label="Show Pokémon Blue mGBA details"]').trigger("click");
+      expect(wrapper.get(".module-body").attributes("style") ?? "").not.toContain("display: none");
+      expect(wrapper.get("iframe").element).toBe(preview);
+    } finally { wrapper.unmount(); }
   });
 
   test("pins reorder modules and persist across admin reloads without host writes", async () => {

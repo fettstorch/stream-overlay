@@ -35,7 +35,7 @@ interface ActorProfile {
 
 const modules = ref<ModuleStatus[]>([]);
 const moduleQuery = ref("");
-const expandedDisabledModules = ref<string[]>([]);
+const expandedModules = ref<Record<string, boolean>>({});
 const pinStorageKey = "stream-overlay.admin.pinned-modules";
 const pinnedModuleIds = ref<string[]>(readPins());
 function readPins(): string[] {
@@ -51,11 +51,10 @@ function togglePin(id: string) {
   try { localStorage.setItem(pinStorageKey, JSON.stringify(pinnedModuleIds.value)); } catch { /* Keep working when browser storage is unavailable. */ }
 }
 function isExpanded(module: ModuleStatus) {
-  return module.enabled || expandedDisabledModules.value.includes(module.id);
+  return expandedModules.value[module.id] ?? false;
 }
-function toggleDetails(id: string) {
-  expandedDisabledModules.value = expandedDisabledModules.value.includes(id)
-    ? expandedDisabledModules.value.filter(candidate => candidate !== id) : [...expandedDisabledModules.value, id];
+function toggleDetails(module: ModuleStatus) {
+  expandedModules.value[module.id] = !isExpanded(module);
 }
 function matchesSearch(module: ModuleStatus) {
   const query = moduleQuery.value.trim().toLocaleLowerCase();
@@ -152,6 +151,10 @@ async function load() {
     fetch("/api/config", { cache: "no-store" }),
   ]);
   modules.value = await modulesResponse.json() as ModuleStatus[];
+  // Enabled cards start open, but their layout state is independent after loading.
+  for (const module of modules.value) {
+    if (!(module.id in expandedModules.value)) expandedModules.value[module.id] = module.enabled;
+  }
   if (modules.value.some(module => module.id === "chat")) {
     const response = await fetch("/api/chat/config", { cache: "no-store" });
     if (response.ok) {
@@ -176,7 +179,6 @@ async function toggle(module: ModuleStatus) {
     body: JSON.stringify({ enabled: !module.enabled }),
   });
   const updated = await response.json() as ModuleStatus;
-  if (!updated.enabled) expandedDisabledModules.value = expandedDisabledModules.value.filter(id => id !== updated.id);
   modules.value = modules.value.map((candidate) => candidate.id === updated.id ? updated : candidate);
 }
 
@@ -388,7 +390,7 @@ onBeforeUnmount(() => {
               <button type="button" class="module-icon-button pin-button" :aria-label="`${isPinned(module.id) ? 'Unpin' : 'Pin'} ${module.name}`" :aria-pressed="isPinned(module.id)" @click="togglePin(module.id)">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m16 3 5 5-4 1-4 5-1 4-3-3-6 6 6-6-3-3 4-1 5-4z" /></svg>
               </button>
-              <button v-if="!module.enabled" type="button" class="module-icon-button" :aria-label="`${isExpanded(module) ? 'Hide' : 'Show'} ${module.name} details`" :aria-expanded="isExpanded(module)" :aria-controls="`module-body-${module.id}`" @click="toggleDetails(module.id)">
+              <button type="button" class="module-icon-button" :aria-label="`${isExpanded(module) ? 'Hide' : 'Show'} ${module.name} details`" :aria-expanded="isExpanded(module)" :aria-controls="`module-body-${module.id}`" @click="toggleDetails(module)">
                 <svg viewBox="0 0 24 24" aria-hidden="true" :class="{ expanded: isExpanded(module) }"><path d="m6 9 6 6 6-6" /></svg>
               </button>
               <span class="module-help">
@@ -421,7 +423,7 @@ onBeforeUnmount(() => {
               </label>
             </div>
           </div>
-          <div v-if="isExpanded(module)" :id="`module-body-${module.id}`" class="module-body">
+          <div v-show="isExpanded(module)" :id="`module-body-${module.id}`" class="module-body">
           <div class="overlay-url">
             <code>{{ overlayUrl(module) }}</code>
             <button
