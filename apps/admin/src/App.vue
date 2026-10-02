@@ -8,6 +8,7 @@ interface ModuleStatus {
   requirements: string[];
   chatCommands: Array<{ command: string; description: string }>;
   preview?: { streamBackground?: boolean; interactive?: boolean };
+  streamerQuery?: boolean;
   enabled: boolean;
   status: "running" | "stopped" | "failed";
   overlayUrl: string;
@@ -42,6 +43,9 @@ const copiedModuleId = ref<string | null>(null);
 const streamMessage = ref("");
 const pokemonMessage = ref("");
 const drawingEnabled = ref(true);
+const streamDimensions = ref<{ width: number; height: number } | null>(null);
+let dimensionsSequence = 0;
+let dimensionsTimer: ReturnType<typeof setInterval> | undefined;
 const streamEmbedUrl = computed(() => {
   const handle = streamConfiguration.value.profile?.handle;
   return handle ? `https://stream.place/embed/${encodeURIComponent(handle)}` : "";
@@ -56,7 +60,9 @@ let copyResetTimer: ReturnType<typeof setTimeout> | undefined;
 
 function overlayUrl(module: ModuleStatus) {
   const url = new URL(module.overlayUrl, origin.value);
-  if (streamConfiguration.value.streamerDid) url.searchParams.set("streamer", streamConfiguration.value.streamerDid);
+  if (module.streamerQuery !== false && streamConfiguration.value.streamerDid) {
+    url.searchParams.set("streamer", streamConfiguration.value.streamerDid);
+  }
   return url.toString();
 }
 
@@ -65,6 +71,31 @@ function previewUrl(module: ModuleStatus) {
   if (module.preview?.interactive) url.searchParams.set("interactive", "1");
   return url.toString();
 }
+
+async function refreshStreamDimensions() {
+  const sequence = ++dimensionsSequence;
+  const did = streamConfiguration.value.streamerDid;
+  if (!did || !modules.value.some(module => module.preview?.streamBackground)) {
+    streamDimensions.value = null;
+    return;
+  }
+  try {
+    const response = await fetch("/api/stream/dimensions", { cache: "no-store" });
+    if (!response.ok) throw new Error("Dimensions unavailable");
+    const result = await response.json() as { streamerDid: string; dimensions: { width: number; height: number } | null };
+    if (sequence !== dimensionsSequence || did !== streamConfiguration.value.streamerDid) return;
+    const dimensions = result.streamerDid === did ? result.dimensions : null;
+    streamDimensions.value = dimensions && Number.isSafeInteger(dimensions.width) && dimensions.width > 0
+      && Number.isSafeInteger(dimensions.height) && dimensions.height > 0 ? dimensions : null;
+  } catch {
+    if (sequence === dimensionsSequence) streamDimensions.value = null;
+  }
+}
+
+watch(() => streamConfiguration.value.streamerDid, () => {
+  streamDimensions.value = null;
+  void refreshStreamDimensions();
+});
 
 async function copyOverlayUrl(module: ModuleStatus) {
   try {
@@ -181,9 +212,13 @@ watch(configuration, () => {
 onMounted(async () => {
   await load();
   loaded = true;
+  // Only metadata is refreshed, not the video or canvas iframe.
+  dimensionsTimer = setInterval(() => void refreshStreamDimensions(), 30_000);
 });
 
 onBeforeUnmount(() => {
+  dimensionsSequence++;
+  if (dimensionsTimer) clearInterval(dimensionsTimer);
   if (actorSearchTimer) clearTimeout(actorSearchTimer);
   if (pokemonSaveTimer) clearTimeout(pokemonSaveTimer);
   if (copyResetTimer) clearTimeout(copyResetTimer);
@@ -301,7 +336,11 @@ onBeforeUnmount(() => {
               <span>{{ chatCommand.description }}</span>
             </div>
           </section>
-          <div class="module-preview">
+          <div
+            class="module-preview"
+            :style="module.preview?.streamBackground && streamDimensions
+              ? { aspectRatio: `${streamDimensions.width} / ${streamDimensions.height}` } : undefined"
+          >
             <iframe
               v-if="module.preview?.streamBackground && streamEmbedUrl"
               class="stream-background"
@@ -320,6 +359,8 @@ onBeforeUnmount(() => {
           <div v-if="module.preview?.interactive" class="paint-instructions">
             <label><input v-model="drawingEnabled" type="checkbox"> Draw in preview</label>
             <p>Mouse, pen or touch. The drawing fades after four seconds without input.</p>
+            <p v-if="streamDimensions">Stream: {{ streamDimensions.width }} × {{ streamDimensions.height }}. Use these dimensions in OBS too.</p>
+            <p v-else>Video dimensions unavailable; preview uses 16:9 for now.</p>
             <p v-if="!drawingEnabled">You can now use the stream player controls.</p>
             <p v-if="!streamEmbedUrl">Select your streamer account above to see your stream behind the canvas.</p>
           </div>

@@ -10,6 +10,7 @@ import { getActorProfile, resolveStreamerIdentity, searchActors } from "./identi
 import { StreamChatService } from "@stream-overlay/stream-chat";
 import { FileLogger } from "./logger.ts";
 import { PaintService, parseSegments } from "../../../modules/overlay-paint/src/service.ts";
+import { getStreamDimensions } from "./stream-dimensions.ts";
 
 const projectRoot = join(import.meta.dir, "../../..");
 const port = Number(process.env.PORT ?? 3001);
@@ -55,6 +56,7 @@ function moduleResponse(module: (typeof modules)[number]) {
     requirements: module.requirements ?? [],
     chatCommands: module.chatCommands ?? [],
     preview: module.preview,
+    streamerQuery: module.streamerQuery ?? true,
     enabled: isEnabled(module.id),
     status: runtime.status,
     overlayUrl: module.routes[0]?.path ?? "",
@@ -180,6 +182,18 @@ const server = Bun.serve({
       return Response.redirect(`http://localhost:3000/pets.html${query}`, 302);
     },
     "/api/modules": () => Response.json(modules.map(moduleResponse)),
+    "/api/stream/dimensions": async () => {
+      const streamerDid = configStore.read().stream.streamerDid;
+      try {
+        const dimensions = await getStreamDimensions(streamerDid);
+        return Response.json({ streamerDid, dimensions }, { headers: { "Cache-Control": "no-store" } });
+      } catch (error) {
+        logger.log("stream.dimensions-unavailable", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return Response.json({ streamerDid, dimensions: null }, { headers: { "Cache-Control": "no-store" } });
+      }
+    },
     "/api/config": {
       GET: async () => Response.json(await streamConfigurationResponse()),
       PATCH: async (request) => {

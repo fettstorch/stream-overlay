@@ -148,8 +148,10 @@ describe("Admin App", () => {
       if (url === "/api/modules") return Response.json([{
         ...moduleResponse[0], id: "overlay-paint", name: "Overlay Paint",
         overlayUrl: "/overlays/overlay-paint/", preview: { streamBackground: true, interactive: true },
+        streamerQuery: false,
       }]);
       if (url === "/api/config") return Response.json(streamConfigResponse);
+      if (url === "/api/stream/dimensions") return Response.json({ streamerDid: "did:plc:test", dimensions: { width: 1080, height: 1920 } });
       return Response.json(configResponse);
     });
     const wrapper = mount(App);
@@ -157,8 +159,12 @@ describe("Admin App", () => {
     expect(wrapper.get(".stream-background").attributes("src")).toBe("https://stream.place/embed/streamer.bsky.social");
     expect(wrapper.get(".paint-foreground").attributes("src")).toContain("interactive=1");
     expect(wrapper.get(".overlay-url code").text()).not.toContain("interactive");
+    expect(wrapper.get(".overlay-url code").text()).not.toContain("streamer");
+    expect(wrapper.get(".module-preview").attributes("style")).toContain("1080 / 1920");
+    expect(wrapper.text()).toContain("1080 × 1920");
     await wrapper.get('.paint-instructions input').setValue(false);
     expect(wrapper.get(".paint-foreground").classes()).toContain("player-interaction");
     expect(wrapper.text()).toContain("stream player controls");
+    wrapper.unmount();
   });
 });

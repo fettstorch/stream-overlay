@@ -63,7 +63,10 @@ All open Paint overlays share one temporary drawing. Input postpones the entire
 drawing's fade via Jules debounce: four seconds after the last input, it fades
 over one second. Turning the module off clears connected canvases immediately;
 turning it on starts empty. Nothing is saved to disk. Coordinates and brush size
-are relative to the canvas, so use the same aspect ratio in OBS and the preview.
+are relative to the canvas. The preview uses your stream's video dimensions
+from Stream.place segment metadata and displays them for OBS setup. If metadata
+is unavailable, it falls back to 16:9. Only metadata is refreshed every 30 seconds;
+the video and paint iframes are not reloaded. The copied Paint URL needs no DID.
 
 The host serves this module itself, using SSE for live drawing updates. It adds
 no ports or extra processes, and starts with the same `bun run overlay` command.
