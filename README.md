@@ -55,13 +55,14 @@ only a transparent canvas, never the background player.
 
 Select your streamer account in the admin, then draw in Overlay Paint's preview
 using a mouse, pen, or touch. The official Stream.place embed sits behind the
-canvas as a visual reference. Uncheck **Draw in preview** temporarily to start,
-mute, or otherwise interact with the player. Its live-video delay also applies
+canvas as a visual reference. Its live-video delay also applies
 to this reference; the drawing itself is sent directly through the local host.
 
 All open Paint overlays share one temporary drawing. Input postpones the entire
-drawing's fade via Jules debounce: four seconds after the last input, it fades
-over one second. Turning the module off clears connected canvases immediately;
+drawing's fade via Jules debounce: after the configured delay (four seconds by
+default), it fades over one second. Choose the brush color and fade delay in
+the module's settings; both save automatically across host restarts. Existing
+marks keep their original colors. Turning the module off clears canvases immediately;
 turning it on starts empty. Nothing is saved to disk. Coordinates and brush size
 are relative to the canvas. The preview uses your stream's video dimensions
 from Stream.place segment metadata and displays them for OBS setup. If metadata

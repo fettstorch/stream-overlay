@@ -1,9 +1,30 @@
 import { describe, expect, test } from "bun:test";
 import { PaintService, parseSegments, type PaintEvent } from "../src/service.ts";
+import { parsePaintConfiguration } from "../src/config.ts";
 
 const segment = { x: 0.5, y: 0.4, fromX: 0.3, fromY: 0.2 };
 
 describe("Overlay Paint", () => {
+  test("validates color and fade delay settings", () => {
+    expect(parsePaintConfiguration({ color: "#ABCDEF", decaySeconds: 8 })).toEqual({ color: "#abcdef", decaySeconds: 8 });
+    for (const value of [null, {}, { color: "pink", decaySeconds: 4 },
+      { color: "#123456", decaySeconds: 0 }, { color: "#123456", decaySeconds: Infinity },
+      { color: "#123456", decaySeconds: 61 }]) expect(parsePaintConfiguration(value)).toBeNull();
+  });
+
+  test("keeps previous colors and applies the configured fade delay", () => {
+    const service = new PaintService();
+    try {
+      service.setEnabled(true);
+      service.configure({ color: "#123456", decaySeconds: 8 });
+      service.append([segment]);
+      expect(service.snapshot().fadeAt! - Date.now()).toBeGreaterThan(7900);
+      service.configure({ color: "#abcdef", decaySeconds: 2 });
+      service.append([segment]);
+      expect(service.snapshot().segments.map(segment => segment.color)).toEqual(["#123456", "#abcdef"]);
+      expect(service.snapshot().fadeAt! - Date.now()).toBeGreaterThan(1900);
+    } finally { service.stop(); }
+  });
   test("validates bounded normalized drawing input", () => {
     expect(parseSegments([segment])).toEqual([segment]);
     expect(parseSegments([{ ...segment, x: NaN }])).toBeNull();

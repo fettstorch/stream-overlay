@@ -40,6 +40,16 @@ describe("ConfigStore", () => {
     expect(JSON.parse(readFileSync(store.path, "utf8"))).toEqual(store.read());
   });
 
+  test("persists Paint settings and rejects invalid colors or delays", () => {
+    const store = createStore();
+    const configuration = store.read();
+    configuration.overlayPaint = { color: "#123456", decaySeconds: 8 };
+    store.write(configuration);
+    expect(store.read().overlayPaint).toEqual(configuration.overlayPaint);
+    expect(() => store.write({ ...configuration, overlayPaint: { color: "invalid", decaySeconds: 8 } })).toThrow();
+    expect(() => store.write({ ...configuration, overlayPaint: { color: "#123456", decaySeconds: -1 } })).toThrow();
+  });
+
   test("migrates the legacy Pokémon streamer DID into global stream settings", () => {
     const store = createStore();
     writeFileSync(store.path, JSON.stringify({

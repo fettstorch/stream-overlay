@@ -142,6 +142,7 @@ describe("Admin App", () => {
   });
 
   test("layers the interactive paint preview over the stream without changing the OBS URL", async () => {
+    vi.useFakeTimers();
     const fetchMock = mockFetch();
     fetchMock.mockImplementation(async input => {
       const url = String(input);
@@ -151,6 +152,7 @@ describe("Admin App", () => {
         streamerQuery: false,
       }]);
       if (url === "/api/config") return Response.json(streamConfigResponse);
+      if (url === "/api/overlay-paint/config") return Response.json({ color: "#ff5cbe", decaySeconds: 4 });
       if (url === "/api/stream/dimensions") return Response.json({ streamerDid: "did:plc:test", dimensions: { width: 1080, height: 1920 } });
       return Response.json(configResponse);
     });
@@ -161,10 +163,17 @@ describe("Admin App", () => {
     expect(wrapper.get(".overlay-url code").text()).not.toContain("interactive");
     expect(wrapper.get(".overlay-url code").text()).not.toContain("streamer");
     expect(wrapper.get(".module-preview").attributes("style")).toContain("1080 / 1920");
-    expect(wrapper.text()).toContain("1080 × 1920");
-    await wrapper.get('.paint-instructions input').setValue(false);
-    expect(wrapper.get(".paint-foreground").classes()).toContain("player-interaction");
-    expect(wrapper.text()).toContain("stream player controls");
+    expect(wrapper.get(".obs-dimensions code").text()).toContain("Width: 1080 px");
+    expect(wrapper.get(".obs-dimensions code").text()).toContain("Height: 1920 px");
+    expect(wrapper.text()).not.toContain("Draw in preview");
+    await wrapper.get('input[aria-label="Paint brush color"]').setValue("#123456");
+    await wrapper.get('input[aria-label="Paint fade delay in seconds"]').setValue("8");
+    await vi.advanceTimersByTimeAsync(300);
+    await flushPromises();
+    expect(fetchMock).toHaveBeenCalledWith("/api/overlay-paint/config", expect.objectContaining({
+      method: "PATCH", body: JSON.stringify({ color: "#123456", decaySeconds: 8 }),
+    }));
+    expect(wrapper.text()).toContain("Saved");
     wrapper.unmount();
   });
 });

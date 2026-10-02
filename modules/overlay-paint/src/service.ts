@@ -1,10 +1,12 @@
 import { getDebouncer } from "@fettstorch/jule";
+import type { PaintConfiguration } from "./config.ts";
 
 export interface PaintSegment {
   x: number;
   y: number;
   fromX: number;
   fromY: number;
+  color?: string;
 }
 
 export interface PaintState {
@@ -36,11 +38,24 @@ export class PaintService {
   private segments: PaintSegment[] = [];
   private fadeAt: number | null = null;
   private enabled = false;
+  private color: string | undefined;
   private readonly idle = getDebouncer();
   private readonly cleanup = getDebouncer();
   private readonly listeners = new Set<(event: PaintEvent) => void>();
 
-  constructor(private readonly idleDuration = 4000, private readonly fadeDuration = 1000) {}
+  constructor(private idleDuration = 4000, private readonly fadeDuration = 1000) {}
+
+  configure(configuration: PaintConfiguration) {
+    const lastInput = this.fadeAt === null ? null : this.fadeAt - this.idleDuration;
+    this.color = configuration.color;
+    this.idleDuration = configuration.decaySeconds * 1000;
+    if (lastInput !== null && this.segments.length) {
+      this.cleanup.clear();
+      this.fadeAt = lastInput + this.idleDuration;
+      this.emit({ type: "state", state: this.snapshot() });
+      this.scheduleDecay(Math.max(0, this.fadeAt - Date.now()));
+    }
+  }
 
   snapshot(): PaintState {
     return { enabled: this.enabled, segments: [...this.segments], fadeAt: this.fadeAt, fadeDuration: this.fadeDuration };
@@ -57,6 +72,8 @@ export class PaintService {
 
   append(segments: PaintSegment[]) {
     if (!this.enabled) return false;
+    // Preserve previous brush colors; a setting change affects new input only.
+    if (this.color) segments = segments.map(segment => ({ ...segment, color: this.color }));
     this.cleanup.clear();
     this.segments.push(...segments);
     this.fadeAt = Date.now() + this.idleDuration;
@@ -66,6 +83,11 @@ export class PaintService {
     } else {
       this.emit({ type: "segments", segments, fadeAt: this.fadeAt });
     }
+    this.scheduleDecay(this.idleDuration);
+    return true;
+  }
+
+  private scheduleDecay(delay: number) {
     // Each new input postpones decay for the entire drawing, not one pixel.
     this.idle.debounce(() => {
       this.emit({ type: "fade", fadeAt: this.fadeAt! });
@@ -74,8 +96,7 @@ export class PaintService {
         this.fadeAt = null;
         this.emit({ type: "clear" });
       }, this.fadeDuration);
-    }, this.idleDuration);
-    return true;
+    }, delay);
   }
 
   subscribe(listener: (event: PaintEvent) => void) {

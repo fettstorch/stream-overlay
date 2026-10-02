@@ -55,14 +55,15 @@ function render() {
     context.clearRect(0, 0, canvas.width, canvas.height);
     if (state.enabled) {
       const radius = Math.min(canvas.width, canvas.height) * 0.015;
-      context.strokeStyle = "#ff5cbe";
-      context.fillStyle = "#ff5cbe";
       context.lineWidth = radius * 2;
       context.lineCap = "round";
       context.lineJoin = "round";
-      context.shadowColor = "#ff5cbe";
       context.shadowBlur = radius * 0.6;
       for (const segment of state.segments) {
+        const color = segment.color ?? "#ff5cbe";
+        context.strokeStyle = color;
+        context.fillStyle = color;
+        context.shadowColor = color;
         context.beginPath();
         if (segment.fromX === segment.x && segment.fromY === segment.y) {
           context.arc(segment.x * canvas.width, segment.y * canvas.height, radius, 0, Math.PI * 2);

@@ -42,7 +42,10 @@ const actorSearchOpen = ref(false);
 const copiedModuleId = ref<string | null>(null);
 const streamMessage = ref("");
 const pokemonMessage = ref("");
-const drawingEnabled = ref(true);
+const paintConfiguration = ref({ color: "#ff5cbe", decaySeconds: 4 });
+const paintMessage = ref("");
+let paintSaveTimer: ReturnType<typeof setTimeout> | undefined;
+const obsDimensions = computed(() => streamDimensions.value ?? { width: 1920, height: 1080 });
 const streamDimensions = ref<{ width: number; height: number } | null>(null);
 let dimensionsSequence = 0;
 let dimensionsTimer: ReturnType<typeof setInterval> | undefined;
@@ -115,6 +118,10 @@ async function load() {
     fetch("/api/config", { cache: "no-store" }),
   ]);
   modules.value = await modulesResponse.json() as ModuleStatus[];
+  if (modules.value.some(module => module.id === "overlay-paint")) {
+    const response = await fetch("/api/overlay-paint/config", { cache: "no-store" });
+    if (response.ok) paintConfiguration.value = await response.json();
+  }
   configuration.value = await configResponse.json() as PokemonBlueConfiguration;
   streamConfiguration.value = await streamConfigResponse.json() as StreamConfiguration;
   streamerQuery.value = streamConfiguration.value.profile?.handle || streamConfiguration.value.streamerDid;
@@ -143,6 +150,29 @@ async function savePokemonConfiguration() {
     pokemonMessage.value = "Could not save configuration";
   }
 }
+
+async function savePaintConfiguration(configuration: { color: string; decaySeconds: number }) {
+  paintMessage.value = "Saving…";
+  try {
+    const response = await fetch("/api/overlay-paint/config", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(configuration),
+    });
+    paintMessage.value = response.ok ? "Saved" : "Could not save Paint settings";
+  } catch { paintMessage.value = "Could not save Paint settings"; }
+}
+
+watch(paintConfiguration, value => {
+  if (!loaded) return;
+  if (paintSaveTimer) clearTimeout(paintSaveTimer);
+  if (!Number.isFinite(value.decaySeconds) || value.decaySeconds < 0.1 || value.decaySeconds > 60) {
+    paintMessage.value = "Enter a delay from 0.1 to 60 seconds";
+    return;
+  }
+  const configuration = { ...value };
+  paintMessage.value = "Saving…";
+  paintSaveTimer = setTimeout(() => enqueueSave(() => savePaintConfiguration(configuration)), 250);
+}, { deep: true });
 
 async function selectStreamer(identity: string) {
   streamMessage.value = "Loading profile…";
@@ -217,6 +247,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  if (paintSaveTimer) clearTimeout(paintSaveTimer);
   dimensionsSequence++;
   if (dimensionsTimer) clearInterval(dimensionsTimer);
   if (actorSearchTimer) clearTimeout(actorSearchTimer);
@@ -336,6 +367,14 @@ onBeforeUnmount(() => {
               <span>{{ chatCommand.description }}</span>
             </div>
           </section>
+          <section v-if="module.preview?.streamBackground" class="module-commands obs-dimensions">
+            <h4>OBS Browser Source size</h4>
+            <div class="chat-command">
+              <code>Width: {{ obsDimensions.width }} px<br>Height: {{ obsDimensions.height }} px</code>
+              <span v-if="streamDimensions">Matches your stream's video aspect ratio. Place this source above your video.</span>
+              <span v-else>16:9 fallback — stream dimensions are not available yet.</span>
+            </div>
+          </section>
           <div
             class="module-preview"
             :style="module.preview?.streamBackground && streamDimensions
@@ -351,18 +390,20 @@ onBeforeUnmount(() => {
             />
             <iframe
               :src="previewUrl(module)"
-              :class="{ 'paint-foreground': module.preview?.interactive, 'player-interaction': module.preview?.interactive && !drawingEnabled }"
+              :class="{ 'paint-foreground': module.preview?.interactive }"
               :title="`${module.name} live preview`"
               loading="lazy"
             />
           </div>
           <div v-if="module.preview?.interactive" class="paint-instructions">
-            <label><input v-model="drawingEnabled" type="checkbox"> Draw in preview</label>
-            <p>Mouse, pen or touch. The drawing fades after four seconds without input.</p>
-            <p v-if="streamDimensions">Stream: {{ streamDimensions.width }} × {{ streamDimensions.height }}. Use these dimensions in OBS too.</p>
-            <p v-else>Video dimensions unavailable; preview uses 16:9 for now.</p>
-            <p v-if="!drawingEnabled">You can now use the stream player controls.</p>
+            <p>Draw using a mouse, pen or touch. New input postpones fading for the whole drawing.</p>
             <p v-if="!streamEmbedUrl">Select your streamer account above to see your stream behind the canvas.</p>
+          </div>
+          <div v-if="module.id === 'overlay-paint'" class="module-settings paint-settings">
+            <h4>Brush settings</h4>
+            <label>Color <input v-model="paintConfiguration.color" type="color" aria-label="Paint brush color"></label>
+            <label>Fade delay (seconds) <input v-model.number="paintConfiguration.decaySeconds" type="number" min="0.1" max="60" step="0.1" aria-label="Paint fade delay in seconds"></label>
+            <span class="module-message" aria-live="polite">{{ paintMessage }}</span>
           </div>
           <p v-if="module.error" class="error">{{ module.error }}</p>
           <div v-if="module.id === 'pokemon-blue'" class="module-settings">
@@ -421,10 +462,14 @@ code { display: block; min-width: 0; padding: 12px 52px 12px 12px; overflow: aut
 .module-preview iframe { width: 100%; height: 100%; border: 0; background: transparent; }
 .module-preview .stream-background, .module-preview .paint-foreground { position: absolute; inset: 0; }
 .module-preview .paint-foreground { z-index: 1; }
-.module-preview .player-interaction { pointer-events: none; }
 .paint-instructions { margin-top: 14px; color: #9aa6c1; font-size: .85rem; }
 .paint-instructions label { display: flex; align-items: center; gap: 8px; color: #b9c3da; }
 .paint-instructions p { margin: 8px 0 0; }
+.paint-settings { grid-template-columns: 1fr 1fr; }
+.paint-settings label { display: grid; align-content: start; }
+.paint-settings input[type="color"] { width: 44px; height: 32px; padding: 2px; border: 1px solid #36425d; border-radius: 7px; background: #0b101c; cursor: pointer; }
+.paint-settings input[type="number"] { width: 100%; max-width: 120px; padding: 7px 9px; border: 1px solid #36425d; border-radius: 7px; color: white; background: #0b101c; font: inherit; }
+.paint-settings .module-message { grid-column: 1 / -1; }
 .error { color: #ff7f91; }
 .switch input { position: absolute; opacity: 0; }
 .switch span { display: block; width: 48px; height: 28px; padding: 3px; border-radius: 99px; background: #3a4356; cursor: pointer; transition: background .2s; }

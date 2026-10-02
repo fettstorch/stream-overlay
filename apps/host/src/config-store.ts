@@ -1,8 +1,10 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type { ModuleConfiguration } from "@stream-overlay/sdk";
+import { parsePaintConfiguration, type PaintConfiguration } from "../../../modules/overlay-paint/src/config.ts";
 
 export interface HostConfiguration {
+  overlayPaint?: PaintConfiguration;
   modules: ModuleConfiguration[];
   stream: {
     streamerDid: string;
@@ -79,7 +81,10 @@ export class ConfigStore {
     if (!stream || typeof stream !== "object" || typeof stream.streamerDid !== "string") {
       throw new TypeError("Stream configuration is invalid");
     }
+    const overlayPaint = "overlayPaint" in value ? parsePaintConfiguration(value.overlayPaint) : undefined;
+    if (overlayPaint === null) throw new TypeError("Overlay Paint configuration is invalid");
     return {
+      ...(overlayPaint ? { overlayPaint } : {}),
       modules: modules as ModuleConfiguration[],
       stream: structuredClone(stream),
       pokemonBlue: { components: structuredClone(pokemonBlue.components) },

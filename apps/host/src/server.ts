@@ -11,6 +11,7 @@ import { StreamChatService } from "@stream-overlay/stream-chat";
 import { FileLogger } from "./logger.ts";
 import { PaintService, parseSegments } from "../../../modules/overlay-paint/src/service.ts";
 import { getStreamDimensions } from "./stream-dimensions.ts";
+import { defaultPaintConfiguration, parsePaintConfiguration } from "../../../modules/overlay-paint/src/config.ts";
 
 const projectRoot = join(import.meta.dir, "../../..");
 const port = Number(process.env.PORT ?? 3001);
@@ -26,6 +27,7 @@ const logger = new FileLogger(join(tmpdir(), "stream-overlay", "overlay.log"));
 const supervisor = new ModuleSupervisor((event, details) => logger.log(event, details));
 const chatService = new StreamChatService(getActorProfile, (event, details) => logger.log(event, details));
 const paintService = new PaintService();
+paintService.configure(configStore.read().overlayPaint ?? defaultPaintConfiguration);
 // Bundle the canvas client in memory: no extra development server or port.
 const paintBundle = await Bun.build({
   entrypoints: [join(projectRoot, "modules/overlay-paint/src/client.ts")],
@@ -172,6 +174,22 @@ const server = Bun.serve({
         if (!segments) return Response.json({ error: "Invalid paint input" }, { status: 400 });
         paintService.append(segments);
         return new Response(null, { status: 204 });
+      },
+    },
+    "/api/overlay-paint/config": {
+      GET: () => Response.json(configStore.read().overlayPaint ?? defaultPaintConfiguration),
+      PATCH: async request => {
+        let body: unknown;
+        try { body = await request.json(); } catch {
+          return Response.json({ error: "Invalid Paint configuration" }, { status: 400 });
+        }
+        const paint = parsePaintConfiguration(body);
+        if (!paint) return Response.json({ error: "Choose a color and a delay from 0.1 to 60 seconds" }, { status: 400 });
+        const configuration = configStore.read();
+        configuration.overlayPaint = paint;
+        configStore.write(configuration);
+        paintService.configure(paint);
+        return Response.json(paint);
       },
     },
     "/team.json": (request) => proxyPokemonOverlay(request),

@@ -56,9 +56,10 @@ test("OBS renders received paint and its fade but cannot send drawing input", as
   app.pointer("pointerdown", 50, 50);
   await vi.advanceTimersByTimeAsync(40);
   expect(app.fetch).not.toHaveBeenCalled();
-  app.message({ type: "segments", segments: [{ x: 0.5, y: 0.5, fromX: 0.5, fromY: 0.5 }], fadeAt: Date.now() + 4000 });
+  app.message({ type: "segments", segments: [{ x: 0.5, y: 0.5, fromX: 0.5, fromY: 0.5, color: "#123456" }], fadeAt: Date.now() + 4000 });
   app.draw();
   expect(app.context.arc).toHaveBeenCalled();
+  expect((app.context as typeof app.context & { fillStyle: string }).fillStyle).toBe("#123456");
   expect(app.canvas.style.opacity).toBe("1");
   await vi.advanceTimersByTimeAsync(4500);
   app.draw();
