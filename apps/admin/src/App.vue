@@ -4,6 +4,8 @@ import { computed, onMounted, ref } from "vue";
 interface ModuleStatus {
   id: string;
   name: string;
+  description: string;
+  requirements: string[];
   enabled: boolean;
   status: "running" | "stopped" | "failed";
   overlayUrl: string;
@@ -23,11 +25,6 @@ const configuration = ref<PokemonBlueConfiguration>({
 const saving = ref(false);
 const message = ref("");
 const origin = computed(() => location.origin);
-
-const moduleHelp: Record<string, string> = {
-  "pokemon-blue": "Starts or stops the Pokémon team and badge overlay. When off, its OBS source stays available but becomes transparent.",
-  "streamplace-pets": "Starts or stops the Streamplace Pets overlay. When off, its OBS source stays available but becomes transparent.",
-};
 
 function overlayUrl(module: ModuleStatus) {
   const url = new URL(module.overlayUrl, origin.value);
@@ -98,7 +95,12 @@ onMounted(load);
                 <span />
               </label>
               <span :id="`module-help-${module.id}`" class="toggle-tooltip" role="tooltip">
-                {{ moduleHelp[module.id] ?? `Starts or stops the ${module.name} overlay.` }}
+                <strong>{{ module.description || `Controls the ${module.name} overlay.` }}</strong>
+                <span>Switching it off stops the module while its OBS source stays available but transparent.</span>
+                <span v-if="module.requirements?.length" class="tooltip-requirements">
+                  <b>Requires</b>
+                  <span v-for="requirement in module.requirements" :key="requirement">• {{ requirement }}</span>
+                </span>
               </span>
             </span>
           </div>
@@ -155,7 +157,10 @@ code { display: block; margin-top: 22px; padding: 12px; overflow: auto; border-r
 .switch input:checked + span { background: #5d7cff; }
 .switch input:checked + span::after { transform: translateX(20px); }
 .toggle-help { position: relative; display: block; }
-.toggle-tooltip { position: absolute; z-index: 10; top: calc(100% + 12px); right: 0; width: 260px; padding: 11px 13px; border: 1px solid #3a4661; border-radius: 10px; color: #dbe4f8; background: #111827; box-shadow: 0 12px 32px rgba(0,0,0,.38); font-size: .84rem; line-height: 1.4; opacity: 0; pointer-events: none; transform: translateY(-4px); transition: opacity .16s, transform .16s; }
+.toggle-tooltip { position: absolute; z-index: 10; top: calc(100% + 12px); right: 0; display: grid; gap: 8px; width: 340px; padding: 13px 15px; border: 1px solid #3a4661; border-radius: 10px; color: #dbe4f8; background: #111827; box-shadow: 0 12px 32px rgba(0,0,0,.38); font-size: .84rem; line-height: 1.4; opacity: 0; pointer-events: none; transform: translateY(-4px); transition: opacity .16s, transform .16s; }
+.toggle-tooltip > span { display: block; }
+.tooltip-requirements { display: grid !important; gap: 4px; padding-top: 4px; color: #b9c6df; }
+.tooltip-requirements b { color: #dbe4f8; }
 .toggle-tooltip::before { content: ""; position: absolute; right: 15px; bottom: 100%; border: 7px solid transparent; border-bottom-color: #3a4661; }
 .toggle-tooltip::after { content: ""; position: absolute; right: 16px; bottom: 100%; border: 6px solid transparent; border-bottom-color: #111827; }
 .toggle-help:hover .toggle-tooltip, .toggle-help:focus-within .toggle-tooltip { opacity: 1; transform: translateY(0); }

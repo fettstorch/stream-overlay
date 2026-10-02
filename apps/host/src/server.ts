@@ -31,6 +31,8 @@ function moduleResponse(module: (typeof modules)[number]) {
   return {
     id: module.id,
     name: module.name,
+    description: module.description,
+    requirements: module.requirements ?? [],
     enabled: isEnabled(module.id),
     status: runtime.status,
     overlayUrl: module.routes[0]?.path ?? "",

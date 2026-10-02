@@ -20,6 +20,8 @@ export interface OverlayRoute {
 export interface OverlayModule {
   id: string;
   name: string;
+  description: string;
+  requirements?: string[];
   routes: OverlayRoute[];
   process?: {
     command: string[];

@@ -5,6 +5,8 @@ import App from "../src/App.vue";
 const moduleResponse = [{
   id: "pokemon-blue",
   name: "Pokémon Blue",
+  description: "Shows the live Pokémon team.",
+  requirements: ["Pokémon Blue must be running in mGBA."],
   enabled: true,
   status: "running",
   overlayUrl: "/overlays/pokemon-blue/",
@@ -36,7 +38,7 @@ describe("Admin App", () => {
     await flushPromises();
     expect(wrapper.text()).toContain("Pokémon Blue");
     expect(wrapper.text()).toContain("running");
-    expect(wrapper.get('[role="tooltip"]').text()).toContain("OBS source stays available but becomes transparent");
+    expect(wrapper.get('[role="tooltip"]').text()).toContain("Pokémon Blue must be running in mGBA");
     expect(wrapper.get("code").text()).toContain("streamer=did%3Aplc%3Atest");
   });
 
