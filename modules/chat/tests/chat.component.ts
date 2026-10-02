@@ -53,6 +53,30 @@ test("fade settings update live without losing chat or reconnecting the feed", a
   } finally { app.wrapper.unmount(); }
 });
 
+test("shows avatar beside stacked name and message, with live appearance and image fallback", async () => {
+  const app = setup();
+  try {
+    await app.state(true);
+    const incoming = message();
+    incoming.author.avatar = "https://cdn.example/avatar.png";
+    await app.message(incoming);
+    const row = app.wrapper.get(".chat-message");
+    expect(row.get("img").attributes("src")).toBe(incoming.author.avatar);
+    expect(row.get(".chat-content strong").text()).toBe("Alice");
+    expect(row.get(".chat-content span").text()).toBe("Hello stream!");
+    await app.state(true, { fadeOut: 0, fontSize: 32, backgroundColor: "#123456", backgroundOpacity: 40 });
+    expect(app.wrapper.get("ol").attributes("style")).toContain("font-size: 32px");
+    expect(app.wrapper.get("ol").attributes("style")).toContain("--message-background: rgba(18, 52, 86, 0.4)");
+    expect(app.sources).toHaveLength(2);
+    await row.get("img").trigger("error");
+    expect(row.find("img").exists()).toBe(false);
+    expect(row.get(".avatar-fallback").text()).toBe("A");
+    await app.state(true, { fadeOut: 0, fontSize: 32, backgroundColor: "#123456", backgroundOpacity: 0 });
+    expect(app.wrapper.get("ol").attributes("style")).toContain("rgba(18, 52, 86, 0)");
+    expect(row.get(".chat-content span").text()).toBe("Hello stream!");
+  } finally { app.wrapper.unmount(); }
+});
+
 test("renders author and text from the shared chat feed, without HTML interpretation", async () => {
   const app = setup();
   try {

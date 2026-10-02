@@ -1,11 +1,32 @@
-export interface ChatConfiguration { fadeOut: number }
-export const defaultChatConfiguration: ChatConfiguration = { fadeOut: 0 };
+export interface ChatConfiguration {
+  fadeOut: number;
+  fontSize: number;
+  backgroundColor: string;
+  backgroundOpacity: number;
+}
+export const defaultChatConfiguration: ChatConfiguration = {
+  fadeOut: 0, fontSize: 20, backgroundColor: "#000000", backgroundOpacity: 65,
+};
 
 export function parseChatConfiguration(value: unknown): ChatConfiguration | null {
   if (!value || typeof value !== "object" || !("fadeOut" in value)
     || typeof value.fadeOut !== "number" || !Number.isFinite(value.fadeOut)
     || value.fadeOut < 0 || value.fadeOut > 100) return null;
-  return { fadeOut: value.fadeOut };
+  // Existing installations only have fadeOut; missing appearance fields use the old appearance.
+  const settings = { ...defaultChatConfiguration, ...value };
+  if (typeof settings.fontSize !== "number" || !Number.isFinite(settings.fontSize)
+    || settings.fontSize < 8 || settings.fontSize > 72
+    || typeof settings.backgroundColor !== "string" || !/^#[0-9a-f]{6}$/i.test(settings.backgroundColor)
+    || typeof settings.backgroundOpacity !== "number" || !Number.isFinite(settings.backgroundOpacity)
+    || settings.backgroundOpacity < 0 || settings.backgroundOpacity > 100) return null;
+  return { fadeOut: value.fadeOut, fontSize: settings.fontSize,
+    backgroundColor: settings.backgroundColor, backgroundOpacity: settings.backgroundOpacity };
+}
+
+export function chatBackground(configuration: ChatConfiguration): string {
+  const hex = configuration.backgroundColor.slice(1);
+  const rgb = [0, 2, 4].map(offset => parseInt(hex.slice(offset, offset + 2), 16));
+  return `rgba(${rgb.join(", ")}, ${configuration.backgroundOpacity / 100})`;
 }
 
 /** Hide the upper portion of the source, then softly reveal the chat below it. */

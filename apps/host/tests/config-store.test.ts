@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ConfigStore } from "../src/config-store.ts";
+import { defaultChatConfiguration } from "../../../modules/chat/src/config.ts";
 
 const directories: string[] = [];
 
@@ -25,12 +26,20 @@ function createStore() {
 describe("ConfigStore", () => {
   test("persists chat fade settings and rejects invalid percentages", () => {
     const store = createStore();
-    const configuration = { ...store.read(), chat: { fadeOut: 80 } };
+    const configuration = { ...store.read(), chat: { ...defaultChatConfiguration, fadeOut: 80 } };
     store.write(configuration);
-    expect(store.read().chat).toEqual({ fadeOut: 80 });
+    expect(store.read().chat).toEqual(configuration.chat);
     for (const fadeOut of [-1, 101, NaN, Infinity]) {
-      expect(() => store.write({ ...configuration, chat: { fadeOut } })).toThrow();
+      expect(() => store.write({ ...configuration, chat: { ...configuration.chat, fadeOut } })).toThrow();
     }
+    for (const settings of [{ fontSize: 0 }, { fontSize: 73 }, { backgroundColor: "red" }, { backgroundOpacity: 101 }]) {
+      expect(() => store.write({ ...configuration, chat: { ...configuration.chat, ...settings } })).toThrow();
+    }
+    const appearance = { ...configuration.chat, fontSize: 32, backgroundColor: "#123456", backgroundOpacity: 40 };
+    store.write({ ...configuration, chat: appearance });
+    expect(store.read().chat).toEqual(appearance);
+    writeFileSync(store.path, JSON.stringify({ ...configuration, chat: { fadeOut: 80 } }));
+    expect(store.read().chat).toEqual(configuration.chat);
   });
   test("returns defaults when no persisted configuration exists", () => {
     expect(createStore().read()).toEqual({

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { defaultChatConfiguration, parseChatConfiguration } from "../../../modules/chat/src/config";
 
 interface ModuleStatus {
   id: string;
@@ -73,7 +74,7 @@ const copiedModuleId = ref<string | null>(null);
 const streamMessage = ref("");
 const pokemonMessage = ref("");
 const paintConfiguration = ref({ color: "#ff5cbe", decaySeconds: 4 });
-const chatConfiguration = ref({ fadeOut: 0 });
+const chatConfiguration = ref({ ...defaultChatConfiguration });
 const chatMessage = ref("");
 let chatSaveTimer: ReturnType<typeof setTimeout> | undefined;
 const paintMessage = ref("");
@@ -155,7 +156,8 @@ async function load() {
     const response = await fetch("/api/chat/config", { cache: "no-store" });
     if (response.ok) {
       const settings = await response.json();
-      if (typeof settings.fadeOut === "number") chatConfiguration.value = settings;
+      const parsed = parseChatConfiguration(settings);
+      if (parsed) chatConfiguration.value = parsed;
     }
   }
   if (modules.value.some(module => module.id === "overlay-paint")) {
@@ -206,7 +208,11 @@ async function savePaintConfiguration(configuration: { color: string; decaySecon
 watch(chatConfiguration, value => {
   if (!loaded) return;
   clearTimeout(chatSaveTimer);
-  const configuration = { ...value };
+  const configuration = parseChatConfiguration(value);
+  if (!configuration) {
+    chatMessage.value = "Use a font size from 8 to 72 px and percentages from 0 to 100";
+    return;
+  }
   chatMessage.value = "Saving…";
   chatSaveTimer = setTimeout(() => enqueueSave(async () => {
     try {
@@ -470,6 +476,15 @@ onBeforeUnmount(() => {
             <p v-if="!streamEmbedUrl">Select your streamer account above to see your stream behind the canvas.</p>
           </div>
           <div v-if="module.id === 'chat'" class="module-settings chat-settings">
+            <label>Font size (px)
+              <input v-model.number="chatConfiguration.fontSize" type="number" min="8" max="72" step="1" aria-label="Chat font size">
+            </label>
+            <label>Message background color
+              <input v-model="chatConfiguration.backgroundColor" type="color" aria-label="Chat message background color">
+            </label>
+            <label>Message background opacity: {{ chatConfiguration.backgroundOpacity }}%
+              <input v-model.number="chatConfiguration.backgroundOpacity" type="range" min="0" max="100" step="1" aria-label="Chat message background opacity">
+            </label>
             <label>Fade out from top: {{ chatConfiguration.fadeOut }}%
               <input v-model.number="chatConfiguration.fadeOut" type="range" min="0" max="100" step="1" aria-label="Chat fade-out percentage">
             </label>
@@ -587,6 +602,8 @@ code { display: block; min-width: 0; padding: 12px 52px 12px 12px; overflow: aut
 .chat-settings { grid-template-columns: 1fr; }
 .chat-settings label { flex-direction: column; align-items: stretch; }
 .chat-settings input[type="range"] { width: 100%; accent-color: #a78bfa; cursor: pointer; }
+.chat-settings input[type="color"] { width: 44px; height: 32px; padding: 2px; border: 1px solid #36425d; border-radius: 7px; background: #0b101c; cursor: pointer; }
+.chat-settings input[type="number"] { width: 100%; max-width: 120px; padding: 7px 9px; border: 1px solid #36425d; border-radius: 7px; color: white; background: #0b101c; font: inherit; }
 .chat-settings > span { color: #9aa6c1; font-size: .85rem; }
 .module-message, .save-status { justify-self: end; min-width: 3.5em; color: #9aa6c1; font-size: .85rem; }
 </style>

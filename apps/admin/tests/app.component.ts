@@ -78,7 +78,14 @@ describe("Admin App", () => {
       await vi.advanceTimersByTimeAsync(300);
       await flushPromises();
       const write = fetchMock.mock.calls.find(([url, init]) => url === "/api/chat/config" && init?.method === "PATCH");
-      expect(JSON.parse(String(write?.[1]?.body))).toEqual({ fadeOut: 80 });
+      expect(JSON.parse(String(write?.[1]?.body))).toEqual({ fadeOut: 80, fontSize: 20, backgroundColor: "#000000", backgroundOpacity: 65 });
+      await wrapper.get('input[aria-label="Chat font size"]').setValue(32);
+      await wrapper.get('input[aria-label="Chat message background color"]').setValue("#123456");
+      await wrapper.get('input[aria-label="Chat message background opacity"]').setValue(40);
+      await vi.advanceTimersByTimeAsync(300);
+      await flushPromises();
+      const lastWrite = fetchMock.mock.calls.filter(([url, init]) => url === "/api/chat/config" && init?.method === "PATCH").at(-1);
+      expect(JSON.parse(String(lastWrite?.[1]?.body))).toEqual({ fadeOut: 80, fontSize: 32, backgroundColor: "#123456", backgroundOpacity: 40 });
       expect(wrapper.get("iframe").element).toBe(preview);
       expect(wrapper.text()).toContain("Saved");
     } finally { wrapper.unmount(); }
