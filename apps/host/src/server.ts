@@ -180,7 +180,11 @@ const server = Bun.serve({
         }, { status: 502 });
       }
     },
-    "/api/chat/events": (request) => streamChatEvents(request),
+    "/api/chat/events": (request, server) => {
+      // Chat can remain quiet longer than Bun's default HTTP idle timeout.
+      server.timeout(request, 0);
+      return streamChatEvents(request);
+    },
     "/api/diagnostics": {
       POST: async (request) => {
         const body = await request.json() as { event?: unknown; details?: unknown };
