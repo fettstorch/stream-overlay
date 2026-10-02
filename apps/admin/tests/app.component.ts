@@ -27,6 +27,7 @@ const streamConfigResponse = {
 };
 
 afterEach(() => {
+  localStorage.clear();
   vi.useRealTimers();
   vi.restoreAllMocks();
 });
@@ -44,13 +45,86 @@ function mockFetch() {
       avatar: "https://cdn.example/alice.jpg",
     }] });
     if (url.startsWith("/api/modules/")) {
-      return Response.json({ ...moduleResponse[0], enabled: false, status: "stopped" });
+      const enabled = JSON.parse(String(init?.body)).enabled;
+      return Response.json({ ...moduleResponse[0], enabled, status: enabled ? "running" : "stopped" });
     }
     return Response.json(url === "/api/config" ? streamConfigResponse : configResponse);
   });
 }
 
 describe("Admin App", () => {
+  test("disabled modules collapse, can show details, and collapse again after switching off", async () => {
+    const fetchMock = mockFetch();
+    fetchMock.mockResolvedValueOnce(Response.json([{ ...moduleResponse[0], enabled: false, status: "stopped" }]));
+    const wrapper = mount(App);
+    await flushPromises();
+    expect(wrapper.find(".module-body").exists()).toBe(false);
+    expect(wrapper.find("iframe").exists()).toBe(false);
+    await wrapper.get('button[aria-label="Show Pokémon Blue mGBA details"]').trigger("click");
+    expect(wrapper.find(".module-body").exists()).toBe(true);
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).startsWith("/api/modules/")).length).toBe(0);
+    await wrapper.get('input[aria-label="Enable Pokémon Blue mGBA"]').setValue(true);
+    await flushPromises();
+    expect(wrapper.find(".module-body").exists()).toBe(true);
+    await wrapper.get('input[aria-label="Enable Pokémon Blue mGBA"]').setValue(false);
+    await flushPromises();
+    expect(wrapper.find(".module-body").exists()).toBe(false);
+    expect(wrapper.get('button[aria-label="Show Pokémon Blue mGBA details"]').attributes("aria-expanded")).toBe("false");
+    wrapper.unmount();
+  });
+
+  test("pins reorder modules and persist across admin reloads without host writes", async () => {
+    const fetchMock = mockFetch();
+    const pets = { ...moduleResponse[0], id: "streamplace-pets", name: "Streamplace Pets", description: "Interactive pets", chatCommands: [] };
+    const respond = () => fetchMock.mockResolvedValueOnce(Response.json([...moduleResponse, pets]));
+    respond();
+    const wrapper = mount(App);
+    await flushPromises();
+    const petsPreview = wrapper.get('iframe[title="Streamplace Pets live preview"]').element;
+    await wrapper.get('button[aria-label="Pin Streamplace Pets"]').trigger("click");
+    expect(wrapper.findAll(".module-card")[0]!.get("h3").text()).toBe("Streamplace Pets");
+    expect(wrapper.get('button[aria-label="Unpin Streamplace Pets"]').attributes("aria-pressed")).toBe("true");
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PATCH")).toBe(false);
+    expect(wrapper.get('iframe[title="Streamplace Pets live preview"]').element).toBe(petsPreview);
+    wrapper.unmount();
+    respond();
+    const reloaded = mount(App);
+    await flushPromises();
+    expect(reloaded.findAll(".module-card")[0]!.get("h3").text()).toBe("Streamplace Pets");
+    await reloaded.get('button[aria-label="Unpin Streamplace Pets"]').trigger("click");
+    expect(reloaded.findAll(".module-card")[0]!.get("h3").text()).toBe("Pokémon Blue mGBA");
+    reloaded.unmount();
+  });
+
+  test("search is trimmed, case insensitive, includes descriptions and never toggles modules", async () => {
+    const fetchMock = mockFetch();
+    fetchMock.mockResolvedValueOnce(Response.json([...moduleResponse, {
+      ...moduleResponse[0], id: "streamplace-pets", name: "Streamplace Pets", description: "Interactive animals", chatCommands: [],
+    }]));
+    const wrapper = mount(App);
+    await flushPromises();
+    const calls = fetchMock.mock.calls.length;
+    const previews = wrapper.findAll("iframe").map(frame => frame.element);
+    const search = wrapper.get('input[aria-label="Search modules"]');
+    await search.setValue("  ANIMALS  ");
+    expect(wrapper.findAll(".module-card").filter(card => card.isVisible()).map(card => card.get("h3").text())).toEqual(["Streamplace Pets"]);
+    await search.setValue("no such module");
+    expect(wrapper.get(".no-modules").text()).toContain("No modules match");
+    await search.setValue("");
+    expect(wrapper.findAll(".module-card").every(card => (card.element as HTMLElement).style.display !== "none")).toBe(true);
+    expect(fetchMock.mock.calls.length).toBe(calls);
+    expect(wrapper.findAll("iframe").map(frame => frame.element)).toEqual(previews);
+    wrapper.unmount();
+  });
+
+  test("malformed pin storage does not prevent the admin from loading", async () => {
+    localStorage.setItem("stream-overlay.admin.pinned-modules", "not json");
+    mockFetch();
+    const wrapper = mount(App);
+    await flushPromises();
+    expect(wrapper.get('button[aria-label="Pin Pokémon Blue mGBA"]').attributes("aria-pressed")).toBe("false");
+    wrapper.unmount();
+  });
   test("displays module state and its configured OBS URL", async () => {
     mockFetch();
     const wrapper = mount(App);

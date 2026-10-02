@@ -32,6 +32,35 @@ interface ActorProfile {
 }
 
 const modules = ref<ModuleStatus[]>([]);
+const moduleQuery = ref("");
+const expandedDisabledModules = ref<string[]>([]);
+const pinStorageKey = "stream-overlay.admin.pinned-modules";
+const pinnedModuleIds = ref<string[]>(readPins());
+function readPins(): string[] {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(pinStorageKey) ?? "[]");
+    return Array.isArray(value) ? [...new Set(value.filter((id): id is string => typeof id === "string"))] : [];
+  } catch { return []; }
+}
+function isPinned(id: string) { return pinnedModuleIds.value.includes(id); }
+function togglePin(id: string) {
+  pinnedModuleIds.value = isPinned(id) ? pinnedModuleIds.value.filter(candidate => candidate !== id) : [...pinnedModuleIds.value, id];
+  // These are browser-only layout preferences, not settings used by OBS.
+  try { localStorage.setItem(pinStorageKey, JSON.stringify(pinnedModuleIds.value)); } catch { /* Keep working when browser storage is unavailable. */ }
+}
+function isExpanded(module: ModuleStatus) {
+  return module.enabled || expandedDisabledModules.value.includes(module.id);
+}
+function toggleDetails(id: string) {
+  expandedDisabledModules.value = expandedDisabledModules.value.includes(id)
+    ? expandedDisabledModules.value.filter(candidate => candidate !== id) : [...expandedDisabledModules.value, id];
+}
+function matchesSearch(module: ModuleStatus) {
+  const query = moduleQuery.value.trim().toLocaleLowerCase();
+  return `${module.name} ${module.description}`.toLocaleLowerCase().includes(query);
+}
+const orderedModules = computed(() => [...modules.value].sort((a, b) => Number(isPinned(b.id)) - Number(isPinned(a.id))));
+const matchingModuleCount = computed(() => modules.value.filter(matchesSearch).length);
 const configuration = ref<PokemonBlueConfiguration>({
   components: { team: true, badges: true },
 });
@@ -134,6 +163,7 @@ async function toggle(module: ModuleStatus) {
     body: JSON.stringify({ enabled: !module.enabled }),
   });
   const updated = await response.json() as ModuleStatus;
+  if (!updated.enabled) expandedDisabledModules.value = expandedDisabledModules.value.filter(id => id !== updated.id);
   modules.value = modules.value.map((candidate) => candidate.id === updated.id ? updated : candidate);
 }
 
@@ -309,14 +339,25 @@ onBeforeUnmount(() => {
 
     <section>
       <h2>Modules</h2>
+      <label class="module-search">
+        <span class="sr-only">Search modules</span>
+        <input v-model="moduleQuery" type="search" placeholder="Search modules…" aria-label="Search modules">
+      </label>
+      <p v-if="modules.length && !matchingModuleCount" class="no-modules" role="status">No modules match your search.</p>
       <div class="module-grid">
-        <article v-for="module in modules" :key="module.id" class="module-card">
+        <article v-for="module in orderedModules" v-show="matchesSearch(module)" :key="module.id" class="module-card" :class="{ pinned: isPinned(module.id), collapsed: !isExpanded(module) }">
           <div class="module-heading">
             <div>
               <h3>{{ module.name }}</h3>
               <span class="status" :data-status="module.status">{{ module.status }}</span>
             </div>
             <div class="module-actions">
+              <button type="button" class="module-icon-button pin-button" :aria-label="`${isPinned(module.id) ? 'Unpin' : 'Pin'} ${module.name}`" :aria-pressed="isPinned(module.id)" @click="togglePin(module.id)">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m16 3 5 5-4 1-4 5-1 4-3-3-6 6 6-6-3-3 4-1 5-4z" /></svg>
+              </button>
+              <button v-if="!module.enabled" type="button" class="module-icon-button" :aria-label="`${isExpanded(module) ? 'Hide' : 'Show'} ${module.name} details`" :aria-expanded="isExpanded(module)" :aria-controls="`module-body-${module.id}`" @click="toggleDetails(module.id)">
+                <svg viewBox="0 0 24 24" aria-hidden="true" :class="{ expanded: isExpanded(module) }"><path d="m6 9 6 6 6-6" /></svg>
+              </button>
               <span class="module-help">
                 <button
                   type="button"
@@ -347,6 +388,7 @@ onBeforeUnmount(() => {
               </label>
             </div>
           </div>
+          <div v-if="isExpanded(module)" :id="`module-body-${module.id}`" class="module-body">
           <div class="overlay-url">
             <code>{{ overlayUrl(module) }}</code>
             <button
@@ -405,13 +447,14 @@ onBeforeUnmount(() => {
             <label>Fade delay (seconds) <input v-model.number="paintConfiguration.decaySeconds" type="number" min="0.1" max="60" step="0.1" aria-label="Paint fade delay in seconds"></label>
             <span class="module-message" aria-live="polite">{{ paintMessage }}</span>
           </div>
-          <p v-if="module.error" class="error">{{ module.error }}</p>
           <div v-if="module.id === 'pokemon-blue'" class="module-settings">
             <h4>Visible components</h4>
             <label><input v-model="configuration.components.team" type="checkbox"> Team</label>
             <label><input v-model="configuration.components.badges" type="checkbox"> Badges</label>
             <span class="module-message" aria-live="polite">{{ pokemonMessage }}</span>
           </div>
+          </div>
+          <p v-if="module.error" class="error">{{ module.error }}</p>
         </article>
       </div>
     </section>
@@ -430,6 +473,17 @@ h1 { margin: 0; font-size: clamp(2.6rem, 7vw, 5.6rem); line-height: 0.95; letter
 section { margin-top: 44px; }
 h2 { margin-bottom: 18px; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.12em; color: #aebbd7; }
 .module-grid { columns: 320px 2; column-gap: 16px; }
+.module-search { display: block; margin-bottom: 20px; }
+.module-search input { width: 100%; padding: 12px 14px; border: 1px solid #36425d; border-radius: 9px; color: white; background: #0b101c; font: inherit; }
+.module-search input:focus-visible { outline: 2px solid #7794e8; outline-offset: 2px; }
+.no-modules { color: #9aa6c1; }
+.module-card.pinned { border-color: #526baf; }
+.module-icon-button { display: grid; place-items: center; width: 24px; height: 28px; padding: 3px; border: 0; border-radius: 6px; background: transparent; color: #8fa1c7; cursor: pointer; }
+.module-icon-button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.module-icon-button:hover, .module-icon-button:focus-visible { color: white; background: #1a2540; outline: 2px solid #7794e8; }
+.pin-button[aria-pressed="true"] { color: #a9bdf9; }
+.pin-button[aria-pressed="true"] svg { fill: #526baf; }
+.module-icon-button svg.expanded { transform: rotate(180deg); }
 .module-card { display: inline-block; width: 100%; margin: 0 0 16px; break-inside: avoid; vertical-align: top; }
 .module-card, .settings { padding: 24px; border: 1px solid #28334b; border-radius: 18px; background: rgba(18, 24, 38, 0.88); box-shadow: 0 16px 48px rgba(0,0,0,.24); }
 .stream-settings { margin-bottom: 44px; }
@@ -441,7 +495,8 @@ h2 { margin-bottom: 18px; font-size: 1rem; text-transform: uppercase; letter-spa
 .actor-suggestions { position: absolute; z-index: 20; top: calc(100% + 8px); left: 0; right: 0; overflow: hidden; border: 1px solid #36425d; border-radius: 12px; background: #111827; box-shadow: 0 16px 40px rgba(0,0,0,.42); }
 .actor-suggestions button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border: 0; color: #eaf0ff; background: transparent; text-align: left; font: inherit; cursor: pointer; }
 .actor-suggestions button:hover, .actor-suggestions button:focus-visible { background: #202a40; outline: none; }
-.module-heading { display: flex; justify-content: space-between; gap: 24px; }
+.module-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
+.module-heading > div:first-child { flex: 1 1 120px; min-width: 0; }
 h3 { margin: 0 0 8px; font-size: 1.25rem; }
 .status { color: #9aa6c1; font-size: .8rem; text-transform: uppercase; letter-spacing: .1em; }
 .status[data-status="running"] { color: #70e7a1; }
@@ -476,7 +531,7 @@ code { display: block; min-width: 0; padding: 12px 52px 12px 12px; overflow: aut
 .switch span::after { content: ""; display: block; width: 22px; height: 22px; border-radius: 50%; background: white; transition: transform .2s; }
 .switch input:checked + span { background: #5d7cff; }
 .switch input:checked + span::after { transform: translateX(20px); }
-.module-actions { display: flex; align-items: center; gap: 10px; }
+.module-actions { display: flex; align-items: center; flex: none; gap: 6px; }
 .module-help { position: relative; display: block; }
 .info-button { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 1px solid #485570; border-radius: 50%; color: #b9c6df; background: #111827; font: 700 .9rem/1 Georgia, serif; cursor: help; }
 .info-button:hover, .info-button:focus-visible { color: #fff; border-color: #7794e8; outline: none; background: #1a2540; }
