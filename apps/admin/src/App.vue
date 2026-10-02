@@ -165,6 +165,13 @@ onBeforeUnmount(() => {
             </span>
           </div>
           <code>{{ overlayUrl(module) }}</code>
+          <div class="module-preview">
+            <iframe
+              :src="overlayUrl(module)"
+              :title="`${module.name} live preview`"
+              loading="lazy"
+            />
+          </div>
           <p v-if="module.error" class="error">{{ module.error }}</p>
           <div v-if="module.id === 'pokemon-blue'" class="module-settings">
             <h4>Visible components</h4>
@@ -198,6 +205,8 @@ h3 { margin: 0 0 8px; font-size: 1.25rem; }
 .status[data-status="running"] { color: #70e7a1; }
 .status[data-status="failed"] { color: #ff7f91; }
 code { display: block; margin-top: 22px; padding: 12px; overflow: auto; border-radius: 9px; color: #a9bdf9; background: #090d16; }
+.module-preview { position: relative; margin-top: 16px; overflow: hidden; aspect-ratio: 16 / 9; border: 1px solid #28334b; border-radius: 10px; background-color: #0b101c; background-image: linear-gradient(45deg, #141c2b 25%, transparent 25%), linear-gradient(-45deg, #141c2b 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #141c2b 75%), linear-gradient(-45deg, transparent 75%, #141c2b 75%); background-position: 0 0, 0 8px, 8px -8px, -8px 0; background-size: 16px 16px; }
+.module-preview iframe { width: 100%; height: 100%; border: 0; background: transparent; }
 .error { color: #ff7f91; }
 .switch input { position: absolute; opacity: 0; }
 .switch span { display: block; width: 48px; height: 28px; padding: 3px; border-radius: 99px; background: #3a4356; cursor: pointer; transition: background .2s; }
