@@ -3,7 +3,7 @@ import { onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { BadgeStrip, PokemonTeam, type BadgeDefinition, type PetAppearance } from "@stream-overlay/pokemon-ui";
 import type { PokemonSnapshot } from "@stream-overlay/pokemon-model";
 import { PokemonPetQueues, type PetAuthor } from "./pet-queue.ts";
-import type { PokemonBlueConfiguration } from "./config.ts";
+import type { PokemonBlueConfiguration, StreamConfiguration } from "./config.ts";
 import fallbackImage from "../../../assets/unknown-pokemon.svg";
 import petEffectImage from "../../../assets/pat-pat-pet-pet.gif";
 import heartsEffectImage from "../../../assets/hearts.gif";
@@ -18,9 +18,9 @@ import earthBadge from "../../../assets/badges/earth.png";
 
 const snapshot = ref<PokemonSnapshot>({ party: [], badges: null, capturedAt: "" });
 const configuration = ref<PokemonBlueConfiguration>({
-  streamerDid: "",
   components: { team: true, badges: true },
 });
+const streamConfiguration = ref<StreamConfiguration>({ streamerDid: "" });
 const activePets = reactive<Record<string, PetAppearance>>({});
 const profileCache = new Map<string, Promise<PetAuthor>>();
 let refreshTimer: ReturnType<typeof setInterval> | undefined;
@@ -96,7 +96,7 @@ const jetstreamHosts = [
 
 function connectChat() {
   const streamerDid = new URLSearchParams(location.search).get("streamer")
-    || configuration.value.streamerDid;
+    || streamConfiguration.value.streamerDid;
   if (!streamerDid?.startsWith("did:")) return;
   let hostIndex = 0;
   let reconnectDelay = 1000;
@@ -130,8 +130,12 @@ function connectChat() {
 }
 
 onMounted(async () => {
-  const configResponse = await fetch("/api/pokemon-blue/config", { cache: "no-store" });
+  const [configResponse, streamConfigResponse] = await Promise.all([
+    fetch("/api/pokemon-blue/config", { cache: "no-store" }),
+    fetch("/api/config", { cache: "no-store" }),
+  ]);
   if (configResponse.ok) configuration.value = await configResponse.json() as PokemonBlueConfiguration;
+  if (streamConfigResponse.ok) streamConfiguration.value = await streamConfigResponse.json() as StreamConfiguration;
   await refreshSnapshot();
   refreshTimer = setInterval(refreshSnapshot, 1000);
   connectChat();

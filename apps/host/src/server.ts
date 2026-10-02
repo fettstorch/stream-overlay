@@ -9,8 +9,8 @@ const projectRoot = join(import.meta.dir, "../../..");
 const port = Number(process.env.PORT ?? 3001);
 const defaults = {
   modules: modules.map(({ id }) => ({ id, enabled: true })),
+  stream: { streamerDid: "" },
   pokemonBlue: {
-    streamerDid: "",
     components: { team: true, badges: true },
   },
 };
@@ -78,6 +78,19 @@ const server = Bun.serve({
       return Response.redirect(`http://localhost:3000/pets.html${query}`, 302);
     },
     "/api/modules": () => Response.json(modules.map(moduleResponse)),
+    "/api/config": {
+      GET: () => Response.json(configStore.read().stream),
+      PATCH: async (request) => {
+        const body = await request.json() as { streamerDid?: unknown };
+        if (!body || typeof body.streamerDid !== "string") {
+          return Response.json({ error: "Invalid stream configuration" }, { status: 400 });
+        }
+        const configuration = configStore.read();
+        configuration.stream = { streamerDid: body.streamerDid };
+        configStore.write(configuration);
+        return Response.json(configuration.stream);
+      },
+    },
     "/api/pokemon-blue/snapshot": () => pokemonSnapshot
       ? Response.json(pokemonSnapshot, { headers: { "Cache-Control": "no-store" } })
       : Response.json({ error: "Pokémon data is unavailable" }, { status: 503 }),
@@ -87,7 +100,6 @@ const server = Bun.serve({
         const body = await request.json() as unknown;
         if (
           !body || typeof body !== "object"
-          || typeof (body as typeof defaults.pokemonBlue).streamerDid !== "string"
           || typeof (body as typeof defaults.pokemonBlue).components?.team !== "boolean"
           || typeof (body as typeof defaults.pokemonBlue).components?.badges !== "boolean"
         ) {

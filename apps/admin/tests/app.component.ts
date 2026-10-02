@@ -13,9 +13,9 @@ const moduleResponse = [{
   error: null,
 }];
 const configResponse = {
-  streamerDid: "did:plc:test",
   components: { team: true, badges: true },
 };
+const streamConfigResponse = { streamerDid: "did:plc:test" };
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -23,11 +23,12 @@ function mockFetch() {
   return vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const url = String(input);
     if (url === "/api/modules") return Response.json(moduleResponse);
+    if (url === "/api/config" && !init?.method) return Response.json(streamConfigResponse);
     if (url === "/api/pokemon-blue/config" && !init?.method) return Response.json(configResponse);
     if (url.startsWith("/api/modules/")) {
       return Response.json({ ...moduleResponse[0], enabled: false, status: "stopped" });
     }
-    return Response.json(configResponse);
+    return Response.json(url === "/api/config" ? streamConfigResponse : configResponse);
   });
 }
 
@@ -54,18 +55,30 @@ describe("Admin App", () => {
     expect(wrapper.text()).toContain("stopped");
   });
 
+  test("saves global stream settings independently of modules", async () => {
+    const fetchMock = mockFetch();
+    const wrapper = mount(App);
+    await flushPromises();
+    await wrapper.get('.stream-settings input').setValue("did:plc:updated");
+    await wrapper.get(".stream-settings button").trigger("click");
+    await flushPromises();
+    expect(fetchMock).toHaveBeenCalledWith("/api/config", expect.objectContaining({
+      method: "PATCH",
+      body: JSON.stringify({ streamerDid: "did:plc:updated" }),
+    }));
+  });
+
   test("saves Pokémon Blue component settings", async () => {
     const fetchMock = mockFetch();
     const wrapper = mount(App);
     await flushPromises();
-    const checkboxes = wrapper.findAll('.settings input[type="checkbox"]');
+    const checkboxes = wrapper.findAll('.module-settings input[type="checkbox"]');
     await checkboxes[1]!.setValue(false);
-    await wrapper.get("button").trigger("click");
+    await wrapper.get(".module-settings button").trigger("click");
     await flushPromises();
     expect(fetchMock).toHaveBeenCalledWith("/api/pokemon-blue/config", expect.objectContaining({
       method: "PATCH",
       body: JSON.stringify({
-        streamerDid: "did:plc:test",
         components: { team: true, badges: false },
       }),
     }));

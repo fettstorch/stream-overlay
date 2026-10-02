@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ConfigStore } from "../src/config-store.ts";
@@ -15,8 +15,8 @@ function createStore() {
   directories.push(directory);
   return new ConfigStore(join(directory, "config.json"), {
     modules: [{ id: "pokemon-blue", enabled: true }],
+    stream: { streamerDid: "" },
     pokemonBlue: {
-      streamerDid: "",
       components: { team: true, badges: true },
     },
   });
@@ -26,8 +26,8 @@ describe("ConfigStore", () => {
   test("returns defaults when no persisted configuration exists", () => {
     expect(createStore().read()).toEqual({
       modules: [{ id: "pokemon-blue", enabled: true }],
+      stream: { streamerDid: "" },
       pokemonBlue: {
-        streamerDid: "",
         components: { team: true, badges: true },
       },
     });
@@ -40,15 +40,33 @@ describe("ConfigStore", () => {
     expect(JSON.parse(readFileSync(store.path, "utf8"))).toEqual(store.read());
   });
 
+  test("migrates the legacy Pokémon streamer DID into global stream settings", () => {
+    const store = createStore();
+    writeFileSync(store.path, JSON.stringify({
+      modules: [{ id: "pokemon-blue", enabled: true }],
+      pokemonBlue: {
+        streamerDid: "did:plc:legacy",
+        components: { team: true, badges: false },
+      },
+    }));
+    expect(store.read()).toEqual({
+      modules: [{ id: "pokemon-blue", enabled: true }],
+      stream: { streamerDid: "did:plc:legacy" },
+      pokemonBlue: { components: { team: true, badges: false } },
+    });
+  });
+
   test("rejects malformed persisted configuration", () => {
     const store = createStore();
     store.write({
       modules: [],
-      pokemonBlue: { streamerDid: "", components: { team: true, badges: true } },
+      stream: { streamerDid: "" },
+      pokemonBlue: { components: { team: true, badges: true } },
     });
     expect(() => store.write({
       modules: [{ id: "broken", enabled: "yes" as never }],
-      pokemonBlue: { streamerDid: "", components: { team: true, badges: true } },
+      stream: { streamerDid: "" },
+      pokemonBlue: { components: { team: true, badges: true } },
     })).toThrow();
   });
 });

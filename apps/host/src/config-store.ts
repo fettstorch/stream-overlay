@@ -4,8 +4,10 @@ import type { ModuleConfiguration } from "@stream-overlay/sdk";
 
 export interface HostConfiguration {
   modules: ModuleConfiguration[];
-  pokemonBlue: {
+  stream: {
     streamerDid: string;
+  };
+  pokemonBlue: {
     components: {
       team: boolean;
       badges: boolean;
@@ -65,15 +67,22 @@ export class ConfigStore {
       : this.defaults.pokemonBlue;
     if (
       !pokemonBlue || typeof pokemonBlue !== "object"
-      || typeof pokemonBlue.streamerDid !== "string"
       || !pokemonBlue.components || typeof pokemonBlue.components.team !== "boolean"
       || typeof pokemonBlue.components.badges !== "boolean"
     ) {
       throw new TypeError("Pokémon Blue configuration is invalid");
     }
+    const legacyStreamerDid = "streamerDid" in pokemonBlue && typeof pokemonBlue.streamerDid === "string"
+      ? pokemonBlue.streamerDid
+      : this.defaults.stream.streamerDid;
+    const stream = "stream" in value ? (value as HostConfiguration).stream : { streamerDid: legacyStreamerDid };
+    if (!stream || typeof stream !== "object" || typeof stream.streamerDid !== "string") {
+      throw new TypeError("Stream configuration is invalid");
+    }
     return {
       modules: modules as ModuleConfiguration[],
-      pokemonBlue: structuredClone(pokemonBlue),
+      stream: structuredClone(stream),
+      pokemonBlue: { components: structuredClone(pokemonBlue.components) },
     };
   }
 }
