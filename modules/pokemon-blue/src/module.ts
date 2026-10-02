@@ -6,8 +6,9 @@ export const pokemonBlueModule: OverlayModule = {
   name: "Pokémon Blue",
   description: "Shows the live party, levels, health, experience, badges, and chat pet interactions.",
   requirements: [
-    "Pokémon Blue must be running in mGBA; OpenEmu does not provide the Lua interface this module uses.",
-    "Load scripts/mgba-team.lua from mGBA's Tools → Scripting window and keep it running.",
+    "Open Pokémon Blue in mGBA. OpenEmu cannot provide the live game data this module needs.",
+    "In mGBA, open Tools → Scripting… and load scripts/mgba-team.lua from this project.",
+    "Keep the scripting window open while playing. No save-file path or Lua edits are needed.",
   ],
   routes: [{
     path: "/overlays/pokemon-blue/",
