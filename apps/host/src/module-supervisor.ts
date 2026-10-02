@@ -4,6 +4,8 @@ export class ModuleSupervisor {
   private readonly processes = new Map<string, Bun.Subprocess>();
   private readonly runtimes = new Map<string, ModuleRuntime>();
 
+  constructor(private readonly log: (event: string, details?: Record<string, unknown>) => void = () => {}) {}
+
   status(module: OverlayModule): ModuleRuntime {
     return this.runtimes.get(module.id) ?? {
       id: module.id,
@@ -30,6 +32,7 @@ export class ModuleSupervisor {
       stdout: "inherit",
       stderr: "inherit",
       onExit: (_, exitCode, signalCode, error) => {
+        this.log("module.process-exited", { moduleId: module.id, exitCode, signalCode, error: error?.message });
         this.processes.delete(module.id);
         const stoppedIntentionally = this.status(module).status === "stopped";
         if (!stoppedIntentionally) {
@@ -43,6 +46,7 @@ export class ModuleSupervisor {
       },
     });
     this.processes.set(module.id, process);
+    this.log("module.process-started", { moduleId: module.id, processId: process.pid });
     this.runtimes.set(module.id, {
       id: module.id,
       status: "running",
@@ -52,6 +56,7 @@ export class ModuleSupervisor {
   }
 
   disable(module: OverlayModule) {
+    this.log("module.process-stopping", { moduleId: module.id, processId: this.processes.get(module.id)?.pid });
     this.runtimes.set(module.id, {
       id: module.id,
       status: "stopped",

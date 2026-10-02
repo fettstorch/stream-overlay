@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { mkdirSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { ConfigStore } from "./config-store.ts";
 import { findModule, modules } from "./modules.ts";
 import { ModuleSupervisor } from "./module-supervisor.ts";
@@ -7,6 +8,7 @@ import type { PokemonSnapshot } from "@stream-overlay/pokemon-model";
 import { MgbaFileProvider } from "../../../modules/pokemon-blue/src/mgba-file-provider.ts";
 import { getActorProfile, resolveStreamerIdentity, searchActors } from "./identity.ts";
 import { StreamChatService } from "@stream-overlay/stream-chat";
+import { FileLogger } from "./logger.ts";
 
 const projectRoot = join(import.meta.dir, "../../..");
 const port = Number(process.env.PORT ?? 3001);
@@ -18,8 +20,9 @@ const defaults = {
   },
 };
 const configStore = new ConfigStore(join(projectRoot, "runtime/config.json"), defaults);
-const supervisor = new ModuleSupervisor();
-const chatService = new StreamChatService(getActorProfile);
+const logger = new FileLogger(join(tmpdir(), "stream-overlay", "overlay.log"));
+const supervisor = new ModuleSupervisor((event, details) => logger.log(event, details));
+const chatService = new StreamChatService(getActorProfile, (event, details) => logger.log(event, details));
 const pokemonRuntimeDirectory = join(projectRoot, "runtime/pokemon-blue");
 mkdirSync(pokemonRuntimeDirectory, { recursive: true });
 const pokemonProvider = new MgbaFileProvider(
@@ -62,6 +65,7 @@ function streamChatEvents(request: Request) {
   let heartbeat: ReturnType<typeof setInterval> | undefined;
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
+      logger.log("chat.client-connected");
       const encoder = new TextEncoder();
       const close = () => {
         unsubscribe?.();
@@ -69,10 +73,12 @@ function streamChatEvents(request: Request) {
         if (heartbeat) clearInterval(heartbeat);
         heartbeat = undefined;
         try { controller.close(); } catch { /* Already closed by the browser. */ }
+        logger.log("chat.client-disconnected");
       };
       unsubscribe = chatService.messages.subscribe((message) => {
         try {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(message)}\n\n`));
+          logger.log("chat.message-sent-to-client", { id: message.id });
         } catch {
           close();
         }
@@ -216,6 +222,8 @@ const server = Bun.serve({
   fetch: (request) => proxyPokemonOverlay(request),
 });
 
+logger.log("host.started", { port, logPath: logger.path });
+
 for (const module of modules) {
   if (isEnabled(module.id)) supervisor.enable(module);
 }
@@ -225,6 +233,7 @@ await pokemonProvider.start((snapshot) => {
 });
 
 const shutDown = () => {
+  logger.log("host.stopping");
   supervisor.stopAll(modules);
   chatService.stop();
   void pokemonProvider.stop();
@@ -234,3 +243,4 @@ process.once("SIGINT", shutDown);
 process.once("SIGTERM", shutDown);
 
 console.log(`Overlay host available at ${server.url}`);
+console.log(`Overlay log available at ${logger.path}`);
