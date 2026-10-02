@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { observeStreamChat, type StreamChatMessage } from "@stream-overlay/stream-chat";
 import { chatBackground, chatMask, defaultChatConfiguration, parseChatConfiguration } from "./config";
+import { freezeLeavingMessage, restoreLeavingMessage } from "./message-transition";
 
 const enabled = ref(false);
 const configuration = ref(defaultChatConfiguration);
@@ -63,6 +64,7 @@ onBeforeUnmount(() => {
 
 <template>
   <ol v-if="enabled" class="chat-messages" :style="maskStyle" aria-label="Stream chat" aria-live="polite" aria-relevant="additions">
+    <TransitionGroup name="chat-bubble" @before-leave="freezeLeavingMessage" @leave-cancelled="restoreLeavingMessage">
     <li v-for="message in messages" :key="message.id" class="chat-message">
       <img v-if="message.author.avatar && !failedAvatars.has(message.author.avatar)" class="chat-avatar" :src="message.author.avatar" alt="" @error="failedAvatars.add(message.author.avatar!)">
       <div v-else class="chat-avatar avatar-fallback" aria-hidden="true">{{ authorName(message).slice(0, 1).toUpperCase() }}</div>
@@ -71,6 +73,7 @@ onBeforeUnmount(() => {
         <span>{{ message.text }}</span>
       </div>
     </li>
+    </TransitionGroup>
   </ol>
 </template>
 
@@ -84,4 +87,11 @@ html, body, #app { margin: 0; width: 100%; height: 100%; background: transparent
 .chat-content { min-width: 0; }
 .chat-message strong { display: block; }
 .chat-message .chat-content span { display: block; white-space: pre-wrap; }
+.chat-bubble-move, .chat-bubble-enter-active, .chat-bubble-leave-active { transition: transform 280ms ease, opacity 280ms ease; }
+.chat-bubble-enter-from { opacity: 0; transform: translateY(12px); }
+.chat-bubble-leave-to { opacity: 0; transform: translateY(-12px); }
+.chat-bubble-leave-active { position: absolute; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) {
+  .chat-bubble-move, .chat-bubble-enter-active, .chat-bubble-leave-active { transition: none; }
+}
 </style>

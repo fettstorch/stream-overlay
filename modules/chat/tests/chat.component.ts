@@ -2,10 +2,11 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { afterEach, expect, test, vi } from "vitest";
 import type { StreamChatMessage } from "@stream-overlay/stream-chat";
 import App from "../src/App.vue";
+import { freezeLeavingMessage, restoreLeavingMessage } from "../src/message-transition";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
-function setup() {
+function setup(animated = false) {
   const sources: FakeEvents[] = [];
   class FakeEvents {
     onmessage?: (event: { data: string }) => void;
@@ -19,7 +20,7 @@ function setup() {
     emit(value: unknown) { for (const listener of this.listeners) listener({ data: JSON.stringify(value) }); }
   }
   vi.stubGlobal("EventSource", FakeEvents);
-  const wrapper = mount(App);
+  const wrapper = mount(App, { global: { stubs: { ...(animated ? { TransitionGroup: false } : {}) } } });
   const state = async (enabled: boolean, configuration?: unknown) => {
     sources[0]!.onmessage!({ data: JSON.stringify({ enabled, configuration }) });
     await flushPromises();
@@ -34,6 +35,40 @@ function setup() {
 function message(id = "1", text = "Hello stream!"): StreamChatMessage {
   return { id, text, streamerDid: "did:plc:streamer", author: { did: "did:plc:alice", handle: "alice.bsky.social", displayName: "Alice" }, createdAt: "2026-10-02T12:00:00Z" };
 }
+
+test("freezes an evicted bubble's position and size without shifting its neighbors", () => {
+  const parent = document.createElement("ol");
+  const bubble = document.createElement("li");
+  parent.append(bubble);
+  vi.spyOn(parent, "getBoundingClientRect").mockReturnValue({ left: 10, top: 20 } as DOMRect);
+  vi.spyOn(bubble, "getBoundingClientRect").mockReturnValue({ left: 26, top: 52, width: 280, height: 72 } as DOMRect);
+  freezeLeavingMessage(bubble);
+  expect(bubble.style.left).toBe("16px");
+  expect(bubble.style.top).toBe("32px");
+  expect(bubble.style.width).toBe("280px");
+  expect(bubble.style.height).toBe("72px");
+  restoreLeavingMessage(bubble);
+  expect(bubble.getAttribute("style")).toBe("");
+});
+
+test("real TransitionGroup applies entrance and eviction classes, but disabling remains immediate", async () => {
+  const frames: FrameRequestCallback[] = [];
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { frames.push(callback); return frames.length; });
+  const app = setup(true);
+  try {
+    await app.state(true);
+    await app.message(message("0"));
+    expect(app.wrapper.get("li").classes()).toContain("chat-bubble-enter-active");
+    expect(app.wrapper.get("li").classes()).toContain("chat-bubble-enter-from");
+    for (let i = 1; i <= 50; i++) await app.message(message(String(i)));
+    expect(app.wrapper.findAll(".chat-bubble-leave-active")).toHaveLength(1);
+    while (frames.length) frames.shift()!(0);
+    await flushPromises();
+    expect(app.wrapper.findAll("li")).toHaveLength(50);
+    await app.state(false);
+    expect(app.wrapper.find("ol").exists()).toBe(false);
+  } finally { app.wrapper.unmount(); }
+});
 
 test("fade settings update live without losing chat or reconnecting the feed", async () => {
   const app = setup();
