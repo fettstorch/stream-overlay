@@ -24,6 +24,19 @@ function createStore() {
 }
 
 describe("ConfigStore", () => {
+  test("persists the thought interval and validates its bounds while accepting legacy settings", () => {
+    const store = createStore();
+    const configuration = store.read();
+    for (const seconds of [1, 2, 120, 3600]) {
+      store.write({ ...configuration, pokemonBlue: { ...configuration.pokemonBlue, thoughtIntervalSeconds: seconds } });
+      expect(store.read().pokemonBlue.thoughtIntervalSeconds).toBe(seconds);
+    }
+    for (const seconds of [0, -1, 3601, NaN, Infinity, "2"]) {
+      expect(() => store.write({ ...configuration, pokemonBlue: { ...configuration.pokemonBlue, thoughtIntervalSeconds: seconds as number } })).toThrow();
+    }
+    store.write(configuration);
+    expect(store.read().pokemonBlue.thoughtIntervalSeconds).toBeUndefined();
+  });
   test("persists chat fade settings and rejects invalid percentages", () => {
     const store = createStore();
     const configuration = { ...store.read(), chat: { ...defaultChatConfiguration, fadeOut: 80 } };

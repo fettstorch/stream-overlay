@@ -16,6 +16,7 @@ import { defaultChatConfiguration, parseChatConfiguration } from "../../../modul
 import { buildStaticOverlay } from "./static-overlay.ts";
 import { ModuleStatusService } from "./module-status.ts";
 import { PetMemory } from "./pokemon-pet-memory.ts";
+import { parseThoughtInterval, type PokemonBlueConfiguration } from "../../../modules/pokemon-blue/src/config.ts";
 
 const projectRoot = join(import.meta.dir, "../../..");
 const port = Number(process.env.PORT ?? 3001);
@@ -342,11 +343,12 @@ const server = Bun.serve({
           !body || typeof body !== "object"
           || typeof (body as typeof defaults.pokemonBlue).components?.team !== "boolean"
           || typeof (body as typeof defaults.pokemonBlue).components?.badges !== "boolean"
+          || parseThoughtInterval((body as PokemonBlueConfiguration).thoughtIntervalSeconds) === null
         ) {
           return Response.json({ error: "Invalid Pokémon Blue configuration" }, { status: 400 });
         }
         const configuration = configStore.read();
-        configuration.pokemonBlue = body as typeof defaults.pokemonBlue;
+        configuration.pokemonBlue = body as PokemonBlueConfiguration;
         configStore.write(configuration);
         return Response.json(configuration.pokemonBlue);
       },

@@ -146,6 +146,30 @@ test("thoughts rotate by current team position and discard a late lookup after d
   } finally { app.wrapper.unmount(); }
 });
 
+test("thought interval changes reschedule an open overlay without reloading or resetting chat", async () => {
+  const app = setup();
+  const originalFetch = app.fetch.getMockImplementation()!;
+  let seconds = 120;
+  app.fetch.mockImplementation(async url => url.endsWith("/config")
+    ? Response.json({ components: { team: true, badges: true }, thoughtIntervalSeconds: seconds })
+    : originalFetch(url));
+  try {
+    await app.state(true);
+    seconds = 2;
+    await vi.advanceTimersByTimeAsync(1000); // Existing config refresh sees the change.
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(app.wrapper.find("[data-thought]").exists()).toBe(true);
+    expect(app.fetch.mock.calls.filter(([url]) => url.includes("/pet-favourite/"))).toHaveLength(1);
+    seconds = 60;
+    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(app.fetch.mock.calls.filter(([url]) => url.includes("/pet-favourite/"))).toHaveLength(1);
+    expect(chat.listeners.size).toBe(1);
+    expect(app.sources).toHaveLength(1);
+    await app.state(false);
+  } finally { app.wrapper.unmount(); }
+});
+
 test("switching off during initial data loading cannot restart chat after the response arrives", async () => {
   const app = setup();
   let resolve!: (response: Response) => void;

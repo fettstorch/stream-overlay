@@ -284,10 +284,32 @@ describe("Admin App", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/pokemon-blue/config", expect.objectContaining({
       method: "PATCH",
       body: JSON.stringify({
+        thoughtIntervalSeconds: 120,
         components: { team: true, badges: false },
       }),
     }));
     expect(wrapper.text()).toContain("Saved");
+  });
+
+  test("automatically saves the thought interval and rejects invalid input", async () => {
+    vi.useFakeTimers();
+    const fetchMock = mockFetch();
+    const wrapper = mount(App);
+    try {
+      await flushPromises();
+      const input = wrapper.get('input[aria-label="Thought bubble interval in seconds"]');
+      expect((input.element as HTMLInputElement).value).toBe("120");
+      await input.setValue(2);
+      await vi.advanceTimersByTimeAsync(350);
+      await flushPromises();
+      const writes = () => fetchMock.mock.calls.filter(([url, init]) => url === "/api/pokemon-blue/config" && init?.method === "PATCH");
+      expect(JSON.parse(String(writes()[0]?.[1]?.body)).thoughtIntervalSeconds).toBe(2);
+      await input.setValue(0);
+      await vi.advanceTimersByTimeAsync(350);
+      await flushPromises();
+      expect(writes()).toHaveLength(1);
+      expect(wrapper.text()).toContain("between 1 and 3600 seconds");
+    } finally { wrapper.unmount(); }
   });
 
   test("layers the interactive paint preview over the stream without changing the OBS URL", async () => {

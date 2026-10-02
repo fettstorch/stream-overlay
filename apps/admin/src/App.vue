@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { defaultChatConfiguration, parseChatConfiguration } from "../../../modules/chat/src/config";
+import { parseThoughtInterval, type PokemonBlueConfiguration } from "../../../modules/pokemon-blue/src/config";
 
 interface ModuleStatus {
   id: string;
@@ -15,10 +16,6 @@ interface ModuleStatus {
   status: "running" | "stopped" | "failed";
   overlayUrl: string;
   error: string | null;
-}
-
-interface PokemonBlueConfiguration {
-  components: { team: boolean; badges: boolean };
 }
 
 interface StreamConfiguration {
@@ -63,6 +60,7 @@ function matchesSearch(module: ModuleStatus) {
 const orderedModules = computed(() => [...modules.value].sort((a, b) => Number(isPinned(b.id)) - Number(isPinned(a.id))));
 const matchingModuleCount = computed(() => modules.value.filter(matchesSearch).length);
 const configuration = ref<PokemonBlueConfiguration>({
+  thoughtIntervalSeconds: 120,
   components: { team: true, badges: true },
 });
 const streamConfiguration = ref<StreamConfiguration>({ streamerDid: "", profile: null });
@@ -167,7 +165,7 @@ async function load() {
     const response = await fetch("/api/overlay-paint/config", { cache: "no-store" });
     if (response.ok) paintConfiguration.value = await response.json();
   }
-  configuration.value = await configResponse.json() as PokemonBlueConfiguration;
+  configuration.value = { thoughtIntervalSeconds: 120, ...await configResponse.json() as PokemonBlueConfiguration };
   streamConfiguration.value = await streamConfigResponse.json() as StreamConfiguration;
   streamerQuery.value = streamConfiguration.value.profile?.handle || streamConfiguration.value.streamerDid;
 }
@@ -183,6 +181,10 @@ async function toggle(module: ModuleStatus) {
 }
 
 async function savePokemonConfiguration() {
+  if (parseThoughtInterval(configuration.value.thoughtIntervalSeconds) === null) {
+    pokemonMessage.value = "Thought interval must be between 1 and 3600 seconds";
+    return;
+  }
   pokemonMessage.value = "Saving…";
   try {
     const response = await fetch("/api/pokemon-blue/config", {
@@ -509,6 +511,11 @@ onBeforeUnmount(() => {
             <h4>Visible components</h4>
             <label><input v-model="configuration.components.team" type="checkbox"> Team</label>
             <label><input v-model="configuration.components.badges" type="checkbox"> Badges</label>
+            <h4>Thought bubbles</h4>
+            <label>Interval (seconds)
+              <input v-model.number="configuration.thoughtIntervalSeconds" type="number" min="1" max="3600" step="1" aria-label="Thought bubble interval in seconds">
+            </label>
+            <span>Time between team members thinking of their favourite petter. Changes apply live.</span>
             <span class="module-message" aria-live="polite">{{ pokemonMessage }}</span>
           </div>
           </div>

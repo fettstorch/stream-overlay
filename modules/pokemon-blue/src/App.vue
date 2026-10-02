@@ -4,7 +4,7 @@ import { BadgeStrip, PokemonTeam, type BadgeDefinition, type PetAppearance, type
 import type { PokemonSnapshot } from "@stream-overlay/pokemon-model";
 import { PokemonPetQueues, type PetAuthor } from "./pet-queue.ts";
 import { observeStreamChat } from "@stream-overlay/stream-chat";
-import type { PokemonBlueConfiguration } from "./config.ts";
+import { parseThoughtInterval, type PokemonBlueConfiguration } from "./config.ts";
 import fallbackImage from "../../../assets/unknown-pokemon.svg";
 import petEffectImage from "../../../assets/pat-pat-pet-pet.gif";
 import heartsEffectImage from "../../../assets/hearts.gif";
@@ -108,7 +108,14 @@ async function refreshConfiguration() {
     if (!response.ok) return;
     const result = await response.json() as PokemonBlueConfiguration;
     if (version !== lifecycleVersion || !moduleEnabled.value) return;
+    const previousInterval = parseThoughtInterval(configuration.value.thoughtIntervalSeconds);
+    const interval = parseThoughtInterval(result.thoughtIntervalSeconds);
+    if (interval === null) return;
     configuration.value = result;
+    if (thoughtTimer && interval !== previousInterval) {
+      clearInterval(thoughtTimer);
+      thoughtTimer = setInterval(showNextThought, interval * 1000);
+    }
   } catch {
     // Keep the last valid module configuration while the host is unavailable.
   }
@@ -144,6 +151,7 @@ function connectChat() {
 
 function stopInteractions() {
   clearInterval(thoughtTimer);
+  thoughtTimer = undefined;
   clearTimeout(thoughtEndTimer);
   thought.value = undefined;
   nextThoughtSlot = 0;
@@ -188,7 +196,7 @@ async function setModuleEnabled(enabled: boolean) {
   });
   refreshTimer = setInterval(refreshOverlay, 1000);
   connectChat();
-  thoughtTimer = setInterval(showNextThought, 120_000);
+  thoughtTimer = setInterval(showNextThought, (parseThoughtInterval(configuration.value.thoughtIntervalSeconds) ?? 120) * 1000);
 }
 
 onMounted(() => {

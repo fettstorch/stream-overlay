@@ -3,6 +3,7 @@ import { dirname } from "node:path";
 import type { ModuleConfiguration } from "@stream-overlay/sdk";
 import { parsePaintConfiguration, type PaintConfiguration } from "../../../modules/overlay-paint/src/config.ts";
 import { parseChatConfiguration, type ChatConfiguration } from "../../../modules/chat/src/config.ts";
+import { parseThoughtInterval, type PokemonBlueConfiguration } from "../../../modules/pokemon-blue/src/config.ts";
 
 export interface HostConfiguration {
   chat?: ChatConfiguration;
@@ -11,12 +12,7 @@ export interface HostConfiguration {
   stream: {
     streamerDid: string;
   };
-  pokemonBlue: {
-    components: {
-      team: boolean;
-      badges: boolean;
-    };
-  };
+  pokemonBlue: PokemonBlueConfiguration;
 }
 
 export class ConfigStore {
@@ -73,6 +69,7 @@ export class ConfigStore {
       !pokemonBlue || typeof pokemonBlue !== "object"
       || !pokemonBlue.components || typeof pokemonBlue.components.team !== "boolean"
       || typeof pokemonBlue.components.badges !== "boolean"
+      || parseThoughtInterval(pokemonBlue.thoughtIntervalSeconds) === null
     ) {
       throw new TypeError("Pokémon Blue configuration is invalid");
     }
@@ -92,7 +89,10 @@ export class ConfigStore {
       ...(overlayPaint ? { overlayPaint } : {}),
       modules: modules as ModuleConfiguration[],
       stream: structuredClone(stream),
-      pokemonBlue: { components: structuredClone(pokemonBlue.components) },
+      pokemonBlue: {
+        components: structuredClone(pokemonBlue.components),
+        ...(pokemonBlue.thoughtIntervalSeconds !== undefined ? { thoughtIntervalSeconds: pokemonBlue.thoughtIntervalSeconds } : {}),
+      },
     };
   }
 }
