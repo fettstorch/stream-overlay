@@ -7,6 +7,7 @@ import type { PokemonSnapshot } from "@stream-overlay/pokemon-model";
 import { MgbaFileProvider } from "../../../modules/pokemon-blue/src/mgba-file-provider.ts";
 import { getActorProfile, resolveStreamerIdentity, searchActors } from "./identity.ts";
 import { StreamChatService } from "@stream-overlay/stream-chat";
+import { cached } from "@fettstorch/jule";
 
 const projectRoot = join(import.meta.dir, "../../..");
 const port = Number(process.env.PORT ?? 3001);
@@ -19,14 +20,8 @@ const defaults = {
 };
 const configStore = new ConfigStore(join(projectRoot, "runtime/config.json"), defaults);
 const supervisor = new ModuleSupervisor();
-const chatProfileCache = new Map<string, { expiresAt: number; profile: Promise<Awaited<ReturnType<typeof getActorProfile>>> }>();
-const chatService = new StreamChatService((did) => {
-  const cached = chatProfileCache.get(did);
-  if (cached && cached.expiresAt > Date.now()) return cached.profile;
-  const profile = getActorProfile(did);
-  chatProfileCache.set(did, { expiresAt: Date.now() + 5 * 60_000, profile });
-  return profile;
-});
+const getCachedChatActorProfile = cached(getActorProfile, { ttlMs: 2 * 60 * 60_000 });
+const chatService = new StreamChatService(getCachedChatActorProfile);
 const pokemonRuntimeDirectory = join(projectRoot, "runtime/pokemon-blue");
 mkdirSync(pokemonRuntimeDirectory, { recursive: true });
 const pokemonProvider = new MgbaFileProvider(

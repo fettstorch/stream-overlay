@@ -6,6 +6,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@fettstorch/jule": "^3.1.0",
     "@stream-overlay/pokemon-model": "workspace:*",
     "@stream-overlay/sdk": "workspace:*",
     "@stream-overlay/stream-chat": "workspace:*"
