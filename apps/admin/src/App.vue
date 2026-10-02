@@ -247,8 +247,12 @@ onBeforeUnmount(() => {
                 >i</button>
                 <span :id="`module-help-${module.id}`" class="module-tooltip" role="tooltip">
                   <strong>{{ module.description || `Controls the ${module.name} overlay.` }}</strong>
+                  <span class="tooltip-obs">
+                    <b>Use in OBS</b>
+                    <span>Add a Browser Source and paste the URL shown below.</span>
+                  </span>
                   <span v-if="module.requirements?.length" class="tooltip-requirements">
-                    <b>Requires</b>
+                    <b>Setup</b>
                     <span v-for="requirement in module.requirements" :key="requirement">• {{ requirement }}</span>
                   </span>
                 </span>
@@ -345,8 +349,8 @@ code { display: block; min-width: 0; padding: 12px 52px 12px 12px; overflow: aut
 .info-button:hover, .info-button:focus-visible { color: #fff; border-color: #7794e8; outline: none; background: #1a2540; }
 .module-tooltip { position: absolute; z-index: 10; top: calc(100% + 12px); right: 0; display: grid; gap: 8px; width: 340px; padding: 13px 15px; border: 1px solid #3a4661; border-radius: 10px; color: #dbe4f8; background: #111827; box-shadow: 0 12px 32px rgba(0,0,0,.38); font-size: .84rem; line-height: 1.4; opacity: 0; pointer-events: none; transform: translateY(-4px); transition: opacity .16s, transform .16s; }
 .module-tooltip > span { display: block; }
-.tooltip-requirements { display: grid !important; gap: 4px; padding-top: 4px; color: #b9c6df; }
-.tooltip-requirements b { color: #dbe4f8; }
+.tooltip-obs, .tooltip-requirements { display: grid !important; gap: 4px; padding-top: 4px; color: #b9c6df; }
+.tooltip-obs b, .tooltip-requirements b { color: #dbe4f8; }
 .module-tooltip::before { content: ""; position: absolute; right: 7px; bottom: 100%; border: 7px solid transparent; border-bottom-color: #3a4661; }
 .module-tooltip::after { content: ""; position: absolute; right: 8px; bottom: 100%; border: 6px solid transparent; border-bottom-color: #111827; }
 .module-help:hover .module-tooltip, .module-help:focus-within .module-tooltip { opacity: 1; transform: translateY(0); }

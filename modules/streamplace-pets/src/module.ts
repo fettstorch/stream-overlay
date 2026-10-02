@@ -7,9 +7,6 @@ export const streamplacePetsModule: OverlayModule = {
   id: "streamplace-pets",
   name: "Streamplace Pets",
   description: "Runs the independent Streamplace Pets overlay from its upstream submodule.",
-  requirements: [
-    "The streamplace-pets Git submodule must be initialized.",
-  ],
   routes: [{
     path: "/overlays/stream-pets/",
     entrypoint: join(projectRoot, "streamplace-pets/pets.html"),

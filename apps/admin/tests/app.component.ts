@@ -56,6 +56,7 @@ describe("Admin App", () => {
     await flushPromises();
     expect(wrapper.text()).toContain("Pokémon Blue");
     expect(wrapper.text()).toContain("running");
+    expect(wrapper.get('[role="tooltip"]').text()).toContain("Add a Browser Source and paste the URL shown below");
     expect(wrapper.get('[role="tooltip"]').text()).toContain("Pokémon Blue must be running in mGBA");
     expect(wrapper.get('button[aria-label="About Pokémon Blue"]')).toBeTruthy();
     expect(wrapper.get('input[aria-label="Enable Pokémon Blue"]').attributes("aria-describedby")).toBeUndefined();
