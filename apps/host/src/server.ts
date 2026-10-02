@@ -13,6 +13,7 @@ import { PaintService, parseSegments, parseCursor } from "../../../modules/overl
 import { getStreamDimensions } from "./stream-dimensions.ts";
 import { defaultPaintConfiguration, parsePaintConfiguration } from "../../../modules/overlay-paint/src/config.ts";
 import { buildPokemonOverlay } from "./pokemon-overlay.ts";
+import { ModuleStatusService } from "./module-status.ts";
 
 const projectRoot = join(import.meta.dir, "../../..");
 const port = Number(process.env.PORT ?? 3001);
@@ -50,6 +51,7 @@ function isEnabled(id: string) {
   return configStore.read().modules.find((module) => module.id === id)?.enabled
     ?? defaults.modules.find((module) => module.id === id)?.enabled ?? false;
 }
+const moduleStatus = new ModuleStatusService(new Map(modules.map(module => [module.id, isEnabled(module.id)])));
 
 function moduleResponse(module: (typeof modules)[number]) {
   const runtime = supervisor.status(module);
@@ -125,7 +127,7 @@ const transparentPage = new Response("<!doctype html><body style='margin:0;backg
 });
 
 function servePokemonOverlay(path = "index.html") {
-  if (!isEnabled("pokemon-blue")) return transparentPage.clone();
+  // The control client must load even while disabled, so it can turn on live.
   return pokemonOverlay(path);
 }
 
@@ -303,6 +305,11 @@ const server = Bun.serve({
         return Response.json(configuration.pokemonBlue);
       },
     },
+    "/api/modules/:id/events": (request, server) => {
+      if (!findModule(request.params.id)) return new Response("Unknown module", { status: 404 });
+      server.timeout(request, 0);
+      return moduleStatus.events(request, request.params.id);
+    },
     "/api/modules/:id": {
       PATCH: async (request) => {
         const module = findModule(request.params.id);
@@ -312,6 +319,7 @@ const server = Bun.serve({
           return Response.json({ error: "enabled must be a boolean" }, { status: 400 });
         }
         configStore.setModuleEnabled(module.id, body.enabled);
+        moduleStatus.setEnabled(module.id, body.enabled);
         if (module.id === "overlay-paint") paintService.setEnabled(body.enabled);
         if (body.enabled) supervisor.enable(module);
         else supervisor.disable(module);

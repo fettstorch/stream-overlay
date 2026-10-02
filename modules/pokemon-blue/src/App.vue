@@ -22,6 +22,9 @@ const configuration = ref<PokemonBlueConfiguration>({
   components: { team: true, badges: true },
 });
 const activePets = reactive<Record<string, PetAppearance>>({});
+const moduleEnabled = ref(false);
+let moduleStatus: EventSource | undefined;
+let lifecycleVersion = 0;
 let refreshTimer: ReturnType<typeof setInterval> | undefined;
 let closeChat: (() => void) | undefined;
 let unsubscribeChat: (() => void) | undefined;
@@ -79,10 +82,13 @@ const petQueues = new PokemonPetQueues(
 );
 
 async function refreshSnapshot() {
+  const version = lifecycleVersion;
   try {
     const response = await fetch("/api/pokemon-blue/snapshot", { cache: "no-store" });
     if (!response.ok) return;
-    snapshot.value = await response.json() as PokemonSnapshot;
+    const result = await response.json() as PokemonSnapshot;
+    if (version !== lifecycleVersion || !moduleEnabled.value) return;
+    snapshot.value = result;
     petQueues.updateParty(snapshot.value.party);
   } catch {
     // Keep the last valid game snapshot while the host is temporarily unavailable.
@@ -90,10 +96,13 @@ async function refreshSnapshot() {
 }
 
 async function refreshConfiguration() {
+  const version = lifecycleVersion;
   try {
     const response = await fetch("/api/pokemon-blue/config", { cache: "no-store" });
     if (!response.ok) return;
-    configuration.value = await response.json() as PokemonBlueConfiguration;
+    const result = await response.json() as PokemonBlueConfiguration;
+    if (version !== lifecycleVersion || !moduleEnabled.value) return;
+    configuration.value = result;
   } catch {
     // Keep the last valid module configuration while the host is unavailable.
   }
@@ -108,6 +117,7 @@ function connectChat() {
   const chat = observeStreamChat();
   closeChat = chat.close;
   unsubscribeChat = chat.messages.subscribe((message) => {
+    if (!moduleEnabled.value) return;
     diagnose("pokemon.chat-message-received", { id: message.id, text: message.text });
     const match = message.text.match(/^\s*!pet\s+(.+?)\s*$/i);
     if (!match) {
@@ -126,24 +136,58 @@ function connectChat() {
   });
 }
 
-onMounted(async () => {
-  diagnose("pokemon.overlay-mounted");
+function stopInteractions() {
+  clearInterval(refreshTimer);
+  refreshTimer = undefined;
+  unsubscribeChat?.();
+  closeChat?.();
+  unsubscribeChat = undefined;
+  closeChat = undefined;
+  petQueues.updateParty([]);
+  for (const id of Object.keys(activePets)) delete activePets[id];
+}
+
+async function setModuleEnabled(enabled: boolean) {
+  if (moduleEnabled.value === enabled) return;
+  moduleEnabled.value = enabled;
+  const version = ++lifecycleVersion;
+  diagnose("pokemon.module-state", { enabled });
+  if (!enabled) { stopInteractions(); return; }
   await refreshOverlay();
+  if (version !== lifecycleVersion || !moduleEnabled.value) return;
   diagnose("pokemon.snapshot-ready", {
     party: snapshot.value.party.map(({ id, name }) => ({ id, name })),
   });
   refreshTimer = setInterval(refreshOverlay, 1000);
   connectChat();
+}
+
+onMounted(() => {
+  diagnose("pokemon.overlay-mounted");
+  moduleStatus = new EventSource("/api/modules/pokemon-blue/events");
+  moduleStatus.onmessage = event => {
+    try {
+      const state = JSON.parse(event.data) as { enabled?: unknown };
+      if (typeof state.enabled === "boolean") void setModuleEnabled(state.enabled);
+    } catch { diagnose("pokemon.module-state-invalid"); }
+  };
+  // Fail closed while disconnected; reconnection sends the authoritative state.
+  moduleStatus.onerror = () => {
+    diagnose("pokemon.module-status-disconnected");
+    void setModuleEnabled(false);
+  };
 });
 
 onBeforeUnmount(() => {
-  if (refreshTimer) clearInterval(refreshTimer);
-  unsubscribeChat?.();
-  closeChat?.();
+  moduleEnabled.value = false;
+  lifecycleVersion++;
+  moduleStatus?.close();
+  stopInteractions();
 });
 </script>
 
 <template>
+  <template v-if="moduleEnabled">
   <PokemonTeam
     v-if="configuration.components.team"
     :party="snapshot.party"
@@ -160,6 +204,7 @@ onBeforeUnmount(() => {
     Pet a Pokémon in chat: <code>!pet &lt;Pokémon name&gt;</code>
     <span>Use the name shown above.</span>
   </p>
+  </template>
 </template>
 
 <style>

@@ -31,6 +31,13 @@ toggle the Pokémon team and badges, and copy stable OBS browser-source URLs.
 Disabled overlay URLs remain available as transparent pages, so OBS sources do
 not need to be removed.
 
+Pokémon Blue and Paint react live to the module toggle without an OBS refresh.
+Pokémon keeps a dedicated SSE status connection open, even when disabled;
+its UI, snapshot refreshes, chat subscription, and pet queues stop while off.
+Re-enabling resumes with current game data and no previously queued pets.
+After a status connection interruption it stays transparent until reconnected.
+Streamplace Pets retains its separate, unchanged lifecycle.
+
 ## Structure
 
 ```text

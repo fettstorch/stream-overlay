@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "typecheck": "vue-tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
     "@stream-overlay/sdk": "workspace:*",
