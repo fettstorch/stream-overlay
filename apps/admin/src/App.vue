@@ -223,26 +223,32 @@ onBeforeUnmount(() => {
               <h3>{{ module.name }}</h3>
               <span class="status" :data-status="module.status">{{ module.status }}</span>
             </div>
-            <span class="toggle-help">
+            <div class="module-actions">
+              <span class="module-help">
+                <button
+                  type="button"
+                  class="info-button"
+                  :aria-label="`About ${module.name}`"
+                  :aria-describedby="`module-help-${module.id}`"
+                >i</button>
+                <span :id="`module-help-${module.id}`" class="module-tooltip" role="tooltip">
+                  <strong>{{ module.description || `Controls the ${module.name} overlay.` }}</strong>
+                  <span v-if="module.requirements?.length" class="tooltip-requirements">
+                    <b>Requires</b>
+                    <span v-for="requirement in module.requirements" :key="requirement">• {{ requirement }}</span>
+                  </span>
+                </span>
+              </span>
               <label class="switch">
                 <input
                   type="checkbox"
                   :checked="module.enabled"
                   :aria-label="`Enable ${module.name}`"
-                  :aria-describedby="`module-help-${module.id}`"
                   @change="toggle(module)"
                 >
                 <span />
               </label>
-              <span :id="`module-help-${module.id}`" class="toggle-tooltip" role="tooltip">
-                <strong>{{ module.description || `Controls the ${module.name} overlay.` }}</strong>
-                <span>Switching it off stops the module while its OBS source stays available but transparent.</span>
-                <span v-if="module.requirements?.length" class="tooltip-requirements">
-                  <b>Requires</b>
-                  <span v-for="requirement in module.requirements" :key="requirement">• {{ requirement }}</span>
-                </span>
-              </span>
-            </span>
+            </div>
           </div>
           <code>{{ overlayUrl(module) }}</code>
           <div class="module-preview">
@@ -301,14 +307,17 @@ code { display: block; margin-top: 22px; padding: 12px; overflow: auto; border-r
 .switch span::after { content: ""; display: block; width: 22px; height: 22px; border-radius: 50%; background: white; transition: transform .2s; }
 .switch input:checked + span { background: #5d7cff; }
 .switch input:checked + span::after { transform: translateX(20px); }
-.toggle-help { position: relative; display: block; }
-.toggle-tooltip { position: absolute; z-index: 10; top: calc(100% + 12px); right: 0; display: grid; gap: 8px; width: 340px; padding: 13px 15px; border: 1px solid #3a4661; border-radius: 10px; color: #dbe4f8; background: #111827; box-shadow: 0 12px 32px rgba(0,0,0,.38); font-size: .84rem; line-height: 1.4; opacity: 0; pointer-events: none; transform: translateY(-4px); transition: opacity .16s, transform .16s; }
-.toggle-tooltip > span { display: block; }
+.module-actions { display: flex; align-items: center; gap: 10px; }
+.module-help { position: relative; display: block; }
+.info-button { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 1px solid #485570; border-radius: 50%; color: #b9c6df; background: #111827; font: 700 .9rem/1 Georgia, serif; cursor: help; }
+.info-button:hover, .info-button:focus-visible { color: #fff; border-color: #7794e8; outline: none; background: #1a2540; }
+.module-tooltip { position: absolute; z-index: 10; top: calc(100% + 12px); right: 0; display: grid; gap: 8px; width: 340px; padding: 13px 15px; border: 1px solid #3a4661; border-radius: 10px; color: #dbe4f8; background: #111827; box-shadow: 0 12px 32px rgba(0,0,0,.38); font-size: .84rem; line-height: 1.4; opacity: 0; pointer-events: none; transform: translateY(-4px); transition: opacity .16s, transform .16s; }
+.module-tooltip > span { display: block; }
 .tooltip-requirements { display: grid !important; gap: 4px; padding-top: 4px; color: #b9c6df; }
 .tooltip-requirements b { color: #dbe4f8; }
-.toggle-tooltip::before { content: ""; position: absolute; right: 15px; bottom: 100%; border: 7px solid transparent; border-bottom-color: #3a4661; }
-.toggle-tooltip::after { content: ""; position: absolute; right: 16px; bottom: 100%; border: 6px solid transparent; border-bottom-color: #111827; }
-.toggle-help:hover .toggle-tooltip, .toggle-help:focus-within .toggle-tooltip { opacity: 1; transform: translateY(0); }
+.module-tooltip::before { content: ""; position: absolute; right: 7px; bottom: 100%; border: 7px solid transparent; border-bottom-color: #3a4661; }
+.module-tooltip::after { content: ""; position: absolute; right: 8px; bottom: 100%; border: 6px solid transparent; border-bottom-color: #111827; }
+.module-help:hover .module-tooltip, .module-help:focus-within .module-tooltip { opacity: 1; transform: translateY(0); }
 .settings, .module-settings { display: grid; gap: 18px; }
 .settings > h2 { margin: 0; }
 .settings > label { display: grid; gap: 8px; color: #b9c3da; font-weight: 650; }

@@ -57,6 +57,8 @@ describe("Admin App", () => {
     expect(wrapper.text()).toContain("Pokémon Blue");
     expect(wrapper.text()).toContain("running");
     expect(wrapper.get('[role="tooltip"]').text()).toContain("Pokémon Blue must be running in mGBA");
+    expect(wrapper.get('button[aria-label="About Pokémon Blue"]')).toBeTruthy();
+    expect(wrapper.get('input[aria-label="Enable Pokémon Blue"]').attributes("aria-describedby")).toBeUndefined();
     expect(wrapper.get("code").text()).toContain("streamer=did%3Aplc%3Atest");
     expect(wrapper.get("iframe").attributes("src")).toContain("/overlays/pokemon-blue/?streamer=did%3Aplc%3Atest");
   });
