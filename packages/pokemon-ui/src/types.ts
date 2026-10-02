@@ -10,3 +10,11 @@ export interface PetAppearance {
   heartsImage: string;
   startedAt: number;
 }
+
+export interface ThoughtAppearance {
+  pokemonId: string;
+  avatar: string;
+  bubbleImage: string;
+  heartsImage: string;
+  startedAt: number;
+}

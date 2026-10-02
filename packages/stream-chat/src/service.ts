@@ -90,6 +90,10 @@ export class StreamChatService {
     this.disconnect();
   }
 
+  resolveAuthor(did: string) {
+    return this.loadAuthor(did);
+  }
+
   private disconnect() {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     this.reconnectTimer = undefined;

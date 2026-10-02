@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, reactive, ref } from "vue";
-import { BadgeStrip, PokemonTeam, type BadgeDefinition, type PetAppearance } from "@stream-overlay/pokemon-ui";
+import { BadgeStrip, PokemonTeam, type BadgeDefinition, type PetAppearance, type ThoughtAppearance } from "@stream-overlay/pokemon-ui";
 import type { PokemonSnapshot } from "@stream-overlay/pokemon-model";
 import { PokemonPetQueues, type PetAuthor } from "./pet-queue.ts";
 import { observeStreamChat } from "@stream-overlay/stream-chat";
@@ -8,6 +8,7 @@ import type { PokemonBlueConfiguration } from "./config.ts";
 import fallbackImage from "../../../assets/unknown-pokemon.svg";
 import petEffectImage from "../../../assets/pat-pat-pet-pet.gif";
 import heartsEffectImage from "../../../assets/hearts.gif";
+import thoughtBubbleImage from "../../../assets/thought-bubble.gif";
 import boulderBadge from "../../../assets/badges/boulder.png";
 import cascadeBadge from "../../../assets/badges/cascade.png";
 import thunderBadge from "../../../assets/badges/thunder.png";
@@ -22,6 +23,10 @@ const configuration = ref<PokemonBlueConfiguration>({
   components: { team: true, badges: true },
 });
 const activePets = reactive<Record<string, PetAppearance>>({});
+const thought = ref<ThoughtAppearance>();
+let thoughtTimer: ReturnType<typeof setInterval> | undefined;
+let thoughtEndTimer: ReturnType<typeof setTimeout> | undefined;
+let nextThoughtSlot = 0;
 const moduleEnabled = ref(false);
 let moduleStatus: EventSource | undefined;
 let lifecycleVersion = 0;
@@ -90,6 +95,7 @@ async function refreshSnapshot() {
     if (version !== lifecycleVersion || !moduleEnabled.value) return;
     snapshot.value = result;
     petQueues.updateParty(snapshot.value.party);
+    if (thought.value && !result.party.some(pokemon => pokemon.id === thought.value!.pokemonId)) thought.value = undefined;
   } catch {
     // Keep the last valid game snapshot while the host is temporarily unavailable.
   }
@@ -137,6 +143,10 @@ function connectChat() {
 }
 
 function stopInteractions() {
+  clearInterval(thoughtTimer);
+  clearTimeout(thoughtEndTimer);
+  thought.value = undefined;
+  nextThoughtSlot = 0;
   clearInterval(refreshTimer);
   refreshTimer = undefined;
   unsubscribeChat?.();
@@ -145,6 +155,24 @@ function stopInteractions() {
   closeChat = undefined;
   petQueues.updateParty([]);
   for (const id of Object.keys(activePets)) delete activePets[id];
+}
+
+async function showNextThought() {
+  if (!moduleEnabled.value || !configuration.value.components.team || !snapshot.value.party.length) return;
+  const pokemon = snapshot.value.party[nextThoughtSlot % snapshot.value.party.length]!;
+  nextThoughtSlot = (nextThoughtSlot + 1) % snapshot.value.party.length;
+  const version = lifecycleVersion;
+  try {
+    const response = await fetch(`/api/pokemon-blue/pet-favourite/${encodeURIComponent(pokemon.id)}`, { cache: "no-store" });
+    if (!response.ok) return;
+    const favourite = await response.json() as { avatar?: string; authorDid: string; count: number } | null;
+    if (!favourite?.avatar || version !== lifecycleVersion || !moduleEnabled.value
+      || !snapshot.value.party.some(member => member.id === pokemon.id)) return;
+    thought.value = { pokemonId: pokemon.id, avatar: favourite.avatar, bubbleImage: thoughtBubbleImage, heartsImage: heartsEffectImage, startedAt: Date.now() };
+    diagnose("pokemon.thought-started", { pokemonId: pokemon.id, authorDid: favourite.authorDid, count: favourite.count });
+    clearTimeout(thoughtEndTimer);
+    thoughtEndTimer = setTimeout(() => { thought.value = undefined; }, 10_000);
+  } catch { /* A profile lookup failure must not interrupt normal pets or game data. */ }
 }
 
 async function setModuleEnabled(enabled: boolean) {
@@ -160,6 +188,7 @@ async function setModuleEnabled(enabled: boolean) {
   });
   refreshTimer = setInterval(refreshOverlay, 1000);
   connectChat();
+  thoughtTimer = setInterval(showNextThought, 120_000);
 }
 
 onMounted(() => {
@@ -194,6 +223,7 @@ onBeforeUnmount(() => {
     :images="images"
     :fallback-image="fallbackImage"
     :active-pets="activePets"
+    :thought="thought"
   />
   <BadgeStrip
     v-if="configuration.components.badges"

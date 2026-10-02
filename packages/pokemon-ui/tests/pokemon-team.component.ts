@@ -3,6 +3,21 @@ import { describe, expect, test } from "vitest";
 import PokemonTeam from "../src/PokemonTeam.vue";
 
 describe("PokemonTeam", () => {
+  test("mirrors only the supplied bubble and keeps the favourite avatar upright", async () => {
+    const pokemon = { id: "kleo", nationalDexNumber: 37, name: "Kleo", level: 40, hp: 50, maxHp: 100, experience: 67907 };
+    const wrapper = mount(PokemonTeam, { props: {
+      party: [pokemon], images: {}, fallbackImage: "/unknown.svg", activePets: {},
+      thought: { pokemonId: "kleo", avatar: "/avatar.png", bubbleImage: "/bubble.gif", heartsImage: "/hearts.gif", startedAt: 123 },
+    } });
+    expect(wrapper.get(".thought-bubble").attributes("style")).toContain("scaleX(-1)");
+    expect(wrapper.get(".thought-avatar").attributes("src")).toBe("/avatar.png");
+    expect(wrapper.get(".thought-avatar").attributes("style")).toBeUndefined();
+    await wrapper.setProps({ party: [{ ...pokemon, id: "another" }, pokemon] });
+    expect(wrapper.findAll("figure")[1]!.find(".pokemon-thought").exists()).toBe(true);
+    await wrapper.setProps({ party: [] });
+    expect(wrapper.find(".pokemon-thought").exists()).toBe(false);
+    wrapper.unmount();
+  });
   test("renders party identity and current level", () => {
     const wrapper = mount(PokemonTeam, {
       props: {

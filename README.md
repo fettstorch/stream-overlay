@@ -122,6 +122,15 @@ runtime/pokemon-blue/team.json
 runtime/pokemon-blue/badges.json
 ```
 
+Matching `!pet <Pokémon name>` commands also count toward that Pokémon's favourite
+petter. Every two minutes, the next current team slot shows its most frequent
+petter's avatar and hearts in a thought bubble for ten seconds. Pokémon without
+pets are skipped; ties keep the first petter. Active pet animations take priority.
+Counts are stored in `runtime/pokemon-blue/pet-counts.json`, separately per
+streamer and stable Pokémon ID, so reordering, renaming, and evolution preserve
+them. Only DIDs and counts are persisted, not profile pictures. OBS and admin
+previews share the host counter and never multiply the count.
+
 ## Checks
 
 ```sh

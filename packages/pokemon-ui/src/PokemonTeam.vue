@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { Pokemon } from "@stream-overlay/pokemon-model";
-import type { PetAppearance } from "./types.ts";
+import type { PetAppearance, ThoughtAppearance } from "./types.ts";
 
 type GrowthRate = "fast" | "medium-fast" | "medium-slow" | "slow";
 
@@ -10,6 +10,7 @@ const props = defineProps<{
   images: Record<number, string>;
   fallbackImage: string;
   activePets: Record<string, PetAppearance>;
+  thought?: ThoughtAppearance;
 }>();
 
 const fastGrowth = new Set([35, 36, 39, 40, 113]);
@@ -89,6 +90,12 @@ const cards = computed(() => props.party.map((pokemon) => ({
         </div>
       </template>
 
+      <div v-if="thought?.pokemonId === card.pokemon.id && !activePets[card.pokemon.id]" :key="thought.startedAt" class="pokemon-thought">
+        <img class="thought-bubble" :src="thought.bubbleImage" alt="" style="transform: scaleX(-1)">
+        <img class="thought-avatar" :src="thought.avatar" alt="Favourite petter">
+        <img class="thought-hearts" :src="`${thought.heartsImage}?restart=${thought.startedAt}`" alt="">
+      </div>
+
       <div class="status-panel">
         <div class="status-heading">
           <span class="pokemon-name">{{ card.pokemon.name }}</span>
@@ -119,6 +126,10 @@ const cards = computed(() => props.party.map((pokemon) => ({
   row-gap: 52px;
 }
 figure { position: relative; margin: 0; aspect-ratio: 1 / 1; }
+.pokemon-thought { position: absolute; z-index: 3; top: 0; left: 42%; width: 58%; aspect-ratio: 1; pointer-events: none; animation: thought-appear 300ms ease; }
+.pokemon-thought .thought-avatar { inset: auto; top: 14%; left: 34%; width: 28%; height: 28%; border-radius: 50%; object-fit: cover; }
+.pokemon-thought .thought-hearts { inset: auto; top: -15%; left: 48%; width: 50%; height: auto; }
+@keyframes thought-appear { from { opacity: 0; } to { opacity: 1; } }
 img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .pet-effect { z-index: 2; top: 2%; left: 40%; width: 44%; height: auto; transform: translateX(-50%); pointer-events: none; }
 .pet-hearts { z-index: 2; top: 3%; left: 49%; width: 38%; height: auto; pointer-events: none; animation: hearts-delay 750ms step-end; }

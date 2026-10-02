@@ -15,6 +15,7 @@ import { defaultPaintConfiguration, parsePaintConfiguration } from "../../../mod
 import { defaultChatConfiguration, parseChatConfiguration } from "../../../modules/chat/src/config.ts";
 import { buildStaticOverlay } from "./static-overlay.ts";
 import { ModuleStatusService } from "./module-status.ts";
+import { PetMemory } from "./pokemon-pet-memory.ts";
 
 const projectRoot = join(import.meta.dir, "../../..");
 const port = Number(process.env.PORT ?? 3001);
@@ -50,6 +51,13 @@ const pokemonProvider = new MgbaFileProvider(
   join(pokemonRuntimeDirectory, "badges.json"),
 );
 let pokemonSnapshot: PokemonSnapshot | null = null;
+const petMemory = new PetMemory(join(pokemonRuntimeDirectory, "pet-counts.json"));
+const unsubscribePetMemory = chatService.messages.subscribe(message => {
+  if (!isEnabled("pokemon-blue") || !pokemonSnapshot) return;
+  try {
+    if (petMemory.record(message, pokemonSnapshot.party)) logger.log("pokemon.pet-counted", { id: message.id, authorDid: message.author.did });
+  } catch (error) { logger.log("pokemon.pet-count-failed", { error: String(error) }); }
+});
 
 function isEnabled(id: string) {
   return configStore.read().modules.find((module) => module.id === id)?.enabled
@@ -313,6 +321,19 @@ const server = Bun.serve({
     "/api/pokemon-blue/snapshot": () => pokemonSnapshot
       ? Response.json(pokemonSnapshot, { headers: { "Cache-Control": "no-store" } })
       : Response.json({ error: "Pokémon data is unavailable" }, { status: 503 }),
+    "/api/pokemon-blue/pet-favourite/:id": async request => {
+      const pokemonId = request.params.id;
+      if (!isEnabled("pokemon-blue") || !pokemonSnapshot?.party.some(pokemon => pokemon.id === pokemonId)) return Response.json(null);
+      const favourite = petMemory.favourite(configStore.read().stream.streamerDid, pokemonId);
+      if (!favourite) return Response.json(null);
+      try {
+        const author = await chatService.resolveAuthor(favourite.authorDid);
+        return Response.json({ pokemonId, authorDid: author.did, avatar: author.avatar, count: favourite.count }, { headers: { "Cache-Control": "no-store" } });
+      } catch (error) {
+        logger.log("pokemon.favourite-profile-failed", { authorDid: favourite.authorDid, error: String(error) });
+        return Response.json(null);
+      }
+    },
     "/api/pokemon-blue/config": {
       GET: () => Response.json(configStore.read().pokemonBlue),
       PATCH: async (request) => {
@@ -373,6 +394,7 @@ const shutDown = () => {
   logger.log("host.stopping");
   supervisor.stopAll(modules);
   chatService.stop();
+  unsubscribePetMemory();
   paintService.stop();
   void pokemonProvider.stop();
   void server.stop();

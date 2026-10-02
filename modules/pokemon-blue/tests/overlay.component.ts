@@ -33,11 +33,12 @@ function setup() {
   const fetch = vi.fn(async (url: string) => {
     if (url.endsWith("/snapshot")) return Response.json({ party: [{ id: "kleo", name: "Kleo", dexNumber: 25 }], badges: null, capturedAt: "" });
     if (url.endsWith("/config")) return Response.json({ components: { team: true, badges: true } });
+    if (url.includes("/pet-favourite/")) return Response.json({ avatar: "/favourite.png", authorDid: "did:plc:viewer", count: 3 });
     return new Response(null, { status: 204 });
   });
   vi.stubGlobal("fetch", fetch);
   const wrapper = mount(App, { global: { stubs: {
-    PokemonTeam: { props: ["party", "activePets"], template: '<div data-team>{{ party[0]?.name }}<span v-if="activePets.kleo" data-pet>pet</span></div>' },
+    PokemonTeam: { props: ["party", "activePets", "thought"], template: '<div data-team>{{ party[0]?.name }}<span v-if="activePets.kleo" data-pet>pet</span><span v-if="thought" data-thought>{{ thought.pokemonId }}</span></div>' },
     BadgeStrip: { template: '<div data-badges>badges</div>' },
   } } });
   const state = async (enabled: boolean) => {
@@ -91,6 +92,57 @@ test("disconnect hides the overlay and reconnect restores the current state", as
     await app.state(true);
     expect(app.wrapper.text()).toContain("Kleo");
     expect(chat.listeners.size).toBe(1);
+  } finally { app.wrapper.unmount(); }
+});
+
+test("thoughts start after two minutes, last ten seconds, and stop when disabled", async () => {
+  const app = setup();
+  try {
+    await app.state(true);
+    await vi.advanceTimersByTimeAsync(119_000);
+    expect(app.wrapper.find("[data-thought]").exists()).toBe(false);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(app.wrapper.get("[data-thought]").text()).toBe("kleo");
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(app.wrapper.find("[data-thought]").exists()).toBe(false);
+    await vi.advanceTimersByTimeAsync(110_000);
+    expect(app.wrapper.find("[data-thought]").exists()).toBe(true);
+    await app.state(false);
+    expect(app.wrapper.text()).toBe("");
+    const calls = app.fetch.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(app.fetch.mock.calls.length).toBe(calls);
+  } finally { app.wrapper.unmount(); }
+});
+
+test("thoughts rotate by current team position and discard a late lookup after disabling", async () => {
+  const app = setup();
+  const originalFetch = app.fetch.getMockImplementation()!;
+  let party = [{ id: "kleo", name: "Kleo" }, { id: "other", name: "Other" }];
+  let delayed = false;
+  let resolve!: (response: Response) => void;
+  app.fetch.mockImplementation(async url => {
+    if (url.endsWith("/snapshot")) return Response.json({ party, badges: null, capturedAt: "" });
+    if (delayed && url.includes("/pet-favourite/")) return new Promise<Response>(done => { resolve = done; });
+    return originalFetch(url);
+  });
+  try {
+    await app.state(true);
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(app.wrapper.get("[data-thought]").text()).toBe("kleo");
+    // Swap positions: the next positional slot is now Kleo again, not a cached ID.
+    party = [party[1]!, party[0]!];
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(app.wrapper.get("[data-thought]").text()).toBe("kleo");
+    party = [party[0]!];
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(app.wrapper.find("[data-thought]").exists()).toBe(false);
+    delayed = true;
+    await vi.advanceTimersByTimeAsync(119_000);
+    await app.state(false);
+    resolve(Response.json({ avatar: "/avatar.png", authorDid: "viewer", count: 1 }));
+    await flushPromises();
+    expect(app.wrapper.text()).toBe("");
   } finally { app.wrapper.unmount(); }
 });
 
