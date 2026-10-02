@@ -85,7 +85,7 @@ html, body, #app { margin: 0; width: 100%; height: 100%; background: transparent
 .chat-avatar { width: 2.4em; height: 2.4em; flex: 0 0 2.4em; object-fit: cover; border-radius: 50%; }
 .avatar-fallback { display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, .15); }
 .chat-content { min-width: 0; }
-.chat-message strong { display: block; }
+.chat-message strong { display: block; font-size: .65em; line-height: 1.3; margin-bottom: .2em; }
 .chat-message .chat-content span { display: block; white-space: pre-wrap; }
 .chat-bubble-move, .chat-bubble-enter-active, .chat-bubble-leave-active { transition: transform 280ms ease, opacity 280ms ease; }
 .chat-bubble-enter-from { opacity: 0; transform: translateY(12px); }
