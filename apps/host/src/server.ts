@@ -20,6 +20,7 @@ const defaults = {
 const configStore = new ConfigStore(join(projectRoot, "runtime/config.json"), defaults);
 const supervisor = new ModuleSupervisor();
 const chatService = new StreamChatService(getActorProfile);
+const moduleStateListeners = new Set<(id: string, enabled: boolean) => void>();
 const pokemonRuntimeDirectory = join(projectRoot, "runtime/pokemon-blue");
 mkdirSync(pokemonRuntimeDirectory, { recursive: true });
 const pokemonProvider = new MgbaFileProvider(
@@ -100,6 +101,87 @@ const transparentPage = new Response("<!doctype html><body style='margin:0;backg
   headers: { "Content-Type": "text/html; charset=utf-8" },
 });
 
+function escapeHtmlAttribute(value: string) {
+  return value.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;");
+}
+
+function overlayShell(moduleId: string, sourceUrl: string) {
+  const enabled = isEnabled(moduleId);
+  return new Response(`<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <style>html,body,iframe{width:100%;height:100%;margin:0;overflow:hidden;background:transparent;border:0}iframe[hidden]{display:none}</style>
+  </head>
+  <body>
+    <iframe data-source="${escapeHtmlAttribute(sourceUrl)}"${enabled ? ` src="${escapeHtmlAttribute(sourceUrl)}"` : " hidden"}></iframe>
+    <script>
+      const frame = document.querySelector("iframe");
+      let enableTimer;
+      function setEnabled(enabled) {
+        clearTimeout(enableTimer);
+        if (!enabled) {
+          frame.hidden = true;
+          frame.src = "about:blank";
+          return;
+        }
+        enableTimer = setTimeout(() => {
+          frame.src = frame.dataset.source;
+          frame.hidden = false;
+        }, 250);
+      }
+      const events = new EventSource("/api/module-events");
+      events.onmessage = ({ data }) => {
+        const state = JSON.parse(data);
+        if (state.id === ${JSON.stringify(moduleId)}) setEnabled(state.enabled);
+      };
+    </script>
+  </body>
+</html>`, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
+}
+
+function moduleStateEvents(request: Request) {
+  let listener: ((id: string, enabled: boolean) => void) | undefined;
+  let heartbeat: ReturnType<typeof setInterval> | undefined;
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const encoder = new TextEncoder();
+      const send = (id: string, enabled: boolean) => {
+        try { controller.enqueue(encoder.encode(`data: ${JSON.stringify({ id, enabled })}\n\n`)); } catch { close(); }
+      };
+      const close = () => {
+        if (listener) moduleStateListeners.delete(listener);
+        listener = undefined;
+        if (heartbeat) clearInterval(heartbeat);
+        heartbeat = undefined;
+        try { controller.close(); } catch { /* Already closed by the browser. */ }
+      };
+      listener = send;
+      moduleStateListeners.add(listener);
+      for (const module of modules) send(module.id, isEnabled(module.id));
+      heartbeat = setInterval(() => {
+        try { controller.enqueue(encoder.encode(": keepalive\n\n")); } catch { close(); }
+      }, 15_000);
+      request.signal.addEventListener("abort", close, { once: true });
+    },
+    cancel() {
+      if (listener) moduleStateListeners.delete(listener);
+      if (heartbeat) clearInterval(heartbeat);
+    },
+  });
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+    },
+  });
+}
+
+function publishModuleState(id: string, enabled: boolean) {
+  for (const listener of moduleStateListeners) listener(id, enabled);
+}
+
 function proxyPokemonOverlay(request: Request, path = new URL(request.url).pathname) {
   if (!isEnabled("pokemon-blue")) return transparentPage.clone();
   const source = new URL(request.url);
@@ -123,16 +205,16 @@ const server = Bun.serve({
   port,
   development: true,
   routes: {
-    "/": (request) => proxyPokemonOverlay(request, "/"),
-    "/overlay.html": (request) => proxyPokemonOverlay(request, "/overlay.html"),
-    "/overlays/pokemon-blue/": (request) => proxyPokemonOverlay(request, "/"),
+    "/": (request) => overlayShell("pokemon-blue", `/internal/pokemon-blue/${new URL(request.url).search}`),
+    "/overlay.html": (request) => overlayShell("pokemon-blue", `/internal/pokemon-blue/${new URL(request.url).search}`),
+    "/overlays/pokemon-blue/": (request) => overlayShell("pokemon-blue", `/internal/pokemon-blue/${new URL(request.url).search}`),
+    "/internal/pokemon-blue/": (request) => proxyPokemonOverlay(request, "/"),
     "/team.json": (request) => proxyPokemonOverlay(request),
     "/badges.json": (request) => proxyPokemonOverlay(request),
-    "/overlays/stream-pets/": (request) => {
-      if (!isEnabled("streamplace-pets")) return transparentPage.clone();
-      const query = new URL(request.url).search;
-      return Response.redirect(`http://localhost:3000/pets.html${query}`, 302);
-    },
+    "/overlays/stream-pets/": (request) => overlayShell(
+      "streamplace-pets",
+      `http://127.0.0.1:3000/pets.html${new URL(request.url).search}`,
+    ),
     "/api/modules": () => Response.json(modules.map(moduleResponse)),
     "/api/config": {
       GET: async () => Response.json(await streamConfigurationResponse()),
@@ -175,6 +257,7 @@ const server = Bun.serve({
       }
     },
     "/api/chat/events": (request) => streamChatEvents(request),
+    "/api/module-events": (request) => moduleStateEvents(request),
     "/api/pokemon-blue/snapshot": () => pokemonSnapshot
       ? Response.json(pokemonSnapshot, { headers: { "Cache-Control": "no-store" } })
       : Response.json({ error: "Pokémon data is unavailable" }, { status: 503 }),
@@ -206,6 +289,7 @@ const server = Bun.serve({
         configStore.setModuleEnabled(module.id, body.enabled);
         if (body.enabled) supervisor.enable(module);
         else supervisor.disable(module);
+        publishModuleState(module.id, body.enabled);
         return Response.json(moduleResponse(module));
       },
     },
