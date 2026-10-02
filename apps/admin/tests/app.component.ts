@@ -86,7 +86,7 @@ describe("Admin App", () => {
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining(
       "/overlays/pokemon-blue/?streamer=did%3Aplc%3Atest",
     ));
-    expect(wrapper.text()).toContain("Copied");
+    expect(wrapper.get('button[aria-label="Pokémon Blue OBS URL copied"]')).toBeTruthy();
   });
 
   test("saves a pasted DID independently of modules", async () => {

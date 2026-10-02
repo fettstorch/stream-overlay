@@ -269,14 +269,13 @@ onBeforeUnmount(() => {
             <button
               type="button"
               class="copy-button"
-              :aria-label="`Copy ${module.name} OBS URL`"
+              :class="{ copied: copiedModuleId === module.id }"
+              :aria-label="copiedModuleId === module.id ? `${module.name} OBS URL copied` : `Copy ${module.name} OBS URL`"
               @click="copyOverlayUrl(module)"
             >
-              <span aria-hidden="true">{{ copiedModuleId === module.id ? "✓" : "⧉" }}</span>
+              <span class="copy-icon" aria-hidden="true" />
             </button>
-            <span class="copy-status" aria-live="polite">
-              {{ copiedModuleId === module.id ? "Copied" : "" }}
-            </span>
+            <span class="sr-only" aria-live="polite">{{ copiedModuleId === module.id ? "Copied" : "" }}</span>
           </div>
           <div class="module-preview">
             <iframe
@@ -325,11 +324,13 @@ h3 { margin: 0 0 8px; font-size: 1.25rem; }
 .status { color: #9aa6c1; font-size: .8rem; text-transform: uppercase; letter-spacing: .1em; }
 .status[data-status="running"] { color: #70e7a1; }
 .status[data-status="failed"] { color: #ff7f91; }
-.overlay-url { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: stretch; margin-top: 22px; }
-code { display: block; min-width: 0; padding: 12px; overflow: auto; border-radius: 9px; color: #a9bdf9; background: #090d16; }
-.copy-button { width: 42px; border: 1px solid #36425d; border-radius: 9px; color: #c7d3ed; background: #111827; font: 700 1.15rem/1 system-ui; cursor: pointer; }
-.copy-button:hover, .copy-button:focus-visible { color: white; border-color: #7794e8; outline: none; background: #1a2540; }
-.copy-status { position: absolute; top: 100%; right: 0; padding-top: 4px; color: #70e7a1; font-size: .78rem; }
+.overlay-url { position: relative; margin-top: 22px; }
+code { display: block; min-width: 0; padding: 12px 52px 12px 12px; overflow: auto; border-radius: 9px; color: #a9bdf9; background: #090d16; }
+.copy-button { position: absolute; top: 50%; right: 7px; display: grid; place-items: center; width: 34px; height: 34px; padding: 8px; border: 0; border-radius: 7px; color: #8fa1c7; background: transparent; transform: translateY(-50%); cursor: pointer; }
+.copy-button:hover, .copy-button:focus-visible { color: white; outline: none; background: #1a2540; }
+.copy-button.copied { color: #70e7a1; }
+.copy-icon { width: 100%; height: 100%; background: currentColor; -webkit-mask: url("./assets/copy-document.svg") center / contain no-repeat; mask: url("./assets/copy-document.svg") center / contain no-repeat; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .module-preview { position: relative; margin-top: 16px; overflow: hidden; aspect-ratio: 16 / 9; border: 1px solid #28334b; border-radius: 10px; background-color: #0b101c; background-image: linear-gradient(45deg, #141c2b 25%, transparent 25%), linear-gradient(-45deg, #141c2b 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #141c2b 75%), linear-gradient(-45deg, transparent 75%, #141c2b 75%); background-position: 0 0, 0 8px, 8px -8px, -8px 0; background-size: 16px 16px; }
 .module-preview iframe { width: 100%; height: 100%; border: 0; background: transparent; }
 .error { color: #ff7f91; }
