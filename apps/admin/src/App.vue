@@ -153,6 +153,7 @@ async function load() {
     fetch("/api/config", { cache: "no-store" }),
   ]);
   modules.value = await modulesResponse.json() as ModuleStatus[];
+  for (const module of modules.value) confirmedModuleStates.set(module.id, module.enabled);
   // Enabled cards start open, but their layout state is independent after loading.
   for (const module of modules.value) {
     if (!(module.id in expandedModules.value)) expandedModules.value[module.id] = module.enabled;
@@ -174,14 +175,30 @@ async function load() {
   streamerQuery.value = streamConfiguration.value.profile?.handle || streamConfiguration.value.streamerDid;
 }
 
-async function toggle(module: ModuleStatus) {
-  const response = await fetch(`/api/modules/${module.id}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ enabled: !module.enabled }),
+const toggleSequences = new Map<string, number>();
+const confirmedModuleStates = new Map<string, boolean>();
+function toggle(module: ModuleStatus, event: Event) {
+  const enabled = (event.target as HTMLInputElement).checked;
+  const sequence = (toggleSequences.get(module.id) ?? 0) + 1;
+  toggleSequences.set(module.id, sequence);
+  const previous = module.enabled;
+  modules.value = modules.value.map(candidate => candidate.id === module.id ? { ...candidate, enabled } : candidate);
+  enqueueSave(async () => {
+    try {
+      const response = await fetch(`/api/modules/${module.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled }),
+      });
+      if (!response.ok) throw new Error("Module update failed");
+      const updated = await response.json() as ModuleStatus;
+      confirmedModuleStates.set(module.id, updated.enabled);
+      if (toggleSequences.get(module.id) !== sequence) return;
+      modules.value = modules.value.map(candidate => candidate.id === module.id ? updated : candidate);
+    } catch {
+      if (toggleSequences.get(module.id) !== sequence) return;
+      modules.value = modules.value.map(candidate => candidate.id === module.id
+        ? { ...candidate, enabled: confirmedModuleStates.get(module.id) ?? previous, error: "Could not change module state. Try again." } : candidate);
+    }
   });
-  const updated = await response.json() as ModuleStatus;
-  modules.value = modules.value.map((candidate) => candidate.id === updated.id ? updated : candidate);
 }
 
 async function savePokemonConfiguration() {
@@ -444,7 +461,7 @@ onBeforeUnmount(() => {
                   type="checkbox"
                   :checked="module.enabled"
                   :aria-label="`Enable ${module.name}`"
-                  @change="toggle(module)"
+                  @change="toggle(module, $event)"
                 >
                 <span />
               </label>

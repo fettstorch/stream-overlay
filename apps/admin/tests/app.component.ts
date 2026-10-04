@@ -54,6 +54,34 @@ function mockFetch() {
 }
 
 describe("Admin App", () => {
+  test("rapid toggles retain checked intent and serialize writes without stale response rollback", async () => {
+    const fetchMock = mockFetch();
+    const fallback = fetchMock.getMockImplementation()!;
+    const pending: Array<{ enabled: boolean; resolve: (response: Response) => void }> = [];
+    fetchMock.mockImplementation(async (input, init) => {
+      if (String(input) === "/api/modules/pokemon-blue" && init?.method === "PATCH") {
+        const enabled = JSON.parse(String(init.body)).enabled as boolean;
+        return new Promise<Response>(resolve => { pending.push({ enabled, resolve }); });
+      }
+      return fallback(input, init);
+    });
+    const wrapper = mount(App);
+    try {
+      await flushPromises();
+      const toggle = wrapper.get('.module-card input[type="checkbox"]');
+      await toggle.setValue(false); await flushPromises();
+      await toggle.setValue(true); await flushPromises();
+      expect(pending.map(({ enabled }) => enabled)).toEqual([false]);
+      expect((toggle.element as HTMLInputElement).checked).toBe(true);
+      pending[0]!.resolve(Response.json({ ...moduleResponse[0], enabled: false }));
+      await flushPromises();
+      expect(pending.map(({ enabled }) => enabled)).toEqual([false, true]);
+      expect((toggle.element as HTMLInputElement).checked).toBe(true);
+      pending[1]!.resolve(Response.json({ ...moduleResponse[0], enabled: true }));
+      await flushPromises();
+      expect((toggle.element as HTMLInputElement).checked).toBe(true);
+    } finally { wrapper.unmount(); }
+  });
   test("module configuration links open externally with a sign-in explanation", async () => {
     const fetchMock = mockFetch();
     fetchMock.mockImplementationOnce(async () => Response.json([{
