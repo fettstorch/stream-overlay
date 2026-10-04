@@ -6,7 +6,7 @@ import { projectRoot } from "../modules/project-root.ts";
 import { requiredOverlayPorts } from "./required-ports.ts";
 
 const configuration = new ConfigStore(join(projectRoot, "runtime/config.json"), defaultHostConfiguration).read();
-const requiredPorts = requiredOverlayPorts(configuration);
+const requiredPorts = requiredOverlayPorts(configuration, Number(process.env.PORT ?? 3001));
 
 function portIsAvailable(port: number) {
   return new Promise<boolean>((resolve) => {
