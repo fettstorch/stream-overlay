@@ -88,7 +88,7 @@ onBeforeUnmount(() => {
 html, body, #app { margin: 0; width: 100%; height: 100%; background: transparent; }
 * { box-sizing: border-box; }
 /* Keep transparent space outside the rotated plane for perspective expansion. */
-.chat-plane { position: fixed; inset: 15%; transform-origin: center center; }
+.chat-plane { position: fixed; inset: 25%; transform-origin: center center; }
 .chat-messages { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; gap: 8px; margin: 0; padding: 16px; overflow: hidden; list-style: none; font: 20px/1.4 system-ui, sans-serif; color: white; }
 .chat-message { flex: none; display: flex; align-items: flex-start; gap: .6em; max-width: 100%; padding: .4em .6em; background: var(--message-background); border-radius: 4px; overflow-wrap: anywhere; }
 .chat-avatar { width: 2.4em; height: 2.4em; flex: 0 0 2.4em; object-fit: cover; border-radius: 50%; }
