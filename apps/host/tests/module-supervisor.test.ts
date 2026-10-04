@@ -22,12 +22,16 @@ test("a superseded process exit cannot remove or fail its replacement", () => {
   supervisor.enable(module);
   supervisor.disable(module);
   supervisor.enable(module);
+  expect(processes).toHaveLength(1);
   exits[0]!(processes[0]!, 0, null, undefined);
   expect(supervisor.status(module)).toEqual({ id: "test", status: "running", processId: 2, error: null });
   supervisor.enable(module);
   expect(processes).toHaveLength(2);
   supervisor.disable(module);
   expect(killed).toEqual([1, 2]);
+  supervisor.enable(module);
+  supervisor.disable(module);
   exits[1]!(processes[1]!, 0, null, undefined);
   expect(supervisor.status(module).status).toBe("stopped");
+  expect(processes).toHaveLength(2);
 });
