@@ -19,10 +19,10 @@ import { PetMemory } from "./pokemon-pet-memory.ts";
 import { parseThoughtInterval, type PokemonBlueConfiguration } from "../../../modules/pokemon-blue/src/config.ts";
 
 import { projectRoot } from "../../../modules/project-root.ts";
-import { defaultHostConfiguration } from "./default-configuration.ts";
+import { defaultHostConfiguration as defaults } from "./default-configuration.ts";
 import { updateSharedChat } from "./chat-lifecycle.ts";
 const port = Number(process.env.PORT ?? 3001);
-const configStore = new ConfigStore(join(projectRoot, "runtime/config.json"), defaultHostConfiguration);
+const configStore = new ConfigStore(join(projectRoot, "runtime/config.json"), defaults);
 const logger = new FileLogger(join(tmpdir(), "stream-overlay", "overlay.log"));
 const supervisor = new ModuleSupervisor((event, details) => logger.log(event, details));
 const chatService = new StreamChatService(getActorProfile, (event, details) => logger.log(event, details));
