@@ -26,13 +26,13 @@ defineProps<{
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
   align-items: center;
-  gap: 12px;
+  gap: 7.5px;
   margin-top: 64px;
-  padding: 0 7%;
+  padding: 0 25%;
 }
 .badge {
   width: 100%;
-  max-width: 72px;
+  max-width: 45px;
   justify-self: center;
   image-rendering: pixelated;
   transition: filter 250ms ease, opacity 250ms ease;
