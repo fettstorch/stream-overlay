@@ -31,8 +31,10 @@ export class ModuleSupervisor {
       env: { ...globalThis.process.env, ...module.process.env },
       stdout: "inherit",
       stderr: "inherit",
-      onExit: (_, exitCode, signalCode, error) => {
+      onExit: (exitedProcess, exitCode, signalCode, error) => {
         this.log("module.process-exited", { moduleId: module.id, exitCode, signalCode, error: error?.message });
+        // A stopped process may exit after its replacement has already started.
+        if (this.processes.get(module.id) !== exitedProcess) return;
         this.processes.delete(module.id);
         const stoppedIntentionally = this.status(module).status === "stopped";
         if (!stoppedIntentionally) {
