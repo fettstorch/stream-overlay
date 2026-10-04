@@ -258,9 +258,15 @@ watch(paintConfiguration, value => {
   paintSaveTimer = setTimeout(() => enqueueSave(() => savePaintConfiguration(configuration)), 250);
 }, { deep: true });
 
-async function selectStreamer(identity: string) {
+let streamerSelectionSequence = 0;
+function selectStreamer(identity: string) {
+  const sequence = ++streamerSelectionSequence;
   streamMessage.value = "Loading profile…";
   actorSearchOpen.value = false;
+  enqueueSave(() => saveStreamer(identity, sequence));
+}
+
+async function saveStreamer(identity: string, sequence: number) {
   try {
     const response = await fetch("/api/config", {
       method: "PATCH",
@@ -268,6 +274,7 @@ async function selectStreamer(identity: string) {
       body: JSON.stringify({ streamerDid: identity }),
     });
     const result = await response.json() as StreamConfiguration | { error?: string };
+    if (sequence !== streamerSelectionSequence) return;
     if (!response.ok) {
       streamMessage.value = "error" in result && result.error ? result.error : "Could not save configuration";
       return;
@@ -277,7 +284,7 @@ async function selectStreamer(identity: string) {
     actorSuggestions.value = [];
     streamMessage.value = "Selected and saved";
   } catch {
-    streamMessage.value = "Could not save configuration";
+    if (sequence === streamerSelectionSequence) streamMessage.value = "Could not save configuration";
   }
 }
 

@@ -329,6 +329,35 @@ describe("Admin App", () => {
     }));
   });
 
+  test("serializes rapid streamer selections and does not display a superseded response", async () => {
+    const fetchMock = mockFetch();
+    const fallback = fetchMock.getMockImplementation()!;
+    const pending: Array<{ did: string; resolve: (response: Response) => void }> = [];
+    fetchMock.mockImplementation(async (input, init) => {
+      if (String(input) === "/api/config" && init?.method === "PATCH") {
+        const did = JSON.parse(String(init.body)).streamerDid as string;
+        return new Promise<Response>(resolve => { pending.push({ did, resolve }); });
+      }
+      return fallback(input, init);
+    });
+    const wrapper = mount(App);
+    try {
+      await flushPromises();
+      const input = wrapper.get('.stream-settings input');
+      await input.setValue("did:plc:first"); await input.trigger("keydown.enter"); await flushPromises();
+      await input.setValue("did:plc:last"); await input.trigger("keydown.enter"); await flushPromises();
+      expect(pending.map(({ did }) => did)).toEqual(["did:plc:first"]);
+      pending[0]!.resolve(Response.json({ streamerDid: "did:plc:first", profile: null }));
+      await flushPromises();
+      expect((input.element as HTMLInputElement).value).toBe("did:plc:last");
+      expect(pending.map(({ did }) => did)).toEqual(["did:plc:first", "did:plc:last"]);
+      pending[1]!.resolve(Response.json({ streamerDid: "did:plc:last", profile: null }));
+      await flushPromises();
+      expect(wrapper.get('.selected-streamer').text()).toContain("did:plc:last");
+      expect(wrapper.text()).toContain("Selected and saved");
+    } finally { wrapper.unmount(); }
+  });
+
   test("saves Pokémon Blue component settings", async () => {
     vi.useFakeTimers();
     const fetchMock = mockFetch();
