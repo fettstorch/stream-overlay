@@ -1,5 +1,6 @@
 import { getDebouncer } from "@fettstorch/jule";
 import type { PaintConfiguration } from "./config.ts";
+import { maxSegments } from "./limits.ts";
 
 export interface PaintSegment {
   x: number;
@@ -24,7 +25,6 @@ export type PaintEvent =
   | { type: "fade"; fadeAt: number }
   | { type: "clear" };
 
-const maxSegments = 6000;
 
 export interface PaintCursor { x: number; y: number }
 export function parseCursor(value: unknown): PaintCursor | null | undefined {
@@ -104,10 +104,8 @@ export class PaintService {
     this.fadeAt = Date.now() + this.idleDuration;
     if (this.segments.length > maxSegments) {
       this.segments = this.segments.slice(-maxSegments);
-      this.emit({ type: "state", state: this.snapshot() });
-    } else {
-      this.emit({ type: "segments", segments, fadeAt: this.fadeAt });
     }
+    this.emit({ type: "segments", segments, fadeAt: this.fadeAt });
     this.scheduleDecay(this.idleDuration);
     return true;
   }

@@ -5,6 +5,19 @@ import { parsePaintConfiguration } from "../src/config.ts";
 const segment = { x: 0.5, y: 0.4, fromX: 0.3, fromY: 0.2 };
 
 describe("Overlay Paint", () => {
+  test("sustained drawing keeps bounded history and only broadcasts new batches", () => {
+    const service = new PaintService();
+    const events: PaintEvent[] = [];
+    try {
+      service.setEnabled(true);
+      service.subscribe(event => events.push(event));
+      for (let batch = 0; batch < 70; batch++) service.append(Array.from({ length: 100 }, () => segment));
+      expect(service.snapshot().segments).toHaveLength(6000);
+      expect(events.filter(event => event.type === "state")).toHaveLength(1);
+      expect(events.filter(event => event.type === "segments")).toHaveLength(70);
+      expect(events.at(-1)).toMatchObject({ type: "segments", segments: Array.from({ length: 100 }, () => segment) });
+    } finally { service.stop(); }
+  });
   test("cursor is separate from paint and never postpones its decay", () => {
     const service = new PaintService();
     try {

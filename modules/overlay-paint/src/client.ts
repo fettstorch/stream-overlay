@@ -78,6 +78,7 @@ events.onmessage = message => {
     return;
   } else if (event.type === "segments") {
     state.segments.push(...event.segments);
+    if (state.segments.length > maxSegments) state.segments = state.segments.slice(-maxSegments);
     state.fadeAt = event.fadeAt;
   } else if (event.type === "fade") {
     state.fadeAt = event.fadeAt;
@@ -197,3 +198,4 @@ window.addEventListener("pagehide", () => {
 resize();
 updateStatus();
 render();
+import { maxSegments } from "./limits.ts";

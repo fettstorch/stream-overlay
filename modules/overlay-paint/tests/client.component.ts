@@ -40,6 +40,16 @@ async function setup(interactive = true) {
   return { canvas, context, fetch, message, pointer, draw: () => draw() };
 }
 
+test("delta broadcasts keep client drawing history bounded after the cap", async () => {
+  const app = await setup(false);
+  const segment = { x: 0.5, y: 0.5, fromX: 0.4, fromY: 0.4 };
+  for (let batch = 0; batch < 70; batch++) {
+    app.message({ type: "segments", segments: Array.from({ length: 100 }, () => segment), fadeAt: Date.now() + 4000 });
+  }
+  app.draw();
+  expect(app.context.stroke).toHaveBeenCalledTimes(6000);
+});
+
 test("a click and drag send normalized paint, including empty coalesced-event fallback", async () => {
   const app = await setup();
   app.pointer("pointerdown", 100, 112.5);
