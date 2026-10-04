@@ -22,6 +22,7 @@ export interface OverlayModule {
   name: string;
   description: string;
   requirements?: string[];
+  configurationLink?: { url: string; label: string; description: string };
   streamerQuery?: boolean;
   preview?: { streamBackground?: boolean; interactive?: boolean };
   /** Recommend the source height without requiring a background stream preview. */

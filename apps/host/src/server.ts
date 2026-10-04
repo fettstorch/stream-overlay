@@ -74,6 +74,7 @@ function moduleResponse(module: (typeof modules)[number]) {
     name: module.name,
     description: module.description,
     requirements: module.requirements ?? [],
+    configurationLink: module.configurationLink,
     chatCommands: module.chatCommands ?? [],
     preview: module.preview,
     obsSize: module.obsSize,

@@ -8,6 +8,7 @@ interface ModuleStatus {
   name: string;
   description: string;
   requirements: string[];
+  configurationLink?: { url: string; label: string; description: string };
   chatCommands: Array<{ command: string; description: string }>;
   preview?: { streamBackground?: boolean; interactive?: boolean };
   obsSize?: "stream-height";
@@ -456,6 +457,13 @@ onBeforeUnmount(() => {
             </button>
             <span class="sr-only" aria-live="polite">{{ copiedModuleId === module.id ? "Copied" : "" }}</span>
           </div>
+          <section v-if="module.configurationLink" class="module-commands">
+            <h4>External configuration</h4>
+            <div class="chat-command">
+              <a class="configuration-link" :href="module.configurationLink.url" target="_blank" rel="noopener noreferrer">{{ module.configurationLink.label }}</a>
+              <span>{{ module.configurationLink.description }}</span>
+            </div>
+          </section>
           <section v-if="module.chatCommands?.length" class="module-commands">
             <h4>Chat interactions</h4>
             <div v-for="chatCommand in module.chatCommands" :key="chatCommand.command" class="chat-command">
@@ -604,6 +612,7 @@ code { display: block; min-width: 0; padding: 12px 52px 12px 12px; overflow: aut
 .chat-command { display: grid; gap: 7px; padding: 12px 14px; border: 1px solid #28334b; border-radius: 10px; background: #0b101c; }
 .chat-command code { color: #9db2ff; font: 650 .95rem/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
 .chat-command span { color: #9aa6c1; font-size: .84rem; }
+.configuration-link { color: #9db2ff; font-size: .9rem; }
 .module-preview { position: relative; margin-top: 16px; overflow: hidden; aspect-ratio: 16 / 9; border: 1px solid #28334b; border-radius: 10px; background-color: #0b101c; background-image: linear-gradient(45deg, #141c2b 25%, transparent 25%), linear-gradient(-45deg, #141c2b 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #141c2b 75%), linear-gradient(-45deg, transparent 75%, #141c2b 75%); background-position: 0 0, 0 8px, 8px -8px, -8px 0; background-size: 16px 16px; }
 .module-preview iframe { width: 100%; height: 100%; border: 0; background: transparent; }
 .module-preview .stream-background, .module-preview .paint-foreground { position: absolute; inset: 0; }

@@ -54,6 +54,25 @@ function mockFetch() {
 }
 
 describe("Admin App", () => {
+  test("module configuration links open externally with a sign-in explanation", async () => {
+    const fetchMock = mockFetch();
+    fetchMock.mockImplementationOnce(async () => Response.json([{
+      ...moduleResponse[0], id: "streamplace-pets", name: "Streamplace Pets",
+      configurationLink: {
+        url: "https://rpg.actor/streampets", label: "Configure Stream Pets on rpg.actor ↗",
+        description: "Sign in with your streamer account on rpg.actor.",
+      },
+    }]));
+    const wrapper = mount(App);
+    try {
+      await flushPromises();
+      const link = wrapper.get("a.configuration-link");
+      expect(link.attributes("href")).toBe("https://rpg.actor/streampets");
+      expect(link.attributes("target")).toBe("_blank");
+      expect(link.attributes("rel")).toBe("noopener noreferrer");
+      expect(wrapper.text()).toContain("Sign in with your streamer account on rpg.actor.");
+    } finally { wrapper.unmount(); }
+  });
   test("pet reset requires confirmation, permits cancel, and reports success", async () => {
     const fetchMock = mockFetch();
     const wrapper = mount(App);
