@@ -15,6 +15,14 @@ const kleo: Pokemon = {
 const wait = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 describe("PokemonPetQueues", () => {
+  test("duplicate normalized names target the first party member like persisted counts", async () => {
+    const activated: string[] = [];
+    const queues = new PokemonPetQueues(1, id => activated.push(id), () => {});
+    queues.updateParty([kleo, { ...kleo, id: "second", name: " kleo " }]);
+    queues.enqueue("KLEO", Promise.resolve({ did: "viewer" }));
+    await wait(5);
+    expect(activated).toEqual([kleo.id]);
+  });
   test("matches Pokémon nicknames without case or surrounding whitespace", () => {
     const queues = new PokemonPetQueues(1, () => {}, () => {});
     queues.updateParty([kleo]);

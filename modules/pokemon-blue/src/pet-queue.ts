@@ -34,7 +34,9 @@ export class PokemonPetQueues {
     const currentIds = new Set<string>();
     for (const pokemon of party) {
       currentIds.add(pokemon.id);
-      this.pokemonIdsByName.set(this.normalize(pokemon.name), pokemon.id);
+      const name = this.normalize(pokemon.name);
+      // Match PetMemory.record: the first party member wins ambiguous names.
+      if (!this.pokemonIdsByName.has(name)) this.pokemonIdsByName.set(name, pokemon.id);
     }
     for (const pokemonId of this.queues.keys()) {
       if (!currentIds.has(pokemonId)) {
