@@ -44,7 +44,7 @@ export async function resolveStreamerIdentity(input: string, fetcher: typeof fet
 export async function getActorProfile(actor: string, fetcher: typeof fetch = fetch) {
   const url = new URL("https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile");
   url.searchParams.set("actor", actor);
-  const response = await fetcher(url);
+  const response = await fetcher(url, { signal: AbortSignal.timeout(5000) });
   if (!response.ok) throw new Error("Could not load this Bluesky profile");
   const profile = actorProfile(await response.json());
   if (!profile) throw new Error("Bluesky returned an invalid profile");

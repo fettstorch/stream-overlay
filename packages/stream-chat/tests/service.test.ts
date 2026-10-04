@@ -99,6 +99,23 @@ test("unrelated collection traffic produces no per-event diagnostic writes", () 
   } finally { service.stop(); mock.mockRestore(); }
 });
 
+test("stalled author lookup falls back and unblocks later messages", async () => {
+  class FakeSocket extends EventTarget { close() {} }
+  const socket = new FakeSocket();
+  const mock = spyOn(globalThis, "WebSocket").mockImplementation(() => socket as unknown as WebSocket);
+  const service = new StreamChatService(did => did === "stalled" ? new Promise(() => {}) : Promise.resolve({ did }), () => {}, 10);
+  const ids: string[] = [];
+  const unsubscribe = service.messages.subscribe(message => { ids.push(message.id); });
+  try {
+    service.setStreamerDid("did:plc:streamer");
+    for (const did of ["stalled", "ready"]) socket.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({
+      kind: "commit", did, commit: { operation: "create", collection: "place.stream.chat.message", rkey: did, record: { streamer: "did:plc:streamer", text: did } },
+    }) }));
+    await Bun.sleep(25);
+    expect(ids).toEqual(["stalled:stalled", "ready:ready"]);
+  } finally { unsubscribe(); service.stop(); mock.mockRestore(); }
+});
+
 test("accepted messages drain in order across transport reconnects", async () => {
   class FakeSocket extends EventTarget { close() {} }
   const sockets: FakeSocket[] = [];

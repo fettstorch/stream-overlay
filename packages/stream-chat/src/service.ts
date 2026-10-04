@@ -73,8 +73,19 @@ export class StreamChatService {
   constructor(
     loadAuthor: (did: string) => Promise<StreamChatAuthor>,
     private readonly log: (event: string, details?: Record<string, unknown>) => void = () => {},
+    authorTimeoutMs = 5000,
   ) {
-    this.loadAuthor = cached(loadAuthor, { ttlMs: authorProfileTtlMs });
+    this.loadAuthor = cached(async did => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        return await Promise.race([
+          loadAuthor(did),
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(() => reject(new Error("Author lookup timed out")), authorTimeoutMs);
+          }),
+        ]);
+      } finally { clearTimeout(timer); }
+    }, { ttlMs: authorProfileTtlMs });
   }
 
   setStreamerDid(streamerDid: string) {
