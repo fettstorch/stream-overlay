@@ -115,6 +115,28 @@ test("thoughts start after two minutes, last ten seconds, and stop when disabled
   } finally { app.wrapper.unmount(); }
 });
 
+test("a thought tick skips members without a displayable favourite and bounds empty searches", async () => {
+  const app = setup();
+  const originalFetch = app.fetch.getMockImplementation()!;
+  let allEmpty = false;
+  app.fetch.mockImplementation(async url => {
+    if (url.endsWith("/snapshot")) return Response.json({ party: [{ id: "empty", name: "Empty" }, { id: "no-avatar", name: "No avatar" }, { id: "kleo", name: "Kleo" }], badges: null, capturedAt: "" });
+    if (url.endsWith("/pet-favourite/empty") || (allEmpty && url.includes("/pet-favourite/"))) return Response.json(null);
+    if (url.endsWith("/pet-favourite/no-avatar")) return Response.json({ authorDid: "viewer", count: 1 });
+    return originalFetch(url);
+  });
+  try {
+    await app.state(true);
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(app.wrapper.get("[data-thought]").text()).toBe("kleo");
+    expect(app.fetch.mock.calls.filter(([url]) => url.includes("/pet-favourite/"))).toHaveLength(3);
+    allEmpty = true;
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(app.wrapper.find("[data-thought]").exists()).toBe(false);
+    expect(app.fetch.mock.calls.filter(([url]) => url.includes("/pet-favourite/"))).toHaveLength(6);
+  } finally { app.wrapper.unmount(); }
+});
+
 test("thoughts rotate by current team position and discard a late lookup after disabling", async () => {
   const app = setup();
   const originalFetch = app.fetch.getMockImplementation()!;

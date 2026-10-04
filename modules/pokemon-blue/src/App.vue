@@ -167,20 +167,25 @@ function stopInteractions() {
 
 async function showNextThought() {
   if (!moduleEnabled.value || !configuration.value.components.team || !snapshot.value.party.length) return;
-  const pokemon = snapshot.value.party[nextThoughtSlot % snapshot.value.party.length]!;
-  nextThoughtSlot = (nextThoughtSlot + 1) % snapshot.value.party.length;
   const version = lifecycleVersion;
-  try {
-    const response = await fetch(`/api/pokemon-blue/pet-favourite/${encodeURIComponent(pokemon.id)}`, { cache: "no-store" });
-    if (!response.ok) return;
-    const favourite = await response.json() as { avatar?: string; authorDid: string; count: number } | null;
-    if (!favourite?.avatar || version !== lifecycleVersion || !moduleEnabled.value
-      || !snapshot.value.party.some(member => member.id === pokemon.id)) return;
-    thought.value = { pokemonId: pokemon.id, avatar: favourite.avatar, bubbleImage: thoughtBubbleImage, heartsImage: heartsEffectImage, startedAt: Date.now() };
-    diagnose("pokemon.thought-started", { pokemonId: pokemon.id, authorDid: favourite.authorDid, count: favourite.count });
-    clearTimeout(thoughtEndTimer);
-    thoughtEndTimer = setTimeout(() => { thought.value = undefined; }, 10_000);
-  } catch { /* A profile lookup failure must not interrupt normal pets or game data. */ }
+  const partySize = snapshot.value.party.length;
+  for (let attempted = 0; attempted < partySize; attempted++) {
+    if (version !== lifecycleVersion || !moduleEnabled.value || !snapshot.value.party.length) return;
+    const pokemon = snapshot.value.party[nextThoughtSlot % snapshot.value.party.length]!;
+    nextThoughtSlot = (nextThoughtSlot + 1) % snapshot.value.party.length;
+    try {
+      const response = await fetch(`/api/pokemon-blue/pet-favourite/${encodeURIComponent(pokemon.id)}`, { cache: "no-store" });
+      if (!response.ok) continue;
+      const favourite = await response.json() as { avatar?: string; authorDid: string; count: number } | null;
+      if (version !== lifecycleVersion || !moduleEnabled.value) return;
+      if (!favourite?.avatar || !snapshot.value.party.some(member => member.id === pokemon.id)) continue;
+      thought.value = { pokemonId: pokemon.id, avatar: favourite.avatar, bubbleImage: thoughtBubbleImage, heartsImage: heartsEffectImage, startedAt: Date.now() };
+      diagnose("pokemon.thought-started", { pokemonId: pokemon.id, authorDid: favourite.authorDid, count: favourite.count });
+      clearTimeout(thoughtEndTimer);
+      thoughtEndTimer = setTimeout(() => { thought.value = undefined; }, 10_000);
+      return;
+    } catch { /* Try another member without interrupting normal pets or game data. */ }
+  }
 }
 
 async function setModuleEnabled(enabled: boolean) {
