@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import type { OverlayModule } from "@stream-overlay/sdk";
+import { projectRoot } from "../../project-root.ts";
 
 export const pokemonBlueModule: OverlayModule = {
   id: "pokemon-blue",
@@ -17,6 +18,6 @@ export const pokemonBlueModule: OverlayModule = {
   }],
   routes: [{
     path: "/overlays/pokemon-blue/",
-    entrypoint: join(import.meta.dir, "../index.html"),
+    entrypoint: join(projectRoot, "modules/pokemon-blue/index.html"),
   }],
 };

@@ -18,7 +18,7 @@ import { ModuleStatusService } from "./module-status.ts";
 import { PetMemory } from "./pokemon-pet-memory.ts";
 import { parseThoughtInterval, type PokemonBlueConfiguration } from "../../../modules/pokemon-blue/src/config.ts";
 
-const projectRoot = join(import.meta.dir, "../../..");
+import { projectRoot } from "../../../modules/project-root.ts";
 const port = Number(process.env.PORT ?? 3001);
 const defaults = {
   modules: modules.map(({ id }) => ({ id, enabled: true })),

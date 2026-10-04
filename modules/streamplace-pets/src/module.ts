@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import type { OverlayModule } from "@stream-overlay/sdk";
 
-const projectRoot = join(import.meta.dir, "../../..");
+import { projectRoot } from "../../project-root.ts";
 
 export const streamplacePetsModule: OverlayModule = {
   id: "streamplace-pets",
@@ -18,7 +18,7 @@ export const streamplacePetsModule: OverlayModule = {
   }],
   process: {
     command: ["bun", "--no-orphans", "src/server.ts"],
-    cwd: join(import.meta.dir, ".."),
+    cwd: join(projectRoot, "modules/streamplace-pets"),
     env: { PORT: "3000" },
   },
 };

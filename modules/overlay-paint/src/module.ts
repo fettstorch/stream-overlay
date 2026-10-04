@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import type { OverlayModule } from "@stream-overlay/sdk";
+import { projectRoot } from "../../project-root.ts";
 
 export const overlayPaintModule: OverlayModule = {
   id: "overlay-paint",
@@ -11,5 +12,5 @@ export const overlayPaintModule: OverlayModule = {
     "Draw in the preview below. Brush color and the delay before fading save automatically.",
   ],
   preview: { streamBackground: true, interactive: true },
-  routes: [{ path: "/overlays/overlay-paint/", entrypoint: join(import.meta.dir, "../index.html") }],
+  routes: [{ path: "/overlays/overlay-paint/", entrypoint: join(projectRoot, "modules/overlay-paint/index.html") }],
 };
