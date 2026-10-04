@@ -322,6 +322,18 @@ const server = Bun.serve({
     "/api/pokemon-blue/snapshot": () => pokemonSnapshot
       ? Response.json(pokemonSnapshot, { headers: { "Cache-Control": "no-store" } })
       : Response.json({ error: "Pokémon data is unavailable" }, { status: 503 }),
+    "/api/pokemon-blue/pet-counts": {
+      DELETE: () => {
+        try {
+          petMemory.reset();
+          logger.log("pokemon.pet-counts-reset");
+          return new Response(null, { status: 204 });
+        } catch (error) {
+          logger.log("pokemon.pet-counts-reset-failed", { error: String(error) });
+          return Response.json({ error: "Could not reset pet counts" }, { status: 500 });
+        }
+      },
+    },
     "/api/pokemon-blue/pet-favourite/:id": async request => {
       const pokemonId = request.params.id;
       if (!isEnabled("pokemon-blue") || !pokemonSnapshot?.party.some(pokemon => pokemon.id === pokemonId)) return Response.json(null);

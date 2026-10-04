@@ -133,6 +133,9 @@ previews share the host counter and never multiply the count.
 Set **Thought bubbles → Interval (seconds)** in the module card to any value
 from 1 to 3600 seconds. It saves automatically and updates open overlays live;
 lower it for testing without refreshing OBS.
+The small **Reset pet counts** button asks for confirmation, then clears all
+Pokémon/streamer counts in memory and removes the counter file. It does not
+touch game data or settings. The next new pet starts a fresh saved counter.
 
 ## Checks
 

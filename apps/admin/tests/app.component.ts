@@ -54,6 +54,43 @@ function mockFetch() {
 }
 
 describe("Admin App", () => {
+  test("pet reset requires confirmation, permits cancel, and reports success", async () => {
+    const fetchMock = mockFetch();
+    const wrapper = mount(App);
+    const button = (text: string) => wrapper.findAll("button").find(button => button.text() === text)!;
+    const resets = () => fetchMock.mock.calls.filter(([url, init]) => url === "/api/pokemon-blue/pet-counts" && init?.method === "DELETE");
+    try {
+      await flushPromises();
+      await button("Reset pet counts").trigger("click");
+      expect(resets()).toHaveLength(0);
+      expect(wrapper.text()).toContain("every Pokémon and streamer");
+      await button("Cancel").trigger("click");
+      expect(resets()).toHaveLength(0);
+      await button("Reset pet counts").trigger("click");
+      await button("Confirm reset").trigger("click");
+      await flushPromises();
+      expect(resets()).toHaveLength(1);
+      expect(wrapper.text()).toContain("All pet counts reset");
+      expect(button("Reset pet counts").exists()).toBe(true);
+    } finally { wrapper.unmount(); }
+  });
+
+  test("pet reset failures stay visible and allow a retry", async () => {
+    const fetchMock = mockFetch();
+    const original = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (input, init) => String(input) === "/api/pokemon-blue/pet-counts"
+      ? new Response(null, { status: 500 }) : original(input, init));
+    const wrapper = mount(App);
+    const button = (text: string) => wrapper.findAll("button").find(button => button.text() === text)!;
+    try {
+      await flushPromises();
+      await button("Reset pet counts").trigger("click");
+      await button("Confirm reset").trigger("click");
+      await flushPromises();
+      expect(wrapper.text()).toContain("Could not reset pet counts");
+      expect(button("Confirm reset").attributes("disabled")).toBeUndefined();
+    } finally { wrapper.unmount(); }
+  });
   test("Chat recommends stream height and automatically saves its spatial fade", async () => {
     vi.useFakeTimers();
     const fetchMock = mockFetch();

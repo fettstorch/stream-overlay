@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import type { Pokemon } from "@stream-overlay/pokemon-model";
 import type { StreamChatMessage } from "@stream-overlay/stream-chat";
 
@@ -48,5 +48,13 @@ export class PetMemory {
     // Ties keep the first petter, so an unchanged score doesn't flicker between users.
     return this.counts.filter(entry => entry.streamerDid === streamerDid && entry.pokemonId === pokemonId)
       .reduce<PetCount | null>((winner, entry) => !winner || entry.count > winner.count ? entry : winner, null);
+  }
+
+  reset() {
+    // Remove only this store's file; game snapshots and module settings are untouched.
+    // If removal fails, retain the in-memory counts so the UI can safely report failure.
+    if (this.path) rmSync(this.path, { force: true });
+    this.counts = [];
+    // Keep current-session deduplication: reconnect replays must not restore cleared counts.
   }
 }

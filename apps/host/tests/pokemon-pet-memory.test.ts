@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PetMemory } from "../src/pokemon-pet-memory.ts";
@@ -38,5 +38,27 @@ test("persists counts and deduplication, but never profile data", () => {
     expect(readFileSync(path, "utf8")).not.toContain("avatar");
     restored.record(message("2"), party);
     expect(new PetMemory(path).favourite("streamer", "stable-id")?.count).toBe(2);
+  } finally { rmSync(directory, { recursive: true }); }
+});
+
+test("reset purges every count and its file without touching game data, then counting resumes", () => {
+  const directory = mkdtempSync(join(tmpdir(), "pet-memory-test-"));
+  try {
+    const path = join(directory, "counts.json");
+    const teamPath = join(directory, "team.json");
+    writeFileSync(teamPath, "game data");
+    const memory = new PetMemory(path);
+    memory.record(message("1"), party);
+    memory.record(message("2", "another-viewer", "!pet Kleo", "another-stream"), party);
+    memory.reset();
+    expect(existsSync(path)).toBe(false);
+    expect(readFileSync(teamPath, "utf8")).toBe("game data");
+    expect(memory.favourite("streamer", "stable-id")).toBeNull();
+    expect(memory.favourite("another-stream", "stable-id")).toBeNull();
+    expect(new PetMemory(path).favourite("streamer", "stable-id")).toBeNull();
+    memory.reset(); // Missing files are safe.
+    expect(memory.record(message("1"), party)).toBe(false); // No restoration from replay.
+    expect(memory.record(message("3"), party)).toBe(true);
+    expect(new PetMemory(path).favourite("streamer", "stable-id")?.count).toBe(1);
   } finally { rmSync(directory, { recursive: true }); }
 });

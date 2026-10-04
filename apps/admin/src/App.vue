@@ -70,6 +70,9 @@ const actorSearchOpen = ref(false);
 const copiedModuleId = ref<string | null>(null);
 const streamMessage = ref("");
 const pokemonMessage = ref("");
+const petResetArmed = ref(false);
+const petResetBusy = ref(false);
+const petResetMessage = ref("");
 const paintConfiguration = ref({ color: "#ff5cbe", decaySeconds: 4 });
 const chatConfiguration = ref({ ...defaultChatConfiguration });
 const chatMessage = ref("");
@@ -196,6 +199,20 @@ async function savePokemonConfiguration() {
   } catch {
     pokemonMessage.value = "Could not save configuration";
   }
+}
+
+async function resetPetCounts() {
+  if (petResetBusy.value) return;
+  petResetBusy.value = true;
+  petResetMessage.value = "Resetting…";
+  try {
+    const response = await fetch("/api/pokemon-blue/pet-counts", { method: "DELETE" });
+    if (!response.ok) throw new Error("Reset failed");
+    petResetMessage.value = "All pet counts reset";
+    petResetArmed.value = false;
+  } catch {
+    petResetMessage.value = "Could not reset pet counts. Try again.";
+  } finally { petResetBusy.value = false; }
 }
 
 async function savePaintConfiguration(configuration: { color: string; decaySeconds: number }) {
@@ -517,6 +534,15 @@ onBeforeUnmount(() => {
             </label>
             <span>Time between team members thinking of their favourite petter. Changes apply live.</span>
             <span class="module-message" aria-live="polite">{{ pokemonMessage }}</span>
+            <div class="pet-reset">
+              <button v-if="!petResetArmed" type="button" @click="petResetArmed = true; petResetMessage = ''">Reset pet counts</button>
+              <template v-else>
+                <span>Clear all saved pet counts for every Pokémon and streamer? This cannot be undone.</span>
+                <button type="button" :disabled="petResetBusy" @click="resetPetCounts">Confirm reset</button>
+                <button type="button" :disabled="petResetBusy" @click="petResetArmed = false">Cancel</button>
+              </template>
+              <span class="module-message" aria-live="polite">{{ petResetMessage }}</span>
+            </div>
           </div>
           </div>
           <p v-if="module.error" class="error">{{ module.error }}</p>
@@ -591,6 +617,11 @@ code { display: block; min-width: 0; padding: 12px 52px 12px 12px; overflow: aut
 .paint-settings input[type="number"] { width: 100%; max-width: 120px; padding: 7px 9px; border: 1px solid #36425d; border-radius: 7px; color: white; background: #0b101c; font: inherit; }
 .paint-settings .module-message { grid-column: 1 / -1; }
 .error { color: #ff7f91; }
+.pet-reset { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.pet-reset > span { flex-basis: 100%; }
+.pet-reset button { padding: 5px 9px; border: 1px solid #485570; border-radius: 6px; background: #111827; color: #eaf0ff; font: inherit; font-size: .8rem; cursor: pointer; }
+.pet-reset button:hover, .pet-reset button:focus-visible { border-color: #ff7f91; outline: 2px solid #ff7f91; outline-offset: 2px; }
+.pet-reset button:disabled { opacity: .5; cursor: wait; }
 .switch input { position: absolute; opacity: 0; }
 .switch span { display: block; width: 48px; height: 28px; padding: 3px; border-radius: 99px; background: #3a4356; cursor: pointer; transition: background .2s; }
 .switch span::after { content: ""; display: block; width: 22px; height: 22px; border-radius: 50%; background: white; transition: transform .2s; }
