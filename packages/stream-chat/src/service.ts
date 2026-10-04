@@ -141,7 +141,6 @@ export class StreamChatService {
         operation: event?.commit?.operation,
         collection: event?.commit?.collection,
         recordStreamer: event?.commit?.record?.streamer,
-        text: event?.commit?.record?.text,
       });
       const parsed = parseChatEvent(value, streamerDid);
       if (!parsed) {
@@ -185,8 +184,8 @@ export class StreamChatService {
       await delivery;
     } catch (error) {
       this.log("chat.jetstream-message-failed", {
-        error: error instanceof Error ? error.message : String(error),
-        preview: rawText.slice(0, 500),
+        // Parser errors can embed raw input, including unrelated chat text.
+        error: error instanceof Error ? error.name : "Unknown error",
       });
     }
   }

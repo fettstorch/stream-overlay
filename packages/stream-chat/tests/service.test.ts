@@ -64,3 +64,21 @@ test("profile lookups are concurrent but messages publish in arrival order, incl
     expect(ids).toEqual(["slow:slow", "fast:fast", "failed:failed"]);
   } finally { unsubscribe(); service.stop(); mock.mockRestore(); }
 });
+
+test("diagnostics never log unrelated or malformed message contents", async () => {
+  class FakeSocket extends EventTarget { close() {} }
+  const socket = new FakeSocket();
+  const mock = spyOn(globalThis, "WebSocket").mockImplementation(() => socket as unknown as WebSocket);
+  const logs: unknown[] = [];
+  const service = new StreamChatService(async did => ({ did }), (event, details) => { logs.push({ event, details }); });
+  try {
+    service.setStreamerDid("did:plc:streamer");
+    for (const data of [JSON.stringify({ kind: "commit", did: "viewer", commit: {
+      operation: "create", collection: "place.stream.chat.message", record: { streamer: "did:plc:other", text: "unrelated-private-text" },
+    } }), 'invalid-json-with-private-text']) socket.dispatchEvent(new MessageEvent("message", { data }));
+    await Bun.sleep(0);
+    expect(JSON.stringify(logs)).not.toContain("unrelated-private-text");
+    expect(JSON.stringify(logs)).not.toContain("invalid-json-with-private-text");
+    expect(JSON.stringify(logs)).toContain("different-streamer");
+  } finally { service.stop(); mock.mockRestore(); }
+});
