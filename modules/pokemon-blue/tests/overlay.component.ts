@@ -41,8 +41,8 @@ function setup() {
     PokemonTeam: { props: ["party", "activePets", "thought"], template: '<div data-team>{{ party[0]?.name }}<span v-if="activePets.kleo" data-pet>pet</span><span v-if="thought" data-thought>{{ thought.pokemonId }}</span></div>' },
     BadgeStrip: { template: '<div data-badges>badges</div>' },
   } } });
-  const state = async (enabled: boolean) => {
-    sources[0]!.onmessage!({ data: JSON.stringify({ enabled }) });
+  const state = async (enabled: boolean, streamerDid?: string) => {
+    sources[0]!.onmessage!({ data: JSON.stringify({ enabled, streamerDid }) });
     await flushPromises();
   };
   const pet = async () => {
@@ -51,6 +51,36 @@ function setup() {
   };
   return { wrapper, state, sources, fetch, pet };
 }
+
+test("streamer changes clear pets and invalidate pending thoughts while remaining enabled", async () => {
+  const app = setup();
+  const originalFetch = app.fetch.getMockImplementation()!;
+  let resolve!: (response: Response) => void;
+  app.fetch.mockImplementation(async url => url.includes("/pet-favourite/")
+    ? new Promise<Response>(done => { resolve = done; }) : originalFetch(url));
+  try {
+    await app.state(true, "did:plc:first");
+    const oldListener = [...chat.listeners][0]!;
+    await app.pet();
+    await app.pet();
+    expect(app.wrapper.find("[data-pet]").exists()).toBe(true);
+    await vi.advanceTimersByTimeAsync(120_000);
+    await app.pet();
+    await app.pet();
+    await app.state(true, "did:plc:second");
+    expect(app.wrapper.find("[data-pet]").exists()).toBe(false);
+    expect(chat.listeners.size).toBe(1);
+    resolve(Response.json({ avatar: "/old.png", authorDid: "old", count: 1 }));
+    oldListener({ id: "late", text: "!pet Kleo", author: { did: "old" } });
+    await flushPromises();
+    expect(app.wrapper.find("[data-thought]").exists()).toBe(false);
+    expect(app.wrapper.find("[data-pet]").exists()).toBe(false);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(app.wrapper.find("[data-pet]").exists()).toBe(false);
+    await app.pet();
+    expect(app.wrapper.find("[data-pet]").exists()).toBe(true);
+  } finally { app.wrapper.unmount(); }
+});
 
 test("an initially disabled OBS document enables and disables repeatedly without reloading", async () => {
   const app = setup();

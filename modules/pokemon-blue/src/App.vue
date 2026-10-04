@@ -30,6 +30,7 @@ let nextThoughtSlot = 0;
 const moduleEnabled = ref(false);
 let moduleStatus: EventSource | undefined;
 let lifecycleVersion = 0;
+let streamerDid: string | undefined;
 let refreshTimer: ReturnType<typeof setInterval> | undefined;
 let closeChat: (() => void) | undefined;
 let unsubscribeChat: (() => void) | undefined;
@@ -126,11 +127,12 @@ async function refreshOverlay() {
 }
 
 function connectChat() {
+  const version = lifecycleVersion;
   diagnose("pokemon.chat-connecting");
   const chat = observeStreamChat();
   closeChat = chat.close;
   unsubscribeChat = chat.messages.subscribe((message) => {
-    if (!moduleEnabled.value) return;
+    if (!moduleEnabled.value || version !== lifecycleVersion) return;
     diagnose("pokemon.chat-message-received", { id: message.id, text: message.text });
     const match = message.text.match(/^\s*!pet\s+(.+?)\s*$/i);
     if (!match) {
@@ -188,10 +190,11 @@ async function showNextThought() {
   }
 }
 
-async function setModuleEnabled(enabled: boolean) {
-  if (moduleEnabled.value === enabled) return;
+async function setModuleEnabled(enabled: boolean, restart = false) {
+  if (moduleEnabled.value === enabled && !restart) return;
   moduleEnabled.value = enabled;
   const version = ++lifecycleVersion;
+  if (restart) stopInteractions();
   diagnose("pokemon.module-state", { enabled });
   if (!enabled) { stopInteractions(); return; }
   await refreshOverlay();
@@ -209,8 +212,11 @@ onMounted(() => {
   moduleStatus = new EventSource("/api/modules/pokemon-blue/events");
   moduleStatus.onmessage = event => {
     try {
-      const state = JSON.parse(event.data) as { enabled?: unknown };
-      if (typeof state.enabled === "boolean") void setModuleEnabled(state.enabled);
+      const state = JSON.parse(event.data) as { enabled?: unknown; streamerDid?: unknown };
+      if (typeof state.enabled !== "boolean") return;
+      const changed = typeof state.streamerDid === "string" && state.streamerDid !== streamerDid;
+      if (typeof state.streamerDid === "string") streamerDid = state.streamerDid;
+      void setModuleEnabled(state.enabled, changed);
     } catch { diagnose("pokemon.module-state-invalid"); }
   };
   // Fail closed while disconnected; reconnection sends the authoritative state.
