@@ -24,6 +24,7 @@ let status: EventSource | undefined;
 let closeChat: (() => void) | undefined;
 let unsubscribe: (() => void) | undefined;
 let session = 0;
+let streamerDid: string | undefined;
 
 function setEnabled(next: boolean) {
   if (enabled.value === next) return;
@@ -42,6 +43,7 @@ function setEnabled(next: boolean) {
     // Render plain text only, and ignore malformed payloads from the live feed.
     if (!message || typeof message.id !== "string" || typeof message.text !== "string"
       || typeof message.streamerDid !== "string" || typeof message.author?.did !== "string") return;
+    if (streamerDid !== undefined && message.streamerDid !== streamerDid) return;
     if (messages.value.length && messages.value[0]!.streamerDid !== message.streamerDid) messages.value = [];
     if (messages.value.some(previous => previous.id === message.id)) return;
     messages.value = [...messages.value, message].slice(-50);
@@ -52,7 +54,11 @@ onMounted(() => {
   status = new EventSource("/api/modules/chat/events");
   status.onmessage = event => {
     try {
-      const state = JSON.parse(event.data) as { enabled?: unknown; configuration?: unknown };
+      const state = JSON.parse(event.data) as { enabled?: unknown; configuration?: unknown; streamerDid?: unknown };
+      if (typeof state.streamerDid === "string" && state.streamerDid !== streamerDid) {
+        streamerDid = state.streamerDid;
+        messages.value = [];
+      }
       const settings = parseChatConfiguration(state.configuration);
       if (settings) configuration.value = settings;
       if (typeof state.enabled === "boolean") setEnabled(state.enabled);

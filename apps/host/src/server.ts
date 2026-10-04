@@ -66,6 +66,7 @@ function isEnabled(id: string) {
 }
 const moduleStatus = new ModuleStatusService(new Map(modules.map(module => [module.id, isEnabled(module.id)])));
 moduleStatus.setConfiguration("chat", configStore.read().chat ?? defaultChatConfiguration);
+moduleStatus.setStreamerDid(configStore.read().stream.streamerDid);
 
 function moduleResponse(module: (typeof modules)[number]) {
   const runtime = supervisor.status(module);
@@ -289,6 +290,7 @@ const server = Bun.serve({
         configuration.stream = { streamerDid: profile.did };
         configStore.write(configuration);
         chatService.setStreamerDid(profile.did);
+        moduleStatus.setStreamerDid(profile.did);
         return Response.json({ ...configuration.stream, profile });
       },
     },

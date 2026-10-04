@@ -2,7 +2,14 @@
 export class ModuleStatusService {
   private readonly listeners = new Map<string, Set<() => void>>();
   private readonly configurations = new Map<string, unknown>();
+  private streamerDid: string | undefined;
   constructor(private readonly states: Map<string, boolean>) {}
+
+  setStreamerDid(streamerDid: string) {
+    if (this.streamerDid === streamerDid) return;
+    this.streamerDid = streamerDid;
+    for (const listeners of this.listeners.values()) for (const listener of listeners) listener();
+  }
 
   setEnabled(id: string, enabled: boolean) {
     this.states.set(id, enabled);
@@ -29,6 +36,7 @@ export class ModuleStatusService {
         };
         const listener = () => send(`data: ${JSON.stringify({
           enabled: this.states.get(id) ?? false,
+          ...(this.streamerDid !== undefined ? { streamerDid: this.streamerDid } : {}),
           ...(this.configurations.has(id) ? { configuration: this.configurations.get(id) } : {}),
         })}\n\n`);
         close = () => {

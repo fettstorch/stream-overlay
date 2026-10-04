@@ -21,8 +21,8 @@ function setup(animated = false) {
   }
   vi.stubGlobal("EventSource", FakeEvents);
   const wrapper = mount(App, { global: { stubs: { ...(animated ? { TransitionGroup: false } : {}) } } });
-  const state = async (enabled: boolean, configuration?: unknown) => {
-    sources[0]!.onmessage!({ data: JSON.stringify({ enabled, configuration }) });
+  const state = async (enabled: boolean, configuration?: unknown, streamerDid?: string) => {
+    sources[0]!.onmessage!({ data: JSON.stringify({ enabled, configuration, streamerDid }) });
     await flushPromises();
   };
   const message = async (value: unknown) => {
@@ -35,6 +35,23 @@ function setup(animated = false) {
 function message(id = "1", text = "Hello stream!"): StreamChatMessage {
   return { id, text, streamerDid: "did:plc:streamer", author: { did: "did:plc:alice", handle: "alice.bsky.social", displayName: "Alice" }, createdAt: "2026-10-02T12:00:00Z" };
 }
+
+test("changing to a quiet streamer clears chat immediately without reconnecting", async () => {
+  const app = setup();
+  try {
+    await app.state(true, undefined, "did:plc:streamer");
+    await app.message(message());
+    expect(app.wrapper.text()).toContain("Hello stream!");
+    await app.state(true, undefined, "did:plc:other");
+    expect(app.wrapper.findAll("li")).toHaveLength(0);
+    await app.message(message("late", "Late old-stream message"));
+    expect(app.wrapper.findAll("li")).toHaveLength(0);
+    await app.message({ ...message("new", "New stream"), streamerDid: "did:plc:other" });
+    expect(app.wrapper.text()).toContain("New stream");
+    expect(app.sources).toHaveLength(2);
+    expect(app.sources[1]!.close).not.toHaveBeenCalled();
+  } finally { app.wrapper.unmount(); }
+});
 
 test("freezes an evicted bubble's position and size without shifting its neighbors", () => {
   const parent = document.createElement("ol");

@@ -6,6 +6,20 @@ async function read(reader: ReadableStreamDefaultReader<Uint8Array>) {
   return JSON.parse(new TextDecoder().decode(chunk.value).slice(6));
 }
 
+test("streamer changes reach existing clients and reconnects without waiting for chat", async () => {
+  const service = new ModuleStatusService(new Map([["chat", true]]));
+  service.setStreamerDid("did:plc:first");
+  const reader = service.events(new Request("http://localhost/events"), "chat").body!.getReader();
+  try {
+    expect(await read(reader)).toEqual({ enabled: true, streamerDid: "did:plc:first" });
+    service.setStreamerDid("did:plc:second");
+    expect(await read(reader)).toEqual({ enabled: true, streamerDid: "did:plc:second" });
+  } finally { await reader.cancel(); }
+  const reconnected = service.events(new Request("http://localhost/events"), "chat").body!.getReader();
+  try { expect(await read(reconnected)).toEqual({ enabled: true, streamerDid: "did:plc:second" }); }
+  finally { await reconnected.cancel(); }
+});
+
 test("configuration changes share the control channel and survive reconnects", async () => {
   const service = new ModuleStatusService(new Map([["chat", true]]));
   service.setConfiguration("chat", { fadeOut: 0 });
