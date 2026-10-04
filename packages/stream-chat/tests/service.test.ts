@@ -1,5 +1,5 @@
-import { describe, expect, test } from "bun:test";
-import { parseChatEvent } from "../src/service.ts";
+import { describe, expect, test, spyOn } from "bun:test";
+import { parseChatEvent, StreamChatService } from "../src/service.ts";
 
 describe("parseChatEvent", () => {
   test("normalizes a chat message for the configured streamer", () => {
@@ -36,4 +36,31 @@ describe("parseChatEvent", () => {
       },
     }, "did:plc:streamer")).toBeNull();
   });
+});
+
+test("profile lookups are concurrent but messages publish in arrival order, including failures", async () => {
+  class FakeSocket extends EventTarget { close() {} }
+  const socket = new FakeSocket();
+  const mock = spyOn(globalThis, "WebSocket").mockImplementation(() => socket as unknown as WebSocket);
+  const pending = new Map<string, { resolve: (value: { did: string }) => void; reject: (error: Error) => void }>();
+  const service = new StreamChatService(did => new Promise((resolve, reject) => { pending.set(did, { resolve, reject }); }));
+  const ids: string[] = [];
+  const unsubscribe = service.messages.subscribe(message => { ids.push(message.id); });
+  try {
+    service.setStreamerDid("did:plc:streamer");
+    for (const did of ["slow", "fast", "failed"]) {
+      socket.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({
+        kind: "commit", did, commit: { operation: "create", collection: "place.stream.chat.message", rkey: did,
+          record: { streamer: "did:plc:streamer", text: did } },
+      }) }));
+    }
+    expect(pending.size).toBe(3);
+    pending.get("fast")!.resolve({ did: "fast" });
+    pending.get("failed")!.reject(new Error("Profile unavailable"));
+    await Bun.sleep(0);
+    expect(ids).toEqual([]);
+    pending.get("slow")!.resolve({ did: "slow" });
+    await Bun.sleep(0);
+    expect(ids).toEqual(["slow:slow", "fast:fast", "failed:failed"]);
+  } finally { unsubscribe(); service.stop(); mock.mockRestore(); }
 });

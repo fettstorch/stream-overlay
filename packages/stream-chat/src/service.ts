@@ -67,6 +67,7 @@ export class StreamChatService {
   private streamerDid = "";
   private hostIndex = 0;
   private reconnectDelay = 1000;
+  private deliveryTail: Promise<void> = Promise.resolve();
 
   constructor(
     loadAuthor: (did: string) => Promise<StreamChatAuthor>,
@@ -79,6 +80,7 @@ export class StreamChatService {
     if (this.streamerDid === streamerDid) return;
     this.disconnect();
     this.streamerDid = streamerDid;
+    this.deliveryTail = Promise.resolve();
     this.log("chat.streamer-configured", { streamerDid });
     this.hostIndex = 0;
     this.reconnectDelay = 1000;
@@ -157,7 +159,8 @@ export class StreamChatService {
         text: parsed.text,
       });
       this.log("chat.author-loading", { authorDid: parsed.authorDid });
-      const author = await this.loadAuthor(parsed.authorDid).then((profile) => {
+      // Lookups run concurrently; publication retains Jetstream arrival order.
+      const authorPromise = this.loadAuthor(parsed.authorDid).then((profile) => {
         this.log("chat.author-loaded", { authorDid: parsed.authorDid, hasAvatar: Boolean(profile.avatar) });
         return profile;
       }).catch((error: unknown) => {
@@ -167,13 +170,19 @@ export class StreamChatService {
         });
         return { did: parsed.authorDid };
       });
-      if (this.streamerDid !== streamerDid) {
-        this.log("chat.message-filtered", { reason: "streamer-changed-after-profile", id: parsed.id });
-        return;
-      }
-      const { authorDid: _, ...message } = parsed;
-      this.messages.emit({ ...message, author });
-      this.log("chat.message-emitted", { id: message.id, authorDid: author.did });
+      const delivery = this.deliveryTail.then(async () => {
+        const author = await authorPromise;
+        if (this.streamerDid !== streamerDid) {
+          this.log("chat.message-filtered", { reason: "streamer-changed-after-profile", id: parsed.id });
+          return;
+        }
+        const { authorDid: _, ...message } = parsed;
+        this.messages.emit({ ...message, author });
+        this.log("chat.message-emitted", { id: message.id, authorDid: author.did });
+      });
+      // One failed subscriber must not prevent subsequent deliveries.
+      this.deliveryTail = delivery.catch(() => {});
+      await delivery;
     } catch (error) {
       this.log("chat.jetstream-message-failed", {
         error: error instanceof Error ? error.message : String(error),
