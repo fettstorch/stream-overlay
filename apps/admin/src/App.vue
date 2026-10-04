@@ -505,6 +505,10 @@ onBeforeUnmount(() => {
             <p v-if="!streamEmbedUrl">Select your streamer account above to see your stream behind the canvas.</p>
           </div>
           <div v-if="module.id === 'chat'" class="module-settings chat-settings">
+            <label>Perspective strength: {{ chatConfiguration.perspectiveStrength }}%
+              <input v-model.number="chatConfiguration.perspectiveStrength" type="range" min="0" max="100" step="1" aria-label="Chat perspective strength">
+              <span>Subtle at 0%; stronger near/far size differences at 100%. Requires X or Y rotation.</span>
+            </label>
             <label>3D rotation X (tilt up/down): {{ chatConfiguration.rotationX }}°
               <input v-model.number="chatConfiguration.rotationX" type="range" min="-180" max="180" step="1" aria-label="Chat X rotation">
             </label>

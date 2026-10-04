@@ -9,7 +9,7 @@ const configuration = ref(defaultChatConfiguration);
 // Transform the whole chat plane, separately from bubble entrance/move transforms.
 // A viewport-relative camera distance keeps perspective usable at different OBS sizes.
 const rotationStyle = computed(() => ({
-  transform: `perspective(200vh) rotateX(${configuration.value.rotationX}deg) rotateY(${configuration.value.rotationY}deg)`,
+  transform: `perspective(${200 - configuration.value.perspectiveStrength * 1.7}vh) rotateX(${configuration.value.rotationX}deg) rotateY(${configuration.value.rotationY}deg)`,
 }));
 const maskStyle = computed(() => ({
   maskImage: chatMask(configuration.value.fadeOut), WebkitMaskImage: chatMask(configuration.value.fadeOut),

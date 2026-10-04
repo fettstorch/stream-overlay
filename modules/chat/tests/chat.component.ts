@@ -103,6 +103,10 @@ test("rotates the whole chat plane on independent 3D axes without changing chat 
     expect(app.wrapper.get("ol").attributes("style")).not.toContain("rotateX");
     expect(app.wrapper.text()).toContain("Hello stream!");
     expect(app.sources).toHaveLength(2);
+    await app.state(true, { fadeOut: 0, rotationX: 25, rotationY: -35, perspectiveStrength: 100 });
+    expect(app.wrapper.get(".chat-plane").attributes("style")).toContain("perspective(30vh) rotateX(25deg) rotateY(-35deg)");
+    expect(app.wrapper.text()).toContain("Hello stream!");
+    expect(app.sources).toHaveLength(2);
     await app.state(true, { fadeOut: 0, rotationX: 0, rotationY: -35 });
     expect(app.wrapper.get(".chat-plane").attributes("style")).toContain("rotateX(0deg) rotateY(-35deg)");
   } finally { app.wrapper.unmount(); }
