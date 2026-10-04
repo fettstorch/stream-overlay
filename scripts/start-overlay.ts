@@ -1,10 +1,12 @@
 import { createServer } from "node:net";
+import { join } from "node:path";
+import { ConfigStore } from "../apps/host/src/config-store.ts";
+import { defaultHostConfiguration } from "../apps/host/src/default-configuration.ts";
+import { projectRoot } from "../modules/project-root.ts";
+import { requiredOverlayPorts } from "./required-ports.ts";
 
-const requiredPorts = [
-  { port: 3000, service: "Streamplace Pets" },
-  { port: 3001, service: "public overlay host and admin URL" },
-  { port: 3003, service: "admin UI" },
-];
+const configuration = new ConfigStore(join(projectRoot, "runtime/config.json"), defaultHostConfiguration).read();
+const requiredPorts = requiredOverlayPorts(configuration);
 
 function portIsAvailable(port: number) {
   return new Promise<boolean>((resolve) => {
