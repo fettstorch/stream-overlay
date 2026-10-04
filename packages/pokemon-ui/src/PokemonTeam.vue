@@ -129,7 +129,7 @@ const cards = computed(() => props.party.map((pokemon) => ({
 }
 figure { position: relative; margin: 0; aspect-ratio: 1 / 1; }
 .pokemon-thought { position: absolute; z-index: 3; top: 0; left: 42%; width: 58%; aspect-ratio: 1; transform: translate(-150%, -50%) scale(2); transform-origin: center top; pointer-events: none; animation: thought-appear 300ms ease; }
-.pokemon-thought .thought-avatar { inset: auto; top: 20.2%; left: 30.2%; width: 39.6%; height: 39.6%; border-radius: 50%; object-fit: cover; }
+.pokemon-thought .thought-avatar { inset: auto; top: 22.18%; left: 32.18%; width: 35.64%; height: 35.64%; border-radius: 50%; object-fit: cover; }
 .pokemon-thought .thought-hearts { inset: auto; top: -15%; left: 48%; width: 50%; height: auto; }
 @keyframes thought-appear { from { opacity: 0; } to { opacity: 1; } }
 img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
