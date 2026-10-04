@@ -27,6 +27,29 @@ const streamConfigResponse = {
   },
 };
 
+test("runtime failures update an open card without remounting previews and stop on unmount", async () => {
+  vi.useFakeTimers();
+  const fetchMock = mockFetch();
+  const fallback = fetchMock.getMockImplementation()!;
+  let failed = false;
+  fetchMock.mockImplementation(async (input, init) => String(input) === "/api/modules"
+    ? Response.json(moduleResponse.map(module => ({ ...module, status: failed ? "failed" : "running", error: failed ? "Process exited" : null })))
+    : fallback(input, init));
+  const wrapper = mount(App);
+  await flushPromises();
+  const iframe = wrapper.get("iframe").element;
+  failed = true;
+  await vi.advanceTimersByTimeAsync(5000);
+  await flushPromises();
+  expect(wrapper.text()).toContain("failed");
+  expect(wrapper.text()).toContain("Process exited");
+  expect(wrapper.get("iframe").element).toBe(iframe);
+  wrapper.unmount();
+  const calls = fetchMock.mock.calls.length;
+  await vi.advanceTimersByTimeAsync(10_000);
+  expect(fetchMock.mock.calls.length).toBe(calls);
+});
+
 afterEach(() => {
   localStorage.clear();
   vi.useRealTimers();

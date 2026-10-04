@@ -84,6 +84,9 @@ const obsDimensions = computed(() => streamDimensions.value ?? { width: 1920, he
 const streamDimensions = ref<{ width: number; height: number } | null>(null);
 let dimensionsSequence = 0;
 let dimensionsTimer: ReturnType<typeof setInterval> | undefined;
+let runtimeTimer: ReturnType<typeof setInterval> | undefined;
+let runtimeRefreshPending = false;
+let runtimeRevision = 0;
 const streamEmbedUrl = computed(() => {
   const handle = streamConfiguration.value.profile?.handle;
   return handle ? `https://stream.place/embed/${encodeURIComponent(handle)}` : "";
@@ -179,6 +182,7 @@ async function load() {
 const toggleSequences = new Map<string, number>();
 const confirmedModuleStates = new Map<string, boolean>();
 function toggle(module: ModuleStatus, event: Event) {
+  runtimeRevision++;
   const enabled = (event.target as HTMLInputElement).checked;
   const sequence = (toggleSequences.get(module.id) ?? 0) + 1;
   toggleSequences.set(module.id, sequence);
@@ -359,14 +363,34 @@ watch(configuration, () => {
   pokemonSaveTimer = setTimeout(() => enqueueSave(savePokemonConfiguration), 350);
 }, { deep: true });
 
+async function refreshModuleRuntime() {
+  if (!loaded || runtimeRefreshPending) return;
+  runtimeRefreshPending = true;
+  const revision = runtimeRevision;
+  try {
+    const response = await fetch("/api/modules", { cache: "no-store" });
+    if (!response.ok) return;
+    const statuses = await response.json() as ModuleStatus[];
+    if (!loaded || revision !== runtimeRevision) return;
+    modules.value = modules.value.map(module => {
+      const current = statuses.find(status => status.id === module.id);
+      return current ? { ...module, status: current.status, error: current.error } : module;
+    });
+  } catch { /* Keep the last known runtime while the host is unavailable. */ }
+  finally { runtimeRefreshPending = false; }
+}
+
 onMounted(async () => {
   await load();
   loaded = true;
   // Only metadata is refreshed, not the video or canvas iframe.
   dimensionsTimer = setInterval(() => void refreshStreamDimensions(), 30_000);
+  runtimeTimer = setInterval(() => void refreshModuleRuntime(), 5000);
 });
 
 onBeforeUnmount(() => {
+  loaded = false;
+  clearInterval(runtimeTimer);
   clearTimeout(chatSaveTimer);
   if (paintSaveTimer) clearTimeout(paintSaveTimer);
   dimensionsSequence++;
