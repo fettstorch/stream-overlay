@@ -20,6 +20,7 @@ import { parseThoughtInterval, type PokemonBlueConfiguration } from "../../../mo
 
 import { projectRoot } from "../../../modules/project-root.ts";
 import { defaultHostConfiguration } from "./default-configuration.ts";
+import { updateSharedChat } from "./chat-lifecycle.ts";
 const port = Number(process.env.PORT ?? 3001);
 const configStore = new ConfigStore(join(projectRoot, "runtime/config.json"), defaultHostConfiguration);
 const logger = new FileLogger(join(tmpdir(), "stream-overlay", "overlay.log"));
@@ -283,7 +284,7 @@ const server = Bun.serve({
         const configuration = configStore.read();
         configuration.stream = { streamerDid: profile.did };
         configStore.write(configuration);
-        chatService.setStreamerDid(profile.did);
+        updateSharedChat(chatService, configuration);
         moduleStatus.setStreamerDid(profile.did);
         return Response.json({ ...configuration.stream, profile });
       },
@@ -375,7 +376,8 @@ const server = Bun.serve({
         if (typeof body.enabled !== "boolean") {
           return Response.json({ error: "enabled must be a boolean" }, { status: 400 });
         }
-        configStore.setModuleEnabled(module.id, body.enabled);
+        const configuration = configStore.setModuleEnabled(module.id, body.enabled);
+        updateSharedChat(chatService, configuration);
         moduleStatus.setEnabled(module.id, body.enabled);
         if (module.id === "overlay-paint") paintService.setEnabled(body.enabled);
         if (body.enabled) supervisor.enable(module);
@@ -395,7 +397,7 @@ logger.log("host.started", { port, logPath: logger.path });
 for (const module of modules) {
   if (isEnabled(module.id)) supervisor.enable(module);
 }
-chatService.setStreamerDid(configStore.read().stream.streamerDid);
+updateSharedChat(chatService, configStore.read());
 paintService.setEnabled(isEnabled("overlay-paint"));
 await pokemonProvider.start((snapshot) => {
   pokemonSnapshot = snapshot;
