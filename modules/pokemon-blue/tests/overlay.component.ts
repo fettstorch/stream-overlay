@@ -163,6 +163,27 @@ test("short intervals do not replace an active ten-second thought", async () => 
   } finally { app.wrapper.unmount(); }
 });
 
+test("slow thought lookups cannot overlap and skip positional slots", async () => {
+  const app = setup();
+  const originalFetch = app.fetch.getMockImplementation()!;
+  let resolve!: (response: Response) => void;
+  app.fetch.mockImplementation(async url => {
+    if (url.endsWith("/config")) return Response.json({ components: { team: true, badges: true }, thoughtIntervalSeconds: 1 });
+    if (url.includes("/pet-favourite/")) return new Promise<Response>(done => { resolve = done; });
+    return originalFetch(url);
+  });
+  try {
+    await app.state(true);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(app.fetch.mock.calls.filter(([url]) => url.includes("/pet-favourite/"))).toHaveLength(1);
+    resolve(Response.json({ avatar: "/favourite.png", authorDid: "viewer", count: 1 }));
+    await flushPromises();
+    expect(app.wrapper.find("[data-thought]").exists()).toBe(true);
+    await vi.advanceTimersByTimeAsync(9000);
+    expect(app.fetch.mock.calls.filter(([url]) => url.includes("/pet-favourite/"))).toHaveLength(1);
+  } finally { app.wrapper.unmount(); }
+});
+
 test("a thought tick skips members without a displayable favourite and bounds empty searches", async () => {
   const app = setup();
   const originalFetch = app.fetch.getMockImplementation()!;

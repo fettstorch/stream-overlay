@@ -30,6 +30,7 @@ let nextThoughtSlot = 0;
 const moduleEnabled = ref(false);
 let moduleStatus: EventSource | undefined;
 let lifecycleVersion = 0;
+let thoughtLookupVersion: number | undefined;
 let streamerDid: string | undefined;
 let refreshTimer: ReturnType<typeof setInterval> | undefined;
 let closeChat: (() => void) | undefined;
@@ -170,6 +171,13 @@ function stopInteractions() {
 async function showNextThought() {
   if (thought.value || !moduleEnabled.value || !configuration.value.components.team || !snapshot.value.party.length) return;
   const version = lifecycleVersion;
+  if (thoughtLookupVersion === version) return;
+  thoughtLookupVersion = version;
+  try { await findNextThought(version); }
+  finally { if (thoughtLookupVersion === version) thoughtLookupVersion = undefined; }
+}
+
+async function findNextThought(version: number) {
   const partySize = snapshot.value.party.length;
   for (let attempted = 0; attempted < partySize; attempted++) {
     if (version !== lifecycleVersion || !moduleEnabled.value || !snapshot.value.party.length) return;
