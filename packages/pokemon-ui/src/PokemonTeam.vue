@@ -138,7 +138,7 @@ img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: conta
 @keyframes hearts-delay { from { opacity: 0; } to { opacity: 1; } }
 .pet-author { position: absolute; z-index: 3; top: 2%; left: 4%; transform: translateX(-80%); pointer-events: none; }
 .pet-author-avatar { position: static; width: clamp(56px, 16vw, 96px); height: clamp(56px, 16vw, 96px); border: 2px solid #fff; border-radius: 50%; background: #333; object-fit: cover; box-shadow: 0 2px 5px #000; }
-.status-panel { position: absolute; z-index: 1; left: 4%; bottom: 0; transform: translate(7%, 30%); box-sizing: border-box; width: 92%; padding: 8px 10px; color: #fff; font-family: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, monospace; font-weight: 900; text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000; }
+.status-panel { position: absolute; z-index: 1; left: 4%; bottom: 0; transform: translate(7%, 30%) scale(0.8); transform-origin: left top; box-sizing: border-box; width: 92%; padding: 8px 10px; color: #fff; font-family: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, monospace; font-weight: 900; text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000; }
 .status-heading { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-bottom: 10px; font-size: clamp(1.5rem, 3.6vw, 2.4rem); line-height: 1; }
 .pokemon-name { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
 .pokemon-level { flex: none; font-size: 0.72em; }
