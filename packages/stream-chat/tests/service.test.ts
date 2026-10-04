@@ -79,6 +79,22 @@ test("diagnostics never log unrelated or malformed message contents", async () =
     await Bun.sleep(0);
     expect(JSON.stringify(logs)).not.toContain("unrelated-private-text");
     expect(JSON.stringify(logs)).not.toContain("invalid-json-with-private-text");
-    expect(JSON.stringify(logs)).toContain("different-streamer");
+    expect(JSON.stringify(logs)).not.toContain("chat.jetstream-event-decoded");
+  } finally { service.stop(); mock.mockRestore(); }
+});
+
+test("unrelated collection traffic produces no per-event diagnostic writes", () => {
+  class FakeSocket extends EventTarget { close() {} }
+  const socket = new FakeSocket();
+  const mock = spyOn(globalThis, "WebSocket").mockImplementation(() => socket as unknown as WebSocket);
+  const logs: string[] = [];
+  const service = new StreamChatService(async did => ({ did }), event => { logs.push(event); });
+  try {
+    service.setStreamerDid("did:plc:streamer");
+    const before = logs.length;
+    for (let i = 0; i < 1000; i++) socket.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({
+      kind: "commit", did: "viewer", commit: { operation: "create", collection: "place.stream.chat.message", record: { streamer: "did:plc:other", text: "hello" } },
+    }) }));
+    expect(logs).toHaveLength(before);
   } finally { service.stop(); mock.mockRestore(); }
 });

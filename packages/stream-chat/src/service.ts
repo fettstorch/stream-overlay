@@ -131,10 +131,18 @@ export class StreamChatService {
 
   private async receive(raw: unknown, streamerDid: string) {
     const rawText = String(raw);
-    this.log("chat.jetstream-message-received", { streamerDid, bytes: rawText.length });
     try {
       const value = JSON.parse(rawText) as unknown;
       const event = value && typeof value === "object" ? value as JetstreamEvent : undefined;
+      const parsed = parseChatEvent(value, streamerDid);
+      if (!parsed) {
+        // Collection-wide traffic is not our stream's diagnostic data.
+        if (event?.commit?.record?.streamer === streamerDid) {
+          this.log("chat.message-filtered", { reason: ignoredReason(value, streamerDid) });
+        }
+        return;
+      }
+      this.log("chat.jetstream-message-received", { streamerDid, bytes: rawText.length });
       this.log("chat.jetstream-event-decoded", {
         kind: event?.kind,
         authorDid: event?.did,
@@ -142,11 +150,6 @@ export class StreamChatService {
         collection: event?.commit?.collection,
         recordStreamer: event?.commit?.record?.streamer,
       });
-      const parsed = parseChatEvent(value, streamerDid);
-      if (!parsed) {
-        this.log("chat.message-filtered", { reason: ignoredReason(value, streamerDid) });
-        return;
-      }
       if (this.streamerDid !== streamerDid) {
         this.log("chat.message-filtered", { reason: "streamer-changed", id: parsed.id });
         return;
