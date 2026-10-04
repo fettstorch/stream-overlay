@@ -145,6 +145,24 @@ test("thoughts start after two minutes, last ten seconds, and stop when disabled
   } finally { app.wrapper.unmount(); }
 });
 
+test("short intervals do not replace an active ten-second thought", async () => {
+  const app = setup();
+  const originalFetch = app.fetch.getMockImplementation()!;
+  app.fetch.mockImplementation(async url => url.endsWith("/config")
+    ? Response.json({ components: { team: true, badges: true }, thoughtIntervalSeconds: 1 })
+    : originalFetch(url));
+  try {
+    await app.state(true);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(app.wrapper.find("[data-thought]").exists()).toBe(true);
+    await vi.advanceTimersByTimeAsync(9000);
+    expect(app.fetch.mock.calls.filter(([url]) => url.includes("/pet-favourite/"))).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(app.fetch.mock.calls.filter(([url]) => url.includes("/pet-favourite/"))).toHaveLength(2);
+  } finally { app.wrapper.unmount(); }
+});
+
 test("a thought tick skips members without a displayable favourite and bounds empty searches", async () => {
   const app = setup();
   const originalFetch = app.fetch.getMockImplementation()!;

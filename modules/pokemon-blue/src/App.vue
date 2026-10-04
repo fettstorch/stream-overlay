@@ -168,7 +168,7 @@ function stopInteractions() {
 }
 
 async function showNextThought() {
-  if (!moduleEnabled.value || !configuration.value.components.team || !snapshot.value.party.length) return;
+  if (thought.value || !moduleEnabled.value || !configuration.value.components.team || !snapshot.value.party.length) return;
   const version = lifecycleVersion;
   const partySize = snapshot.value.party.length;
   for (let attempted = 0; attempted < partySize; attempted++) {
@@ -179,7 +179,7 @@ async function showNextThought() {
       const response = await fetch(`/api/pokemon-blue/pet-favourite/${encodeURIComponent(pokemon.id)}`, { cache: "no-store" });
       if (!response.ok) continue;
       const favourite = await response.json() as { avatar?: string; authorDid: string; count: number } | null;
-      if (version !== lifecycleVersion || !moduleEnabled.value) return;
+      if (version !== lifecycleVersion || !moduleEnabled.value || thought.value) return;
       if (!favourite?.avatar || !snapshot.value.party.some(member => member.id === pokemon.id)) continue;
       thought.value = { pokemonId: pokemon.id, avatar: favourite.avatar, bubbleImage: thoughtBubbleImage, heartsImage: heartsEffectImage, startedAt: Date.now() };
       diagnose("pokemon.thought-started", { pokemonId: pokemon.id, authorDid: favourite.authorDid, count: favourite.count });
