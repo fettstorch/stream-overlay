@@ -114,21 +114,20 @@ export class StreamChatService {
     this.log("chat.jetstream-connecting", { host, streamerDid });
     const socket = new WebSocket(`wss://${host}/subscribe?wantedCollections=place.stream.chat.message`);
     this.socket = socket;
-    const generation = ++this.generation;
-    this.deliveryTail = Promise.resolve();
+    const generation = this.generation;
     socket.addEventListener("open", () => {
       this.reconnectDelay = 1000;
       this.log("chat.jetstream-connected", { host, streamerDid });
     });
-    socket.addEventListener("message", (event) => void this.receive(event.data, streamerDid, generation));
+    socket.addEventListener("message", (event) => {
+      if (this.socket === socket) void this.receive(event.data, streamerDid, generation);
+    });
     socket.addEventListener("error", () => {
       this.log("chat.jetstream-error", { host, streamerDid });
     });
     socket.addEventListener("close", () => {
       if (this.socket !== socket || this.streamerDid !== streamerDid) return;
       this.socket = undefined;
-      this.generation++;
-      this.deliveryTail = Promise.resolve();
       this.hostIndex++;
       this.log("chat.jetstream-disconnected", { host, streamerDid, reconnectDelay: this.reconnectDelay });
       this.reconnectTimer = setTimeout(() => this.connect(), this.reconnectDelay);

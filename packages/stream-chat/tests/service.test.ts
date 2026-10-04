@@ -99,6 +99,32 @@ test("unrelated collection traffic produces no per-event diagnostic writes", () 
   } finally { service.stop(); mock.mockRestore(); }
 });
 
+test("accepted messages drain in order across transport reconnects", async () => {
+  class FakeSocket extends EventTarget { close() {} }
+  const sockets: FakeSocket[] = [];
+  const mock = spyOn(globalThis, "WebSocket").mockImplementation(() => {
+    const socket = new FakeSocket(); sockets.push(socket); return socket as unknown as WebSocket;
+  });
+  let resolveOld!: (author: { did: string }) => void;
+  const service = new StreamChatService(did => did === "old" ? new Promise(resolve => { resolveOld = resolve; }) : Promise.resolve({ did }));
+  const ids: string[] = [];
+  const unsubscribe = service.messages.subscribe(message => { ids.push(message.id); });
+  const send = (socket: FakeSocket, did: string) => socket.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({
+    kind: "commit", did, commit: { operation: "create", collection: "place.stream.chat.message", rkey: did, record: { streamer: "did:plc:streamer", text: did } },
+  }) }));
+  try {
+    service.setStreamerDid("did:plc:streamer"); send(sockets[0]!, "old");
+    sockets[0]!.dispatchEvent(new Event("close"));
+    await Bun.sleep(1050);
+    expect(sockets).toHaveLength(2);
+    send(sockets[1]!, "new");
+    send(sockets[0]!, "stale");
+    resolveOld({ did: "old" });
+    await Bun.sleep(0);
+    expect(ids).toEqual(["old:old", "new:new"]);
+  } finally { unsubscribe(); service.stop(); mock.mockRestore(); }
+});
+
 for (const intermediate of ["", "did:plc:other"]) test(`superseded lookups cannot reappear after switching through ${intermediate || "disabled"}`, async () => {
   class FakeSocket extends EventTarget { close() {} }
   const sockets: FakeSocket[] = [];
