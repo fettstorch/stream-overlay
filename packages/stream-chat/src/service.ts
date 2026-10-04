@@ -68,6 +68,7 @@ export class StreamChatService {
   private hostIndex = 0;
   private reconnectDelay = 1000;
   private deliveryTail: Promise<void> = Promise.resolve();
+  private generation = 0;
 
   constructor(
     loadAuthor: (did: string) => Promise<StreamChatAuthor>,
@@ -97,6 +98,8 @@ export class StreamChatService {
   }
 
   private disconnect() {
+    this.generation++;
+    this.deliveryTail = Promise.resolve();
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     this.reconnectTimer = undefined;
     const socket = this.socket;
@@ -111,17 +114,21 @@ export class StreamChatService {
     this.log("chat.jetstream-connecting", { host, streamerDid });
     const socket = new WebSocket(`wss://${host}/subscribe?wantedCollections=place.stream.chat.message`);
     this.socket = socket;
+    const generation = ++this.generation;
+    this.deliveryTail = Promise.resolve();
     socket.addEventListener("open", () => {
       this.reconnectDelay = 1000;
       this.log("chat.jetstream-connected", { host, streamerDid });
     });
-    socket.addEventListener("message", (event) => void this.receive(event.data, streamerDid));
+    socket.addEventListener("message", (event) => void this.receive(event.data, streamerDid, generation));
     socket.addEventListener("error", () => {
       this.log("chat.jetstream-error", { host, streamerDid });
     });
     socket.addEventListener("close", () => {
       if (this.socket !== socket || this.streamerDid !== streamerDid) return;
       this.socket = undefined;
+      this.generation++;
+      this.deliveryTail = Promise.resolve();
       this.hostIndex++;
       this.log("chat.jetstream-disconnected", { host, streamerDid, reconnectDelay: this.reconnectDelay });
       this.reconnectTimer = setTimeout(() => this.connect(), this.reconnectDelay);
@@ -129,7 +136,8 @@ export class StreamChatService {
     });
   }
 
-  private async receive(raw: unknown, streamerDid: string) {
+  private async receive(raw: unknown, streamerDid: string, generation: number) {
+    if (generation !== this.generation) return;
     const rawText = String(raw);
     try {
       const value = JSON.parse(rawText) as unknown;
@@ -150,7 +158,7 @@ export class StreamChatService {
         collection: event?.commit?.collection,
         recordStreamer: event?.commit?.record?.streamer,
       });
-      if (this.streamerDid !== streamerDid) {
+      if (this.streamerDid !== streamerDid || generation !== this.generation) {
         this.log("chat.message-filtered", { reason: "streamer-changed", id: parsed.id });
         return;
       }
@@ -174,7 +182,7 @@ export class StreamChatService {
       });
       const delivery = this.deliveryTail.then(async () => {
         const author = await authorPromise;
-        if (this.streamerDid !== streamerDid) {
+        if (this.streamerDid !== streamerDid || generation !== this.generation) {
           this.log("chat.message-filtered", { reason: "streamer-changed-after-profile", id: parsed.id });
           return;
         }
