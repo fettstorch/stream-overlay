@@ -145,6 +145,22 @@ test("thoughts start after two minutes, last ten seconds, and stop when disabled
   } finally { app.wrapper.unmount(); }
 });
 
+test("pet animations pause the thought visible-time countdown", async () => {
+  const app = setup();
+  try {
+    await app.state(true);
+    await vi.advanceTimersByTimeAsync(120_000);
+    await vi.advanceTimersByTimeAsync(3000);
+    await app.pet();
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(app.wrapper.find("[data-thought]").exists()).toBe(true);
+    await vi.advanceTimersByTimeAsync(6999);
+    expect(app.wrapper.find("[data-thought]").exists()).toBe(true);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(app.wrapper.find("[data-thought]").exists()).toBe(false);
+  } finally { app.wrapper.unmount(); }
+});
+
 test("short intervals do not replace an active ten-second thought", async () => {
   const app = setup();
   const originalFetch = app.fetch.getMockImplementation()!;

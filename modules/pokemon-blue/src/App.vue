@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, reactive, ref } from "vue";
+import { onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { BadgeStrip, PokemonTeam, type BadgeDefinition, type PetAppearance, type ThoughtAppearance } from "@stream-overlay/pokemon-ui";
 import type { PokemonSnapshot } from "@stream-overlay/pokemon-model";
 import { PokemonPetQueues, type PetAuthor } from "./pet-queue.ts";
@@ -26,6 +26,8 @@ const activePets = reactive<Record<string, PetAppearance>>({});
 const thought = ref<ThoughtAppearance>();
 let thoughtTimer: ReturnType<typeof setInterval> | undefined;
 let thoughtEndTimer: ReturnType<typeof setTimeout> | undefined;
+let thoughtRemaining = 10_000;
+let thoughtVisibleAt: number | undefined;
 let nextThoughtSlot = 0;
 const moduleEnabled = ref(false);
 let moduleStatus: EventSource | undefined;
@@ -189,14 +191,28 @@ async function findNextThought(version: number) {
       const favourite = await response.json() as { avatar?: string; authorDid: string; count: number } | null;
       if (version !== lifecycleVersion || !moduleEnabled.value || thought.value) return;
       if (!favourite?.avatar || !snapshot.value.party.some(member => member.id === pokemon.id)) continue;
+      thoughtRemaining = 10_000;
+      thoughtVisibleAt = undefined;
       thought.value = { pokemonId: pokemon.id, avatar: favourite.avatar, bubbleImage: thoughtBubbleImage, heartsImage: heartsEffectImage, startedAt: Date.now() };
       diagnose("pokemon.thought-started", { pokemonId: pokemon.id, authorDid: favourite.authorDid, count: favourite.count });
-      clearTimeout(thoughtEndTimer);
-      thoughtEndTimer = setTimeout(() => { thought.value = undefined; }, 10_000);
+      syncThoughtExpiry();
       return;
     } catch { /* Try another member without interrupting normal pets or game data. */ }
   }
 }
+
+function syncThoughtExpiry() {
+  clearTimeout(thoughtEndTimer);
+  if (thoughtVisibleAt !== undefined) thoughtRemaining -= Date.now() - thoughtVisibleAt;
+  thoughtVisibleAt = undefined;
+  if (!thought.value || activePets[thought.value.pokemonId]) return;
+  thoughtVisibleAt = Date.now();
+  thoughtEndTimer = setTimeout(() => {
+    thoughtVisibleAt = undefined;
+    thought.value = undefined;
+  }, Math.max(0, thoughtRemaining));
+}
+watch(() => thought.value ? Boolean(activePets[thought.value.pokemonId]) : undefined, syncThoughtExpiry, { flush: "sync" });
 
 async function setModuleEnabled(enabled: boolean, restart = false) {
   if (moduleEnabled.value === enabled && !restart) return;
