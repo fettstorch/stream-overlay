@@ -8,6 +8,8 @@ export interface PetAuthor {
 interface PetQueue {
   requests: Promise<PetAuthor>[];
   running: boolean;
+  active?: PetAuthor;
+  cancelDelay?: () => void;
 }
 
 export class PokemonPetQueues {
@@ -35,7 +37,13 @@ export class PokemonPetQueues {
       this.pokemonIdsByName.set(this.normalize(pokemon.name), pokemon.id);
     }
     for (const pokemonId of this.queues.keys()) {
-      if (!currentIds.has(pokemonId)) this.queues.delete(pokemonId);
+      if (!currentIds.has(pokemonId)) {
+        const queue = this.queues.get(pokemonId)!;
+        this.queues.delete(pokemonId);
+        if (queue.active) this.deactivate(pokemonId, queue.active);
+        queue.active = undefined;
+        queue.cancelDelay?.();
+      }
     }
   }
 
@@ -54,10 +62,20 @@ export class PokemonPetQueues {
     while (this.queues.get(pokemonId) === queue && queue.requests.length > 0) {
       const author = await queue.requests.shift()!;
       if (this.queues.get(pokemonId) !== queue) break;
+      queue.active = author;
       this.activate(pokemonId, author);
-      await new Promise((resolve) => setTimeout(resolve, this.duration));
+      await new Promise<void>(resolve => {
+        const finish = () => {
+          clearTimeout(timer);
+          queue.cancelDelay = undefined;
+          resolve();
+        };
+        const timer = setTimeout(finish, this.duration);
+        queue.cancelDelay = finish;
+      });
       if (this.queues.get(pokemonId) !== queue) break;
       this.deactivate(pokemonId, author);
+      queue.active = undefined;
     }
     if (this.queues.get(pokemonId) === queue) this.queues.delete(pokemonId);
   }

@@ -45,4 +45,22 @@ describe("PokemonPetQueues", () => {
     await wait(12);
     expect(events).not.toContain("did:two");
   });
+
+  test("removal immediately deactivates a pet and cannot clear a newer pet after rejoining", async () => {
+    const events: string[] = [];
+    const queues = new PokemonPetQueues(20,
+      (_, author) => events.push(`start:${author.did}`),
+      (_, author) => events.push(`stop:${author.did}`));
+    queues.updateParty([kleo]);
+    queues.enqueue("Kleo", Promise.resolve({ did: "old" }));
+    await wait(0);
+    queues.updateParty([]);
+    expect(events).toEqual(["start:old", "stop:old"]);
+    queues.updateParty([kleo]);
+    queues.enqueue("Kleo", Promise.resolve({ did: "new" }));
+    await wait(0);
+    expect(events).toEqual(["start:old", "stop:old", "start:new"]);
+    await wait(25);
+    expect(events).toEqual(["start:old", "stop:old", "start:new", "stop:new"]);
+  });
 });
