@@ -172,6 +172,7 @@ async function load() {
   }
   configuration.value = { thoughtIntervalSeconds: 120, ...await configResponse.json() as PokemonBlueConfiguration };
   streamConfiguration.value = await streamConfigResponse.json() as StreamConfiguration;
+  confirmedStreamConfiguration = streamConfiguration.value;
   streamerQuery.value = streamConfiguration.value.profile?.handle || streamConfiguration.value.streamerDid;
 }
 
@@ -276,6 +277,12 @@ watch(paintConfiguration, value => {
 }, { deep: true });
 
 let streamerSelectionSequence = 0;
+let confirmedStreamConfiguration: StreamConfiguration | undefined;
+function restoreConfirmedStreamer() {
+  if (!confirmedStreamConfiguration) return;
+  streamConfiguration.value = confirmedStreamConfiguration;
+  streamerQuery.value = confirmedStreamConfiguration.profile?.handle || confirmedStreamConfiguration.streamerDid;
+}
 function selectStreamer(identity: string) {
   const sequence = ++streamerSelectionSequence;
   streamMessage.value = "Loading profile…";
@@ -291,8 +298,10 @@ async function saveStreamer(identity: string, sequence: number) {
       body: JSON.stringify({ streamerDid: identity }),
     });
     const result = await response.json() as StreamConfiguration | { error?: string };
+    if (response.ok) confirmedStreamConfiguration = result as StreamConfiguration;
     if (sequence !== streamerSelectionSequence) return;
     if (!response.ok) {
+      restoreConfirmedStreamer();
       streamMessage.value = "error" in result && result.error ? result.error : "Could not save configuration";
       return;
     }
@@ -301,7 +310,10 @@ async function saveStreamer(identity: string, sequence: number) {
     actorSuggestions.value = [];
     streamMessage.value = "Selected and saved";
   } catch {
-    if (sequence === streamerSelectionSequence) streamMessage.value = "Could not save configuration";
+    if (sequence === streamerSelectionSequence) {
+      restoreConfirmedStreamer();
+      streamMessage.value = "Could not save configuration";
+    }
   }
 }
 
