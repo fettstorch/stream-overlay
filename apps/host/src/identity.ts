@@ -31,7 +31,7 @@ export async function resolveStreamerIdentity(input: string, fetcher: typeof fet
 
   const url = new URL("https://bsky.social/xrpc/com.atproto.identity.resolveHandle");
   url.searchParams.set("handle", handle);
-  const response = await fetcher(url);
+  const response = await fetcher(url, { signal: AbortSignal.timeout(5000) });
   if (!response.ok) throw new Error(`Could not resolve @${handle}`);
 
   const result = await response.json() as { did?: unknown };

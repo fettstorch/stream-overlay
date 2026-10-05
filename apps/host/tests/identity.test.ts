@@ -1,7 +1,20 @@
-import { describe, expect, mock, test } from "bun:test";
+import { describe, expect, mock, spyOn, test } from "bun:test";
 import { getActorProfile, resolveStreamerIdentity, searchActors } from "../src/identity.ts";
 
 describe("resolveStreamerIdentity", () => {
+  test("aborts stalled handle resolution with a five-second request deadline", async () => {
+    const controller = new AbortController();
+    const timeout = spyOn(AbortSignal, "timeout").mockReturnValue(controller.signal);
+    const fetcher = mock((_input: URL | RequestInfo, options?: RequestInit) => new Promise<Response>((_, reject) => {
+      options!.signal!.addEventListener("abort", () => reject(options!.signal!.reason), { once: true });
+    }));
+    try {
+      const pending = resolveStreamerIdentity("alice.bsky.social", fetcher as typeof fetch);
+      controller.abort(new Error("deadline"));
+      await expect(pending).rejects.toThrow("deadline");
+      expect(timeout).toHaveBeenCalledWith(5000);
+    } finally { timeout.mockRestore(); }
+  });
   test("keeps an existing DID without making a request", async () => {
     const fetcher = mock(() => Promise.reject(new Error("unexpected request")));
     expect(await resolveStreamerIdentity(" did:plc:abc123 ", fetcher as typeof fetch)).toBe("did:plc:abc123");
