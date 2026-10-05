@@ -23,7 +23,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function setup() {
+function setup(moduleId = "pokemon-blue") {
   vi.useFakeTimers();
   const sources: Array<{ onmessage?: (event: { data: string }) => void; onerror?: () => void; close: () => void }> = [];
   vi.stubGlobal("EventSource", class {
@@ -37,7 +37,7 @@ function setup() {
     return new Response(null, { status: 204 });
   });
   vi.stubGlobal("fetch", fetch);
-  const wrapper = mount(App, { global: { stubs: {
+  const wrapper = mount(App, { props: { moduleId }, global: { stubs: {
     PokemonTeam: { props: ["party", "activePets", "thought"], template: '<div data-team>{{ party[0]?.name }}<span v-if="activePets.kleo" data-pet>pet</span><span v-if="thought" data-thought>{{ thought.pokemonId }}</span></div>' },
     BadgeStrip: { template: '<div data-badges>badges</div>' },
   } } });
@@ -51,6 +51,20 @@ function setup() {
   };
   return { wrapper, state, sources, fetch, pet };
 }
+
+test("Crystal uses its own API and control stream while retaining live toggles and petting", async () => {
+  const app = setup("pokemon-crystal");
+  try {
+    await app.state(true);
+    expect(app.fetch).toHaveBeenCalledWith("/api/pokemon-crystal/snapshot", { cache: "no-store" });
+    expect(app.fetch).toHaveBeenCalledWith("/api/pokemon-crystal/config", { cache: "no-store" });
+    expect((app.sources[0] as unknown as { url: string }).url).toBe("/api/modules/pokemon-crystal/events");
+    await app.pet(); expect(app.wrapper.find("[data-pet]").exists()).toBe(true);
+    await app.state(false); expect(app.wrapper.text()).toBe("");
+    await app.state(true); expect(app.wrapper.find("[data-team]").exists()).toBe(true);
+    expect(app.fetch.mock.calls.some(([url]) => url.includes("/api/pokemon-blue/"))).toBe(false);
+  } finally { app.wrapper.unmount(); }
+});
 
 test("streamer changes clear pets and invalidate pending thoughts while remaining enabled", async () => {
   const app = setup();

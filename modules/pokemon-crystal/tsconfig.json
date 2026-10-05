@@ -1,0 +1,5 @@
+{
+  "extends": "../pokemon-blue/tsconfig.json",
+  "include": ["src/**/*.ts", "src/**/*.vue", "../pokemon-blue/src/**/*.vue"],
+  "exclude": ["src/module.ts", "src/mgba-file-provider.ts"]
+}

@@ -50,8 +50,9 @@ function hpPercentage(pokemon: Pokemon) {
 function xpPercentage(pokemon: Pokemon) {
   if (pokemon.level >= 100) return 100;
   const rate = growthRateFor(pokemon.nationalDexNumber);
-  const current = experienceAtLevel(pokemon.level, rate);
-  const next = experienceAtLevel(pokemon.level + 1, rate);
+  const current = pokemon.experienceAtLevel ?? experienceAtLevel(pokemon.level, rate);
+  const next = pokemon.experienceAtNextLevel ?? experienceAtLevel(pokemon.level + 1, rate);
+  if (next <= current) return 0;
   return percentage((pokemon.experience - current) / (next - current) * 100);
 }
 
@@ -67,7 +68,7 @@ const cards = computed(() => props.party.map((pokemon) => ({
     <figure v-for="card in cards" :key="card.pokemon.id">
       <img
         class="pokemon-image"
-        :src="images[card.pokemon.nationalDexNumber] ?? fallbackImage"
+        :src="card.pokemon.isEgg ? fallbackImage : images[card.pokemon.nationalDexNumber] ?? fallbackImage"
         :alt="card.pokemon.name"
         @error="($event.target as HTMLImageElement).src = fallbackImage"
       >
@@ -99,15 +100,15 @@ const cards = computed(() => props.party.map((pokemon) => ({
       <div class="status-panel">
         <div class="status-heading">
           <span class="pokemon-name">{{ card.pokemon.name }}</span>
-          <span class="pokemon-level">Lv.{{ card.pokemon.level }}</span>
+          <span class="pokemon-level">{{ card.pokemon.isEgg ? 'Egg' : `Lv.${card.pokemon.level}` }}</span>
         </div>
-        <div class="status-row">
+        <div v-if="!card.pokemon.isEgg" class="status-row">
           <span class="status-label">HP</span>
           <div class="meter hp-meter" :data-health="card.hp <= 20 ? 'low' : card.hp <= 50 ? 'medium' : 'high'">
             <div class="meter-fill" :style="{ width: `${card.hp}%` }" />
           </div>
         </div>
-        <div class="status-row xp-row">
+        <div v-if="!card.pokemon.isEgg" class="status-row xp-row">
           <span class="status-label">EXP</span>
           <div class="meter xp-meter">
             <div class="meter-fill" :style="{ width: `${card.xp}%` }" />

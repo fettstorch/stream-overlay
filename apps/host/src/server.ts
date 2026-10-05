@@ -6,6 +6,7 @@ import { findModule, modules } from "./modules.ts";
 import { ModuleSupervisor } from "./module-supervisor.ts";
 import type { PokemonSnapshot } from "@stream-overlay/pokemon-model";
 import { MgbaFileProvider } from "../../../modules/pokemon-blue/src/mgba-file-provider.ts";
+import { CrystalMgbaFileProvider } from "../../../modules/pokemon-crystal/src/mgba-file-provider.ts";
 import { getActorProfile, resolveStreamerIdentity, searchActors } from "./identity.ts";
 import { StreamChatService } from "@stream-overlay/stream-chat";
 import { FileLogger } from "./logger.ts";
@@ -36,8 +37,9 @@ const paintBundle = await Bun.build({
 });
 if (!paintBundle.success) throw new AggregateError(paintBundle.logs, "Could not build Overlay Paint");
 const paintJavascript = await paintBundle.outputs[0]!.text();
-const [pokemonOverlay, chatOverlay] = await Promise.all([
+const [pokemonOverlay, crystalOverlay, chatOverlay] = await Promise.all([
   buildStaticOverlay(projectRoot, "pokemon-blue"),
+  buildStaticOverlay(projectRoot, "pokemon-crystal"),
   buildStaticOverlay(projectRoot, "chat"),
 ]);
 const pokemonRuntimeDirectory = join(projectRoot, "runtime/pokemon-blue");
@@ -47,12 +49,21 @@ const pokemonProvider = new MgbaFileProvider(
   join(pokemonRuntimeDirectory, "badges.json"),
 );
 let pokemonSnapshot: PokemonSnapshot | null = null;
+const crystalRuntimeDirectory = join(projectRoot, "runtime/pokemon-crystal");
+mkdirSync(crystalRuntimeDirectory, { recursive: true });
+const crystalProvider = new CrystalMgbaFileProvider(join(crystalRuntimeDirectory, "team.json"), join(crystalRuntimeDirectory, "badges.json"));
+let crystalSnapshot: PokemonSnapshot | null = null;
+const crystalPetMemory = new PetMemory(join(crystalRuntimeDirectory, "pet-counts.json"));
 const petMemory = new PetMemory(join(pokemonRuntimeDirectory, "pet-counts.json"));
 const unsubscribePetMemory = chatService.messages.subscribe(message => {
-  if (!isEnabled("pokemon-blue") || !pokemonSnapshot) return;
-  try {
-    if (petMemory.record(message, pokemonSnapshot.party)) logger.log("pokemon.pet-counted", { id: message.id, authorDid: message.author.did });
-  } catch (error) { logger.log("pokemon.pet-count-failed", { error: String(error) }); }
+  for (const [moduleId, snapshot, memory] of [
+    ["pokemon-blue", pokemonSnapshot, petMemory], ["pokemon-crystal", crystalSnapshot, crystalPetMemory],
+  ] as const) {
+    if (!isEnabled(moduleId) || !snapshot) continue;
+    try {
+      if (memory.record(message, snapshot.party)) logger.log("pokemon.pet-counted", { moduleId, id: message.id, authorDid: message.author.did });
+    } catch (error) { logger.log("pokemon.pet-count-failed", { moduleId, error: String(error) }); }
+  }
 });
 
 function isEnabled(id: string) {
@@ -156,6 +167,9 @@ const server = Bun.serve({
   port,
   development: true,
   routes: {
+    "/overlays/pokemon-crystal": () => Response.redirect("/overlays/pokemon-crystal/"),
+    "/overlays/pokemon-crystal/": () => crystalOverlay(),
+    "/overlays/pokemon-crystal/*": request => crystalOverlay(new URL(request.url).pathname.slice("/overlays/pokemon-crystal/".length)),
     "/": () => servePokemonOverlay(),
     "/overlay.html": () => servePokemonOverlay(),
     "/overlays/pokemon-blue": request => Response.redirect(new URL("/overlays/pokemon-blue/", request.url), 302),
@@ -363,6 +377,48 @@ const server = Bun.serve({
         return Response.json(configuration.pokemonBlue);
       },
     },
+    "/api/pokemon-crystal/snapshot": () => crystalSnapshot
+      ? Response.json(crystalSnapshot, { headers: { "Cache-Control": "no-store" } })
+      : Response.json({ error: "Load scripts/mgba-crystal.lua in mGBA with Crystal running" }, { status: 503 }),
+    "/api/pokemon-crystal/pet-counts": {
+      DELETE: () => {
+        try {
+          crystalPetMemory.reset();
+          logger.log("pokemon.pet-counts-reset", { moduleId: "pokemon-crystal" });
+          return new Response(null, { status: 204 });
+        } catch (error) {
+          logger.log("pokemon.pet-counts-reset-failed", { moduleId: "pokemon-crystal", error: String(error) });
+          return Response.json({ error: "Could not reset pet counts" }, { status: 500 });
+        }
+      },
+    },
+    "/api/pokemon-crystal/pet-favourite/:id": async request => {
+      const pokemonId = request.params.id;
+      if (!isEnabled("pokemon-crystal") || !crystalSnapshot?.party.some(pokemon => pokemon.id === pokemonId)) return Response.json(null);
+      const favourite = crystalPetMemory.favourite(configStore.read().stream.streamerDid, pokemonId);
+      if (!favourite) return Response.json(null);
+      try {
+        const author = await chatService.resolveAuthor(favourite.authorDid);
+        return Response.json({ pokemonId, authorDid: author.did, avatar: author.avatar, count: favourite.count }, { headers: { "Cache-Control": "no-store" } });
+      } catch (error) {
+        logger.log("pokemon.favourite-profile-failed", { moduleId: "pokemon-crystal", error: String(error) });
+        return Response.json(null);
+      }
+    },
+    "/api/pokemon-crystal/config": {
+      GET: () => Response.json(configStore.read().pokemonCrystal ?? { components: { team: true, badges: true } }),
+      PATCH: async request => {
+        const body = await request.json() as PokemonBlueConfiguration;
+        if (!body || typeof body.components?.team !== "boolean" || typeof body.components?.badges !== "boolean"
+          || parseThoughtInterval(body.thoughtIntervalSeconds) === null) {
+          return Response.json({ error: "Invalid Pokémon Crystal configuration" }, { status: 400 });
+        }
+        const configuration = configStore.read();
+        configuration.pokemonCrystal = body;
+        configStore.write(configuration);
+        return Response.json(configuration.pokemonCrystal);
+      },
+    },
     "/api/modules/:id/events": (request, server) => {
       if (!findModule(request.params.id)) return new Response("Unknown module", { status: 404 });
       server.timeout(request, 0);
@@ -402,6 +458,7 @@ paintService.setEnabled(isEnabled("overlay-paint"));
 await pokemonProvider.start((snapshot) => {
   pokemonSnapshot = snapshot;
 });
+await crystalProvider.start(snapshot => { crystalSnapshot = snapshot; });
 
 const shutDown = () => {
   logger.log("host.stopping");
@@ -410,6 +467,7 @@ const shutDown = () => {
   unsubscribePetMemory();
   paintService.stop();
   void pokemonProvider.stop();
+  void crystalProvider.stop();
   void server.stop();
 };
 process.once("SIGINT", shutDown);

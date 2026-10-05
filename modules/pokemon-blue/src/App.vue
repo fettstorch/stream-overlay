@@ -18,6 +18,10 @@ import marshBadge from "../../../assets/badges/marsh.png";
 import volcanoBadge from "../../../assets/badges/volcano.png";
 import earthBadge from "../../../assets/badges/earth.png";
 
+// The interaction lifecycle is shared; game-specific readers and badges stay separate.
+const props = withDefaults(defineProps<{ moduleId?: string; badgeDefinitions?: BadgeDefinition[] }>(), { moduleId: "pokemon-blue" });
+const api = `/api/${props.moduleId}`;
+
 const snapshot = ref<PokemonSnapshot>({ party: [], badges: null, capturedAt: "" });
 const configuration = ref<PokemonBlueConfiguration>({
   components: { team: true, badges: true },
@@ -42,7 +46,7 @@ function diagnose(event: string, details: Record<string, unknown> = {}) {
   void fetch("/api/diagnostics", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ event, details }),
+    body: JSON.stringify({ event, details: { ...details, moduleId: props.moduleId } }),
     keepalive: true,
   }).catch(() => {});
 }
@@ -94,7 +98,7 @@ const petQueues = new PokemonPetQueues(
 async function refreshSnapshot() {
   const version = lifecycleVersion;
   try {
-    const response = await fetch("/api/pokemon-blue/snapshot", { cache: "no-store" });
+    const response = await fetch(`${api}/snapshot`, { cache: "no-store" });
     if (!response.ok) return;
     const result = await response.json() as PokemonSnapshot;
     if (version !== lifecycleVersion || !moduleEnabled.value) return;
@@ -109,7 +113,7 @@ async function refreshSnapshot() {
 async function refreshConfiguration() {
   const version = lifecycleVersion;
   try {
-    const response = await fetch("/api/pokemon-blue/config", { cache: "no-store" });
+    const response = await fetch(`${api}/config`, { cache: "no-store" });
     if (!response.ok) return;
     const result = await response.json() as PokemonBlueConfiguration;
     if (version !== lifecycleVersion || !moduleEnabled.value) return;
@@ -187,7 +191,7 @@ async function findNextThought(version: number) {
     const pokemon = snapshot.value.party[nextThoughtSlot % snapshot.value.party.length]!;
     nextThoughtSlot = (nextThoughtSlot + 1) % snapshot.value.party.length;
     try {
-      const response = await fetch(`/api/pokemon-blue/pet-favourite/${encodeURIComponent(pokemon.id)}`, { cache: "no-store" });
+      const response = await fetch(`${api}/pet-favourite/${encodeURIComponent(pokemon.id)}`, { cache: "no-store" });
       if (!response.ok) continue;
       const favourite = await response.json() as { avatar?: string; authorDid: string; count: number } | null;
       if (version !== lifecycleVersion || !moduleEnabled.value || thought.value) return;
@@ -234,7 +238,7 @@ async function setModuleEnabled(enabled: boolean, restart = false) {
 
 onMounted(() => {
   diagnose("pokemon.overlay-mounted");
-  moduleStatus = new EventSource("/api/modules/pokemon-blue/events");
+  moduleStatus = new EventSource(`/api/modules/${props.moduleId}/events`);
   moduleStatus.onmessage = event => {
     try {
       const state = JSON.parse(event.data) as { enabled?: unknown; streamerDid?: unknown };
@@ -271,7 +275,7 @@ onBeforeUnmount(() => {
   />
   <BadgeStrip
     v-if="configuration.components.badges"
-    :badges="badges"
+    :badges="props.badgeDefinitions ?? badges"
     :owned-badge-ids="snapshot.badges?.ownedBadgeIds ?? []"
   />
   <p v-if="configuration.components.team && snapshot.party.length" class="pet-hint">

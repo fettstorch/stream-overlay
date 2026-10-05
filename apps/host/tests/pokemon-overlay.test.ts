@@ -3,11 +3,12 @@ import { join } from "node:path";
 import { buildStaticOverlay } from "../src/static-overlay.ts";
 import { pokemonBlueModule } from "../../../modules/pokemon-blue/src/module.ts";
 import { chatModule } from "../../../modules/chat/src/module.ts";
+import { pokemonCrystalModule } from "../../../modules/pokemon-crystal/src/module.ts";
 
-for (const module of [pokemonBlueModule, chatModule]) test(`${module.name} is served with all its built assets and no module process`, async () => {
+for (const module of [pokemonBlueModule, pokemonCrystalModule, chatModule]) test(`${module.name} is served with all its built assets and no module process`, async () => {
   expect(module.process).toBeUndefined();
   expect(module.streamerQuery).toBe(false);
-  const serve = await buildStaticOverlay(join(import.meta.dir, "../../.."), module.id as "pokemon-blue" | "chat");
+  const serve = await buildStaticOverlay(join(import.meta.dir, "../../.."), module.id as "pokemon-blue" | "pokemon-crystal" | "chat");
   const page = serve();
   expect(page.headers.get("Content-Type")).toContain("text/html");
   const html = await page.text();

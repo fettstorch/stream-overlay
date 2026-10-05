@@ -6,6 +6,10 @@ export interface Pokemon {
   hp: number;
   maxHp: number;
   experience: number;
+  /** Game-provided thresholds avoid assuming Gen I species growth groups. */
+  experienceAtLevel?: number;
+  experienceAtNextLevel?: number;
+  isEgg?: boolean;
 }
 
 export interface BadgeProgress {

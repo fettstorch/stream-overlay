@@ -10,6 +10,9 @@ interface MgbaPokemon {
   hp: number;
   maxHp: number;
   experience: number;
+  experienceAtLevel?: number;
+  experienceAtNextLevel?: number;
+  isEgg?: boolean;
 }
 
 const badgeIds = [
@@ -30,7 +33,7 @@ export class MgbaFileProvider implements GameDataProvider<PokemonSnapshot> {
   private timer: ReturnType<typeof setInterval> | undefined;
   private lastSerializedSnapshot = "";
 
-  constructor(teamPath: string, badgesPath: string, pollInterval = 500) {
+  constructor(teamPath: string, badgesPath: string, pollInterval = 500, private readonly gameBadgeIds = badgeIds, private readonly gameName = "Pokémon Blue") {
     this.teamPath = teamPath;
     this.badgesPath = badgesPath;
     this.pollInterval = pollInterval;
@@ -43,7 +46,7 @@ export class MgbaFileProvider implements GameDataProvider<PokemonSnapshot> {
     ]);
     const team = JSON.parse(teamContents) as MgbaPokemon[];
     const { mask } = JSON.parse(badgesContents) as { mask: number };
-    if (!Array.isArray(team) || !Number.isInteger(mask)) {
+    if (!Array.isArray(team) || !Number.isInteger(mask) || mask < 0 || mask >= 2 ** this.gameBadgeIds.length) {
       throw new TypeError("mGBA output is malformed");
     }
     return {
@@ -63,7 +66,7 @@ export class MgbaFileProvider implements GameDataProvider<PokemonSnapshot> {
         publish(snapshot);
       } catch (error) {
         if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return;
-        console.error("Could not read Pokémon Blue mGBA output", error);
+        console.error(`Could not read ${this.gameName} mGBA output`, error);
       }
     };
     await refresh();
@@ -83,6 +86,9 @@ export class MgbaFileProvider implements GameDataProvider<PokemonSnapshot> {
       || !Number.isInteger(pokemon.hp)
       || !Number.isInteger(pokemon.maxHp)
       || !Number.isInteger(pokemon.experience)
+      || (pokemon.experienceAtLevel !== undefined && (!Number.isInteger(pokemon.experienceAtLevel) || pokemon.experienceAtLevel < 0))
+      || (pokemon.experienceAtNextLevel !== undefined && (!Number.isInteger(pokemon.experienceAtNextLevel) || pokemon.experienceAtNextLevel < (pokemon.experienceAtLevel ?? 0)))
+      || (pokemon.isEgg !== undefined && typeof pokemon.isEgg !== "boolean")
     ) {
       throw new TypeError("mGBA party member is malformed");
     }
@@ -94,12 +100,15 @@ export class MgbaFileProvider implements GameDataProvider<PokemonSnapshot> {
       hp: pokemon.hp,
       maxHp: pokemon.maxHp,
       experience: pokemon.experience,
+      ...(pokemon.experienceAtLevel !== undefined ? { experienceAtLevel: pokemon.experienceAtLevel } : {}),
+      ...(pokemon.experienceAtNextLevel !== undefined ? { experienceAtNextLevel: pokemon.experienceAtNextLevel } : {}),
+      ...(pokemon.isEgg !== undefined ? { isEgg: pokemon.isEgg } : {}),
     };
   }
 
   private normalizeBadges(mask: number): BadgeProgress {
     return {
-      ownedBadgeIds: badgeIds.filter((_, index) => (mask & (1 << index)) !== 0),
+      ownedBadgeIds: this.gameBadgeIds.filter((_, index) => (mask & (1 << index)) !== 0),
     };
   }
 }

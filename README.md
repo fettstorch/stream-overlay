@@ -2,7 +2,7 @@
 
 A local overlay control room built with Bun, Vue, TypeScript, and Vite.
 
-Pokémon Blue, Chat, and Overlay Paint are served directly by the central host.
+Pokémon Blue, Pokémon Crystal, Chat, and Overlay Paint are served directly by the central host.
 The Vue interfaces are compiled once at startup; the compilers then exit.
 There is no Pokémon webserver process or port 3002. Restart the host after
 changing Pokémon UI source files. Existing OBS URLs remain unchanged.
@@ -18,6 +18,7 @@ Then open:
 
 - Admin: <http://localhost:3001/admin/>
 - Pokémon Blue mGBA: <http://localhost:3001/overlays/pokemon-blue/>
+- Pokémon Crystal mGBA: <http://localhost:3001/overlays/pokemon-crystal/>
 - Streamplace Pets: <http://localhost:3001/overlays/stream-pets/>
 - Overlay Paint: <http://localhost:3001/overlays/overlay-paint/>
 - Chat: <http://localhost:3001/overlays/chat/>
@@ -45,6 +46,7 @@ Streamplace Pets retains its separate, unchanged lifecycle.
 apps/host                 Bun API and module supervisor
 apps/admin                Vue administration UI
 modules/pokemon-blue      Pokémon Blue mGBA overlay and adapter
+modules/pokemon-crystal   Pokémon Crystal mGBA adapter, sharing the team HUD
 modules/streamplace-pets  Adapter for the upstream submodule
 modules/overlay-paint     Shared temporary canvas, served by the host
 modules/chat              Stream.place chat display, served by the host
@@ -60,6 +62,45 @@ source. Clone this repository with submodules:
 ```sh
 git clone --recurse-submodules <repository-url>
 ```
+
+## Pokémon Crystal mGBA
+
+1. Start `bun run overlay` as usual.
+2. Open English **Pokémon Crystal (USA/Europe Rev 1)** in mGBA 0.10+.
+3. In **Tools → Scripting**, load `scripts/mgba-crystal.lua` directly from this
+   project and leave the scripting window open. No save paths or script edits needed.
+4. Enable **Pokémon Crystal mGBA** in Admin (new installations start it disabled),
+   disable Blue when no longer using it, and copy Crystal's URL into OBS.
+
+The Lua reader exports live party order, nicknames, stable OT-ID/DV identities,
+levels, HP, total EXP, EXP level thresholds, eggs, and all 16 badge flags into
+`runtime/pokemon-crystal/`. The host creates that folder; ROMs and saves remain
+wherever mGBA expects them. Crystal has its own saved settings and
+`runtime/pokemon-crystal/pet-counts.json`, with the same reset and thought-bubble
+controls as Blue. Live toggles and `!pet <Pokémon name>` use the existing shared
+status/chat services; no extra process or port is introduced.
+
+Crystal reads each species' growth group and the growth formula from its own ROM,
+rather than guessing from the Gen I species table. Eggs are shown without HP/EXP
+bars or their hidden species image. Unmapped species use the existing placeholder;
+both games share the sticker mapping in `modules/pokemon-blue/src/App.vue`.
+
+Supported ROM SHA-1: `f2f52230b536214ef7c9924f483392993e226cfb`.
+Other revisions, languages and ROM hacks require verified memory/ROM offsets.
+Addresses and tile order were checked against the
+[Crystal disassembly](https://github.com/pret/pokecrystal) and its
+[Rev 1 symbols](https://raw.githubusercontent.com/pret/pokecrystal/symbols/pokecrystal11.sym).
+The eight Johto badge faces and their palette are extracted from the user-owned
+ROM; the Kanto row reuses our existing Gen I icons (Crystal has no distinct Kanto
+badge graphic set). To reproduce the Johto assets:
+
+```sh
+bun scripts/extract-crystal-badges.ts /path/to/crystal-rev1.gbc
+```
+
+No ROM or save data is included in this repository. The Lua reader uses mGBA's
+flat ROM/WRAM memory domains, so switching the emulated CPU's banks cannot corrupt
+the overlay reads.
 
 ## Chat
 

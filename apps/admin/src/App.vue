@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { mutePreview } from "./mute-preview.ts";
+import PokemonModuleControls from "./PokemonModuleControls.vue";
 import { defaultChatConfiguration, parseChatConfiguration } from "../../../modules/chat/src/config";
 import { parseThoughtInterval, type PokemonBlueConfiguration } from "../../../modules/pokemon-blue/src/config";
 
@@ -609,6 +610,7 @@ onBeforeUnmount(() => {
             <label>Fade delay (seconds) <input v-model.number="paintConfiguration.decaySeconds" type="number" min="0.1" max="60" step="0.1" aria-label="Paint fade delay in seconds"></label>
             <span class="module-message" aria-live="polite">{{ paintMessage }}</span>
           </div>
+          <PokemonModuleControls v-if="module.id === 'pokemon-crystal'" :module-id="module.id" />
           <div v-if="module.id === 'pokemon-blue'" class="module-settings">
             <h4>Visible components</h4>
             <label><input v-model="configuration.components.team" type="checkbox"> Team</label>

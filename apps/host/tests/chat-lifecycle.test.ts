@@ -29,5 +29,8 @@ test("shared Jetstream stops with its last consumer and resumes with either cons
     expect(closes).toBe(1);
     enable("pokemon-blue", true); updateSharedChat(service, configuration);
     expect(sockets).toHaveLength(2);
+    enable("pokemon-blue", false); updateSharedChat(service, configuration);
+    enable("pokemon-crystal", true); updateSharedChat(service, configuration);
+    expect(sockets).toHaveLength(3);
   } finally { service.stop(); mock.mockRestore(); }
 });

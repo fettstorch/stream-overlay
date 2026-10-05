@@ -1,7 +1,7 @@
 import { join } from "node:path";
 
 /** Compile once at host startup, then serve static files without a Vite server. */
-export async function buildStaticOverlay(projectRoot: string, module: "pokemon-blue" | "chat") {
+export async function buildStaticOverlay(projectRoot: string, module: "pokemon-blue" | "pokemon-crystal" | "chat") {
   const directory = join(projectRoot, "modules", module);
   const compiler = Bun.spawn(["bun", "--no-orphans", "run", "build"], {
     cwd: directory,

@@ -24,6 +24,15 @@ function createStore() {
 }
 
 describe("ConfigStore", () => {
+  test("Crystal settings persist independently without changing legacy Blue configuration", () => {
+    const store = createStore();
+    const configuration = store.read();
+    expect(configuration.pokemonCrystal).toBeUndefined();
+    store.write({ ...configuration, pokemonCrystal: { components: { team: false, badges: true }, thoughtIntervalSeconds: 2 } });
+    expect(store.read().pokemonBlue).toEqual(configuration.pokemonBlue);
+    expect(store.read().pokemonCrystal?.thoughtIntervalSeconds).toBe(2);
+    expect(() => store.write({ ...configuration, pokemonCrystal: { components: { team: true, badges: true }, thoughtIntervalSeconds: 0 } })).toThrow();
+  });
   test("persists the thought interval and validates its bounds while accepting legacy settings", () => {
     const store = createStore();
     const configuration = store.read();

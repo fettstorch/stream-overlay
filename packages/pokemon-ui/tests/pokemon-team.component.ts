@@ -3,6 +3,16 @@ import { describe, expect, test } from "vitest";
 import PokemonTeam from "../src/PokemonTeam.vue";
 
 describe("PokemonTeam", () => {
+  test("uses game-provided EXP thresholds for Crystal and hides egg stats", async () => {
+    const pokemon = { id: "leaf", nationalDexNumber: 152, name: "LEAF", level: 5, hp: 12, maxHp: 20, experience: 157, experienceAtLevel: 135, experienceAtNextLevel: 179 };
+    const wrapper = mount(PokemonTeam, { props: { party: [pokemon], images: {}, fallbackImage: "/unknown.svg", activePets: {} } });
+    expect(wrapper.get(".xp-meter .meter-fill").attributes("style")).toContain("50%");
+    await wrapper.setProps({ party: [{ ...pokemon, isEgg: true }] });
+    expect(wrapper.find(".hp-meter").exists()).toBe(false);
+    expect(wrapper.find(".xp-meter").exists()).toBe(false);
+    expect(wrapper.get(".pokemon-level").text()).toBe("Egg");
+    wrapper.unmount();
+  });
   test("keeps the supplied bubble and favourite avatar unmirrored", async () => {
     const pokemon = { id: "kleo", nationalDexNumber: 37, name: "Kleo", level: 40, hp: 50, maxHp: 100, experience: 67907 };
     const wrapper = mount(PokemonTeam, { props: {
