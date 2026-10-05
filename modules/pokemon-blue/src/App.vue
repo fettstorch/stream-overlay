@@ -60,6 +60,7 @@ const images: Record<number, string> = {
   147: "https://media.giphy.com/media/uuaImYFJ82LRARUq2t/giphy.gif",
   148: "https://media.giphy.com/media/KaHrX0xJYqjdpKWwZa/giphy.gif",
   149: "https://media.giphy.com/media/Th9vH3DGtIC4etgI3K/giphy.gif",
+  150: "https://media.giphy.com/media/86DkjBOTyznTsYU25o/giphy.gif",
 };
 
 const badges: BadgeDefinition[] = [
