@@ -492,7 +492,7 @@ describe("Admin App", () => {
     });
     const wrapper = mount(App);
     await flushPromises();
-    expect(wrapper.get(".stream-background").attributes("src")).toBe("https://stream.place/embed/streamer.bsky.social");
+    expect(wrapper.get(".stream-background").attributes("src")).toBe("https://stream.place/embed/streamer.bsky.social?muted=true");
     expect(wrapper.get(".paint-foreground").attributes("src")).toContain("interactive=1");
     expect(wrapper.get(".overlay-url code").text()).not.toContain("interactive");
     expect(wrapper.get(".overlay-url code").text()).not.toContain("streamer");

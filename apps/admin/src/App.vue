@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { mutePreview } from "./mute-preview.ts";
 import { defaultChatConfiguration, parseChatConfiguration } from "../../../modules/chat/src/config";
 import { parseThoughtInterval, type PokemonBlueConfiguration } from "../../../modules/pokemon-blue/src/config";
 
@@ -89,7 +90,7 @@ let runtimeRefreshPending = false;
 let runtimeRevision = 0;
 const streamEmbedUrl = computed(() => {
   const handle = streamConfiguration.value.profile?.handle;
-  return handle ? `https://stream.place/embed/${encodeURIComponent(handle)}` : "";
+  return handle ? `https://stream.place/embed/${encodeURIComponent(handle)}?muted=true` : "";
 });
 const origin = computed(() => location.origin);
 let loaded = false;
@@ -98,6 +99,14 @@ let pokemonSaveTimer: ReturnType<typeof setTimeout> | undefined;
 let saveQueue = Promise.resolve();
 let actorSearchSequence = 0;
 let copyResetTimer: ReturnType<typeof setTimeout> | undefined;
+const previewCleanups = new Map<HTMLIFrameElement, () => void>();
+function muteLoadedPreview(event: Event) {
+  const frame = event.target as HTMLIFrameElement;
+  for (const [previous, cleanup] of previewCleanups) {
+    if (previous === frame || !previous.isConnected) { cleanup(); previewCleanups.delete(previous); }
+  }
+  previewCleanups.set(frame, mutePreview(frame));
+}
 
 function overlayUrl(module: ModuleStatus) {
   const url = new URL(module.overlayUrl, origin.value);
@@ -389,6 +398,8 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  for (const cleanup of previewCleanups.values()) cleanup();
+  previewCleanups.clear();
   loaded = false;
   clearInterval(runtimeTimer);
   clearTimeout(chatSaveTimer);
@@ -552,12 +563,14 @@ onBeforeUnmount(() => {
               title="Stream.place background stream"
               allow="autoplay; fullscreen"
               loading="lazy"
+              @load="muteLoadedPreview"
             />
             <iframe
               :src="previewUrl(module)"
               :class="{ 'paint-foreground': module.preview?.interactive }"
               :title="`${module.name} live preview`"
               loading="lazy"
+              @load="muteLoadedPreview"
             />
           </div>
           <div v-if="module.preview?.interactive" class="paint-instructions">
