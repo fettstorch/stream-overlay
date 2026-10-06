@@ -54,6 +54,7 @@ function diagnose(event: string, details: Record<string, unknown> = {}) {
 const images: Record<number, string> = {
   3: "https://media.giphy.com/media/EJOdcxm52IWNq/giphy.gif",
   16: "https://media.giphy.com/media/rWkzp0VTeIk1Dp1Xde/giphy.gif",
+  17: "https://media.giphy.com/media/V5keSBMbwbxtfTVnlW/giphy.gif",
   25: "https://media.giphy.com/media/31vamYdZV5ISQ/giphy.gif",
   31: "https://media.giphy.com/media/nzhNS6v9jKwy97m3EN/giphy.gif",
   37: "https://media.giphy.com/media/eM3S83hIueaUEjbBYC/giphy.gif",
