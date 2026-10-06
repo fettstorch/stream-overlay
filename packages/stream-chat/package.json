@@ -1,0 +1,9 @@
+{
+  "name": "@stream-overlay/stream-chat",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@fettstorch/jule": "^3.1.0"
+  }
+}

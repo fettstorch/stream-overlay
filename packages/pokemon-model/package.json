@@ -1,0 +1,6 @@
+{
+  "name": "@stream-overlay/pokemon-model",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts"
+}

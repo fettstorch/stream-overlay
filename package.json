@@ -1,9 +1,21 @@
 {
   "name": "stream-overlay",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "modules/*",
+    "packages/*"
+  ],
+  "devDependencies": {
+    "@types/bun": "^1.3.0",
+    "fengari": "^0.1.5"
+  },
   "scripts": {
-    "overlay": "bun run --parallel overlay:main overlay:pets",
-    "overlay:main": "bun --hot server.ts",
-    "overlay:pets": "bun --port 3000 streamplace-pets/pets.html"
+    "overlay": "bun --no-orphans scripts/start-overlay.ts",
+    "overlay:host": "bun --no-orphans apps/host/src/server.ts",
+    "admin:dev": "bun run --filter @stream-overlay/admin dev -- --host 127.0.0.1 --port 3003",
+    "test": "bun test && bun run --filter @stream-overlay/admin test && bun run --filter @stream-overlay/pokemon-ui test && bun run --filter @stream-overlay/overlay-paint test && bun run --filter @stream-overlay/pokemon-blue test && bun run --filter @stream-overlay/chat test",
+    "typecheck": "bun run --filter @stream-overlay/host typecheck && bun run --filter @stream-overlay/admin typecheck && bun run --filter @stream-overlay/pokemon-ui typecheck && bun run --filter @stream-overlay/pokemon-blue typecheck && bun run --filter @stream-overlay/pokemon-crystal typecheck && bun run --filter @stream-overlay/overlay-paint typecheck && bun run --filter @stream-overlay/chat typecheck",
+    "build": "bun run --filter @stream-overlay/admin build && bun run --filter @stream-overlay/pokemon-blue build && bun run --filter @stream-overlay/pokemon-crystal build && bun run --filter @stream-overlay/chat build && bun build apps/host/src/server.ts --target bun --outdir dist/host"
   }
 }
