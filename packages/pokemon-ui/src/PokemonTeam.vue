@@ -9,6 +9,7 @@ const props = defineProps<{
   party: Pokemon[];
   images: Record<number, string>;
   fallbackImage: string;
+  eggImage?: string;
   activePets: Record<string, PetAppearance>;
   thought?: ThoughtAppearance;
 }>();
@@ -68,7 +69,7 @@ const cards = computed(() => props.party.map((pokemon) => ({
     <figure v-for="card in cards" :key="card.pokemon.id">
       <img
         class="pokemon-image"
-        :src="card.pokemon.isEgg ? fallbackImage : images[card.pokemon.nationalDexNumber] ?? fallbackImage"
+        :src="card.pokemon.isEgg ? eggImage ?? fallbackImage : images[card.pokemon.nationalDexNumber] ?? fallbackImage"
         :alt="card.pokemon.name"
         @error="($event.target as HTMLImageElement).src = fallbackImage"
       >

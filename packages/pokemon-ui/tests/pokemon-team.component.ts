@@ -11,6 +11,9 @@ describe("PokemonTeam", () => {
     expect(wrapper.find(".hp-meter").exists()).toBe(false);
     expect(wrapper.find(".xp-meter").exists()).toBe(false);
     expect(wrapper.get(".pokemon-level").text()).toBe("Egg");
+    expect(wrapper.get(".pokemon-image").attributes("src")).toBe("/unknown.svg");
+    await wrapper.setProps({ eggImage: "/egg.gif", images: { 152: "/chikorita.gif" } });
+    expect(wrapper.get(".pokemon-image").attributes("src")).toBe("/egg.gif");
     wrapper.unmount();
   });
   test("keeps the supplied bubble and favourite avatar unmirrored", async () => {

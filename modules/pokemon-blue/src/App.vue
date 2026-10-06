@@ -277,6 +277,7 @@ onBeforeUnmount(() => {
     :party="snapshot.party"
     :images="images"
     :fallback-image="fallbackImage"
+    egg-image="https://media.giphy.com/media/bxquPUdFgeUdeO2I1V/giphy.gif"
     :active-pets="activePets"
     :thought="thought"
   />
