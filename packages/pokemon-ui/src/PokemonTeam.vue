@@ -61,6 +61,8 @@ const cards = computed(() => props.party.map((pokemon) => ({
   pokemon,
   hp: hpPercentage(pokemon),
   xp: xpPercentage(pokemon),
+  hatch: pokemon.hatchCyclesRemaining !== undefined && pokemon.hatchCyclesTotal
+    ? percentage((1 - pokemon.hatchCyclesRemaining / pokemon.hatchCyclesTotal) * 100) : null,
 })));
 </script>
 
@@ -102,6 +104,12 @@ const cards = computed(() => props.party.map((pokemon) => ({
         <div class="status-heading">
           <span class="pokemon-name">{{ card.pokemon.name }}</span>
           <span class="pokemon-level">{{ card.pokemon.isEgg ? 'Egg' : `Lv.${card.pokemon.level}` }}</span>
+        </div>
+        <div v-if="card.pokemon.isEgg && card.hatch !== null" class="status-row">
+          <span class="status-label">HATCH</span>
+          <div class="meter xp-meter hatch-meter" role="progressbar" aria-label="Hatching progress" :aria-valuenow="card.hatch" :aria-valuemin="0" :aria-valuemax="100">
+            <div class="meter-fill" :style="{ width: `${card.hatch}%` }" />
+          </div>
         </div>
         <div v-if="!card.pokemon.isEgg" class="status-row">
           <span class="status-label">HP</span>

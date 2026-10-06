@@ -39,6 +39,7 @@ function runLua(extra: string) {
       for i=1,#name do ram[nick+i-1] = string.byte(name,i) - 65 + 0x80 end
       ram[nick+#name] = 0x50
       rom[0x51424 + (species-1)*32 + 22] = 3
+      rom[0x51424 + (species-1)*32 + 15] = 10
     end
     rom[0x50EFA+12], rom[0x50EFA+13], rom[0x50EFA+14], rom[0x50EFA+15] = 0x65, 0x8F, 100, 140
     ${reader}
@@ -54,11 +55,12 @@ test("Crystal Lua exports Gen II stats, exact EXP boundaries, both badge regions
   const result = runLua(`
     ram[0xDCD7], ram[0xDCDA], ram[0xD857], ram[0xD858] = 2, 0xFF, 1, 128
     setMon(0,152,"LEAF",52,false); setMon(1,175,"TOGEPI",53,true)
+    ram[0xDCDF+48+27] = 5
     advance()
     return files["./../runtime/pokemon-crystal/team.json"]
   `);
   expect(result[0]).toMatchObject({ id: "1234-ab34", number: 152, name: "LEAF", level: 5, hp: 12, maxHp: 20, experience: 150, experienceAtLevel: 135, experienceAtNextLevel: 179, isEgg: false });
-  expect(result[1]).toMatchObject({ number: 175, name: "EGG", isEgg: true });
+  expect(result[1]).toMatchObject({ number: 175, name: "EGG", isEgg: true, hatchCyclesRemaining: 5, hatchCyclesTotal: 10 });
   expect(runLua(`ram[0xDCD7],ram[0xDCD8],ram[0xD857],ram[0xD858]=0,0xFF,1,128; advance(); return files["./../runtime/pokemon-crystal/badges.json"]`)).toEqual({ mask: 32769 });
 });
 

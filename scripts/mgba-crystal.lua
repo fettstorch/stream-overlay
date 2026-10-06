@@ -68,10 +68,13 @@ local function snapshot()
     if level < 1 or level > 100 then return nil end
     local name = egg and "EGG" or nameAt(0xDE41 + slot * 11)
     local id = string.format("%04x-%04x", read16(address + 6), read16(address + 21))
+    -- Eggs store remaining hatch cycles in MON_HAPPINESS (+27).
+    local hatch = egg and string.format(',"hatchCyclesRemaining":%d,"hatchCyclesTotal":%d',
+      read8(address + 27), math.max(1, rom:read8(0x51424 + (species - 1) * 32 + 15), read8(address + 27))) or ""
     entries[#entries + 1] = string.format(
       '{"id":%s,"number":%d,"name":%s,"level":%d,"hp":%d,"maxHp":%d,"experience":%d,"experienceAtLevel":%d,"experienceAtNextLevel":%d,"isEgg":%s}',
       quote(id), species, quote(name), level, read16(address + 34), read16(address + 36), read24(address + 8),
-      expAt(level, species), expAt(math.min(100, level + 1), species), tostring(egg))
+      expAt(level, species), expAt(math.min(100, level + 1), species), tostring(egg)):gsub("}$", hatch .. "}")
   end
   return "[" .. table.concat(entries, ",") .. "]\n", string.format('{"mask":%d}\n', read8(0xD857) + read8(0xD858) * 256)
 end

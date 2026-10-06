@@ -13,6 +13,8 @@ interface MgbaPokemon {
   experienceAtLevel?: number;
   experienceAtNextLevel?: number;
   isEgg?: boolean;
+  hatchCyclesRemaining?: number;
+  hatchCyclesTotal?: number;
 }
 
 const badgeIds = [
@@ -89,6 +91,8 @@ export class MgbaFileProvider implements GameDataProvider<PokemonSnapshot> {
       || (pokemon.experienceAtLevel !== undefined && (!Number.isInteger(pokemon.experienceAtLevel) || pokemon.experienceAtLevel < 0))
       || (pokemon.experienceAtNextLevel !== undefined && (!Number.isInteger(pokemon.experienceAtNextLevel) || pokemon.experienceAtNextLevel < (pokemon.experienceAtLevel ?? 0)))
       || (pokemon.isEgg !== undefined && typeof pokemon.isEgg !== "boolean")
+      || (pokemon.hatchCyclesRemaining !== undefined && (!Number.isInteger(pokemon.hatchCyclesRemaining) || pokemon.hatchCyclesRemaining < 0))
+      || (pokemon.hatchCyclesTotal !== undefined && (!Number.isInteger(pokemon.hatchCyclesTotal) || pokemon.hatchCyclesTotal <= 0))
     ) {
       throw new TypeError("mGBA party member is malformed");
     }
@@ -103,6 +107,8 @@ export class MgbaFileProvider implements GameDataProvider<PokemonSnapshot> {
       ...(pokemon.experienceAtLevel !== undefined ? { experienceAtLevel: pokemon.experienceAtLevel } : {}),
       ...(pokemon.experienceAtNextLevel !== undefined ? { experienceAtNextLevel: pokemon.experienceAtNextLevel } : {}),
       ...(pokemon.isEgg !== undefined ? { isEgg: pokemon.isEgg } : {}),
+      ...(pokemon.hatchCyclesRemaining !== undefined ? { hatchCyclesRemaining: pokemon.hatchCyclesRemaining } : {}),
+      ...(pokemon.hatchCyclesTotal !== undefined ? { hatchCyclesTotal: pokemon.hatchCyclesTotal } : {}),
     };
   }
 

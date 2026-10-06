@@ -10,6 +10,8 @@ export interface Pokemon {
   experienceAtLevel?: number;
   experienceAtNextLevel?: number;
   isEgg?: boolean;
+  hatchCyclesRemaining?: number;
+  hatchCyclesTotal?: number;
 }
 
 export interface BadgeProgress {

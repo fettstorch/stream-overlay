@@ -14,6 +14,8 @@ describe("PokemonTeam", () => {
     expect(wrapper.get(".pokemon-image").attributes("src")).toBe("/unknown.svg");
     await wrapper.setProps({ eggImage: "/egg.gif", images: { 152: "/chikorita.gif" } });
     expect(wrapper.get(".pokemon-image").attributes("src")).toBe("/egg.gif");
+    await wrapper.setProps({ party: [{ ...pokemon, isEgg: true, hatchCyclesRemaining: 5, hatchCyclesTotal: 10 }] });
+    expect(wrapper.get(".hatch-meter .meter-fill").attributes("style")).toContain("50%");
     wrapper.unmount();
   });
   test("keeps the supplied bubble and favourite avatar unmirrored", async () => {
