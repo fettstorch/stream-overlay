@@ -1,0 +1,8 @@
+{
+  "name": "@stream-overlay/emoticons",
+  "private": true,
+  "type": "module",
+  "scripts": { "typecheck": "tsc --noEmit" },
+  "devDependencies": { "typescript": "^5.9.0" },
+  "dependencies": { "@stream-overlay/sdk": "workspace:*" }
+}

@@ -19,6 +19,8 @@ import { ModuleStatusService } from "./module-status.ts";
 import { PetMemory } from "./pokemon-pet-memory.ts";
 import { parseThoughtInterval, type PokemonBlueConfiguration } from "../../../modules/pokemon-blue/src/config.ts";
 
+import { EmoticonService } from "../../../modules/emoticons/src/service.ts";
+
 import { projectRoot } from "../../../modules/project-root.ts";
 import { defaultHostConfiguration as defaults } from "./default-configuration.ts";
 import { updateSharedChat } from "./chat-lifecycle.ts";
@@ -27,6 +29,11 @@ const configStore = new ConfigStore(join(projectRoot, "runtime/config.json"), de
 const logger = new FileLogger(join(tmpdir(), "stream-overlay", "overlay.log"));
 const supervisor = new ModuleSupervisor((event, details) => logger.log(event, details));
 const chatService = new StreamChatService(getActorProfile, (event, details) => logger.log(event, details));
+const emoticons = new EmoticonService(join(projectRoot, "runtime/emoticons"));
+const unsubscribeEmoticons = chatService.messages.subscribe(message => emoticons.message(message.id, message.text));
+const emoticonBundle = await Bun.build({ entrypoints: [join(projectRoot, "modules/emoticons/src/client.ts")], target: "browser", minify: true });
+if (!emoticonBundle.success) throw new AggregateError(emoticonBundle.logs, "Could not build Emoticons");
+const emoticonJavascript = await emoticonBundle.outputs[0]!.text();
 const paintService = new PaintService();
 paintService.configure(configStore.read().overlayPaint ?? defaultPaintConfiguration);
 // Bundle the canvas client in memory: no extra development server or port.
@@ -65,6 +72,12 @@ const unsubscribePetMemory = chatService.messages.subscribe(message => {
     } catch (error) { logger.log("pokemon.pet-count-failed", { moduleId, error: String(error) }); }
   }
 });
+
+async function emoticonWrite(request: Request, action: () => Promise<Response>) {
+  const origin = request.headers.get("origin");
+  if (origin && origin !== new URL(request.url).origin) return Response.json({ error: "Use the local Admin Center" }, { status: 403 });
+  try { return await action(); } catch (error) { return Response.json({ error: error instanceof Error ? error.message : "Could not save" }, { status: 400 }); }
+}
 
 function isEnabled(id: string) {
   return configStore.read().modules.find((module) => module.id === id)?.enabled
@@ -167,6 +180,34 @@ const server = Bun.serve({
   port,
   development: true,
   routes: {
+    "/overlays/emoticons": request => Response.redirect(new URL("/overlays/emoticons/", request.url), 302),
+    "/overlays/emoticons/board": request => Response.redirect(new URL("/overlays/emoticons/board/", request.url), 302),
+    "/overlays/emoticons/": () => new Response(Bun.file(join(projectRoot, "modules/emoticons/index.html"))),
+    "/overlays/emoticons/board/": () => new Response(Bun.file(join(projectRoot, "modules/emoticons/index.html"))),
+    "/overlays/emoticons/client.js": () => new Response(emoticonJavascript, { headers: { "Content-Type": "application/javascript" } }),
+    "/api/emoticons/events": (request, server) => { server.timeout(request, 0); return emoticons.events(request); },
+    "/api/emoticons/commands": {
+      GET: () => Response.json(emoticons.snapshot()),
+      POST: request => emoticonWrite(request, async () => Response.json(emoticons.save(await request.json()), { status: 201 })),
+    },
+    "/api/emoticons/commands/:id": {
+      PUT: request => emoticonWrite(request, async () => Response.json(emoticons.save(await request.json(), request.params.id))),
+      DELETE: request => emoticonWrite(request, async () => { emoticons.remove(request.params.id); return new Response(null, { status: 204 }); }),
+    },
+    "/api/emoticons/assets": {
+      POST: request => emoticonWrite(request, async () => {
+        const form = await request.formData(); const file = form.get("file");
+        if (!(file instanceof File)) throw new Error("Choose a media file");
+        return Response.json(await emoticons.upload(file, String(form.get("kind")), Number(form.get("durationSeconds"))), { status: 201 });
+      }),
+    },
+    "/api/emoticons/assets/:id": request => {
+      const asset = emoticons.asset(request.params.id);
+      return asset ? new Response(Bun.file(join(emoticons.assetDirectory, asset.filename)), { headers: { "Content-Type": asset.contentType, "X-Content-Type-Options": "nosniff", "Cache-Control": "public, max-age=31536000, immutable" } }) : new Response("Not found", { status: 404 });
+    },
+    "/api/emoticons/test/:id": {
+      POST: request => emoticonWrite(request, async () => Response.json({ accepted: emoticons.trigger(request.params.id) })),
+    },
     "/overlays/pokemon-crystal": () => Response.redirect("/overlays/pokemon-crystal/"),
     "/overlays/pokemon-crystal/": () => crystalOverlay(),
     "/overlays/pokemon-crystal/*": request => crystalOverlay(new URL(request.url).pathname.slice("/overlays/pokemon-crystal/".length)),
@@ -299,6 +340,7 @@ const server = Bun.serve({
         configuration.stream = { streamerDid: profile.did };
         configStore.write(configuration);
         updateSharedChat(chatService, configuration);
+        emoticons.setEnabled(isEnabled("emoticons"));
         moduleStatus.setStreamerDid(profile.did);
         return Response.json({ ...configuration.stream, profile });
       },
@@ -435,6 +477,7 @@ const server = Bun.serve({
         const configuration = configStore.setModuleEnabled(module.id, body.enabled);
         updateSharedChat(chatService, configuration);
         moduleStatus.setEnabled(module.id, body.enabled);
+        if (module.id === "emoticons") emoticons.setEnabled(body.enabled);
         if (module.id === "overlay-paint") paintService.setEnabled(body.enabled);
         if (body.enabled) supervisor.enable(module);
         else supervisor.disable(module);
@@ -455,6 +498,7 @@ for (const module of modules) {
 }
 updateSharedChat(chatService, configStore.read());
 paintService.setEnabled(isEnabled("overlay-paint"));
+emoticons.setEnabled(isEnabled("emoticons"));
 await pokemonProvider.start((snapshot) => {
   pokemonSnapshot = snapshot;
 });
@@ -465,6 +509,8 @@ const shutDown = () => {
   supervisor.stopAll(modules);
   chatService.stop();
   unsubscribePetMemory();
+  unsubscribeEmoticons();
+  emoticons.stop();
   paintService.stop();
   void pokemonProvider.stop();
   void crystalProvider.stop();

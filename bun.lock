@@ -53,6 +53,15 @@
         "vue-tsc": "^3.0.0",
       },
     },
+    "modules/emoticons": {
+      "name": "@stream-overlay/emoticons",
+      "dependencies": {
+        "@stream-overlay/sdk": "workspace:*",
+      },
+      "devDependencies": {
+        "typescript": "^5.9.0",
+      },
+    },
     "modules/overlay-paint": {
       "name": "@stream-overlay/overlay-paint",
       "dependencies": {
@@ -280,6 +289,8 @@
     "@stream-overlay/admin": ["@stream-overlay/admin@workspace:apps/admin"],
 
     "@stream-overlay/chat": ["@stream-overlay/chat@workspace:modules/chat"],
+
+    "@stream-overlay/emoticons": ["@stream-overlay/emoticons@workspace:modules/emoticons"],
 
     "@stream-overlay/host": ["@stream-overlay/host@workspace:apps/host"],
 

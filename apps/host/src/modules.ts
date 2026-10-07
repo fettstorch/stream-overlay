@@ -5,12 +5,15 @@ import { streamplacePetsModule } from "../../../modules/streamplace-pets/src/mod
 import { overlayPaintModule } from "../../../modules/overlay-paint/src/module.ts";
 import { chatModule } from "../../../modules/chat/src/module.ts";
 
+import { emoticonsModule } from "../../../modules/emoticons/src/module.ts";
+
 export const modules: OverlayModule[] = [
   pokemonBlueModule,
   pokemonCrystalModule,
   streamplacePetsModule,
   overlayPaintModule,
   chatModule,
+  emoticonsModule,
 ];
 
 export function findModule(id: string) {
