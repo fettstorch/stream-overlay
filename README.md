@@ -194,7 +194,7 @@ into the corresponding upload area or use its file picker. Click **Create comman
 or **Save changes** after uploads. Commands and uploaded assets persist locally in
 `runtime/emoticons/commands.json` and `runtime/emoticons/assets/`; back up both
 folders together. These runtime files are ignored by version control. Deleting a
-command keeps its uploaded files available for reuse.
+command does not delete its uploaded files.
 
 Chat messages are trimmed and matched case-insensitively: ` !WOW ` invokes `wow`.
 Enter names with or without `!`; use letters, numbers, `_` or `-` (1–32 characters).

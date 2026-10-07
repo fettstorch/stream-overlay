@@ -10,6 +10,10 @@ const defaults = () => ({ command: "", imageAssetId: null as string | null, audi
 const form = ref(defaults());
 const imageUrl = computed(() => form.value.imageAssetId ? `/api/emoticons/assets/${form.value.imageAssetId}` : "");
 const audioUrl = computed(() => form.value.audioAssetId ? `/api/emoticons/assets/${form.value.audioAssetId}` : "");
+function attachment(kind: "image" | "audio") {
+  const id = form.value[kind === "image" ? "imageAssetId" : "audioAssetId"];
+  return assets.value.find(asset => asset.id === id);
+}
 let events: EventSource | undefined;
 async function result(response: Response) {
   const value = await response.json(); if (!response.ok) throw new Error(value.error || "Request failed"); return value;
@@ -54,6 +58,7 @@ async function upload(file: File | undefined, kind: "image" | "audio") {
     });
     const data = new FormData(); data.set("file", file); data.set("kind", kind); data.set("durationSeconds", String(duration));
     const asset = await result(await fetch("/api/emoticons/assets", { method: "POST", body: data })) as EmoticonAsset;
+    if (!assets.value.some(item => item.id === asset.id)) assets.value.push(asset);
     form.value[kind === "image" ? "imageAssetId" : "audioAssetId"] = asset.id; message.value = "Uploaded — save the command to use it";
   } catch (error) { message.value = error instanceof Error ? error.message : String(error); }
   finally { URL.revokeObjectURL(url); busy.value = false; }
@@ -73,7 +78,10 @@ function selected(event: Event, kind: "image" | "audio") { const input = event.t
         <label>{{ kind === 'image' ? 'Image / GIF' : 'Audio' }} — drop a file or choose
           <input type="file" :accept="kind === 'image' ? 'image/png,image/jpeg,image/gif,image/webp' : 'audio/*'" :disabled="busy" @change="selected($event, kind)">
         </label>
-        <select v-model="form[kind === 'image' ? 'imageAssetId' : 'audioAssetId']"><option :value="null">None</option><option v-for="asset in assets.filter(asset => asset.kind === kind)" :key="asset.id" :value="asset.id">{{ asset.originalName || asset.filename }}</option></select>
+        <div v-if="form[kind === 'image' ? 'imageAssetId' : 'audioAssetId']" class="attachment">
+          <span>{{ attachment(kind)?.originalName || attachment(kind)?.filename || 'Attached file' }}</span>
+          <button type="button" :disabled="busy" :aria-label="`Remove ${kind} attachment`" @click="form[kind === 'image' ? 'imageAssetId' : 'audioAssetId'] = null">Remove</button>
+        </div>
       </div>
       <img v-if="imageUrl" :src="imageUrl" class="asset-preview" alt="Selected emoticon">
       <audio v-if="audioUrl" :key="audioUrl" :src="audioUrl" controls muted preload="metadata"></audio>
@@ -91,5 +99,5 @@ function selected(event: Event, kind: "image" | "audio") { const input = event.t
   </section>
 </template>
 <style scoped>
-.emoticon-controls{display:grid;gap:12px;margin-top:20px;padding-top:18px;border-top:1px solid #28334b;color:#bdc8df;font-size:.85rem}.emoticon-controls h4,.emoticon-controls p{margin:0}form{display:grid;gap:10px}label{display:grid;gap:6px}input,select,button{font:inherit;color:#eef2ff;background:#101828;border:1px solid #36425d;border-radius:6px;padding:8px;min-width:0}button{cursor:pointer;margin-right:6px}button:disabled{opacity:.5}input:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid #7794e8}.drop-zone{padding:16px;border:2px dashed #526baf;border-radius:10px;display:grid;gap:8px}.drop-zone:hover{background:#18243b}.asset-preview{max-width:100%;max-height:150px;object-fit:contain}audio{width:100%}.command-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}.command-list li{display:flex;align-items:center;flex-wrap:wrap;gap:6px}.command-list strong{flex:1}small{color:#93a3bf}
+.emoticon-controls{display:grid;gap:12px;margin-top:20px;padding-top:18px;border-top:1px solid #28334b;color:#bdc8df;font-size:.85rem}.emoticon-controls h4,.emoticon-controls p{margin:0}form{display:grid;gap:10px}label{display:grid;gap:6px}input,button{font:inherit;color:#eef2ff;background:#101828;border:1px solid #36425d;border-radius:6px;padding:8px;min-width:0}button{cursor:pointer;margin-right:6px}button:disabled{opacity:.5}input:focus-visible,button:focus-visible{outline:2px solid #7794e8}.drop-zone{padding:16px;border:2px dashed #526baf;border-radius:10px;display:grid;gap:8px}.drop-zone:hover{background:#18243b}.attachment{display:flex;align-items:center;gap:8px}.attachment span{flex:1;min-width:0;overflow-wrap:anywhere}.asset-preview{max-width:100%;max-height:150px;object-fit:contain}audio{width:100%}.command-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}.command-list li{display:flex;align-items:center;flex-wrap:wrap;gap:6px}.command-list strong{flex:1}small{color:#93a3bf}
 </style>
