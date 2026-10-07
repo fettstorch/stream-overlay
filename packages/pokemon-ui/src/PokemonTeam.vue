@@ -106,8 +106,7 @@ const cards = computed(() => props.party.map((pokemon) => ({
           <span class="pokemon-name">{{ card.pokemon.name }}</span>
           <span v-if="!card.pokemon.isEgg" class="pokemon-level">Lv.{{ card.pokemon.level }}</span>
         </div>
-        <div v-if="card.pokemon.isEgg && card.hatch !== null" class="status-row">
-          <span class="status-label">HATCH</span>
+        <div v-if="card.pokemon.isEgg && card.hatch !== null" class="status-row hatch-row">
           <div class="meter xp-meter hatch-meter" role="progressbar" aria-label="Hatching progress" :aria-valuenow="card.hatch" :aria-valuemin="0" :aria-valuemax="100">
             <div class="meter-fill" :style="{ width: `${card.hatch}%` }" />
             <span v-if="card.hatchSteps !== null" class="hatch-steps">{{ card.hatchSteps.toLocaleString() }} steps</span>
@@ -162,6 +161,7 @@ img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: conta
 .hp-meter[data-health="medium"] .meter-fill { background: #f4cf35; }
 .hp-meter[data-health="low"] .meter-fill { background: #ef4949; }
 .xp-meter .meter-fill { background: #5faaf5; }
+.hatch-row { grid-template-columns: 1fr; }
 .hatch-meter { position: relative; }
 .hatch-steps { position: absolute; inset: 0; display: grid; place-items: center; font-size: 0.7rem; line-height: 1; letter-spacing: -0.04em; white-space: nowrap; }
 .xp-row { margin-top: 8px; }

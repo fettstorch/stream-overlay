@@ -17,6 +17,7 @@ describe("PokemonTeam", () => {
     await wrapper.setProps({ party: [{ ...pokemon, isEgg: true, hatchCyclesRemaining: 5, hatchCyclesTotal: 10, hatchStepsRemaining: 1216, hatchStepsTotal: 2560 }] });
     expect(wrapper.get(".hatch-meter .meter-fill").attributes("style")).toContain("50%");
     expect(wrapper.get(".hatch-steps").text()).toBe("1,216 steps");
+    expect(wrapper.text()).not.toContain("HATCH");
     wrapper.unmount();
   });
   test("keeps the supplied bubble and favourite avatar unmirrored", async () => {
