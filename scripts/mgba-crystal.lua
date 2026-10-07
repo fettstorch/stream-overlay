@@ -56,16 +56,20 @@ local function expAt(level, species)
 end
 local function snapshot()
   local count = read8(0xDCD7)
-  if count < 0 or count > 6 or read8(0xDCD8 + count) ~= 0xFF then return nil end
+  if count < 0 or count > 6 or read8(0xDCD8 + count) ~= 0xFF then
+    return nil, string.format("party count=%d sentinel=%d", count, read8(0xDCD8 + count))
+  end
   local entries = {}
   for slot = 0, count - 1 do
     local address = 0xDCDF + slot * 48
     local species = read8(address)
     local partySpecies = read8(0xDCD8 + slot)
     local egg = partySpecies == 0xFD
-    if species < 1 or species > 251 or (not egg and partySpecies ~= species) then return nil end
+    if species < 1 or species > 251 or (not egg and partySpecies ~= species) then
+      return nil, string.format("slot=%d species=%d partySpecies=%d", slot, species, partySpecies)
+    end
     local level = read8(address + 31)
-    if level < 1 or level > 100 then return nil end
+    if level < 1 or level > 100 then return nil, string.format("slot=%d level=%d", slot, level) end
     local name = egg and "EGG" or nameAt(0xDE41 + slot * 11)
     local id = string.format("%04x-%04x", read16(address + 6), read16(address + 21))
     -- Eggs store remaining hatch cycles in MON_HAPPINESS (+27).
@@ -89,11 +93,13 @@ local function atomicWrite(filename, contents)
 end
 local lastSignature = nil
 local frames = 0
-local function update()
-  frames = frames + 1
-  if frames % 30 ~= 0 or not supportedRom() then return end
+local function publish()
+  if not supportedRom() then return end
   local team, badges = snapshot()
-  if not team then return end
+  if not team then
+    if lastSignature == nil then console:error("Crystal overlay could not read a stable party snapshot: " .. tostring(badges)) end
+    return
+  end
   local signature = team .. badges
   if signature == lastSignature then return end
   atomicWrite("team.json", team)
@@ -101,5 +107,10 @@ local function update()
   lastSignature = signature
   console:log("Crystal overlay team and badges updated")
 end
+local function update()
+  frames = frames + 1
+  if frames % 30 == 0 then publish() end
+end
 callbacks:add("frame", update)
+publish()
 console:log("Crystal overlay reader loaded; output: " .. outputDirectory)
