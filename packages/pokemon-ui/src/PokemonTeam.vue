@@ -162,7 +162,7 @@ img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: conta
 .hp-meter[data-health="low"] .meter-fill { background: #ef4949; }
 .xp-meter .meter-fill { background: #5faaf5; }
 .hatch-row { grid-template-columns: 1fr; }
-.hatch-meter { position: relative; }
-.hatch-steps { position: absolute; inset: 0; display: grid; place-items: center; font-size: 0.7rem; line-height: 1; letter-spacing: -0.04em; white-space: nowrap; }
+.hatch-meter { position: relative; height: 32px; }
+.hatch-steps { position: absolute; inset: 0; display: grid; place-items: center; font-size: 1.1rem; line-height: 1; letter-spacing: -0.04em; white-space: nowrap; }
 .xp-row { margin-top: 8px; }
 </style>
