@@ -12,6 +12,8 @@ export interface Pokemon {
   isEgg?: boolean;
   hatchCyclesRemaining?: number;
   hatchCyclesTotal?: number;
+  hatchStepsRemaining?: number;
+  hatchStepsTotal?: number;
 }
 
 export interface BadgeProgress {

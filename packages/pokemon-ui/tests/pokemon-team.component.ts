@@ -10,12 +10,13 @@ describe("PokemonTeam", () => {
     await wrapper.setProps({ party: [{ ...pokemon, isEgg: true }] });
     expect(wrapper.find(".hp-meter").exists()).toBe(false);
     expect(wrapper.find(".xp-meter").exists()).toBe(false);
-    expect(wrapper.get(".pokemon-level").text()).toBe("Egg");
+    expect(wrapper.find(".pokemon-level").exists()).toBe(false);
     expect(wrapper.get(".pokemon-image").attributes("src")).toBe("/unknown.svg");
     await wrapper.setProps({ eggImage: "/egg.gif", images: { 152: "/chikorita.gif" } });
     expect(wrapper.get(".pokemon-image").attributes("src")).toBe("/egg.gif");
-    await wrapper.setProps({ party: [{ ...pokemon, isEgg: true, hatchCyclesRemaining: 5, hatchCyclesTotal: 10 }] });
+    await wrapper.setProps({ party: [{ ...pokemon, isEgg: true, hatchCyclesRemaining: 5, hatchCyclesTotal: 10, hatchStepsRemaining: 1216, hatchStepsTotal: 2560 }] });
     expect(wrapper.get(".hatch-meter .meter-fill").attributes("style")).toContain("50%");
+    expect(wrapper.get(".hatch-steps").text()).toBe("1,216 steps");
     wrapper.unmount();
   });
   test("keeps the supplied bubble and favourite avatar unmirrored", async () => {

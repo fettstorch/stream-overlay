@@ -14,7 +14,7 @@ local function supportedRom()
     and rom:read8(0x14C) == 1 and rom:read8(0x14E) == 0x18 and rom:read8(0x14F) == 0xD2
 end
 assert(supportedRom(), "Crystal overlay requires English Pokémon Crystal Rev 1 (USA/Europe).")
--- wPartyCount=01:dcd7, wPartyMons=01:dcdf, nicknames=01:de41;
+-- wStepCount=01:dc73, wPartyCount=01:dcd7, wPartyMons=01:dcdf, nicknames=01:de41;
 -- wJohtoBadges=01:d857 and wKantoBadges=01:d858.
 local function read8(address) return wram:read8(address - 0xC000) end
 local function read16(address) return read8(address) * 256 + read8(address + 1) end
@@ -69,8 +69,10 @@ local function snapshot()
     local name = egg and "EGG" or nameAt(0xDE41 + slot * 11)
     local id = string.format("%04x-%04x", read16(address + 6), read16(address + 21))
     -- Eggs store remaining hatch cycles in MON_HAPPINESS (+27).
-    local hatch = egg and string.format(',"hatchCyclesRemaining":%d,"hatchCyclesTotal":%d',
-      read8(address + 27), math.max(1, rom:read8(0x51424 + (species - 1) * 32 + 15), read8(address + 27))) or ""
+    local remainingCycles = read8(address + 27)
+    local totalCycles = math.max(1, rom:read8(0x51424 + (species - 1) * 32 + 15), remainingCycles)
+    local hatch = egg and string.format(',"hatchCyclesRemaining":%d,"hatchCyclesTotal":%d,"hatchStepsRemaining":%d,"hatchStepsTotal":%d',
+      remainingCycles, totalCycles, math.max(0, remainingCycles * 256 - read8(0xDC73)), totalCycles * 256) or ""
     entries[#entries + 1] = string.format(
       '{"id":%s,"number":%d,"name":%s,"level":%d,"hp":%d,"maxHp":%d,"experience":%d,"experienceAtLevel":%d,"experienceAtNextLevel":%d,"isEgg":%s}',
       quote(id), species, quote(name), level, read16(address + 34), read16(address + 36), read24(address + 8),

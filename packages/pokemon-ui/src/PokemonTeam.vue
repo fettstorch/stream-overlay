@@ -63,6 +63,7 @@ const cards = computed(() => props.party.map((pokemon) => ({
   xp: xpPercentage(pokemon),
   hatch: pokemon.hatchCyclesRemaining !== undefined && pokemon.hatchCyclesTotal
     ? percentage((1 - pokemon.hatchCyclesRemaining / pokemon.hatchCyclesTotal) * 100) : null,
+  hatchSteps: pokemon.hatchStepsRemaining ?? (pokemon.hatchCyclesRemaining !== undefined ? pokemon.hatchCyclesRemaining * 256 : null),
 })));
 </script>
 
@@ -103,12 +104,13 @@ const cards = computed(() => props.party.map((pokemon) => ({
       <div class="status-panel">
         <div class="status-heading">
           <span class="pokemon-name">{{ card.pokemon.name }}</span>
-          <span class="pokemon-level">{{ card.pokemon.isEgg ? 'Egg' : `Lv.${card.pokemon.level}` }}</span>
+          <span v-if="!card.pokemon.isEgg" class="pokemon-level">Lv.{{ card.pokemon.level }}</span>
         </div>
         <div v-if="card.pokemon.isEgg && card.hatch !== null" class="status-row">
           <span class="status-label">HATCH</span>
           <div class="meter xp-meter hatch-meter" role="progressbar" aria-label="Hatching progress" :aria-valuenow="card.hatch" :aria-valuemin="0" :aria-valuemax="100">
             <div class="meter-fill" :style="{ width: `${card.hatch}%` }" />
+            <span v-if="card.hatchSteps !== null" class="hatch-steps">{{ card.hatchSteps.toLocaleString() }} steps</span>
           </div>
         </div>
         <div v-if="!card.pokemon.isEgg" class="status-row">
@@ -160,5 +162,7 @@ img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: conta
 .hp-meter[data-health="medium"] .meter-fill { background: #f4cf35; }
 .hp-meter[data-health="low"] .meter-fill { background: #ef4949; }
 .xp-meter .meter-fill { background: #5faaf5; }
+.hatch-meter { position: relative; }
+.hatch-steps { position: absolute; inset: 0; display: grid; place-items: center; font-size: 0.7rem; line-height: 1; letter-spacing: -0.04em; white-space: nowrap; }
 .xp-row { margin-top: 8px; }
 </style>
