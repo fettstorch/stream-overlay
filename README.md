@@ -185,3 +185,55 @@ bun run test
 bun run typecheck
 bun run build
 ```
+
+## Emoticons
+
+Start with `bun run overlay`, select your streamer account, and open **Emoticons**
+in Admin and enable the module (new installations start it disabled). Create a command with an image/GIF, an audio file, or both. Drop files
+into the corresponding upload area or use its file picker. Click **Create command**
+or **Save changes** after uploads. Commands and uploaded assets persist locally in
+`runtime/emoticons/commands.json` and `runtime/emoticons/assets/`; back up both
+folders together. These runtime files are ignored by version control. Deleting a
+command keeps its uploaded files available for reuse.
+
+Chat messages are trimmed and matched case-insensitively: ` !WOW ` invokes `wow`.
+Enter names with or without `!`; use letters, numbers, `_` or `-` (1–32 characters).
+Names are unique within Emoticons. Other modules remain independent: configuring
+`pet` here can invoke both this effect and Pokémon's pet behavior.
+
+The first invocation enters the shared queue immediately. Its per-command
+cooldown starts at acceptance (20 seconds by default, configurable, including 0).
+Repeats during cooldown or while that command is queued/playing are ignored.
+Different commands queue in arrival order and never display together. Duration
+is five seconds by default and configurable; audio extends it when longer.
+There is no trailing debounce or global cooldown.
+
+Add **two separate OBS Browser Sources**:
+
+1. Effects: `http://localhost:3001/overlays/emoticons/`. Place above video; set
+   **Width** and **Height** to your OBS base canvas dimensions, for example
+   **1920 × 1080**. Admin reads Stream.place video segment dimensions and refreshes
+   them every 30 seconds. If unavailable, it explicitly recommends 1920 × 1080;
+   your actual OBS canvas remains authoritative. The transparent effect adapts to
+   the browser source viewport. Images keep their aspect ratio inside a default
+   box of **40vw × 35vh**, centered horizontally at **5vh** from the top. Optional
+   CSS width/height fields override the box per command (e.g. `500px`, `50vw`,
+   `30vh`, `50%`, `auto`); leaving fields empty restores defaults.
+2. Instruction board: `http://localhost:3001/overlays/emoticons/board/`. Start at
+   **420 × 600** and choose its size/position independently. Increase its height
+   for longer command lists. It lists every saved command and optional label,
+   updates live after edits without refreshing OBS, and emits no audio.
+
+For the effects source, enable **Control audio via OBS** in Browser Source
+properties. Adjust its mixer volume; choose **Monitor and Output** in
+**Advanced Audio Properties → Audio Monitoring** if you also want to hear it
+through your monitoring device. Keep **Shutdown source when not visible** and
+**Refresh browser when scene becomes active** unchecked to maintain its SSE
+connection. The Admin live preview is muted by default. Uploaded audio has a
+muted player you can explicitly unmute to audition it. **Test** follows the same
+queue/cooldown rules and plays audio in connected OBS effect sources.
+
+Turning Emoticons off hides both sources, stops audio and clears pending effects.
+Re-enabling starts empty. A disconnected source clears its display and never
+replays historical effects after reconnecting. No additional server or port is
+needed; all existing OBS URLs retain their behavior.

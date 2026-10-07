@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { mutePreview } from "./mute-preview.ts";
+import EmoticonControls from "./EmoticonControls.vue";
 import PokemonModuleControls from "./PokemonModuleControls.vue";
 import { defaultChatConfiguration, parseChatConfiguration } from "../../../modules/chat/src/config";
 import { parseThoughtInterval, type PokemonBlueConfiguration } from "../../../modules/pokemon-blue/src/config";
@@ -119,6 +120,7 @@ function overlayUrl(module: ModuleStatus) {
 
 function previewUrl(module: ModuleStatus) {
   const url = new URL(overlayUrl(module));
+  if (module.id === "emoticons") url.searchParams.set("muted", "1");
   if (module.preview?.interactive) url.searchParams.set("interactive", "1");
   return url.toString();
 }
@@ -148,10 +150,12 @@ watch(() => streamConfiguration.value.streamerDid, () => {
   void refreshStreamDimensions();
 });
 
-async function copyOverlayUrl(module: ModuleStatus) {
+function boardUrl() { return new URL("/overlays/emoticons/board/", origin.value).toString(); }
+
+async function copyOverlayUrl(module: ModuleStatus, board = false) {
   try {
-    await navigator.clipboard.writeText(overlayUrl(module));
-    copiedModuleId.value = module.id;
+    await navigator.clipboard.writeText(board ? boardUrl() : overlayUrl(module));
+    copiedModuleId.value = board ? `${module.id}-board` : module.id;
     if (copyResetTimer) clearTimeout(copyResetTimer);
     copyResetTimer = setTimeout(() => { copiedModuleId.value = null; }, 1800);
   } catch {
@@ -529,6 +533,16 @@ onBeforeUnmount(() => {
             </button>
             <span class="sr-only" aria-live="polite">{{ copiedModuleId === module.id ? "Copied" : "" }}</span>
           </div>
+          <template v-if="module.id === 'emoticons'">
+            <section class="module-commands"><h4>Instruction board OBS URL</h4></section>
+            <div class="overlay-url board-url">
+              <code>{{ boardUrl() }}</code>
+              <button type="button" class="copy-button" :class="{ copied: copiedModuleId === 'emoticons-board' }"
+                :aria-label="copiedModuleId === 'emoticons-board' ? 'Emoticons instruction board OBS URL copied' : 'Copy Emoticons instruction board OBS URL'"
+                @click="copyOverlayUrl(module, true)"><span class="copy-icon" aria-hidden="true" /></button>
+              <span class="sr-only" aria-live="polite">{{ copiedModuleId === 'emoticons-board' ? 'Copied' : '' }}</span>
+            </div>
+          </template>
           <section v-if="module.configurationLink" class="module-commands">
             <h4>External configuration</h4>
             <div class="chat-command">
@@ -549,7 +563,7 @@ onBeforeUnmount(() => {
               <code><template v-if="module.preview?.streamBackground">Width: {{ obsDimensions.width }} px<br></template>Height: {{ obsDimensions.height }} px</code>
               <span v-if="module.obsSize">Set your OBS browser source to this height; choose the width for your chat column. {{ streamDimensions ? "Height matches your stream." : "1080 px fallback — stream height is not available yet." }}</span>
               <span v-else-if="streamDimensions">Matches your stream's video aspect ratio. Place this source above your video.</span>
-              <span v-else>16:9 fallback — stream dimensions are not available yet.</span>
+              <span v-else>1920 × 1080 fallback — stream dimensions are not available yet.</span>
             </div>
           </section>
           <div
@@ -610,6 +624,7 @@ onBeforeUnmount(() => {
             <label>Fade delay (seconds) <input v-model.number="paintConfiguration.decaySeconds" type="number" min="0.1" max="60" step="0.1" aria-label="Paint fade delay in seconds"></label>
             <span class="module-message" aria-live="polite">{{ paintMessage }}</span>
           </div>
+          <EmoticonControls v-if="module.id === 'emoticons'" />
           <PokemonModuleControls v-if="module.id === 'pokemon-crystal'" :module-id="module.id" />
           <div v-if="module.id === 'pokemon-blue'" class="module-settings">
             <h4>Visible components</h4>
@@ -680,6 +695,7 @@ h3 { margin: 0 0 8px; font-size: 1.25rem; }
 .status[data-status="running"] { color: #70e7a1; }
 .status[data-status="failed"] { color: #ff7f91; }
 .overlay-url { position: relative; margin-top: 22px; }
+.overlay-url.board-url { margin-top: 10px; }
 code { display: block; min-width: 0; padding: 12px 52px 12px 12px; overflow: auto; border-radius: 9px; color: #a9bdf9; background: #090d16; }
 .copy-button { position: absolute; top: 50%; right: 7px; display: grid; place-items: center; width: 34px; height: 34px; padding: 8px; border: 0; border-radius: 7px; color: #8fa1c7; background: transparent; transform: translateY(-50%); cursor: pointer; }
 .copy-button:hover, .copy-button:focus-visible { color: white; outline: none; background: #1a2540; }
