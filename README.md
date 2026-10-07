@@ -237,3 +237,11 @@ Turning Emoticons off hides both sources, stops audio and clears pending effects
 Re-enabling starts empty. A disconnected source clears its display and never
 replays historical effects after reconnecting. No additional server or port is
 needed; all existing OBS URLs retain their behavior.
+
+Emoticons diagnostics use the existing host log file (its exact location is printed
+at startup). Filter for `emoticons.` to follow command receipt, rejection reasons
+(disabled, unknown, duplicate, queued, playing or cooldown), queue acceptance,
+effect broadcasts and completion. Overlay logs report connections, effect
+receipt/playback and image/audio failures. Effect IDs and client IDs correlate
+host events with each OBS source or muted Admin preview. Ordinary chat messages
+are not logged by this module.

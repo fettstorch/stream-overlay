@@ -15,7 +15,7 @@ export class EmoticonService {
   private seen = new Set<string>();
   private listeners = new Set<(event: EmoticonEvent) => void>();
   readonly assetDirectory: string;
-  constructor(private directory: string) {
+  constructor(private directory: string, private readonly log: (event: string, details?: Record<string, unknown>) => void = () => {}) {
     this.assetDirectory = join(directory, "assets");
     mkdirSync(this.assetDirectory, { recursive: true });
     try {
@@ -80,37 +80,55 @@ export class EmoticonService {
   asset(id: string) { return assetId.test(id) ? this.assets.find(item => item.id === id) : undefined; }
   setEnabled(enabled: boolean) {
     this.enabled = enabled; clearTimeout(this.timer); this.active = null; this.queue = []; this.cooldowns.clear();
+    this.log("emoticons.module-state", { enabled, commands: this.commands.map(command => command.command) });
     this.emit({ type: "clear" }); this.emit({ type: "state", state: this.snapshot() });
   }
   message(id: string, text: string) {
-    if (this.seen.has(id)) return;
+    const normalized = text.trim().toLowerCase();
+    if (!normalized.startsWith("!")) return;
+    if (this.seen.has(id)) { this.log("emoticons.command-rejected", { messageId: id, reason: "duplicate-message" }); return; }
     this.seen.add(id); if (this.seen.size > 2000) this.seen.delete(this.seen.values().next().value!);
-    const command = this.commands.find(item => `!${item.command}` === text.trim().toLowerCase());
-    if (command) this.trigger(command.id);
+    const command = this.commands.find(item => `!${item.command}` === normalized);
+    this.log("emoticons.command-received", { messageId: id, command: normalized });
+    if (command) this.trigger(command.id, "chat", id);
+    else this.log("emoticons.command-rejected", { messageId: id, reason: "unknown-command" });
   }
-  trigger(id: string) {
+  trigger(id: string, source = "test", messageId?: string) {
     const command = this.commands.find(item => item.id === id);
-    if (!this.enabled || !command || this.active?.id === id || this.queue.some(item => item.id === id)
-      || (this.cooldowns.get(id) ?? 0) > Date.now()) return false;
+    const reason = !this.enabled ? "module-disabled" : !command ? "unknown-command"
+      : this.active?.id === id ? "already-playing" : this.queue.some(item => item.id === id) ? "already-queued"
+      : (this.cooldowns.get(id) ?? 0) > Date.now() ? "cooldown" : null;
+    if (reason || !command) {
+      this.log("emoticons.command-rejected", { commandId: id, command: command?.command, source, messageId, reason, cooldownRemainingMs: Math.max(0, (this.cooldowns.get(id) ?? 0) - Date.now()) });
+      return false;
+    }
     this.cooldowns.set(id, Date.now() + command.cooldownSeconds * 1000);
-    this.queue.push(structuredClone(command)); this.next(); return true;
+    this.queue.push(structuredClone(command));
+    this.log("emoticons.command-queued", { command: command.command, commandId: id, source, messageId, queueLength: this.queue.length });
+    this.next(); return true;
   }
   private next() {
     if (this.active || !this.enabled) return;
     const command = this.queue.shift(); if (!command) return;
     this.active = command;
     const durationSeconds = Math.max(command.durationSeconds, this.asset(command.audioAssetId ?? "")?.durationSeconds ?? 0);
-    this.emit({ type: "effect", id: crypto.randomUUID(), command, durationSeconds });
-    this.timer = setTimeout(() => { this.active = null; this.next(); }, durationSeconds * 1000);
+    const effectId = crypto.randomUUID();
+    this.log("emoticons.effect-broadcast", { effectId, command: command.command, durationSeconds, subscribers: this.listeners.size, imageAssetId: command.imageAssetId, audioAssetId: command.audioAssetId });
+    this.emit({ type: "effect", id: effectId, command, durationSeconds });
+    this.timer = setTimeout(() => { this.log("emoticons.effect-finished", { effectId, command: command.command }); this.active = null; this.next(); }, durationSeconds * 1000);
   }
   events(request: Request) {
+    const query = new URL(request.url).searchParams;
+    const overlay = query.get("overlay") === "effects" ? "effects" : query.get("overlay") === "board" ? "board" : "admin";
+    const requestedClientId = query.get("clientId") ?? "";
+    const clientId = assetId.test(requestedClientId) ? requestedClientId : crypto.randomUUID();
     let cleanup = () => {};
     const stream = new ReadableStream<Uint8Array>({ start: controller => {
       let closed = false; const encoder = new TextEncoder();
       const send = (event: EmoticonEvent) => { if (!closed) { try { controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`)); } catch { cleanup(); } } };
       const heartbeat = setInterval(() => { try { controller.enqueue(encoder.encode(": heartbeat\n\n")); } catch { cleanup(); } }, 15000);
-      cleanup = () => { if (closed) return; closed = true; clearInterval(heartbeat); this.listeners.delete(send); request.signal.removeEventListener("abort", cleanup); try { controller.close(); } catch {} };
-      this.listeners.add(send); send({ type: "state", state: this.snapshot() });
+      cleanup = () => { if (closed) return; closed = true; clearInterval(heartbeat); this.listeners.delete(send); this.log("emoticons.client-disconnected", { clientId, overlay, subscribers: this.listeners.size }); request.signal.removeEventListener("abort", cleanup); try { controller.close(); } catch {} };
+      this.listeners.add(send); this.log("emoticons.client-connected", { clientId, overlay, subscribers: this.listeners.size }); send({ type: "state", state: this.snapshot() });
       request.signal.addEventListener("abort", cleanup, { once: true }); if (request.signal.aborted) cleanup();
     }, cancel: () => cleanup() });
     return new Response(stream, { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-store" } });

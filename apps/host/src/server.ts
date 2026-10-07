@@ -29,7 +29,7 @@ const configStore = new ConfigStore(join(projectRoot, "runtime/config.json"), de
 const logger = new FileLogger(join(tmpdir(), "stream-overlay", "overlay.log"));
 const supervisor = new ModuleSupervisor((event, details) => logger.log(event, details));
 const chatService = new StreamChatService(getActorProfile, (event, details) => logger.log(event, details));
-const emoticons = new EmoticonService(join(projectRoot, "runtime/emoticons"));
+const emoticons = new EmoticonService(join(projectRoot, "runtime/emoticons"), (event, details) => logger.log(event, details));
 const unsubscribeEmoticons = chatService.messages.subscribe(message => emoticons.message(message.id, message.text));
 const emoticonBundle = await Bun.build({ entrypoints: [join(projectRoot, "modules/emoticons/src/client.ts")], target: "browser", minify: true });
 if (!emoticonBundle.success) throw new AggregateError(emoticonBundle.logs, "Could not build Emoticons");
@@ -363,7 +363,7 @@ const server = Bun.serve({
     "/api/diagnostics": {
       POST: async (request) => {
         const body = await request.json() as { event?: unknown; details?: unknown };
-        if (typeof body.event !== "string" || !body.event.startsWith("pokemon.")) {
+        if (typeof body.event !== "string" || (!body.event.startsWith("pokemon.") && !body.event.startsWith("emoticons."))) {
           return Response.json({ error: "Invalid diagnostic event" }, { status: 400 });
         }
         const details = body.details && typeof body.details === "object"
