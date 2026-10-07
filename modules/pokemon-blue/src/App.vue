@@ -272,7 +272,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <template v-if="moduleEnabled">
+  <div
+    v-if="moduleEnabled"
+    class="pokemon-overlay"
+    :class="{ 'pokemon-overlay--crystal': props.moduleId === 'pokemon-crystal' }"
+  >
   <PokemonTeam
     v-if="configuration.components.team"
     :party="snapshot.party"
@@ -291,11 +295,12 @@ onBeforeUnmount(() => {
     Pet a Pokémon in chat: <code>!pet &lt;Pokémon name&gt;</code>
     <span>Use the name shown above.</span>
   </p>
-  </template>
+  </div>
 </template>
 
 <style>
 html, body, #app { margin: 0; min-height: 100%; background: transparent; }
+.pokemon-overlay--crystal { box-sizing: border-box; min-height: 100vh; padding-block: clamp(48px, 6vh, 96px); }
 .pet-hint { margin: 24px 7% 16px; color: #fff; text-align: center; font: 700 20px/1.5 ui-monospace, monospace; text-shadow: 1px 1px 2px #000, -1px -1px 2px #000; }
 .pet-hint code { color: #ffb6de; font: inherit; }
 .pet-hint span { display: block; font-size: 0.75em; }

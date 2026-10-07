@@ -59,6 +59,7 @@ test("Crystal uses its own API and control stream while retaining live toggles a
     expect(app.fetch).toHaveBeenCalledWith("/api/pokemon-crystal/snapshot", { cache: "no-store" });
     expect(app.fetch).toHaveBeenCalledWith("/api/pokemon-crystal/config", { cache: "no-store" });
     expect((app.sources[0] as unknown as { url: string }).url).toBe("/api/modules/pokemon-crystal/events");
+    expect(app.wrapper.get(".pokemon-overlay").classes()).toContain("pokemon-overlay--crystal");
     await app.pet(); expect(app.wrapper.find("[data-pet]").exists()).toBe(true);
     await app.state(false); expect(app.wrapper.text()).toBe("");
     await app.state(true); expect(app.wrapper.find("[data-team]").exists()).toBe(true);
