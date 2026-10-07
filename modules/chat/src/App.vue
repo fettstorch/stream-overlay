@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { observeStreamChat, type StreamChatMessage } from "@stream-overlay/stream-chat";
 import { chatBackground, chatMask, defaultChatConfiguration, parseChatConfiguration } from "./config";
-import { freezeLeavingMessage, restoreLeavingMessage } from "./message-transition";
+import { freezeLeavingMessage, messageDecayStyle, messageLifetimeMs, restoreLeavingMessage } from "./message-transition";
 
 const enabled = ref(false);
 const configuration = ref(defaultChatConfiguration);
@@ -20,11 +20,23 @@ function authorName(message: StreamChatMessage) {
   return message.author.displayName || message.author.handle || message.author.did;
 }
 const messages = ref<StreamChatMessage[]>([]);
+const removalTimers = new Map<string, ReturnType<typeof setTimeout>>();
 let status: EventSource | undefined;
 let closeChat: (() => void) | undefined;
 let unsubscribe: (() => void) | undefined;
 let session = 0;
 let streamerDid: string | undefined;
+
+function removeMessage(id: string) {
+  removalTimers.delete(id);
+  messages.value = messages.value.filter(message => message.id !== id);
+}
+
+function clearMessages() {
+  for (const timer of removalTimers.values()) clearTimeout(timer);
+  removalTimers.clear();
+  messages.value = [];
+}
 
 function setEnabled(next: boolean) {
   if (enabled.value === next) return;
@@ -34,7 +46,7 @@ function setEnabled(next: boolean) {
   closeChat?.();
   unsubscribe = undefined;
   closeChat = undefined;
-  messages.value = [];
+  clearMessages();
   if (!next) return;
   const chat = observeStreamChat();
   closeChat = chat.close;
@@ -44,9 +56,17 @@ function setEnabled(next: boolean) {
     if (!message || typeof message.id !== "string" || typeof message.text !== "string"
       || typeof message.streamerDid !== "string" || typeof message.author?.did !== "string") return;
     if (streamerDid !== undefined && message.streamerDid !== streamerDid) return;
-    if (messages.value.length && messages.value[0]!.streamerDid !== message.streamerDid) messages.value = [];
+    if (messages.value.length && messages.value[0]!.streamerDid !== message.streamerDid) clearMessages();
     if (messages.value.some(previous => previous.id === message.id)) return;
-    messages.value = [...messages.value, message].slice(-50);
+    const nextMessages = [...messages.value, message].slice(-50);
+    for (const previous of messages.value) {
+      if (!nextMessages.includes(previous)) {
+        clearTimeout(removalTimers.get(previous.id));
+        removalTimers.delete(previous.id);
+      }
+    }
+    messages.value = nextMessages;
+    removalTimers.set(message.id, setTimeout(() => removeMessage(message.id), messageLifetimeMs));
   });
 }
 
@@ -57,7 +77,7 @@ onMounted(() => {
       const state = JSON.parse(event.data) as { enabled?: unknown; configuration?: unknown; streamerDid?: unknown };
       if (typeof state.streamerDid === "string" && state.streamerDid !== streamerDid) {
         streamerDid = state.streamerDid;
-        messages.value = [];
+        clearMessages();
       }
       const settings = parseChatConfiguration(state.configuration);
       if (settings) configuration.value = settings;
@@ -77,7 +97,7 @@ onBeforeUnmount(() => {
   <div v-if="enabled" class="chat-plane" :style="rotationStyle">
   <ol class="chat-messages" :style="maskStyle" aria-label="Stream chat" aria-live="polite" aria-relevant="additions">
     <TransitionGroup name="chat-bubble" @before-leave="freezeLeavingMessage" @leave-cancelled="restoreLeavingMessage">
-    <li v-for="message in messages" :key="message.id" class="chat-message">
+    <li v-for="message in messages" :key="message.id" class="chat-message" :style="messageDecayStyle">
       <img v-if="message.author.avatar && !failedAvatars.has(message.author.avatar)" class="chat-avatar" :src="message.author.avatar" alt="" @error="failedAvatars.add(message.author.avatar!)">
       <div v-else class="chat-avatar avatar-fallback" aria-hidden="true">{{ authorName(message).slice(0, 1).toUpperCase() }}</div>
       <div class="chat-content">
@@ -96,7 +116,7 @@ html, body, #app { margin: 0; width: 100%; height: 100%; background: transparent
 /* Keep transparent space outside the rotated plane for perspective expansion. */
 .chat-plane { position: fixed; inset: 25%; transform-origin: center center; }
 .chat-messages { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; gap: 8px; margin: 0; padding: 16px; overflow: hidden; list-style: none; font: 20px/1.4 system-ui, sans-serif; color: white; }
-.chat-message { flex: none; display: flex; align-items: flex-start; gap: .6em; max-width: 100%; padding: .4em .6em; background: var(--message-background); border-radius: 4px; overflow-wrap: anywhere; }
+.chat-message { flex: none; display: flex; align-items: flex-start; gap: .6em; max-width: 100%; padding: .4em .6em; background: var(--message-background); border-radius: 4px; overflow-wrap: anywhere; animation-name: chat-message-decay; animation-timing-function: linear; animation-fill-mode: forwards; }
 .chat-avatar { width: 2.4em; height: 2.4em; flex: 0 0 2.4em; object-fit: cover; border-radius: 50%; }
 .avatar-fallback { display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, .15); }
 .chat-content { min-width: 0; }
@@ -106,6 +126,7 @@ html, body, #app { margin: 0; width: 100%; height: 100%; background: transparent
 .chat-bubble-enter-from { opacity: 0; transform: translateY(12px); }
 .chat-bubble-leave-to { opacity: 0; transform: translateY(-12px); }
 .chat-bubble-leave-active { position: absolute; pointer-events: none; }
+@keyframes chat-message-decay { from { opacity: 1; } to { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
   .chat-bubble-move, .chat-bubble-enter-active, .chat-bubble-leave-active { transition: none; }
 }

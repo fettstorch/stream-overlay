@@ -4,7 +4,7 @@ import type { StreamChatMessage } from "@stream-overlay/stream-chat";
 import App from "../src/App.vue";
 import { freezeLeavingMessage, restoreLeavingMessage } from "../src/message-transition";
 
-afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 function setup(animated = false) {
   const sources: FakeEvents[] = [];
@@ -50,6 +50,29 @@ test("changing to a quiet streamer clears chat immediately without reconnecting"
     expect(app.wrapper.text()).toContain("New stream");
     expect(app.sources).toHaveLength(2);
     expect(app.sources[1]!.close).not.toHaveBeenCalled();
+  } finally { app.wrapper.unmount(); }
+});
+
+test("holds each message for 20 seconds, fades it for 10 seconds, then removes it", async () => {
+  vi.useFakeTimers();
+  const app = setup();
+  try {
+    await app.state(true);
+    await app.message(message());
+    const row = app.wrapper.get(".chat-message");
+    expect(row.attributes("style")).toContain("animation-delay: 20000ms");
+    expect(row.attributes("style")).toContain("animation-duration: 10000ms");
+
+    await vi.advanceTimersByTimeAsync(15_000);
+    await app.state(true, { fadeOut: 40 });
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(app.wrapper.findAll(".chat-message")).toHaveLength(1);
+    await app.message(message("2", "Later message"));
+    await vi.advanceTimersByTimeAsync(9_999);
+    expect(app.wrapper.findAll(".chat-message")).toHaveLength(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(app.wrapper.findAll(".chat-message")).toHaveLength(1);
+    expect(app.wrapper.text()).toContain("Later message");
   } finally { app.wrapper.unmount(); }
 });
 

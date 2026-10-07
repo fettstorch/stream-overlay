@@ -1,3 +1,10 @@
+export const messageDecayStyle = {
+  animationDelay: "20000ms",
+  animationDuration: "10000ms",
+};
+
+export const messageLifetimeMs = 30_000;
+
 /** Keep an evicted bubble in its old position while the remaining list reflows. */
 export function freezeLeavingMessage(element: Element) {
   if (!(element instanceof HTMLElement) || !element.parentElement) return;
