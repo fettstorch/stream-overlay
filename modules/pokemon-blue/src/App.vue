@@ -59,6 +59,7 @@ const images: Record<number, string> = {
   31: "https://media.giphy.com/media/nzhNS6v9jKwy97m3EN/giphy.gif",
   37: "https://media.giphy.com/media/eM3S83hIueaUEjbBYC/giphy.gif",
   38: "https://media.giphy.com/media/iheXjyc9btNm0WrFgz/giphy.gif",
+  41: "https://media.giphy.com/media/9VTiqi6WucY7p0MpHs/giphy.gif",
   61: "https://media.giphy.com/media/m0kJGZioi44vtTcKrZ/giphy.gif",
   62: "https://media.giphy.com/media/v2Oo1HzfEr0nHHAM10/giphy.gif",
   69: "https://media.giphy.com/media/mBp5qOyg2HjvlhGU09/giphy.gif",
