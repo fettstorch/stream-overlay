@@ -221,7 +221,7 @@ Add **two separate OBS Browser Sources**:
    `30vh`, `50%`, `auto`); leaving fields empty restores defaults.
 2. Instruction board: `http://localhost:3001/overlays/emoticons/board/`. Start at
    **420 × 600** and choose its size/position independently. Increase its height
-   for longer command lists. It lists every saved command and optional label,
+   for longer command lists. It lists every saved command,
    updates live after edits without refreshing OBS, and emits no audio.
 
 For the effects source, enable **Control audio via OBS** in Browser Source

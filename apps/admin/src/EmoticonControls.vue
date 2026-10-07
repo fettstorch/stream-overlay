@@ -6,7 +6,7 @@ const assets = ref<EmoticonAsset[]>([]);
 const editing = ref<string | null>(null);
 const message = ref("");
 const busy = ref(false);
-const defaults = () => ({ command: "", label: "", imageAssetId: null as string | null, audioAssetId: null as string | null, durationSeconds: 5, cooldownSeconds: 20, volume: 1, width: "", height: "" });
+const defaults = () => ({ command: "", imageAssetId: null as string | null, audioAssetId: null as string | null, durationSeconds: 5, cooldownSeconds: 20, volume: 1, width: "", height: "" });
 const form = ref(defaults());
 const imageUrl = computed(() => form.value.imageAssetId ? `/api/emoticons/assets/${form.value.imageAssetId}` : "");
 const audioUrl = computed(() => form.value.audioAssetId ? `/api/emoticons/assets/${form.value.audioAssetId}` : "");
@@ -65,11 +65,10 @@ function selected(event: Event, kind: "image" | "audio") { const input = event.t
   <section class="emoticon-controls">
     <h4>Emoticon commands</h4>
     <p>Effect source: match your OBS canvas. Board source: start at 420 × 600 px, then size independently. Both disappear when disabled.</p>
-    <ul class="command-list"><li v-for="command in commands" :key="command.id"><strong>!{{ command.command }}</strong><span>{{ command.label }}</span><button type="button" @click="test(command)">Test</button><button type="button" @click="edit(command)">Edit</button><button type="button" @click="remove(command)">Delete</button></li></ul>
+    <ul class="command-list"><li v-for="command in commands" :key="command.id"><strong>!{{ command.command }}</strong><button type="button" @click="test(command)">Test</button><button type="button" @click="edit(command)">Edit</button><button type="button" @click="remove(command)">Delete</button></li></ul>
     <form @submit.prevent="save">
       <h4>{{ editing ? 'Edit command' : 'Create command' }}</h4>
       <label>Command <input v-model="form.command" placeholder="!wow" required maxlength="33"></label>
-      <label>Board label <input v-model="form.label" placeholder="Celebrate!" maxlength="120"></label>
       <div v-for="kind in (['image', 'audio'] as const)" :key="kind" class="drop-zone" @dragover.prevent @drop.prevent="upload($event.dataTransfer?.files[0], kind)">
         <label>{{ kind === 'image' ? 'Image / GIF' : 'Audio' }} — drop a file or choose
           <input type="file" :accept="kind === 'image' ? 'image/png,image/jpeg,image/gif,image/webp' : 'audio/*'" :disabled="busy" @change="selected($event, kind)">
@@ -92,5 +91,5 @@ function selected(event: Event, kind: "image" | "audio") { const input = event.t
   </section>
 </template>
 <style scoped>
-.emoticon-controls{display:grid;gap:12px;margin-top:20px;padding-top:18px;border-top:1px solid #28334b;color:#bdc8df;font-size:.85rem}.emoticon-controls h4,.emoticon-controls p{margin:0}form{display:grid;gap:10px}label{display:grid;gap:6px}input,select,button{font:inherit;color:#eef2ff;background:#101828;border:1px solid #36425d;border-radius:6px;padding:8px;min-width:0}button{cursor:pointer;margin-right:6px}button:disabled{opacity:.5}input:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid #7794e8}.drop-zone{padding:16px;border:2px dashed #526baf;border-radius:10px;display:grid;gap:8px}.drop-zone:hover{background:#18243b}.asset-preview{max-width:100%;max-height:150px;object-fit:contain}audio{width:100%}.command-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}.command-list li{display:flex;align-items:center;flex-wrap:wrap;gap:6px}.command-list span{flex:1}small{color:#93a3bf}
+.emoticon-controls{display:grid;gap:12px;margin-top:20px;padding-top:18px;border-top:1px solid #28334b;color:#bdc8df;font-size:.85rem}.emoticon-controls h4,.emoticon-controls p{margin:0}form{display:grid;gap:10px}label{display:grid;gap:6px}input,select,button{font:inherit;color:#eef2ff;background:#101828;border:1px solid #36425d;border-radius:6px;padding:8px;min-width:0}button{cursor:pointer;margin-right:6px}button:disabled{opacity:.5}input:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid #7794e8}.drop-zone{padding:16px;border:2px dashed #526baf;border-radius:10px;display:grid;gap:8px}.drop-zone:hover{background:#18243b}.asset-preview{max-width:100%;max-height:150px;object-fit:contain}audio{width:100%}.command-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}.command-list li{display:flex;align-items:center;flex-wrap:wrap;gap:6px}.command-list strong{flex:1}small{color:#93a3bf}
 </style>

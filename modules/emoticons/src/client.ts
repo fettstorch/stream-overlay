@@ -19,7 +19,7 @@ async function next() {
   const event = pending.shift(); if (!event) return;
   playing = true; const current = generation; const command = event.command;
   effect.style.width = command.width || "40vw"; effect.style.height = command.height || "35vh";
-  if (command.imageAssetId) { const image = new Image(); image.src = `/api/emoticons/assets/${command.imageAssetId}`; image.alt = command.label || command.command; effect.append(image); effect.hidden = false; }
+  if (command.imageAssetId) { const image = new Image(); image.src = `/api/emoticons/assets/${command.imageAssetId}`; image.alt = command.command; effect.append(image); effect.hidden = false; }
   // Each renderer also waits for actual audio completion: loading delays must not
   // truncate the sound or let the following effect overlap it.
   let finishAudio = () => {};
@@ -47,7 +47,6 @@ events.onmessage = message => {
     const list = board.querySelector("ul")!; list.replaceChildren();
     for (const command of event.state.commands) {
       const item = document.createElement("li"); const name = document.createElement("strong"); name.textContent = `!${command.command}`; item.append(name);
-      if (command.label) { const label = document.createElement("small"); label.textContent = command.label; item.append(label); }
       list.append(item);
     }
     if (!event.state.commands.length) { const item = document.createElement("li"); item.textContent = "No commands yet"; list.append(item); }

@@ -1,7 +1,6 @@
 export interface EmoticonCommand {
   id: string;
   command: string;
-  label: string;
   imageAssetId: string | null;
   audioAssetId: string | null;
   durationSeconds: number;
