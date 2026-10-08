@@ -62,7 +62,7 @@ export class EmoticonService {
     try { this.persist(); } catch (error) { this.commands = previous; throw error; }
     this.queue = this.queue.filter(item => item.id !== id);
   }
-  async upload(file: File, kind: string, durationSeconds: number) {
+  async upload(file: File, kind: string, durationSeconds: number, uploadId: string = crypto.randomUUID()) {
     if (kind !== "image" && kind !== "audio" && kind !== "video") throw new Error("Choose image, audio, or video");
     // Local-only files: generated names prevent paths or executable markup being served.
     const extensions: Record<string, string> = kind === "image"
@@ -75,9 +75,12 @@ export class EmoticonService {
     if (kind !== "image" && (!Number.isFinite(durationSeconds) || durationSeconds <= 0)) throw new Error("Could not read media duration");
     const id = crypto.randomUUID();
     const entry: EmoticonAsset = { id, filename: `${id}.${extension}`, originalName: file.name, kind, contentType, durationSeconds: kind !== "image" ? durationSeconds : 0 };
+    this.log("emoticons.upload-validated", { uploadId, assetId: id, kind, bytes: file.size, durationSeconds: entry.durationSeconds });
     await Bun.write(join(this.assetDirectory, entry.filename), file);
+    this.log("emoticons.upload-file-written", { uploadId, assetId: id, bytes: file.size });
     this.assets.push(entry);
     try { this.persist(); } catch (error) { this.assets.pop(); throw error; }
+    this.log("emoticons.upload-persisted", { uploadId, assetId: id });
     return entry;
   }
   asset(id: string) { return assetId.test(id) ? this.assets.find(item => item.id === id) : undefined; }

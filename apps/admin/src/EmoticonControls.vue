@@ -49,10 +49,19 @@ async function test(command: EmoticonCommand) {
 }
 async function upload(file: File | undefined) {
   if (!file || busy.value) return;
+  const uploadId = crypto.randomUUID();
+  const startedAt = Date.now();
+  let stage = "metadata";
+  function diagnose(event: string, details: Record<string, unknown> = {}) {
+    const data = { uploadId, stage, elapsedMs: Date.now() - startedAt, filename: file!.name, bytes: file!.size, contentType: file!.type, ...details };
+    console.info(`[${event}]`, data);
+    void fetch("/api/diagnostics", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ event, details: data }), signal: AbortSignal.timeout(5000) }).catch(() => {});
+  }
   const kind: MediaKind | null = /\.(mp4|mov)$/i.test(file.name) || file.type.startsWith("video/") ? "video"
     : file.type.startsWith("image/") ? "image" : file.type.startsWith("audio/") || file.type === "application/ogg" ? "audio" : null;
-  if (!kind) { message.value = "Choose an image, GIF, audio, MP4, or MOV file"; return; }
-  busy.value = true; message.value = "Uploading…";
+  if (!kind) { message.value = "Choose an image, GIF, audio, MP4, or MOV file"; diagnose("emoticons.upload-browser-rejected", { reason: "unsupported-type" }); return; }
+  busy.value = true; message.value = kind === "image" ? "Preparing upload…" : "Reading media duration…";
+  diagnose("emoticons.upload-browser-started", { kind });
   const url = URL.createObjectURL(file);
   try {
     let duration = 0;
@@ -63,14 +72,24 @@ async function upload(file: File | undefined) {
       media.onloadedmetadata = () => { const value = media.duration; finish(); Number.isFinite(value) && value > 0 ? resolve(value) : reject(new Error("Media duration is unavailable")); };
       media.onerror = () => finish(new Error("This browser cannot play that file. For video, try H.264/AAC in MP4 or MOV.")); media.preload = "metadata"; media.src = url;
     });
+    diagnose("emoticons.upload-metadata-read", { kind, durationSeconds: duration });
+    stage = "request"; message.value = "Uploading…";
     const data = new FormData(); data.set("file", file); data.set("kind", kind); data.set("durationSeconds", String(duration));
-    const asset = await result(await fetch("/api/emoticons/assets", { method: "POST", body: data })) as EmoticonAsset;
+    diagnose("emoticons.upload-browser-requested");
+    const response = await fetch("/api/emoticons/assets", { method: "POST", headers: { "X-Emoticon-Upload-Id": uploadId }, body: data, signal: AbortSignal.timeout(60000) });
+    diagnose("emoticons.upload-browser-response", { status: response.status });
+    const asset = await result(response) as EmoticonAsset;
     if (!assets.value.some(item => item.id === asset.id)) assets.value.push(asset);
     form.value[assetKey(kind)] = asset.id;
     if (kind === "image") form.value.videoAssetId = null;
     if (kind === "video") form.value.imageAssetId = null;
     message.value = "Uploaded — save the command to use it";
-  } catch (error) { message.value = error instanceof Error ? error.message : String(error); }
+    diagnose("emoticons.upload-browser-completed", { assetId: asset.id });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    diagnose("emoticons.upload-browser-failed", { error: detail });
+    message.value = error instanceof Error && error.name === "TimeoutError" ? "Upload timed out waiting for the server. Please retry; see upload diagnostics." : detail;
+  }
   finally { URL.revokeObjectURL(url); busy.value = false; }
 }
 async function uploadFiles(files: FileList | null | undefined) {

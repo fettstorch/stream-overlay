@@ -196,9 +196,21 @@ const server = Bun.serve({
     },
     "/api/emoticons/assets": {
       POST: request => emoticonWrite(request, async () => {
-        const form = await request.formData(); const file = form.get("file");
-        if (!(file instanceof File)) throw new Error("Choose a media file");
-        return Response.json(await emoticons.upload(file, String(form.get("kind")), Number(form.get("durationSeconds"))), { status: 201 });
+        const requestedId = request.headers.get("x-emoticon-upload-id") ?? "";
+        const uploadId = /^[a-f0-9-]{36}$/.test(requestedId) ? requestedId : crypto.randomUUID();
+        const startedAt = Date.now();
+        logger.log("emoticons.upload-request-received", { uploadId, contentLength: request.headers.get("content-length") });
+        try {
+          const form = await request.formData(); const file = form.get("file");
+          if (!(file instanceof File)) throw new Error("Choose a media file");
+          logger.log("emoticons.upload-body-read", { uploadId, filename: file.name, bytes: file.size, contentType: file.type, elapsedMs: Date.now() - startedAt });
+          const asset = await emoticons.upload(file, String(form.get("kind")), Number(form.get("durationSeconds")), uploadId);
+          logger.log("emoticons.upload-request-completed", { uploadId, assetId: asset.id, elapsedMs: Date.now() - startedAt });
+          return Response.json(asset, { status: 201 });
+        } catch (error) {
+          logger.log("emoticons.upload-request-failed", { uploadId, elapsedMs: Date.now() - startedAt, error: error instanceof Error ? error.message : String(error) });
+          throw error;
+        }
       }),
     },
     "/api/emoticons/assets/:id": request => {
