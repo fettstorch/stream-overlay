@@ -188,8 +188,8 @@ const server = serveHost({
   routes: {
     "/overlays/emoticons": request => Response.redirect(new URL("/overlays/emoticons/", request.url), 302),
     "/overlays/emoticons/board": request => Response.redirect(new URL("/overlays/emoticons/board/", request.url), 302),
-    "/overlays/emoticons/": () => new Response(emoticonHtml),
-    "/overlays/emoticons/board/": () => new Response(emoticonHtml),
+    "/overlays/emoticons/": () => new Response(emoticonHtml, { headers: { "Content-Type": "text/html; charset=utf-8" } }),
+    "/overlays/emoticons/board/": () => new Response(emoticonHtml, { headers: { "Content-Type": "text/html; charset=utf-8" } }),
     "/overlays/emoticons/client.js": () => new Response(emoticonJavascript, { headers: { "Content-Type": "application/javascript" } }),
     "/api/emoticons/events": (request, server) => { server.timeout(request, 0); return emoticons.events(request); },
     "/api/emoticons/socket": (request, server) => {
