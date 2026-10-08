@@ -205,8 +205,14 @@ The first invocation enters the shared queue immediately. Its per-command
 cooldown starts at acceptance (20 seconds by default, configurable, including 0).
 Repeats during cooldown or while that command is queued/playing are ignored.
 Different commands queue in arrival order and never display together. Duration
-is five seconds by default and configurable; audio extends it when longer.
+is five seconds by default and configurable; audio or video extends it when longer.
 There is no trailing debounce or global cooldown.
+
+Use the single media drop zone for images, GIFs, audio, MP4, and MOV files;
+multiple files can be selected or dropped together. A new image or video replaces
+the command's visual, while a separate audio attachment can accompany either.
+Videos play their embedded audio at the configured volume. MP4/MOV codecs must be
+supported by the browser (H.264 video with AAC audio is a compatible choice).
 
 Add **two separate OBS Browser Sources**:
 
@@ -215,7 +221,7 @@ Add **two separate OBS Browser Sources**:
    **1920 × 1080**. Admin reads Stream.place video segment dimensions and refreshes
    them every 30 seconds. If unavailable, it explicitly recommends 1920 × 1080;
    your actual OBS canvas remains authoritative. The transparent effect adapts to
-   the browser source viewport. Images keep their aspect ratio inside a default
+   the browser source viewport. Images and videos keep their aspect ratio inside a default
    box of **40vw × 35vh**, centered horizontally at **5vh** from the top. Optional
    CSS width/height fields override the box per command (e.g. `500px`, `50vw`,
    `30vh`, `50%`, `auto`); leaving fields empty restores defaults.

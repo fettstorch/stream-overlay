@@ -3,6 +3,7 @@ export interface EmoticonCommand {
   command: string;
   imageAssetId: string | null;
   audioAssetId: string | null;
+  videoAssetId: string | null;
   durationSeconds: number;
   cooldownSeconds: number;
   volume: number;
@@ -13,7 +14,7 @@ export interface EmoticonAsset {
   id: string;
   filename: string;
   originalName?: string;
-  kind: "image" | "audio";
+  kind: "image" | "audio" | "video";
   contentType: string;
   durationSeconds: number;
 }

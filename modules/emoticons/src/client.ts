@@ -10,7 +10,7 @@ function diagnose(event: string, details: Record<string, unknown> = {}) {
 }
 diagnose("emoticons.overlay-mounted");
 type Effect = Extract<EmoticonEvent, { type: "effect" }>;
-let audio: HTMLAudioElement | null = null;
+let media: HTMLMediaElement[] = [];
 let timer: ReturnType<typeof setTimeout> | undefined;
 let pending: Effect[] = [];
 let playing = false;
@@ -18,7 +18,7 @@ let generation = 0;
 let cancelPlayback = () => {};
 function clear() {
   generation++; clearTimeout(timer); cancelPlayback(); cancelPlayback = () => {};
-  audio?.pause(); audio = null; effect.replaceChildren(); effect.hidden = true; pending = []; playing = false;
+  for (const element of media) element.pause(); media = []; effect.replaceChildren(); effect.hidden = true; pending = []; playing = false;
 }
 async function next() {
   if (playing) return;
@@ -27,23 +27,31 @@ async function next() {
   playing = true; const current = generation; const command = event.command;
   effect.style.width = command.width || "40vw"; effect.style.height = command.height || "35vh";
   if (command.imageAssetId) { const image = new Image(); image.onload = () => diagnose("emoticons.image-loaded", { effectId: event.id, width: image.naturalWidth, height: image.naturalHeight }); image.onerror = () => diagnose("emoticons.image-failed", { effectId: event.id, assetId: command.imageAssetId }); image.src = `/api/emoticons/assets/${command.imageAssetId}`; image.alt = command.command; effect.append(image); effect.hidden = false; }
-  // Each renderer also waits for actual audio completion: loading delays must not
+  // Each renderer also waits for actual media completion: loading delays must not
   // truncate the sound or let the following effect overlap it.
-  let finishAudio = () => {};
+  const finishMedia: Array<() => void> = [];
   let finishDuration = () => {};
   const duration = new Promise<void>(resolve => { finishDuration = resolve; timer = setTimeout(resolve, event.durationSeconds * 1000); });
-  const sound = new Promise<void>(resolve => {
-    finishAudio = resolve;
-    if (!command.audioAssetId) { resolve(); return; }
-    audio = new Audio(`/api/emoticons/assets/${command.audioAssetId}`); audio.muted = muted; audio.volume = command.volume;
-    audio.onended = () => resolve(); audio.onerror = () => { diagnose("emoticons.audio-failed", { effectId: event.id, code: audio?.error?.code }); resolve(); };
-    void audio.play().catch(error => { diagnose("emoticons.audio-play-failed", { effectId: event.id, error: String(error) }); console.warn("Emoticon audio could not play. Enable OBS browser-source audio.", error); resolve(); });
+  const play = (element: HTMLMediaElement, assetId: string, kind: "audio" | "video") => new Promise<void>(resolve => {
+    finishMedia.push(resolve); media.push(element);
+    element.muted = muted; element.volume = command.volume;
+    element.onended = () => resolve(); element.onerror = () => { diagnose(`emoticons.${kind}-failed`, { effectId: event.id, code: element.error?.code }); resolve(); };
+    element.src = `/api/emoticons/assets/${assetId}`;
+    void element.play().catch(error => { diagnose(`emoticons.${kind}-play-failed`, { effectId: event.id, error: String(error) }); resolve(); });
   });
-  cancelPlayback = () => { finishDuration(); finishAudio(); };
-  await Promise.all([duration, sound]);
+  const playback: Promise<void>[] = [];
+  if (command.videoAssetId) {
+    const video = document.createElement("video"); video.playsInline = true;
+    video.onloadeddata = () => diagnose("emoticons.video-loaded", { effectId: event.id, width: video.videoWidth, height: video.videoHeight });
+    effect.append(video); effect.hidden = false;
+    playback.push(play(video, command.videoAssetId, "video"));
+  }
+  if (command.audioAssetId) playback.push(play(new Audio(), command.audioAssetId, "audio"));
+  cancelPlayback = () => { finishDuration(); for (const finish of finishMedia) finish(); };
+  await Promise.all([duration, ...playback]);
   if (current !== generation) return;
   diagnose("emoticons.effect-ended", { effectId: event.id });
-  audio?.pause(); audio = null; effect.replaceChildren(); effect.hidden = true; playing = false;
+  for (const element of media) element.pause(); media = []; effect.replaceChildren(); effect.hidden = true; playing = false;
   cancelPlayback = () => {}; void next();
 }
 const events = new EventSource(`/api/emoticons/events?overlay=${boardMode ? "board" : "effects"}&clientId=${clientId}`);

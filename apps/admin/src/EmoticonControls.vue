@@ -6,12 +6,15 @@ const assets = ref<EmoticonAsset[]>([]);
 const editing = ref<string | null>(null);
 const message = ref("");
 const busy = ref(false);
-const defaults = () => ({ command: "", imageAssetId: null as string | null, audioAssetId: null as string | null, durationSeconds: 5, cooldownSeconds: 20, volume: 1, width: "", height: "" });
+const defaults = () => ({ command: "", imageAssetId: null as string | null, audioAssetId: null as string | null, videoAssetId: null as string | null, durationSeconds: 5, cooldownSeconds: 20, volume: 1, width: "", height: "" });
 const form = ref(defaults());
 const imageUrl = computed(() => form.value.imageAssetId ? `/api/emoticons/assets/${form.value.imageAssetId}` : "");
 const audioUrl = computed(() => form.value.audioAssetId ? `/api/emoticons/assets/${form.value.audioAssetId}` : "");
-function attachment(kind: "image" | "audio") {
-  const id = form.value[kind === "image" ? "imageAssetId" : "audioAssetId"];
+const videoUrl = computed(() => form.value.videoAssetId ? `/api/emoticons/assets/${form.value.videoAssetId}` : "");
+type MediaKind = EmoticonAsset["kind"];
+const assetKey = (kind: MediaKind) => `${kind}AssetId` as "imageAssetId" | "audioAssetId" | "videoAssetId";
+function attachment(kind: MediaKind) {
+  const id = form.value[assetKey(kind)];
   return assets.value.find(asset => asset.id === id);
 }
 let events: EventSource | undefined;
@@ -44,26 +47,37 @@ async function test(command: EmoticonCommand) {
   try { const response = await result(await fetch(`/api/emoticons/test/${command.id}`, { method: "POST" })); message.value = response.accepted ? "Queued — preview is muted; OBS plays audio" : "Not queued: disabled, on cooldown, queued or playing"; }
   catch (error) { message.value = String(error); }
 }
-async function upload(file: File | undefined, kind: "image" | "audio") {
+async function upload(file: File | undefined) {
   if (!file || busy.value) return;
+  const kind: MediaKind | null = /\.(mp4|mov)$/i.test(file.name) || file.type.startsWith("video/") ? "video"
+    : file.type.startsWith("image/") ? "image" : file.type.startsWith("audio/") || file.type === "application/ogg" ? "audio" : null;
+  if (!kind) { message.value = "Choose an image, GIF, audio, MP4, or MOV file"; return; }
   busy.value = true; message.value = "Uploading…";
   const url = URL.createObjectURL(file);
   try {
     let duration = 0;
-    if (kind === "audio") duration = await new Promise<number>((resolve, reject) => {
-      const audio = new Audio(); const timeout = setTimeout(() => finish(new Error("Could not read audio duration")), 15000);
-      function finish(error?: Error) { clearTimeout(timeout); audio.onloadedmetadata = null; audio.onerror = null; audio.removeAttribute("src"); audio.load(); if (error) reject(error); }
-      audio.onloadedmetadata = () => { const value = audio.duration; finish(); Number.isFinite(value) && value > 0 ? resolve(value) : reject(new Error("Audio duration is unavailable")); };
-      audio.onerror = () => finish(new Error("This browser cannot read that audio file")); audio.src = url;
+    if (kind !== "image") duration = await new Promise<number>((resolve, reject) => {
+      const media = kind === "video" ? document.createElement("video") : new Audio();
+      const timeout = setTimeout(() => finish(new Error("Could not read media duration")), 15000);
+      function finish(error?: Error) { clearTimeout(timeout); media.onloadedmetadata = null; media.onerror = null; media.removeAttribute("src"); media.load(); if (error) reject(error); }
+      media.onloadedmetadata = () => { const value = media.duration; finish(); Number.isFinite(value) && value > 0 ? resolve(value) : reject(new Error("Media duration is unavailable")); };
+      media.onerror = () => finish(new Error("This browser cannot play that file. For video, try H.264/AAC in MP4 or MOV.")); media.preload = "metadata"; media.src = url;
     });
     const data = new FormData(); data.set("file", file); data.set("kind", kind); data.set("durationSeconds", String(duration));
     const asset = await result(await fetch("/api/emoticons/assets", { method: "POST", body: data })) as EmoticonAsset;
     if (!assets.value.some(item => item.id === asset.id)) assets.value.push(asset);
-    form.value[kind === "image" ? "imageAssetId" : "audioAssetId"] = asset.id; message.value = "Uploaded — save the command to use it";
+    form.value[assetKey(kind)] = asset.id;
+    if (kind === "image") form.value.videoAssetId = null;
+    if (kind === "video") form.value.imageAssetId = null;
+    message.value = "Uploaded — save the command to use it";
   } catch (error) { message.value = error instanceof Error ? error.message : String(error); }
   finally { URL.revokeObjectURL(url); busy.value = false; }
 }
-function selected(event: Event, kind: "image" | "audio") { const input = event.target as HTMLInputElement; void upload(input.files?.[0], kind); input.value = ""; }
+async function uploadFiles(files: FileList | null | undefined) {
+  if (busy.value || !files) return;
+  for (const file of Array.from(files)) await upload(file);
+}
+function selected(event: Event) { const input = event.target as HTMLInputElement; void uploadFiles(input.files); input.value = ""; }
 
 </script>
 <template>
@@ -74,25 +88,29 @@ function selected(event: Event, kind: "image" | "audio") { const input = event.t
     <form @submit.prevent="save">
       <h4>{{ editing ? 'Edit command' : 'Create command' }}</h4>
       <label>Command <input v-model="form.command" placeholder="!wow" required maxlength="33"></label>
-      <div v-for="kind in (['image', 'audio'] as const)" :key="kind" class="drop-zone" @dragover.prevent @drop.prevent="upload($event.dataTransfer?.files[0], kind)">
-        <label>{{ kind === 'image' ? 'Image / GIF' : 'Audio' }} — drop a file or choose
-          <input type="file" :accept="kind === 'image' ? 'image/png,image/jpeg,image/gif,image/webp' : 'audio/*'" :disabled="busy" @change="selected($event, kind)">
+      <div class="drop-zone" @dragover.prevent @drop.prevent="uploadFiles($event.dataTransfer?.files)">
+        <label>Media — drop files or choose
+          <input type="file" accept="image/png,image/jpeg,image/gif,image/webp,audio/*,video/mp4,video/quicktime,.mp4,.mov" multiple :disabled="busy" @change="selected">
         </label>
-        <div v-if="form[kind === 'image' ? 'imageAssetId' : 'audioAssetId']" class="attachment">
+        <small>Images, GIFs, audio, MP4, or MOV. Videos play their own audio. A new image or video replaces the current visual.</small>
+        <template v-for="kind in (['image', 'audio', 'video'] as const)" :key="kind">
+        <div v-if="form[assetKey(kind)]" class="attachment">
           <span>{{ attachment(kind)?.originalName || attachment(kind)?.filename || 'Attached file' }}</span>
-          <button type="button" :disabled="busy" :aria-label="`Remove ${kind} attachment`" @click="form[kind === 'image' ? 'imageAssetId' : 'audioAssetId'] = null">Remove</button>
+          <button type="button" :disabled="busy" :aria-label="`Remove ${kind} attachment`" @click="form[assetKey(kind)] = null">Remove</button>
         </div>
+        </template>
       </div>
       <img v-if="imageUrl" :src="imageUrl" class="asset-preview" alt="Selected emoticon">
+      <video v-if="videoUrl" :key="videoUrl" :src="videoUrl" class="asset-preview" controls muted playsinline preload="metadata"></video>
       <audio v-if="audioUrl" :key="audioUrl" :src="audioUrl" controls muted preload="metadata"></audio>
       <label>Duration (seconds) <input v-model.number="form.durationSeconds" type="number" min="0.1" step="0.1" required></label>
-      <small>Plays for at least the audio duration. Default: 5 seconds.</small>
+      <small>Plays for at least the audio or video duration. Default: 5 seconds.</small>
       <label>Cooldown (seconds) <input v-model.number="form.cooldownSeconds" type="number" min="0" step="1" required></label>
       <small>Starts immediately when accepted. Repeats are ignored while queued or playing.</small>
       <label>Volume <input v-model.number="form.volume" type="range" min="0" max="1" step="0.05"></label>
       <label>CSS width <input v-model="form.width" placeholder="40vw (default)"></label>
       <label>CSS height <input v-model="form.height" placeholder="35vh (default)"></label>
-      <small>Examples: 300px, 40vw, 25vh, 50%, auto. Images keep their proportions inside this box, centered at 5vh from the top.</small>
+      <small>Examples: 300px, 40vw, 25vh, 50%, auto. Images and videos keep their proportions inside this box, centered at 5vh from the top.</small>
       <div><button type="submit" :disabled="busy">{{ editing ? 'Save changes' : 'Create command' }}</button><button v-if="editing" type="button" @click="reset">Cancel</button></div>
     </form>
     <p role="status">{{ message }}</p>
