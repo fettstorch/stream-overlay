@@ -123,7 +123,8 @@ export class EmoticonService {
     }
     const endsAt = Date.now() + command.cooldownSeconds * 1000;
     this.cooldowns.set(id, endsAt);
-    this.emit({ type: "cooldown", commandId: id, endsAt, durationSeconds: command.cooldownSeconds });
+    this.emit({ type: "state", state: this.snapshot() });
+    this.log("emoticons.cooldown-broadcast", { commandId: id, endsAt, durationSeconds: command.cooldownSeconds, subscribers: this.listeners.size });
     this.queue.push(structuredClone({ command, author }));
     this.log("emoticons.command-queued", { command: command.command, commandId: id, source, messageId, queueLength: this.queue.length });
     this.next(); return true;

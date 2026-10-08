@@ -208,9 +208,7 @@ const events = observeEmoticonEvents(boardMode ? "board" : "effects", event => {
       board.append(section);
     }
     updateCooldownRings();
-  } else if (event.type === "cooldown") {
-    const ring = cooldownRings.get(event.commandId);
-    if (ring) { ring.endsAt = event.endsAt; ring.durationSeconds = event.durationSeconds; updateCooldownRings(); }
+    if (boardMode) diagnose("emoticons.board-cooldowns-updated", { activeCooldowns: [...cooldownRings.values()].filter(ring => ring.endsAt > Date.now()).length });
   } else if (event.type === "clear") { clear(); for (const ring of cooldownRings.values()) ring.endsAt = 0; updateCooldownRings(); }
   else if (!boardMode) { diagnose("emoticons.effect-received", { effectId: event.id, command: event.command.command }); if (event.command.mode === "sticker") spawnSticker(event); else { pending.push(event); void next(); } }
 }, () => diagnose("emoticons.events-connected", { transport: "websocket" }),
