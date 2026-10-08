@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { EmoticonAsset, EmoticonCommand, EmoticonState } from "../../../modules/emoticons/src/contracts";
 import { observeEmoticonEvents } from "../../../modules/emoticons/src/events-client";
 const commands = ref<EmoticonCommand[]>([]);
@@ -17,6 +17,34 @@ const form = ref(defaults());
 const imageUrl = computed(() => form.value.imageAssetId ? `/api/emoticons/assets/${form.value.imageAssetId}` : "");
 const audioUrl = computed(() => form.value.audioAssetId ? `/api/emoticons/assets/${form.value.audioAssetId}` : "");
 const videoUrl = computed(() => form.value.videoAssetId ? `/api/emoticons/assets/${form.value.videoAssetId}` : "");
+const audioPreview = ref<HTMLAudioElement>();
+const videoPreview = ref<HTMLVideoElement>();
+const previewTimers = new Map<HTMLMediaElement, ReturnType<typeof setTimeout>>();
+function stopPreviewTimer(media: HTMLMediaElement) {
+  const timer = previewTimers.get(media);
+  if (timer) clearTimeout(timer);
+  previewTimers.delete(media);
+}
+function applyPreviewDuration(media: HTMLMediaElement) {
+  stopPreviewTimer(media);
+  const duration = Number(form.value.durationSeconds);
+  if (!Number.isFinite(duration) || duration <= 0) return;
+  if (media.currentTime >= duration) {
+    media.pause();
+    media.currentTime = duration;
+    return;
+  }
+  if (!media.paused) previewTimers.set(media, setTimeout(() => {
+    media.pause();
+    media.currentTime = duration;
+    previewTimers.delete(media);
+  }, (duration - media.currentTime) * 1000));
+}
+function playPreview(media: HTMLMediaElement) {
+  const duration = Number(form.value.durationSeconds);
+  if (Number.isFinite(duration) && duration > 0 && media.currentTime >= duration) media.currentTime = 0;
+  applyPreviewDuration(media);
+}
 type MediaKind = EmoticonAsset["kind"];
 const assetKey = (kind: MediaKind) => `${kind}AssetId` as "imageAssetId" | "audioAssetId" | "videoAssetId";
 function attachment(kind: MediaKind) {
@@ -31,7 +59,15 @@ function update(state: EmoticonState) { commands.value = state.commands; assets.
 onMounted(() => {
   events = observeEmoticonEvents("admin", event => { if (event.type === "state") update(event.state); });
 });
-onBeforeUnmount(() => events?.close());
+onBeforeUnmount(() => {
+  events?.close();
+  for (const timer of previewTimers.values()) clearTimeout(timer);
+  previewTimers.clear();
+});
+watch(() => form.value.durationSeconds, () => {
+  if (audioPreview.value) applyPreviewDuration(audioPreview.value);
+  if (videoPreview.value) applyPreviewDuration(videoPreview.value);
+});
 function edit(command: EmoticonCommand) { formOpen.value = true; editing.value = command.id; form.value = { ...command, mode: command.mode ?? "effect", mirrored: command.mirrored ?? false }; message.value = ""; }
 function changeMode() {
   if (form.value.mode === "sticker") form.value.audioAssetId = null;
@@ -140,8 +176,8 @@ function selected(event: Event) { const input = event.target as HTMLInputElement
       </div>
       <label v-if="imageUrl || videoUrl" class="sticker-toggle"><input v-model="form.mirrored" type="checkbox"> Mirror horizontally</label>
       <img v-if="imageUrl" :src="imageUrl" class="asset-preview" :style="{ transform: form.mirrored ? 'scaleX(-1)' : undefined }" alt="Selected emoticon">
-      <video v-if="videoUrl" :key="videoUrl" :src="videoUrl" class="asset-preview" :style="{ transform: form.mirrored ? 'scaleX(-1)' : undefined }" controls muted playsinline preload="metadata"></video>
-      <audio v-if="audioUrl" :key="audioUrl" :src="audioUrl" controls muted preload="metadata"></audio>
+      <video v-if="videoUrl" :key="videoUrl" ref="videoPreview" :src="videoUrl" class="asset-preview" :style="{ transform: form.mirrored ? 'scaleX(-1)' : undefined }" controls muted playsinline preload="metadata" @play="playPreview($event.currentTarget as HTMLVideoElement)" @pause="stopPreviewTimer($event.currentTarget as HTMLVideoElement)" @seeking="applyPreviewDuration($event.currentTarget as HTMLVideoElement)"></video>
+      <audio v-if="audioUrl" :key="audioUrl" ref="audioPreview" :src="audioUrl" controls muted preload="metadata" @play="playPreview($event.currentTarget as HTMLAudioElement)" @pause="stopPreviewTimer($event.currentTarget as HTMLAudioElement)" @seeking="applyPreviewDuration($event.currentTarget as HTMLAudioElement)"></audio>
       <div class="fields-row">
         <label class="compact-field">Duration (seconds) <input v-model.number="form.durationSeconds" type="number" min="0.001" step="any" required></label>
         <label v-if="form.mode === 'effect'" class="compact-field">Cooldown (seconds) <input v-model.number="form.cooldownSeconds" type="number" min="0" step="1" required></label>
@@ -149,7 +185,7 @@ function selected(event: Event) { const input = event.target as HTMLInputElement
         <label class="compact-field">CSS height <input v-model="form.height" :placeholder="form.mode === 'sticker' ? '5vw (default)' : '35vh (default)'"></label>
       </div>
       <small v-if="form.mode === 'sticker'">Drift lifetime. Default: 8 seconds; video loops silently.</small>
-      <small v-else>Plays for at least the audio or video duration. Default: 5 seconds. Cooldown starts when accepted; repeats are ignored while queued or playing.</small>
+      <small v-else>Stops after this duration, even when the audio or video is longer. Default: 5 seconds. Cooldown starts when accepted; repeats are ignored while queued or playing.</small>
       <label v-if="form.mode === 'effect'">Volume <input v-model.number="form.volume" type="range" min="0" max="1" step="0.05"></label>
       <small v-if="form.mode === 'sticker'">Default: 5vw × 5vw, preserving proportions, spawning across the bottom and drifting upward.</small>
       <small v-else>Examples: 300px, 40vw, 25vh, 50%, auto. Images and videos keep their proportions inside this box, centered at 5vh from the top.</small>

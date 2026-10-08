@@ -137,8 +137,6 @@ async function next() {
   appendAvatar(effect, event);
   effect.hidden = false;
   if (command.imageAssetId) { const image = new Image(); sizeMedia(image, command); image.onload = () => diagnose("emoticons.image-loaded", { effectId: event.id, width: image.naturalWidth, height: image.naturalHeight }); image.onerror = () => diagnose("emoticons.image-failed", { effectId: event.id, assetId: command.imageAssetId }); image.src = `/api/emoticons/assets/${command.imageAssetId}`; image.alt = command.command; effect.append(image); effect.hidden = false; }
-  // Each renderer also waits for actual media completion: loading delays must not
-  // truncate the sound or let the following effect overlap it.
   const finishMedia: Array<() => void> = [];
   let finishDuration = () => {};
   const duration = new Promise<void>(resolve => { finishDuration = resolve; timer = setTimeout(resolve, event.durationSeconds * 1000); });
@@ -174,7 +172,8 @@ async function next() {
   }
   if (command.audioAssetId) playback.push(play(new Audio(), command.audioAssetId, "audio"));
   cancelPlayback = () => { finishDuration(); for (const finish of finishMedia) finish(); };
-  await Promise.all([duration, ...playback]);
+  void Promise.all(playback);
+  await duration;
   if (current !== generation) return;
   diagnose("emoticons.effect-ended", { effectId: event.id });
   for (const element of media) element.pause(); media = []; effect.replaceChildren(); effect.hidden = true; playing = false;

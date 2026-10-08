@@ -150,7 +150,7 @@ export class EmoticonService {
     const queued = this.queue.shift(); if (!queued) return;
     const { command, author } = queued;
     this.active = command;
-    const durationSeconds = Math.max(command.durationSeconds, this.asset(command.audioAssetId ?? "")?.durationSeconds ?? 0, this.asset(command.videoAssetId ?? "")?.durationSeconds ?? 0);
+    const durationSeconds = command.durationSeconds;
     const effectId = crypto.randomUUID();
     this.log("emoticons.effect-broadcast", { effectId, command: command.command, durationSeconds, subscribers: this.listeners.size, imageAssetId: command.imageAssetId, audioAssetId: command.audioAssetId, videoAssetId: command.videoAssetId });
     this.emit({ type: "effect", id: effectId, command, durationSeconds, author });
