@@ -34,6 +34,8 @@ const unsubscribeEmoticons = chatService.messages.subscribe(message => emoticons
 const emoticonBundle = await Bun.build({ entrypoints: [join(projectRoot, "modules/emoticons/src/client.ts")], target: "browser", minify: true });
 if (!emoticonBundle.success) throw new AggregateError(emoticonBundle.logs, "Could not build Emoticons");
 const emoticonJavascript = await emoticonBundle.outputs[0]!.text();
+// Keep HTML and its startup-built client in sync throughout this host run.
+const emoticonHtml = await Bun.file(join(projectRoot, "modules/emoticons/index.html")).text();
 const paintService = new PaintService();
 paintService.configure(configStore.read().overlayPaint ?? defaultPaintConfiguration);
 // Bundle the canvas client in memory: no extra development server or port.
@@ -186,8 +188,8 @@ const server = serveHost({
   routes: {
     "/overlays/emoticons": request => Response.redirect(new URL("/overlays/emoticons/", request.url), 302),
     "/overlays/emoticons/board": request => Response.redirect(new URL("/overlays/emoticons/board/", request.url), 302),
-    "/overlays/emoticons/": () => new Response(Bun.file(join(projectRoot, "modules/emoticons/index.html"))),
-    "/overlays/emoticons/board/": () => new Response(Bun.file(join(projectRoot, "modules/emoticons/index.html"))),
+    "/overlays/emoticons/": () => new Response(emoticonHtml),
+    "/overlays/emoticons/board/": () => new Response(emoticonHtml),
     "/overlays/emoticons/client.js": () => new Response(emoticonJavascript, { headers: { "Content-Type": "application/javascript" } }),
     "/api/emoticons/events": (request, server) => { server.timeout(request, 0); return emoticons.events(request); },
     "/api/emoticons/socket": (request, server) => {
