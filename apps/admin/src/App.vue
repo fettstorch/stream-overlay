@@ -54,6 +54,10 @@ function togglePin(id: string) {
 function isExpanded(module: ModuleStatus) {
   return expandedModules.value[module.id] ?? false;
 }
+function expandCard(module: ModuleStatus, event: MouseEvent) {
+  if (isExpanded(module) || (event.target as Element).closest("button, a, input, select, textarea, label")) return;
+  expandedModules.value[module.id] = true;
+}
 function toggleDetails(module: ModuleStatus) {
   expandedModules.value[module.id] = !isExpanded(module);
 }
@@ -472,7 +476,7 @@ onBeforeUnmount(() => {
       </label>
       <p v-if="modules.length && !matchingModuleCount" class="no-modules" role="status">No modules match your search.</p>
       <div class="module-grid">
-        <article v-for="module in orderedModules" v-show="matchesSearch(module)" :key="module.id" class="module-card" :class="{ pinned: isPinned(module.id), collapsed: !isExpanded(module) }">
+        <article v-for="module in orderedModules" v-show="matchesSearch(module)" :key="module.id" class="module-card" :class="{ pinned: isPinned(module.id), collapsed: !isExpanded(module) }" @click="expandCard(module, $event)">
           <div class="module-heading">
             <div>
               <h3>{{ module.name }}</h3>
@@ -681,6 +685,7 @@ h2 { margin-bottom: 18px; font-size: 1rem; text-transform: uppercase; letter-spa
 .module-icon-button:hover, .module-icon-button:focus-visible { color: white; background: #1a2540; outline: 2px solid #7794e8; }
 .pin-button[aria-pressed="true"] { color: #a9bdf9; }
 .pin-button[aria-pressed="true"] svg { fill: #526baf; }
+.module-card.collapsed { cursor: pointer; }
 .module-icon-button svg.expanded { transform: rotate(180deg); }
 .module-card { display: inline-block; width: 100%; margin: 0 0 16px; break-inside: avoid; vertical-align: top; }
 .module-card, .settings { padding: 24px; border: 1px solid #28334b; border-radius: 18px; background: rgba(18, 24, 38, 0.88); box-shadow: 0 16px 48px rgba(0,0,0,.24); }
