@@ -26,7 +26,7 @@ export class EmoticonService {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
   }
-  snapshot(): EmoticonState { return { enabled: this.enabled, commands: this.commands, assets: this.assets }; }
+  snapshot(): EmoticonState { return { enabled: this.enabled, commands: this.commands, assets: this.assets, cooldowns: Object.fromEntries(this.commands.filter(command => command.mode !== "sticker" && (this.cooldowns.get(command.id) ?? 0) > Date.now()).map(command => [command.id, { endsAt: this.cooldowns.get(command.id)!, durationSeconds: command.cooldownSeconds }])) }; }
   private emit(event: EmoticonEvent) { for (const listener of this.listeners) listener(event); }
   private persist() {
     const path = join(this.directory, "commands.json");
@@ -121,7 +121,9 @@ export class EmoticonService {
       this.emit({ type: "effect", id: effectId, command: structuredClone(command), durationSeconds: command.durationSeconds, author });
       return true;
     }
-    this.cooldowns.set(id, Date.now() + command.cooldownSeconds * 1000);
+    const endsAt = Date.now() + command.cooldownSeconds * 1000;
+    this.cooldowns.set(id, endsAt);
+    this.emit({ type: "cooldown", commandId: id, endsAt, durationSeconds: command.cooldownSeconds });
     this.queue.push(structuredClone({ command, author }));
     this.log("emoticons.command-queued", { command: command.command, commandId: id, source, messageId, queueLength: this.queue.length });
     this.next(); return true;

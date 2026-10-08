@@ -23,8 +23,10 @@ export interface EmoticonState {
   enabled: boolean;
   commands: EmoticonCommand[];
   assets: EmoticonAsset[];
+  cooldowns?: Record<string, { endsAt: number; durationSeconds: number }>;
 }
 export interface EmoticonAuthor { did?: string; avatar?: string; displayName?: string; handle?: string }
 export type EmoticonEvent = { type: "state"; state: EmoticonState }
   | { type: "effect"; id: string; command: EmoticonCommand; durationSeconds: number; author?: EmoticonAuthor }
+  | { type: "cooldown"; commandId: string; endsAt: number; durationSeconds: number }
   | { type: "clear" };

@@ -170,25 +170,49 @@ async function next() {
   for (const element of media) element.pause(); media = []; effect.replaceChildren(); effect.hidden = true; playing = false;
   cancelPlayback = () => {}; void next();
 }
+const cooldownRings = new Map<string, { element: SVGSVGElement; progress: SVGCircleElement; endsAt: number; durationSeconds: number }>();
+function updateCooldownRings() {
+  for (const ring of cooldownRings.values()) {
+    const remaining = Math.max(0, ring.endsAt - Date.now());
+    const fraction = ring.durationSeconds > 0 ? Math.min(1, remaining / (ring.durationSeconds * 1000)) : 0;
+    ring.progress.setAttribute("stroke-dasharray", `${fraction * 100} 100`);
+    ring.element.classList.toggle("cooling-down", remaining > 0);
+    ring.element.setAttribute("aria-label", remaining > 0 ? `${Math.ceil(remaining / 1000)} seconds cooldown remaining` : "No cooldown remaining");
+  }
+}
+const cooldownTicker = boardMode ? setInterval(updateCooldownRings, 100) : undefined;
 const events = observeEmoticonEvents(boardMode ? "board" : "effects", event => {
   if (event.type === "state") {
     stickerAssets.retain(new Set(event.state.assets.map(asset => `/api/emoticons/assets/${asset.id}`)));
     if (!event.state.enabled) clear();
     board.hidden = !boardMode || !event.state.enabled;
-    board.replaceChildren();
+    board.replaceChildren(); cooldownRings.clear();
     for (const [title, sticker] of [["Clips", false], ["Emoticons (stickers)", true]] as const) {
       const section = document.createElement("section");
       const heading = document.createElement("h2"); heading.textContent = title;
       const list = document.createElement("ul"); section.append(heading, list);
       for (const command of event.state.commands.filter(command => (command.mode === "sticker") === sticker)) {
         const item = document.createElement("li"); const name = document.createElement("strong"); name.textContent = `!${command.command}`; item.append(name);
+        if (!sticker && command.cooldownSeconds > 0) {
+          const ns = "http://www.w3.org/2000/svg";
+          const ring = document.createElementNS(ns, "svg"); ring.classList.add("cooldown-ring"); ring.setAttribute("viewBox", "0 0 24 24"); ring.setAttribute("role", "img");
+          const track = document.createElementNS(ns, "circle"); const progress = document.createElementNS(ns, "circle");
+          for (const circle of [track, progress]) { circle.setAttribute("cx", "12"); circle.setAttribute("cy", "12"); circle.setAttribute("r", "9"); circle.setAttribute("pathLength", "100"); }
+          progress.classList.add("cooldown-progress"); ring.append(track, progress); item.append(ring);
+          const cooldown = event.state.cooldowns?.[command.id];
+          cooldownRings.set(command.id, { element: ring, progress, endsAt: cooldown?.endsAt ?? 0, durationSeconds: cooldown?.durationSeconds ?? command.cooldownSeconds });
+        }
         list.append(item);
       }
       if (!list.children.length) { const item = document.createElement("li"); item.textContent = "No commands yet"; list.append(item); }
       board.append(section);
     }
-  } else if (event.type === "clear") clear();
+    updateCooldownRings();
+  } else if (event.type === "cooldown") {
+    const ring = cooldownRings.get(event.commandId);
+    if (ring) { ring.endsAt = event.endsAt; ring.durationSeconds = event.durationSeconds; updateCooldownRings(); }
+  } else if (event.type === "clear") { clear(); for (const ring of cooldownRings.values()) ring.endsAt = 0; updateCooldownRings(); }
   else if (!boardMode) { diagnose("emoticons.effect-received", { effectId: event.id, command: event.command.command }); if (event.command.mode === "sticker") spawnSticker(event); else { pending.push(event); void next(); } }
 }, () => diagnose("emoticons.events-connected", { transport: "websocket" }),
 () => { diagnose("emoticons.events-disconnected"); clear(); board.hidden = true; }, clientId);
-window.addEventListener("pagehide", () => { clear(); events.close(); stickerPool.length = 0; stickerAssets.clear(); stickerAvatars.clear(); });
+window.addEventListener("pagehide", () => { clear(); clearInterval(cooldownTicker); events.close(); stickerPool.length = 0; stickerAssets.clear(); stickerAvatars.clear(); });
