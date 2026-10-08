@@ -176,6 +176,7 @@ function updateCooldownRings() {
     const remaining = Math.max(0, ring.endsAt - Date.now());
     const fraction = ring.durationSeconds > 0 ? Math.min(1, remaining / (ring.durationSeconds * 1000)) : 0;
     ring.progress.setAttribute("stroke-dasharray", `${fraction * 100} 100`);
+    ring.progress.setAttribute("stroke-dashoffset", String(-(1 - fraction) * 100));
     ring.element.classList.toggle("cooling-down", remaining > 0);
     ring.element.setAttribute("aria-label", remaining > 0 ? `${Math.ceil(remaining / 1000)} seconds cooldown remaining` : "No cooldown remaining");
   }
