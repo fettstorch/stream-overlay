@@ -236,8 +236,17 @@ const events = observeEmoticonEvents(boardMode ? "board" : "effects", event => {
     for (const [title, sticker] of [["Clips", false], ["Stickers", true]] as const) {
       const section = document.createElement("section");
       const heading = document.createElement("h2"); heading.textContent = title;
-      const list = document.createElement("ul"); section.append(heading, list);
-      for (const command of event.state.commands.filter(command => (command.mode === "sticker") === sticker)) {
+      const commands = event.state.commands.filter(command => (command.mode === "sticker") === sticker);
+      const list = document.createElement("ul"); section.append(heading);
+      const example = commands[0];
+      if (example) {
+        const usage = document.createElement("p"); usage.className = "usage";
+        usage.append("Use in chat, e.g.: ", Object.assign(document.createElement("code"), { textContent: `!${example.command}` }));
+        if (sticker) usage.append(" · Repeat, e.g.: ", Object.assign(document.createElement("code"), { textContent: `!${example.command} x3` }));
+        section.append(usage);
+      }
+      section.append(list);
+      for (const command of commands) {
         const item = document.createElement("li"); const name = document.createElement("strong"); name.textContent = `!${command.command}`; item.append(name);
         if (boardMode && !sticker) {
           const assetId = command.imageAssetId || command.videoAssetId;
