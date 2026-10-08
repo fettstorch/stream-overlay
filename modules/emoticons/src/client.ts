@@ -96,7 +96,7 @@ function spawnSticker(event: Effect) {
     avatar.alt = event.author.displayName || event.author.handle || "Chat sender";
     avatar.onerror = () => { avatar.hidden = true; diagnose("emoticons.avatar-failed", { effectId: event.id }); };
     avatar.onload = () => diagnose("emoticons.avatar-loaded", { effectId: event.id });
-    const source = event.author.avatar || `/api/emoticons/avatar/${encodeURIComponent(event.author.did!)}`;
+    const source = event.author.did ? `/api/emoticons/avatar/${encodeURIComponent(event.author.did)}` : event.author.avatar!;
     void stickerAvatars.load(source).then(url => {
       if (active) { avatar.src = url; avatar.hidden = false; }
     }).catch(error => { if (active) diagnose("emoticons.avatar-failed", { effectId: event.id, error: String(error) }); });

@@ -191,7 +191,10 @@ async function emoticonAvatar(did: string) {
   try {
     const profile = await cached.profile;
     if (!profile.avatar) return new Response(null, { status: 404 });
-    return Response.redirect(profile.avatar, 302);
+    const image = await fetch(profile.avatar, { signal: AbortSignal.timeout(5000) });
+    const contentType = image.headers.get("Content-Type") ?? "";
+    if (!image.ok || !contentType.startsWith("image/")) throw new Error(`Avatar image unavailable (${image.status})`);
+    return new Response(image.body, { headers: { "Content-Type": contentType, "Cache-Control": "public, max-age=7200" } });
   } catch (error) {
     logger.log("emoticons.avatar-profile-failed", { authorDid: did, error: String(error) });
     return new Response(null, { status: 502 });
