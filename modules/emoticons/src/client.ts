@@ -127,7 +127,8 @@ async function next() {
   playing = true; const current = generation; const command = event.command;
   appendAvatar(effect, event);
   effect.hidden = false;
-  effect.style.width = command.width || "40vw"; effect.style.height = command.height || "35vh";
+  effect.style.setProperty("--clip-width", command.width || "40vw");
+  effect.style.setProperty("--clip-height", command.height || "35vh");
   if (command.imageAssetId) { const image = new Image(); image.onload = () => diagnose("emoticons.image-loaded", { effectId: event.id, width: image.naturalWidth, height: image.naturalHeight }); image.onerror = () => diagnose("emoticons.image-failed", { effectId: event.id, assetId: command.imageAssetId }); image.src = `/api/emoticons/assets/${command.imageAssetId}`; image.alt = command.command; effect.append(image); effect.hidden = false; }
   // Each renderer also waits for actual media completion: loading delays must not
   // truncate the sound or let the following effect overlap it.
