@@ -11,6 +11,7 @@ export class EmoticonService {
   private queue: { command: EmoticonCommand; author?: EmoticonAuthor }[] = [];
   private active: EmoticonCommand | null = null;
   private timer: ReturnType<typeof setTimeout> | undefined;
+  private stickerTimers = new Map<ReturnType<typeof setTimeout>, string>();
   private cooldowns = new Map<string, number>();
   private seen = new Set<string>();
   private listeners = new Set<(event: EmoticonEvent) => void>();
@@ -60,6 +61,7 @@ export class EmoticonService {
     return entry;
   }
   remove(id: string) {
+    for (const [timer, commandId] of this.stickerTimers) if (commandId === id) { clearTimeout(timer); this.stickerTimers.delete(timer); }
     const previous = this.commands;
     this.commands = this.commands.filter(item => item.id !== id);
     try { this.persist(); } catch (error) { this.commands = previous; throw error; }
@@ -88,6 +90,7 @@ export class EmoticonService {
   }
   asset(id: string) { return assetId.test(id) ? this.assets.find(item => item.id === id) : undefined; }
   setEnabled(enabled: boolean) {
+    for (const timer of this.stickerTimers.keys()) clearTimeout(timer); this.stickerTimers.clear();
     this.enabled = enabled; clearTimeout(this.timer); this.active = null; this.queue = []; this.cooldowns.clear();
     this.log("emoticons.module-state", { enabled, commands: this.commands.map(command => command.command) });
     this.emit({ type: "clear" }); this.emit({ type: "state", state: this.snapshot() });
@@ -104,7 +107,14 @@ export class EmoticonService {
     this.log("emoticons.command-received", { messageId: id, command: normalized });
     if (command) {
       if (multiplied) this.log("emoticons.sticker-multiplier", { messageId: id, command: command.command, requested: multiplied[2], count });
-      for (let index = 0; index < count; index++) this.trigger(command.id, "chat", id, author);
+      if (!this.trigger(command.id, "chat", id, author)) return;
+      for (let index = 1; index < count; index++) {
+        const timer = setTimeout(() => {
+          this.stickerTimers.delete(timer);
+          if (this.commands.find(item => item.id === command.id)?.mode === "sticker") this.trigger(command.id, "chat", id, author);
+        }, index * 3000 / (count - 1));
+        this.stickerTimers.set(timer, command.id);
+      }
     }
     else this.log("emoticons.command-rejected", { messageId: id, reason: "unknown-command" });
   }

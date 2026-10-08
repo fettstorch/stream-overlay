@@ -89,7 +89,6 @@ function spawnSticker(event: Effect) {
   container.style.width = command.width || "5vw"; container.style.height = command.height || "5vw";
   visual.style.scale = String(0.4 + Math.random() * 0.6);
   container.style.left = `${5 + Math.random() * 90}%`;
-  container.style.bottom = `${Math.random() * 3}vh`;
   container.style.setProperty("--drift", `${(Math.random() - .5) * 160}px`);
   container.style.animationDuration = `${event.durationSeconds}s`;
   avatar.hidden = true;
