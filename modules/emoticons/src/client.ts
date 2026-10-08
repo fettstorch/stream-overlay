@@ -192,11 +192,12 @@ function updateCooldownRings() {
   }
 }
 const cooldownTicker = boardMode ? setInterval(updateCooldownRings, 100) : undefined;
-const boardScrollState = createBoardScrollState();
+const boardScrollState = createBoardScrollState(performance.now());
 let boardScrollFrame: number | undefined;
 let boardScrollLastFrame = 0;
 function pauseBoardAutoScroll() {
   boardScrollState.pauseUntil = performance.now() + 5_000;
+  boardScrollState.remainder = 0;
   boardScrollLastFrame = 0;
 }
 function updateBoardAutoScroll(timestamp: number) {
