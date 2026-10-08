@@ -522,6 +522,10 @@ onBeforeUnmount(() => {
           <div v-show="isExpanded(module)" :id="`module-body-${module.id}`" class="module-body">
           <div class="overlay-url">
             <code>{{ overlayUrl(module) }}</code>
+            <a class="open-url-button" :href="overlayUrl(module)" target="_blank" rel="noopener noreferrer"
+              :aria-label="`Open ${module.name} OBS URL in a new tab`" title="Open in a new tab">
+              <span class="external-link-icon" aria-hidden="true" />
+            </a>
             <button
               type="button"
               class="copy-button"
@@ -537,6 +541,10 @@ onBeforeUnmount(() => {
             <section class="module-commands"><h4>Instruction board OBS URL</h4></section>
             <div class="overlay-url board-url">
               <code>{{ boardUrl() }}</code>
+              <a class="open-url-button" :href="boardUrl()" target="_blank" rel="noopener noreferrer"
+                aria-label="Open Emoticons instruction board OBS URL in a new tab" title="Open in a new tab">
+                <span class="external-link-icon" aria-hidden="true" />
+              </a>
               <button type="button" class="copy-button" :class="{ copied: copiedModuleId === 'emoticons-board' }"
                 :aria-label="copiedModuleId === 'emoticons-board' ? 'Emoticons instruction board OBS URL copied' : 'Copy Emoticons instruction board OBS URL'"
                 @click="copyOverlayUrl(module, true)"><span class="copy-icon" aria-hidden="true" /></button>
@@ -698,10 +706,13 @@ h3 { margin: 0 0 8px; font-size: 1.25rem; }
 .overlay-url { position: relative; margin-top: 22px; }
 .overlay-url.board-url { margin-top: 10px; }
 code { display: block; min-width: 0; padding: 12px 52px 12px 12px; overflow: auto; border-radius: 9px; color: #a9bdf9; background: #090d16; }
-.copy-button { position: absolute; top: 50%; right: 7px; display: grid; place-items: center; width: 34px; height: 34px; padding: 8px; border: 0; border-radius: 7px; color: #8fa1c7; background: transparent; transform: translateY(-50%); cursor: pointer; }
-.copy-button:hover, .copy-button:focus-visible { color: white; outline: none; background: #1a2540; }
+.overlay-url code { padding-right: 90px; }
+.copy-button, .open-url-button { position: absolute; top: 50%; right: 7px; display: grid; place-items: center; width: 34px; height: 34px; padding: 8px; border: 0; border-radius: 7px; color: #8fa1c7; background: transparent; transform: translateY(-50%); cursor: pointer; }
+.open-url-button { right: 45px; }
+.copy-button:hover, .copy-button:focus-visible, .open-url-button:hover, .open-url-button:focus-visible { color: white; outline: none; background: #1a2540; }
 .copy-button.copied { color: #70e7a1; }
 .copy-icon { width: 100%; height: 100%; background: currentColor; -webkit-mask: url("./assets/copy-document.svg") center / contain no-repeat; mask: url("./assets/copy-document.svg") center / contain no-repeat; }
+.external-link-icon { width: 100%; height: 100%; background: currentColor; -webkit-mask: url("./assets/external-link.svg") center / contain no-repeat; mask: url("./assets/external-link.svg") center / contain no-repeat; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .module-commands { display: grid; gap: 10px; margin-top: 16px; }
 .module-commands h4 { margin: 0; color: #aebbd7; font-size: .78rem; text-transform: uppercase; letter-spacing: .1em; }
