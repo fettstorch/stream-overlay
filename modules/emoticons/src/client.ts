@@ -54,11 +54,13 @@ function spawnSticker(event: Effect) {
   const command = event.command;
   const container = document.createElement("div"); container.className = "sticker";
   container.style.width = command.width || "80px"; container.style.height = command.height || "80px";
-  container.style.scale = String(0.4 + Math.random() * 0.6);
+  const visual = document.createElement("div"); visual.className = "sticker-media";
+  visual.style.scale = String(0.4 + Math.random() * 0.6);
   container.style.left = `${5 + Math.random() * 90}%`;
   container.style.setProperty("--drift", `${(Math.random() - .5) * 160}px`);
   container.style.animationDuration = `${event.durationSeconds}s`;
   appendAvatar(container, event);
+  container.append(visual);
   let video: HTMLVideoElement | undefined;
   let expiry: ReturnType<typeof setTimeout>;
   const remove = () => { clearTimeout(expiry); video?.pause(); container.remove(); stickers.delete(container); };
@@ -67,10 +69,10 @@ function spawnSticker(event: Effect) {
   if (command.imageAssetId) {
     const image = new Image(); image.alt = command.command;
     image.onerror = () => { diagnose("emoticons.sticker-media-failed", { effectId: event.id }); remove(); };
-    image.src = `/api/emoticons/assets/${command.imageAssetId}`; container.append(image);
+    image.src = `/api/emoticons/assets/${command.imageAssetId}`; visual.append(image);
   } else if (command.videoAssetId) {
     video = document.createElement("video"); video.muted = true; video.playsInline = true; video.loop = true;
-    video.src = `/api/emoticons/assets/${command.videoAssetId}`; container.append(video);
+    video.src = `/api/emoticons/assets/${command.videoAssetId}`; visual.append(video);
     void video.play().catch(error => { diagnose("emoticons.sticker-media-failed", { effectId: event.id, error: String(error) }); remove(); });
   }
   document.body.append(container);

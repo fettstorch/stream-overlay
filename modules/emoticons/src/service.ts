@@ -111,6 +111,10 @@ export class EmoticonService {
       this.log("emoticons.command-rejected", { commandId: id, command: command?.command, source, messageId, reason, cooldownRemainingMs: Math.max(0, (this.cooldowns.get(id) ?? 0) - Date.now()) });
       return false;
     }
+    if (source === "test" && !author) author = {
+      displayName: "Test sender",
+      avatar: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="32" fill="#36425d"/><circle cx="32" cy="23" r="12" fill="#bdc8df"/><path d="M10 60v-6a22 22 0 0 1 44 0v6" fill="#bdc8df"/></svg>')}`,
+    };
     if (command.mode === "sticker") {
       const effectId = crypto.randomUUID();
       this.log("emoticons.sticker-broadcast", { effectId, command: command.command, source, messageId, durationSeconds: command.durationSeconds, subscribers: this.listeners.size });
