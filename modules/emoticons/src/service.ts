@@ -103,7 +103,7 @@ export class EmoticonService {
     const multiplied = /^(![a-z0-9_-]+)\s+x(\d+)$/.exec(normalized);
     const command = this.commands.find(item => `!${item.command}` === normalized
       || (item.mode === "sticker" && `!${item.command}` === multiplied?.[1]));
-    const count = command?.mode === "sticker" && multiplied ? Math.min(10, Math.max(1, Number(multiplied[2]))) : 1;
+    const count = command?.mode === "sticker" && multiplied ? Math.min(30, Math.max(1, Number(multiplied[2]))) : 1;
     this.log("emoticons.command-received", { messageId: id, command: normalized });
     if (command) {
       if (multiplied) this.log("emoticons.sticker-multiplier", { messageId: id, command: command.command, requested: multiplied[2], count });
