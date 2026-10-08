@@ -2,6 +2,7 @@ import type { EmoticonEvent } from "./contracts.ts";
 import { captureStickerPreview } from "./sticker-preview.ts";
 import { createStickerAssetCache } from "./asset-cache.ts";
 import { advanceBoardScroll, createBoardScrollState } from "./board-scroll.ts";
+import { effectTop, mediaObjectFit } from "./media-layout.ts";
 import { observeEmoticonEvents } from "./events-client.ts";
 const boardMode = location.pathname.includes("/board");
 const muted = new URLSearchParams(location.search).get("muted") === "1";
@@ -74,8 +75,10 @@ function appendAvatar(container: HTMLElement, event: Effect) {
 function sizeMedia(element: HTMLImageElement | HTMLVideoElement, command: Effect["command"], sticker = false) {
   element.style.transform = command.mirrored ? "scaleX(-1)" : "none";
   const custom = Boolean(command.width || command.height);
+  if (!sticker) effect.style.top = effectTop(command.height);
   element.style.width = custom ? command.width || "auto" : sticker ? "5vw" : "auto";
   element.style.height = custom ? command.height || "auto" : sticker ? "5vw" : "auto";
+  element.style.objectFit = mediaObjectFit(command.width, command.height);
   element.style.maxWidth = custom || sticker ? "none" : "40vw";
   element.style.maxHeight = custom || sticker ? "none" : "35vh";
 }
