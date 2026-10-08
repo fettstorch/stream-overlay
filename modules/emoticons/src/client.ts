@@ -45,7 +45,7 @@ function spawnSticker(event: Effect) {
   const command = event.command;
   const container = document.createElement("div"); container.className = "sticker";
   container.style.width = command.width || "80px"; container.style.height = command.height || "80px";
-  container.style.scale = String(0.7 + Math.random() * 0.3);
+  container.style.scale = String(0.4 + Math.random() * 0.6);
   container.style.left = `${5 + Math.random() * 90}%`;
   container.style.setProperty("--drift", `${(Math.random() - .5) * 160}px`);
   container.style.animationDuration = `${event.durationSeconds}s`;
