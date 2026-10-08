@@ -11,6 +11,18 @@ afterEach(() => {
   for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true });
 });
 
+test("accepts WebM video uploads, including extension-based MIME fallback", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "emoticon-webm-"));
+  directories.push(directory);
+  const service = new EmoticonService(directory);
+
+  const typed = await service.upload(new File(["webm"], "transparent.webm", { type: "video/webm" }), "video", 8.5);
+  const fallback = await service.upload(new File(["webm"], "transparent.webm"), "video", 8.5);
+
+  expect(typed).toMatchObject({ filename: `${typed.id}.webm`, contentType: "video/webm", kind: "video", durationSeconds: 8.5 });
+  expect(fallback).toMatchObject({ filename: `${fallback.id}.webm`, contentType: "video/webm", kind: "video", durationSeconds: 8.5 });
+});
+
 test("configured clip duration truncates longer media and advances the queue", async () => {
   const directory = mkdtempSync(join(tmpdir(), "emoticon-duration-"));
   directories.push(directory);

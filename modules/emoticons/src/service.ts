@@ -72,9 +72,11 @@ export class EmoticonService {
     // Local-only files: generated names prevent paths or executable markup being served.
     const extensions: Record<string, string> = kind === "image"
       ? { "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp" }
-      : kind === "video" ? { "video/mp4": "mp4", "video/quicktime": "mov" }
+      : kind === "video" ? { "video/mp4": "mp4", "video/quicktime": "mov", "video/webm": "webm" }
       : { "audio/mpeg": "mp3", "audio/mp3": "mp3", "audio/wav": "wav", "audio/x-wav": "wav", "audio/ogg": "ogg", "application/ogg": "ogg", "audio/mp4": "m4a", "audio/x-m4a": "m4a", "audio/flac": "flac" };
-    const contentType = file.type || (kind === "video" && /\.mp4$/i.test(file.name) ? "video/mp4" : kind === "video" && /\.mov$/i.test(file.name) ? "video/quicktime" : "");
+    const contentType = file.type || (kind === "video" && /\.mp4$/i.test(file.name) ? "video/mp4"
+      : kind === "video" && /\.mov$/i.test(file.name) ? "video/quicktime"
+      : kind === "video" && /\.webm$/i.test(file.name) ? "video/webm" : "");
     const extension = extensions[contentType];
     if (!extension || !file.size) throw new Error("Choose a supported, nonempty media file");
     if (kind !== "image" && (!Number.isFinite(durationSeconds) || durationSeconds <= 0)) throw new Error("Could not read media duration");

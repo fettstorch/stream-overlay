@@ -102,9 +102,9 @@ async function upload(file: File | undefined) {
     console.info(`[${event}]`, data);
     void fetch("/api/diagnostics", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ event, details: data }), signal: AbortSignal.timeout(5000) }).catch(() => {});
   }
-  const kind: MediaKind | null = /\.(mp4|mov)$/i.test(file.name) || file.type.startsWith("video/") ? "video"
+  const kind: MediaKind | null = /\.(mp4|mov|webm)$/i.test(file.name) || file.type.startsWith("video/") ? "video"
     : file.type.startsWith("image/") ? "image" : file.type.startsWith("audio/") || file.type === "application/ogg" ? "audio" : null;
-  if (!kind) { message.value = "Choose an image, GIF, audio, MP4, or MOV file"; diagnose("emoticons.upload-browser-rejected", { reason: "unsupported-type" }); return; }
+  if (!kind) { message.value = "Choose an image, GIF, audio, MP4, MOV, or WebM file"; diagnose("emoticons.upload-browser-rejected", { reason: "unsupported-type" }); return; }
   if (form.value.mode === "sticker" && kind === "audio") { message.value = "Stickers do not support audio attachments"; return; }
   busy.value = true; message.value = kind === "image" ? "Preparing upload…" : "Reading media duration…";
   diagnose("emoticons.upload-browser-started", { kind });
@@ -116,7 +116,7 @@ async function upload(file: File | undefined) {
       const timeout = setTimeout(() => finish(new Error("Could not read media duration")), 15000);
       function finish(error?: Error) { clearTimeout(timeout); media.onloadedmetadata = null; media.onerror = null; media.removeAttribute("src"); media.load(); if (error) reject(error); }
       media.onloadedmetadata = () => { const value = media.duration; finish(); Number.isFinite(value) && value > 0 ? resolve(value) : reject(new Error("Media duration is unavailable")); };
-      media.onerror = () => finish(new Error("This browser cannot play that file. For video, try H.264/AAC in MP4 or MOV.")); media.preload = "metadata"; media.src = url;
+      media.onerror = () => finish(new Error("This browser cannot play that file. For video, try H.264/AAC in MP4 or VP9/Opus in WebM.")); media.preload = "metadata"; media.src = url;
     });
     diagnose("emoticons.upload-metadata-read", { kind, durationSeconds: duration });
     stage = "request"; message.value = "Uploading…";
@@ -163,10 +163,10 @@ function selected(event: Event) { const input = event.target as HTMLInputElement
       <label>Command <input v-model="form.command" placeholder="!wow" required maxlength="33"></label>
       <div class="drop-zone" @dragover.prevent @drop.prevent="uploadFiles($event.dataTransfer?.files)">
         <label>Media — drop files or choose
-          <input type="file" :accept="form.mode === 'sticker' ? 'image/png,image/jpeg,image/gif,image/webp,video/mp4,video/quicktime,.mp4,.mov' : 'image/png,image/jpeg,image/gif,image/webp,audio/*,video/mp4,video/quicktime,.mp4,.mov'" multiple :disabled="busy" @change="selected">
+          <input type="file" :accept="form.mode === 'sticker' ? 'image/png,image/jpeg,image/gif,image/webp,video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm' : 'image/png,image/jpeg,image/gif,image/webp,audio/*,video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm'" multiple :disabled="busy" @change="selected">
         </label>
-        <small v-if="form.mode === 'sticker'">Images, GIFs, or muted MP4/MOV videos. A new visual replaces the current one.</small>
-        <small v-else>Images, GIFs, audio, MP4, or MOV. Videos play their own audio. A new image or video replaces the current visual.</small>
+        <small v-if="form.mode === 'sticker'">Images, GIFs, or muted MP4/MOV/WebM videos. A new visual replaces the current one.</small>
+        <small v-else>Images, GIFs, audio, MP4, MOV, or WebM. Videos play their own audio. A new image or video replaces the current visual.</small>
         <template v-for="kind in (['image', 'audio', 'video'] as const)" :key="kind">
         <div v-if="form[assetKey(kind)]" class="attachment">
           <span>{{ attachment(kind)?.originalName || attachment(kind)?.filename || 'Attached file' }}</span>

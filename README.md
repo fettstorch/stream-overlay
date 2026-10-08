@@ -225,14 +225,15 @@ The first invocation enters the shared queue immediately. Its per-command
 cooldown starts at acceptance (20 seconds by default, configurable, including 0).
 Repeats during cooldown or while that command is queued/playing are ignored.
 Different commands queue in arrival order and never display together. Duration
-is five seconds by default and configurable; audio or video extends it when longer.
-There is no trailing debounce or global cooldown.
+is five seconds by default and configurable; playback stops at that duration even
+when the audio or video is longer. There is no trailing debounce or global cooldown.
 
-Use the single media drop zone for images, GIFs, audio, MP4, and MOV files;
+Use the single media drop zone for images, GIFs, audio, MP4, MOV, and WebM files;
 multiple files can be selected or dropped together. A new image or video replaces
 the command's visual, while a separate audio attachment can accompany either.
-Videos play their embedded audio at the configured volume. MP4/MOV codecs must be
-supported by the browser (H.264 video with AAC audio is a compatible choice).
+Videos play their embedded audio at the configured volume. Video codecs must be
+supported by the browser: use H.264/AAC in MP4 or VP9/Opus in WebM. VP9 WebM
+also supports transparent video.
 
 Add **two separate OBS Browser Sources**:
 
