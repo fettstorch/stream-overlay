@@ -1,4 +1,5 @@
 import type { EmoticonEvent } from "./contracts.ts";
+import { observeEmoticonEvents } from "./events-client.ts";
 const boardMode = location.pathname.includes("/board");
 const muted = new URLSearchParams(location.search).get("muted") === "1";
 const effect = document.querySelector<HTMLDivElement>("#effect")!;
@@ -88,9 +89,7 @@ async function next() {
   for (const element of media) element.pause(); media = []; effect.replaceChildren(); effect.hidden = true; playing = false;
   cancelPlayback = () => {}; void next();
 }
-const events = new EventSource(`/api/emoticons/events?overlay=${boardMode ? "board" : "effects"}&clientId=${clientId}`);
-events.onmessage = message => {
-  const event = JSON.parse(message.data) as EmoticonEvent;
+const events = observeEmoticonEvents(boardMode ? "board" : "effects", event => {
   if (event.type === "state") {
     if (!event.state.enabled) clear();
     board.hidden = !boardMode || !event.state.enabled;
@@ -102,7 +101,6 @@ events.onmessage = message => {
     if (!event.state.commands.length) { const item = document.createElement("li"); item.textContent = "No commands yet"; list.append(item); }
   } else if (event.type === "clear") clear();
   else if (!boardMode) { diagnose("emoticons.effect-received", { effectId: event.id, command: event.command.command }); pending.push(event); void next(); }
-};
-events.onopen = () => diagnose("emoticons.events-connected");
-events.onerror = () => { diagnose("emoticons.events-disconnected"); clear(); board.hidden = true; };
+}, () => diagnose("emoticons.events-connected", { transport: "websocket" }),
+() => { diagnose("emoticons.events-disconnected"); clear(); board.hidden = true; }, clientId);
 window.addEventListener("pagehide", () => { clear(); events.close(); });

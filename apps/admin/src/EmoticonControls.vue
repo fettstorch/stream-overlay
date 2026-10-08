@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import type { EmoticonAsset, EmoticonCommand, EmoticonState } from "../../../modules/emoticons/src/contracts";
+import { observeEmoticonEvents } from "../../../modules/emoticons/src/events-client";
 const commands = ref<EmoticonCommand[]>([]);
 const assets = ref<EmoticonAsset[]>([]);
 const editing = ref<string | null>(null);
@@ -17,15 +18,13 @@ function attachment(kind: MediaKind) {
   const id = form.value[assetKey(kind)];
   return assets.value.find(asset => asset.id === id);
 }
-let events: EventSource | undefined;
+let events: ReturnType<typeof observeEmoticonEvents> | undefined;
 async function result(response: Response) {
   const value = await response.json(); if (!response.ok) throw new Error(value.error || "Request failed"); return value;
 }
 function update(state: EmoticonState) { commands.value = state.commands; assets.value = state.assets; }
-onMounted(async () => {
-  try { update(await result(await fetch("/api/emoticons/commands"))); } catch (error) { message.value = String(error); }
-  events = new EventSource("/api/emoticons/events");
-  events.onmessage = event => { const value = JSON.parse(event.data); if (value.type === "state") update(value.state); };
+onMounted(() => {
+  events = observeEmoticonEvents("admin", event => { if (event.type === "state") update(event.state); });
 });
 onBeforeUnmount(() => events?.close());
 function edit(command: EmoticonCommand) { editing.value = command.id; form.value = { ...command }; message.value = ""; }

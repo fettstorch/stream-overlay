@@ -139,5 +139,14 @@ export class EmoticonService {
     }, cancel: () => cleanup() });
     return new Response(stream, { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-store" } });
   }
+  subscribe(listener: (event: EmoticonEvent) => void, clientId: string, overlay: string) {
+    this.listeners.add(listener);
+    this.log("emoticons.client-connected", { clientId, overlay, transport: "websocket", subscribers: this.listeners.size });
+    listener({ type: "state", state: this.snapshot() });
+    return () => {
+      if (!this.listeners.delete(listener)) return;
+      this.log("emoticons.client-disconnected", { clientId, overlay, transport: "websocket", subscribers: this.listeners.size });
+    };
+  }
   stop() { this.setEnabled(false); this.listeners.clear(); }
 }

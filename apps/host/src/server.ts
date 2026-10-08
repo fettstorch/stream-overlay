@@ -175,7 +175,11 @@ function proxyAdmin(request: Request) {
   return fetch(source, request);
 }
 
-const server = Bun.serve({
+interface EmoticonSocketData { clientId: string; overlay: string; unsubscribe?: () => void }
+function serveHost<R extends string>(options: Bun.Serve.Options<EmoticonSocketData, R>) {
+  return Bun.serve<EmoticonSocketData, R>(options);
+}
+const server = serveHost({
   hostname: "127.0.0.1",
   port,
   development: true,
@@ -186,6 +190,16 @@ const server = Bun.serve({
     "/overlays/emoticons/board/": () => new Response(Bun.file(join(projectRoot, "modules/emoticons/index.html"))),
     "/overlays/emoticons/client.js": () => new Response(emoticonJavascript, { headers: { "Content-Type": "application/javascript" } }),
     "/api/emoticons/events": (request, server) => { server.timeout(request, 0); return emoticons.events(request); },
+    "/api/emoticons/socket": (request, server) => {
+      const url = new URL(request.url);
+      const requestedId = url.searchParams.get("clientId") ?? "";
+      const overlay = url.searchParams.get("overlay");
+      if (server.upgrade(request, { data: {
+        clientId: /^[a-f0-9-]{36}$/.test(requestedId) ? requestedId : crypto.randomUUID(),
+        overlay: overlay === "effects" || overlay === "board" ? overlay : "admin",
+      } })) return;
+      return new Response("WebSocket upgrade required", { status: 426 });
+    },
     "/api/emoticons/commands": {
       GET: () => Response.json(emoticons.snapshot()),
       POST: request => emoticonWrite(request, async () => Response.json(emoticons.save(await request.json()), { status: 201 })),
@@ -501,6 +515,15 @@ const server = Bun.serve({
     "/admin/*": (request) => proxyAdmin(request),
   },
   fetch: () => new Response("Not found", { status: 404 }),
+  websocket: {
+    open(socket: Bun.ServerWebSocket<EmoticonSocketData>) {
+      socket.data.unsubscribe = emoticons.subscribe(event => {
+        try { socket.send(JSON.stringify(event)); } catch { socket.close(); }
+      }, socket.data.clientId, socket.data.overlay);
+    },
+    message() { /* This feed is read-only. */ },
+    close(socket: Bun.ServerWebSocket<EmoticonSocketData>) { socket.data.unsubscribe?.(); },
+  },
 });
 
 logger.log("host.started", { port, logPath: logger.path });
