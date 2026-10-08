@@ -1,6 +1,7 @@
 export interface EmoticonCommand {
   id: string;
   command: string;
+  mode?: "effect" | "sticker";
   imageAssetId: string | null;
   audioAssetId: string | null;
   videoAssetId: string | null;

@@ -7,7 +7,7 @@ const assets = ref<EmoticonAsset[]>([]);
 const editing = ref<string | null>(null);
 const message = ref("");
 const busy = ref(false);
-const defaults = () => ({ command: "", imageAssetId: null as string | null, audioAssetId: null as string | null, videoAssetId: null as string | null, durationSeconds: 5, cooldownSeconds: 20, volume: 1, width: "", height: "" });
+const defaults = () => ({ mode: "effect" as "effect" | "sticker", command: "", imageAssetId: null as string | null, audioAssetId: null as string | null, videoAssetId: null as string | null, durationSeconds: 5, cooldownSeconds: 20, volume: 1, width: "", height: "" });
 const form = ref(defaults());
 const imageUrl = computed(() => form.value.imageAssetId ? `/api/emoticons/assets/${form.value.imageAssetId}` : "");
 const audioUrl = computed(() => form.value.audioAssetId ? `/api/emoticons/assets/${form.value.audioAssetId}` : "");
@@ -27,7 +27,11 @@ onMounted(() => {
   events = observeEmoticonEvents("admin", event => { if (event.type === "state") update(event.state); });
 });
 onBeforeUnmount(() => events?.close());
-function edit(command: EmoticonCommand) { editing.value = command.id; form.value = { ...command }; message.value = ""; }
+function edit(command: EmoticonCommand) { editing.value = command.id; form.value = { ...command, mode: command.mode ?? "effect" }; message.value = ""; }
+function changeMode() {
+  if (form.value.mode === "sticker") { form.value.audioAssetId = null; form.value.durationSeconds = 8; }
+  else form.value.durationSeconds = 5;
+}
 function reset() { editing.value = null; form.value = defaults(); }
 async function save() {
   busy.value = true;
@@ -43,7 +47,7 @@ async function remove(command: EmoticonCommand) {
   catch (error) { message.value = String(error); }
 }
 async function test(command: EmoticonCommand) {
-  try { const response = await result(await fetch(`/api/emoticons/test/${command.id}`, { method: "POST" })); message.value = response.accepted ? "Queued — preview is muted; OBS plays audio" : "Not queued: disabled, on cooldown, queued or playing"; }
+  try { const response = await result(await fetch(`/api/emoticons/test/${command.id}`, { method: "POST" })); message.value = response.accepted ? command.mode === "sticker" ? "Sticker spawned" : "Queued — preview is muted; OBS plays audio" : "Not queued: disabled, on cooldown, queued or playing"; }
   catch (error) { message.value = String(error); }
 }
 async function upload(file: File | undefined) {
@@ -59,6 +63,7 @@ async function upload(file: File | undefined) {
   const kind: MediaKind | null = /\.(mp4|mov)$/i.test(file.name) || file.type.startsWith("video/") ? "video"
     : file.type.startsWith("image/") ? "image" : file.type.startsWith("audio/") || file.type === "application/ogg" ? "audio" : null;
   if (!kind) { message.value = "Choose an image, GIF, audio, MP4, or MOV file"; diagnose("emoticons.upload-browser-rejected", { reason: "unsupported-type" }); return; }
+  if (form.value.mode === "sticker" && kind === "audio") { message.value = "Stickers do not support audio attachments"; return; }
   busy.value = true; message.value = kind === "image" ? "Preparing upload…" : "Reading media duration…";
   diagnose("emoticons.upload-browser-started", { kind });
   const url = URL.createObjectURL(file);
@@ -102,15 +107,18 @@ function selected(event: Event) { const input = event.target as HTMLInputElement
   <section class="emoticon-controls">
     <h4>Emoticon commands</h4>
     <p>Effect source: match your OBS canvas. Board source: start at 420 × 600 px, then size independently. Both disappear when disabled.</p>
-    <ul class="command-list"><li v-for="command in commands" :key="command.id"><strong>!{{ command.command }}</strong><button type="button" @click="test(command)">Test</button><button type="button" @click="edit(command)">Edit</button><button type="button" @click="remove(command)">Delete</button></li></ul>
+    <ul class="command-list"><li v-for="command in commands" :key="command.id"><strong>!{{ command.command }}</strong><small>{{ command.mode === 'sticker' ? 'Sticker' : 'Effect' }}</small><button type="button" @click="test(command)">Test</button><button type="button" @click="edit(command)">Edit</button><button type="button" @click="remove(command)">Delete</button></li></ul>
     <form @submit.prevent="save">
       <h4>{{ editing ? 'Edit command' : 'Create command' }}</h4>
+      <label class="sticker-toggle"><input type="checkbox" :checked="form.mode === 'sticker'" @change="form.mode = ($event.target as HTMLInputElement).checked ? 'sticker' : 'effect'; changeMode()"> Sticker</label>
+      <small v-if="form.mode === 'sticker'">Silent stickers drift upward independently. Every message spawns one, with no cooldown or queue.</small>
       <label>Command <input v-model="form.command" placeholder="!wow" required maxlength="33"></label>
       <div class="drop-zone" @dragover.prevent @drop.prevent="uploadFiles($event.dataTransfer?.files)">
         <label>Media — drop files or choose
-          <input type="file" accept="image/png,image/jpeg,image/gif,image/webp,audio/*,video/mp4,video/quicktime,.mp4,.mov" multiple :disabled="busy" @change="selected">
+          <input type="file" :accept="form.mode === 'sticker' ? 'image/png,image/jpeg,image/gif,image/webp,video/mp4,video/quicktime,.mp4,.mov' : 'image/png,image/jpeg,image/gif,image/webp,audio/*,video/mp4,video/quicktime,.mp4,.mov'" multiple :disabled="busy" @change="selected">
         </label>
-        <small>Images, GIFs, audio, MP4, or MOV. Videos play their own audio. A new image or video replaces the current visual.</small>
+        <small v-if="form.mode === 'sticker'">Images, GIFs, or muted MP4/MOV videos. A new visual replaces the current one.</small>
+        <small v-else>Images, GIFs, audio, MP4, or MOV. Videos play their own audio. A new image or video replaces the current visual.</small>
         <template v-for="kind in (['image', 'audio', 'video'] as const)" :key="kind">
         <div v-if="form[assetKey(kind)]" class="attachment">
           <span>{{ attachment(kind)?.originalName || attachment(kind)?.filename || 'Attached file' }}</span>
@@ -122,18 +130,22 @@ function selected(event: Event) { const input = event.target as HTMLInputElement
       <video v-if="videoUrl" :key="videoUrl" :src="videoUrl" class="asset-preview" controls muted playsinline preload="metadata"></video>
       <audio v-if="audioUrl" :key="audioUrl" :src="audioUrl" controls muted preload="metadata"></audio>
       <label>Duration (seconds) <input v-model.number="form.durationSeconds" type="number" min="0.1" step="0.1" required></label>
-      <small>Plays for at least the audio or video duration. Default: 5 seconds.</small>
+      <small v-if="form.mode === 'sticker'">Drift lifetime. Default: 8 seconds; video loops silently.</small>
+      <small v-else>Plays for at least the audio or video duration. Default: 5 seconds.</small>
+      <template v-if="form.mode === 'effect'">
       <label>Cooldown (seconds) <input v-model.number="form.cooldownSeconds" type="number" min="0" step="1" required></label>
       <small>Starts immediately when accepted. Repeats are ignored while queued or playing.</small>
       <label>Volume <input v-model.number="form.volume" type="range" min="0" max="1" step="0.05"></label>
-      <label>CSS width <input v-model="form.width" placeholder="40vw (default)"></label>
-      <label>CSS height <input v-model="form.height" placeholder="35vh (default)"></label>
-      <small>Examples: 300px, 40vw, 25vh, 50%, auto. Images and videos keep their proportions inside this box, centered at 5vh from the top.</small>
+      </template>
+      <label>CSS width <input v-model="form.width" :placeholder="form.mode === 'sticker' ? '80px (default)' : '40vw (default)'"></label>
+      <label>CSS height <input v-model="form.height" :placeholder="form.mode === 'sticker' ? '80px (default)' : '35vh (default)'"></label>
+      <small v-if="form.mode === 'sticker'">Default: 80 × 80 px, preserving proportions, spawning across the bottom and drifting upward.</small>
+      <small v-else>Examples: 300px, 40vw, 25vh, 50%, auto. Images and videos keep their proportions inside this box, centered at 5vh from the top.</small>
       <div><button type="submit" :disabled="busy">{{ editing ? 'Save changes' : 'Create command' }}</button><button v-if="editing" type="button" @click="reset">Cancel</button></div>
     </form>
     <p role="status">{{ message }}</p>
   </section>
 </template>
 <style scoped>
-.emoticon-controls{display:grid;gap:12px;margin-top:20px;padding-top:18px;border-top:1px solid #28334b;color:#bdc8df;font-size:.85rem}.emoticon-controls h4,.emoticon-controls p{margin:0}form{display:grid;gap:10px}label{display:grid;gap:6px}input,button{font:inherit;color:#eef2ff;background:#101828;border:1px solid #36425d;border-radius:6px;padding:8px;min-width:0}button{cursor:pointer;margin-right:6px}button:disabled{opacity:.5}input:focus-visible,button:focus-visible{outline:2px solid #7794e8}.drop-zone{padding:16px;border:2px dashed #526baf;border-radius:10px;display:grid;gap:8px}.drop-zone:hover{background:#18243b}.attachment{display:flex;align-items:center;gap:8px}.attachment span{flex:1;min-width:0;overflow-wrap:anywhere}.asset-preview{max-width:100%;max-height:150px;object-fit:contain}audio{width:100%}.command-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}.command-list li{display:flex;align-items:center;flex-wrap:wrap;gap:6px}.command-list strong{flex:1}small{color:#93a3bf}
+.emoticon-controls{display:grid;gap:12px;margin-top:20px;padding-top:18px;border-top:1px solid #28334b;color:#bdc8df;font-size:.85rem}.emoticon-controls h4,.emoticon-controls p{margin:0}form{display:grid;gap:10px}label{display:grid;gap:6px}input,button{font:inherit;color:#eef2ff;background:#101828;border:1px solid #36425d;border-radius:6px;padding:8px;min-width:0}button{cursor:pointer;margin-right:6px}button:disabled{opacity:.5}input:focus-visible,button:focus-visible{outline:2px solid #7794e8}.sticker-toggle{display:flex;align-items:center;gap:8px}.drop-zone{padding:16px;border:2px dashed #526baf;border-radius:10px;display:grid;gap:8px}.drop-zone:hover{background:#18243b}.attachment{display:flex;align-items:center;gap:8px}.attachment span{flex:1;min-width:0;overflow-wrap:anywhere}.asset-preview{max-width:100%;max-height:150px;object-fit:contain}audio{width:100%}.command-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}.command-list li{display:flex;align-items:center;flex-wrap:wrap;gap:6px}.command-list strong{flex:1}small{color:#93a3bf}
 </style>

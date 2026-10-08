@@ -17,6 +17,7 @@ let pending: Effect[] = [];
 let playing = false;
 let generation = 0;
 let cancelPlayback = () => {};
+const stickers = new Map<HTMLElement, () => void>();
 let soundButton: HTMLButtonElement | undefined;
 function offerSound() {
   if (muted || soundButton) return;
@@ -35,9 +36,34 @@ function offerSound() {
   document.body.append(soundButton);
 }
 function clear() {
+  for (const remove of [...stickers.values()]) remove();
   generation++; clearTimeout(timer); cancelPlayback(); cancelPlayback = () => {};
   soundButton?.remove(); soundButton = undefined;
   for (const element of media) element.pause(); media = []; effect.replaceChildren(); effect.hidden = true; pending = []; playing = false;
+}
+function spawnSticker(event: Effect) {
+  const command = event.command;
+  const container = document.createElement("div"); container.className = "sticker";
+  container.style.width = command.width || "80px"; container.style.height = command.height || "80px";
+  container.style.left = `${5 + Math.random() * 90}%`;
+  container.style.setProperty("--drift", `${(Math.random() - .5) * 160}px`);
+  container.style.animationDuration = `${event.durationSeconds}s`;
+  let video: HTMLVideoElement | undefined;
+  let expiry: ReturnType<typeof setTimeout>;
+  const remove = () => { clearTimeout(expiry); video?.pause(); container.remove(); stickers.delete(container); };
+  stickers.set(container, remove); container.onanimationend = remove;
+  expiry = setTimeout(remove, event.durationSeconds * 1000 + 100);
+  if (command.imageAssetId) {
+    const image = new Image(); image.alt = command.command;
+    image.onerror = () => { diagnose("emoticons.sticker-media-failed", { effectId: event.id }); remove(); };
+    image.src = `/api/emoticons/assets/${command.imageAssetId}`; container.append(image);
+  } else if (command.videoAssetId) {
+    video = document.createElement("video"); video.muted = true; video.playsInline = true; video.loop = true;
+    video.src = `/api/emoticons/assets/${command.videoAssetId}`; container.append(video);
+    void video.play().catch(error => { diagnose("emoticons.sticker-media-failed", { effectId: event.id, error: String(error) }); remove(); });
+  }
+  document.body.append(container);
+  diagnose("emoticons.sticker-spawned", { effectId: event.id, command: command.command });
 }
 async function next() {
   if (playing) return;
@@ -100,7 +126,7 @@ const events = observeEmoticonEvents(boardMode ? "board" : "effects", event => {
     }
     if (!event.state.commands.length) { const item = document.createElement("li"); item.textContent = "No commands yet"; list.append(item); }
   } else if (event.type === "clear") clear();
-  else if (!boardMode) { diagnose("emoticons.effect-received", { effectId: event.id, command: event.command.command }); pending.push(event); void next(); }
+  else if (!boardMode) { diagnose("emoticons.effect-received", { effectId: event.id, command: event.command.command }); if (event.command.mode === "sticker") spawnSticker(event); else { pending.push(event); void next(); } }
 }, () => diagnose("emoticons.events-connected", { transport: "websocket" }),
 () => { diagnose("emoticons.events-disconnected"); clear(); board.hidden = true; }, clientId);
 window.addEventListener("pagehide", () => { clear(); events.close(); });

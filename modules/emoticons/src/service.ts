@@ -21,7 +21,7 @@ export class EmoticonService {
     try {
       const stored = JSON.parse(readFileSync(join(directory, "commands.json"), "utf8"));
       this.assets = stored.assets;
-      this.commands = stored.commands.map((command: EmoticonCommand) => ({ ...command, videoAssetId: command.videoAssetId ?? null }));
+      this.commands = stored.commands.map((command: EmoticonCommand) => ({ ...command, videoAssetId: command.videoAssetId ?? null, mode: command.mode ?? "effect" }));
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
@@ -37,6 +37,9 @@ export class EmoticonService {
   save(value: unknown, id?: string) {
     if (!value || typeof value !== "object") throw new Error("Enter command settings");
     const input = { ...value, videoAssetId: (value as EmoticonCommand).videoAssetId ?? null } as EmoticonCommand;
+    const mode = input.mode ?? "effect";
+    if (mode !== "effect" && mode !== "sticker") throw new Error("Choose Effect or Sticker");
+    if (mode === "sticker" && input.audioAssetId) throw new Error("Stickers do not support audio attachments");
     const command = typeof input.command === "string" ? input.command.trim().replace(/^!/, "").toLowerCase() : "";
     if (!/^[a-z0-9_-]{1,32}$/.test(command)) throw new Error("Use 1–32 letters, numbers, underscores or hyphens");
     if (this.commands.some(item => item.command === command && item.id !== id)) throw new Error("This command already exists");
@@ -49,7 +52,7 @@ export class EmoticonService {
     if (!Number.isFinite(input.durationSeconds) || input.durationSeconds <= 0 || !Number.isFinite(input.cooldownSeconds) || input.cooldownSeconds < 0
       || !Number.isFinite(input.volume) || input.volume < 0 || input.volume > 1) throw new Error("Use a positive duration, nonnegative cooldown and volume from 0 to 1");
     if (typeof input.width !== "string" || typeof input.height !== "string" || !dimension.test(input.width.trim()) || !dimension.test(input.height.trim())) throw new Error("Use CSS sizes such as 300px, 40vw, 25vh, 50%, or auto");
-    const entry: EmoticonCommand = { id: id ?? crypto.randomUUID(), command, imageAssetId: input.imageAssetId, audioAssetId: input.audioAssetId, videoAssetId: input.videoAssetId,
+    const entry: EmoticonCommand = { id: id ?? crypto.randomUUID(), command, mode, imageAssetId: input.imageAssetId, audioAssetId: input.audioAssetId, videoAssetId: input.videoAssetId,
       durationSeconds: input.durationSeconds, cooldownSeconds: input.cooldownSeconds, volume: input.volume, width: input.width.trim(), height: input.height.trim() };
     const previous = this.commands;
     this.commands = id ? this.commands.map(item => item.id === id ? entry : item) : [...this.commands, entry];
@@ -102,11 +105,17 @@ export class EmoticonService {
   trigger(id: string, source = "test", messageId?: string) {
     const command = this.commands.find(item => item.id === id);
     const reason = !this.enabled ? "module-disabled" : !command ? "unknown-command"
-      : this.active?.id === id ? "already-playing" : this.queue.some(item => item.id === id) ? "already-queued"
+      : command.mode === "sticker" ? null : this.active?.id === id ? "already-playing" : this.queue.some(item => item.id === id) ? "already-queued"
       : (this.cooldowns.get(id) ?? 0) > Date.now() ? "cooldown" : null;
     if (reason || !command) {
       this.log("emoticons.command-rejected", { commandId: id, command: command?.command, source, messageId, reason, cooldownRemainingMs: Math.max(0, (this.cooldowns.get(id) ?? 0) - Date.now()) });
       return false;
+    }
+    if (command.mode === "sticker") {
+      const effectId = crypto.randomUUID();
+      this.log("emoticons.sticker-broadcast", { effectId, command: command.command, source, messageId, durationSeconds: command.durationSeconds, subscribers: this.listeners.size });
+      this.emit({ type: "effect", id: effectId, command: structuredClone(command), durationSeconds: command.durationSeconds });
+      return true;
     }
     this.cooldowns.set(id, Date.now() + command.cooldownSeconds * 1000);
     this.queue.push(structuredClone(command));

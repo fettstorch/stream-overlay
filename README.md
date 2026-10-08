@@ -198,6 +198,13 @@ command does not delete its uploaded files.
 
 Chat messages are trimmed and matched case-insensitively: ` !WOW ` invokes `wow`.
 Enter names with or without `!`; use letters, numbers, `_` or `-` (1–32 characters).
+Check **Sticker** when creating or editing a command for a silent, spammable visual.
+Each chat message immediately spawns a separate image, GIF, or muted looping video
+at a random horizontal position near the bottom, drifting upward and fading out.
+Stickers default to an 80 × 80 px box and an eight-second lifetime; CSS size and
+duration remain configurable. They bypass effect queues and cooldowns, and can
+overlap normal effects. Disabling the module clears both kinds.
+
 Names are unique within Emoticons. Other modules remain independent: configuring
 `pet` here can invoke both this effect and Pokémon's pet behavior.
 
