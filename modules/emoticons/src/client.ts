@@ -16,8 +16,26 @@ let pending: Effect[] = [];
 let playing = false;
 let generation = 0;
 let cancelPlayback = () => {};
+let soundButton: HTMLButtonElement | undefined;
+function offerSound() {
+  if (muted || soundButton) return;
+  soundButton = document.createElement("button"); soundButton.type = "button";
+  soundButton.textContent = "Enable sound";
+  soundButton.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:10px 16px;border:1px solid #7794e8;border-radius:8px;background:#101828;color:white;font:16px system-ui;cursor:pointer;z-index:10";
+  soundButton.onclick = () => {
+    // This handler runs within the browser gesture required for audible playback.
+    for (const element of media) {
+      element.muted = false;
+      void element.play().catch(error => diagnose("emoticons.sound-enable-failed", { error: String(error) }));
+    }
+    soundButton?.remove(); soundButton = undefined;
+    diagnose("emoticons.sound-enabled");
+  };
+  document.body.append(soundButton);
+}
 function clear() {
   generation++; clearTimeout(timer); cancelPlayback(); cancelPlayback = () => {};
+  soundButton?.remove(); soundButton = undefined;
   for (const element of media) element.pause(); media = []; effect.replaceChildren(); effect.hidden = true; pending = []; playing = false;
 }
 async function next() {
@@ -35,9 +53,25 @@ async function next() {
   const play = (element: HTMLMediaElement, assetId: string, kind: "audio" | "video") => new Promise<void>(resolve => {
     finishMedia.push(resolve); media.push(element);
     element.muted = muted; element.volume = command.volume;
+    element.onplaying = () => diagnose(`emoticons.${kind}-playing`, { effectId: event.id, currentTime: element.currentTime, actualMuted: element.muted });
     element.onended = () => resolve(); element.onerror = () => { diagnose(`emoticons.${kind}-failed`, { effectId: event.id, code: element.error?.code }); resolve(); };
     element.src = `/api/emoticons/assets/${assetId}`;
-    void element.play().catch(error => { diagnose(`emoticons.${kind}-play-failed`, { effectId: event.id, error: String(error) }); resolve(); });
+    void element.play().catch(async error => {
+      if (current !== generation) { resolve(); return; }
+      diagnose(`emoticons.${kind}-play-failed`, { effectId: event.id, error: String(error) });
+      if (error instanceof Error && error.name === "NotAllowedError" && !muted) {
+        offerSound();
+        if (kind === "video") {
+          element.muted = true;
+          try {
+            await element.play();
+            if (current !== generation) element.pause();
+            return;
+          } catch (retryError) { diagnose("emoticons.video-muted-play-failed", { effectId: event.id, error: String(retryError) }); }
+        }
+      }
+      resolve();
+    });
   });
   const playback: Promise<void>[] = [];
   if (command.videoAssetId) {
