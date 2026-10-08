@@ -1,6 +1,7 @@
 import type { EmoticonEvent } from "./contracts.ts";
 import { captureStickerPreview } from "./sticker-preview.ts";
 import { createStickerAssetCache } from "./asset-cache.ts";
+import { advanceBoardScroll, createBoardScrollState } from "./board-scroll.ts";
 import { observeEmoticonEvents } from "./events-client.ts";
 const boardMode = location.pathname.includes("/board");
 const muted = new URLSearchParams(location.search).get("muted") === "1";
@@ -191,12 +192,32 @@ function updateCooldownRings() {
   }
 }
 const cooldownTicker = boardMode ? setInterval(updateCooldownRings, 100) : undefined;
+const boardScrollState = createBoardScrollState();
+let boardScrollFrame: number | undefined;
+let boardScrollLastFrame = 0;
+function pauseBoardAutoScroll() {
+  boardScrollState.pauseUntil = performance.now() + 5_000;
+  boardScrollLastFrame = 0;
+}
+function updateBoardAutoScroll(timestamp: number) {
+  const elapsed = boardScrollLastFrame ? timestamp - boardScrollLastFrame : 0;
+  boardScrollLastFrame = timestamp;
+  advanceBoardScroll(board, boardScrollState, timestamp, elapsed);
+  boardScrollFrame = requestAnimationFrame(updateBoardAutoScroll);
+}
+if (boardMode) {
+  board.addEventListener("wheel", pauseBoardAutoScroll, { passive: true });
+  board.addEventListener("pointerdown", pauseBoardAutoScroll, { passive: true });
+  board.addEventListener("touchstart", pauseBoardAutoScroll, { passive: true });
+  boardScrollFrame = requestAnimationFrame(updateBoardAutoScroll);
+}
 const events = observeEmoticonEvents(boardMode ? "board" : "effects", event => {
   if (event.type === "state") {
     stickerAssets.retain(new Set(event.state.assets.map(asset => `/api/emoticons/assets/${asset.id}`)));
     for (const id of stickerPreviews.keys()) if (!event.state.assets.some(asset => asset.id === id)) stickerPreviews.delete(id);
     if (!event.state.enabled) clear();
     board.hidden = !boardMode || !event.state.enabled;
+    const scrollTop = board.scrollTop;
     board.replaceChildren(); cooldownRings.clear();
     for (const [title, sticker] of [["Clips", false], ["Stickers", true]] as const) {
       const section = document.createElement("section");
@@ -234,10 +255,11 @@ const events = observeEmoticonEvents(boardMode ? "board" : "effects", event => {
       if (!list.children.length) { const item = document.createElement("li"); item.textContent = "No commands yet"; list.append(item); }
       board.append(section);
     }
+    board.scrollTop = Math.min(scrollTop, Math.max(0, board.scrollHeight - board.clientHeight));
     updateCooldownRings();
     if (boardMode) diagnose("emoticons.board-cooldowns-updated", { activeCooldowns: [...cooldownRings.values()].filter(ring => ring.endsAt > Date.now()).length });
   } else if (event.type === "clear") { clear(); for (const ring of cooldownRings.values()) ring.endsAt = 0; updateCooldownRings(); }
   else if (!boardMode) { diagnose("emoticons.effect-received", { effectId: event.id, command: event.command.command }); if (event.command.mode === "sticker") spawnSticker(event); else { pending.push(event); void next(); } }
 }, () => diagnose("emoticons.events-connected", { transport: "websocket" }),
 () => { diagnose("emoticons.events-disconnected"); clear(); board.hidden = true; }, clientId);
-window.addEventListener("pagehide", () => { clear(); clearInterval(cooldownTicker); events.close(); stickerPool.length = 0; stickerAssets.clear(); stickerAvatars.clear(); stickerPreviews.clear(); });
+window.addEventListener("pagehide", () => { clear(); clearInterval(cooldownTicker); if (boardScrollFrame !== undefined) cancelAnimationFrame(boardScrollFrame); events.close(); stickerPool.length = 0; stickerAssets.clear(); stickerAvatars.clear(); stickerPreviews.clear(); });
