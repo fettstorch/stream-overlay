@@ -31,7 +31,7 @@ const supervisor = new ModuleSupervisor((event, details) => logger.log(event, de
 const chatService = new StreamChatService(getActorProfile, (event, details) => logger.log(event, details));
 const directChatService = new DirectStreamChatService((event, details) => logger.log(event, details));
 const emoticons = new EmoticonService(join(projectRoot, "runtime/emoticons"), (event, details) => logger.log(event, details));
-const unsubscribeEmoticons = directChatService.messages.subscribe(message => emoticons.message(message.id, message.text));
+const unsubscribeEmoticons = directChatService.messages.subscribe(message => emoticons.message(message.id, message.text, message.author));
 const emoticonBundle = await Bun.build({ entrypoints: [join(projectRoot, "modules/emoticons/src/client.ts")], target: "browser", minify: true });
 if (!emoticonBundle.success) throw new AggregateError(emoticonBundle.logs, "Could not build Emoticons");
 const emoticonJavascript = await emoticonBundle.outputs[0]!.text();

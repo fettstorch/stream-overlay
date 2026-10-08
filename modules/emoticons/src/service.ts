@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { EmoticonAsset, EmoticonCommand, EmoticonEvent, EmoticonState } from "./contracts.ts";
+import type { EmoticonAsset, EmoticonAuthor, EmoticonCommand, EmoticonEvent, EmoticonState } from "./contracts.ts";
 
 const assetId = /^[a-f0-9-]{36}$/;
 const dimension = /^(?:|auto|(?:\d+(?:\.\d+)?)(?:px|%|vw|vh|vmin|vmax|em|rem))$/;
@@ -8,7 +8,7 @@ export class EmoticonService {
   private commands: EmoticonCommand[] = [];
   private assets: EmoticonAsset[] = [];
   private enabled = false;
-  private queue: EmoticonCommand[] = [];
+  private queue: { command: EmoticonCommand; author?: EmoticonAuthor }[] = [];
   private active: EmoticonCommand | null = null;
   private timer: ReturnType<typeof setTimeout> | undefined;
   private cooldowns = new Map<string, number>();
@@ -63,7 +63,7 @@ export class EmoticonService {
     const previous = this.commands;
     this.commands = this.commands.filter(item => item.id !== id);
     try { this.persist(); } catch (error) { this.commands = previous; throw error; }
-    this.queue = this.queue.filter(item => item.id !== id);
+    this.queue = this.queue.filter(item => item.command.id !== id);
   }
   async upload(file: File, kind: string, durationSeconds: number, uploadId: string = crypto.randomUUID()) {
     if (kind !== "image" && kind !== "audio" && kind !== "video") throw new Error("Choose image, audio, or video");
@@ -92,20 +92,20 @@ export class EmoticonService {
     this.log("emoticons.module-state", { enabled, commands: this.commands.map(command => command.command) });
     this.emit({ type: "clear" }); this.emit({ type: "state", state: this.snapshot() });
   }
-  message(id: string, text: string) {
+  message(id: string, text: string, author?: EmoticonAuthor) {
     const normalized = text.trim().toLowerCase();
     if (!normalized.startsWith("!")) return;
     if (this.seen.has(id)) { this.log("emoticons.command-rejected", { messageId: id, reason: "duplicate-message" }); return; }
     this.seen.add(id); if (this.seen.size > 2000) this.seen.delete(this.seen.values().next().value!);
     const command = this.commands.find(item => `!${item.command}` === normalized);
     this.log("emoticons.command-received", { messageId: id, command: normalized });
-    if (command) this.trigger(command.id, "chat", id);
+    if (command) this.trigger(command.id, "chat", id, author);
     else this.log("emoticons.command-rejected", { messageId: id, reason: "unknown-command" });
   }
-  trigger(id: string, source = "test", messageId?: string) {
+  trigger(id: string, source = "test", messageId?: string, author?: EmoticonAuthor) {
     const command = this.commands.find(item => item.id === id);
     const reason = !this.enabled ? "module-disabled" : !command ? "unknown-command"
-      : command.mode === "sticker" ? null : this.active?.id === id ? "already-playing" : this.queue.some(item => item.id === id) ? "already-queued"
+      : command.mode === "sticker" ? null : this.active?.id === id ? "already-playing" : this.queue.some(item => item.command.id === id) ? "already-queued"
       : (this.cooldowns.get(id) ?? 0) > Date.now() ? "cooldown" : null;
     if (reason || !command) {
       this.log("emoticons.command-rejected", { commandId: id, command: command?.command, source, messageId, reason, cooldownRemainingMs: Math.max(0, (this.cooldowns.get(id) ?? 0) - Date.now()) });
@@ -114,22 +114,23 @@ export class EmoticonService {
     if (command.mode === "sticker") {
       const effectId = crypto.randomUUID();
       this.log("emoticons.sticker-broadcast", { effectId, command: command.command, source, messageId, durationSeconds: command.durationSeconds, subscribers: this.listeners.size });
-      this.emit({ type: "effect", id: effectId, command: structuredClone(command), durationSeconds: command.durationSeconds });
+      this.emit({ type: "effect", id: effectId, command: structuredClone(command), durationSeconds: command.durationSeconds, author });
       return true;
     }
     this.cooldowns.set(id, Date.now() + command.cooldownSeconds * 1000);
-    this.queue.push(structuredClone(command));
+    this.queue.push(structuredClone({ command, author }));
     this.log("emoticons.command-queued", { command: command.command, commandId: id, source, messageId, queueLength: this.queue.length });
     this.next(); return true;
   }
   private next() {
     if (this.active || !this.enabled) return;
-    const command = this.queue.shift(); if (!command) return;
+    const queued = this.queue.shift(); if (!queued) return;
+    const { command, author } = queued;
     this.active = command;
     const durationSeconds = Math.max(command.durationSeconds, this.asset(command.audioAssetId ?? "")?.durationSeconds ?? 0, this.asset(command.videoAssetId ?? "")?.durationSeconds ?? 0);
     const effectId = crypto.randomUUID();
     this.log("emoticons.effect-broadcast", { effectId, command: command.command, durationSeconds, subscribers: this.listeners.size, imageAssetId: command.imageAssetId, audioAssetId: command.audioAssetId, videoAssetId: command.videoAssetId });
-    this.emit({ type: "effect", id: effectId, command, durationSeconds });
+    this.emit({ type: "effect", id: effectId, command, durationSeconds, author });
     this.timer = setTimeout(() => { this.log("emoticons.effect-finished", { effectId, command: command.command }); this.active = null; this.next(); }, durationSeconds * 1000);
   }
   events(request: Request) {

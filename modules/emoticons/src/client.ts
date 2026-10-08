@@ -41,6 +41,13 @@ function clear() {
   soundButton?.remove(); soundButton = undefined;
   for (const element of media) element.pause(); media = []; effect.replaceChildren(); effect.hidden = true; pending = []; playing = false;
 }
+function appendAvatar(container: HTMLElement, event: Effect) {
+  if (!event.author?.avatar) return;
+  const avatar = new Image(); avatar.className = "sender-avatar";
+  avatar.alt = event.author.displayName || event.author.handle || "Chat sender";
+  avatar.src = event.author.avatar; avatar.onerror = () => avatar.remove();
+  container.append(avatar);
+}
 function spawnSticker(event: Effect) {
   const command = event.command;
   const container = document.createElement("div"); container.className = "sticker";
@@ -49,6 +56,7 @@ function spawnSticker(event: Effect) {
   container.style.left = `${5 + Math.random() * 90}%`;
   container.style.setProperty("--drift", `${(Math.random() - .5) * 160}px`);
   container.style.animationDuration = `${event.durationSeconds}s`;
+  appendAvatar(container, event);
   let video: HTMLVideoElement | undefined;
   let expiry: ReturnType<typeof setTimeout>;
   const remove = () => { clearTimeout(expiry); video?.pause(); container.remove(); stickers.delete(container); };
@@ -71,6 +79,8 @@ async function next() {
   const event = pending.shift(); if (!event) return;
   diagnose("emoticons.effect-started", { effectId: event.id, command: event.command.command });
   playing = true; const current = generation; const command = event.command;
+  appendAvatar(effect, event);
+  effect.hidden = false;
   effect.style.width = command.width || "40vw"; effect.style.height = command.height || "35vh";
   if (command.imageAssetId) { const image = new Image(); image.onload = () => diagnose("emoticons.image-loaded", { effectId: event.id, width: image.naturalWidth, height: image.naturalHeight }); image.onerror = () => diagnose("emoticons.image-failed", { effectId: event.id, assetId: command.imageAssetId }); image.src = `/api/emoticons/assets/${command.imageAssetId}`; image.alt = command.command; effect.append(image); effect.hidden = false; }
   // Each renderer also waits for actual media completion: loading delays must not
