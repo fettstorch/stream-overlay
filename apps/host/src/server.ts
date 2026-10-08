@@ -178,6 +178,26 @@ function proxyAdmin(request: Request) {
   return fetch(source, request);
 }
 
+const emoticonProfiles = new Map<string, { expires: number; profile: ReturnType<typeof getActorProfile> }>();
+async function emoticonAvatar(did: string) {
+  if (!/^did:[a-z0-9]+:[A-Za-z0-9._:%-]+$/.test(did)) return new Response(null, { status: 400 });
+  let cached = emoticonProfiles.get(did);
+  if (!cached || cached.expires < Date.now()) {
+    const profile = getActorProfile(did);
+    cached = { expires: Date.now() + 2 * 60 * 60_000, profile };
+    emoticonProfiles.set(did, cached);
+    void profile.catch(() => { if (emoticonProfiles.get(did)?.profile === profile) emoticonProfiles.delete(did); });
+  }
+  try {
+    const profile = await cached.profile;
+    if (!profile.avatar) return new Response(null, { status: 404 });
+    return Response.redirect(profile.avatar, 302);
+  } catch (error) {
+    logger.log("emoticons.avatar-profile-failed", { authorDid: did, error: String(error) });
+    return new Response(null, { status: 502 });
+  }
+}
+
 interface EmoticonSocketData { clientId: string; overlay: string; unsubscribe?: () => void }
 function serveHost<R extends string>(options: Bun.Serve.Options<EmoticonSocketData, R>) {
   return Bun.serve<EmoticonSocketData, R>(options);
@@ -203,6 +223,7 @@ const server = serveHost({
       } })) return;
       return new Response("WebSocket upgrade required", { status: 426 });
     },
+    "/api/emoticons/avatar/:did": request => emoticonAvatar(request.params.did),
     "/api/emoticons/commands": {
       GET: () => Response.json(emoticons.snapshot()),
       POST: request => emoticonWrite(request, async () => Response.json(emoticons.save(await request.json()), { status: 201 })),

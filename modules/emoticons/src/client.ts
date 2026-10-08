@@ -42,10 +42,12 @@ function clear() {
   for (const element of media) element.pause(); media = []; effect.replaceChildren(); effect.hidden = true; pending = []; playing = false;
 }
 function appendAvatar(container: HTMLElement, event: Effect) {
-  if (!event.author?.avatar) return;
+  if (!event.author?.avatar && !event.author?.did) return;
   const avatar = new Image(); avatar.className = "sender-avatar";
   avatar.alt = event.author.displayName || event.author.handle || "Chat sender";
-  avatar.src = event.author.avatar; avatar.onerror = () => avatar.remove();
+  avatar.src = event.author.avatar || `/api/emoticons/avatar/${encodeURIComponent(event.author.did!)}`;
+  avatar.onload = () => diagnose("emoticons.avatar-loaded", { effectId: event.id });
+  avatar.onerror = () => { diagnose("emoticons.avatar-failed", { effectId: event.id, authorDid: event.author?.did }); avatar.remove(); };
   container.append(avatar);
 }
 function spawnSticker(event: Effect) {
