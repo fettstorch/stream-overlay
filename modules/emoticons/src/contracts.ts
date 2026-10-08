@@ -2,6 +2,7 @@ export interface EmoticonCommand {
   id: string;
   command: string;
   mode?: "effect" | "sticker";
+  mirrored?: boolean;
   imageAssetId: string | null;
   audioAssetId: string | null;
   videoAssetId: string | null;

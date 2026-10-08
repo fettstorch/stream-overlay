@@ -71,6 +71,7 @@ function appendAvatar(container: HTMLElement, event: Effect) {
   }
 }
 function sizeMedia(element: HTMLImageElement | HTMLVideoElement, command: Effect["command"], sticker = false) {
+  element.style.transform = command.mirrored ? "scaleX(-1)" : "none";
   const custom = Boolean(command.width || command.height);
   element.style.width = custom ? command.width || "auto" : sticker ? "5vw" : "auto";
   element.style.height = custom ? command.height || "auto" : sticker ? "5vw" : "auto";
@@ -207,7 +208,7 @@ const events = observeEmoticonEvents(boardMode ? "board" : "effects", event => {
         if (boardMode && sticker) {
           const assetId = command.imageAssetId || command.videoAssetId;
           if (assetId) {
-            const preview = new Image(); preview.className = "sticker-preview"; preview.alt = ""; item.append(preview);
+            const preview = new Image(); preview.className = "sticker-preview"; preview.alt = ""; preview.style.transform = command.mirrored ? "scaleX(-1)" : "none"; item.append(preview);
             let captured = stickerPreviews.get(assetId);
             if (!captured) {
               captured = stickerAssets.load(`/api/emoticons/assets/${assetId}`).then(url => captureStickerPreview(url, Boolean(command.videoAssetId)));

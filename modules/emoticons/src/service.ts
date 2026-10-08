@@ -53,7 +53,7 @@ export class EmoticonService {
     if (!Number.isFinite(input.durationSeconds) || input.durationSeconds <= 0 || !Number.isFinite(input.cooldownSeconds) || input.cooldownSeconds < 0
       || !Number.isFinite(input.volume) || input.volume < 0 || input.volume > 1) throw new Error("Use a positive duration, nonnegative cooldown and volume from 0 to 1");
     if (typeof input.width !== "string" || typeof input.height !== "string" || !dimension.test(input.width.trim()) || !dimension.test(input.height.trim())) throw new Error("Use CSS sizes such as 300px, 40vw, 25vh, 50%, or auto");
-    const entry: EmoticonCommand = { id: id ?? crypto.randomUUID(), command, mode, imageAssetId: input.imageAssetId, audioAssetId: input.audioAssetId, videoAssetId: input.videoAssetId,
+    const entry: EmoticonCommand = { id: id ?? crypto.randomUUID(), command, mode, mirrored: input.mirrored === true, imageAssetId: input.imageAssetId, audioAssetId: input.audioAssetId, videoAssetId: input.videoAssetId,
       durationSeconds: input.durationSeconds, cooldownSeconds: input.cooldownSeconds, volume: input.volume, width: input.width.trim(), height: input.height.trim() };
     const previous = this.commands;
     this.commands = id ? this.commands.map(item => item.id === id ? entry : item) : [...this.commands, entry];

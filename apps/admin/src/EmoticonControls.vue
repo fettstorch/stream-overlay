@@ -12,7 +12,7 @@ const formOpen = ref(false);
 const editing = ref<string | null>(null);
 const message = ref("");
 const busy = ref(false);
-const defaults = () => ({ mode: "effect" as "effect" | "sticker", command: "", imageAssetId: null as string | null, audioAssetId: null as string | null, videoAssetId: null as string | null, durationSeconds: 5, cooldownSeconds: 20, volume: 1, width: "", height: "" });
+const defaults = () => ({ mode: "effect" as "effect" | "sticker", command: "", imageAssetId: null as string | null, audioAssetId: null as string | null, videoAssetId: null as string | null, durationSeconds: 5, cooldownSeconds: 20, volume: 1, width: "", height: "", mirrored: false });
 const form = ref(defaults());
 const imageUrl = computed(() => form.value.imageAssetId ? `/api/emoticons/assets/${form.value.imageAssetId}` : "");
 const audioUrl = computed(() => form.value.audioAssetId ? `/api/emoticons/assets/${form.value.audioAssetId}` : "");
@@ -32,7 +32,7 @@ onMounted(() => {
   events = observeEmoticonEvents("admin", event => { if (event.type === "state") update(event.state); });
 });
 onBeforeUnmount(() => events?.close());
-function edit(command: EmoticonCommand) { formOpen.value = true; editing.value = command.id; form.value = { ...command, mode: command.mode ?? "effect" }; message.value = ""; }
+function edit(command: EmoticonCommand) { formOpen.value = true; editing.value = command.id; form.value = { ...command, mode: command.mode ?? "effect", mirrored: command.mirrored ?? false }; message.value = ""; }
 function changeMode() {
   if (form.value.mode === "sticker") form.value.audioAssetId = null;
   if (!form.value.videoAssetId && !form.value.audioAssetId) form.value.durationSeconds = form.value.mode === "sticker" ? 8 : 5;
@@ -138,8 +138,9 @@ function selected(event: Event) { const input = event.target as HTMLInputElement
         </div>
         </template>
       </div>
-      <img v-if="imageUrl" :src="imageUrl" class="asset-preview" alt="Selected emoticon">
-      <video v-if="videoUrl" :key="videoUrl" :src="videoUrl" class="asset-preview" controls muted playsinline preload="metadata"></video>
+      <label v-if="imageUrl || videoUrl" class="sticker-toggle"><input v-model="form.mirrored" type="checkbox"> Mirror horizontally</label>
+      <img v-if="imageUrl" :src="imageUrl" class="asset-preview" :style="{ transform: form.mirrored ? 'scaleX(-1)' : undefined }" alt="Selected emoticon">
+      <video v-if="videoUrl" :key="videoUrl" :src="videoUrl" class="asset-preview" :style="{ transform: form.mirrored ? 'scaleX(-1)' : undefined }" controls muted playsinline preload="metadata"></video>
       <audio v-if="audioUrl" :key="audioUrl" :src="audioUrl" controls muted preload="metadata"></audio>
       <div class="fields-row">
         <label class="compact-field">Duration (seconds) <input v-model.number="form.durationSeconds" type="number" min="0.001" step="any" required></label>
