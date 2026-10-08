@@ -1,4 +1,5 @@
 import type { EmoticonEvent } from "./contracts.ts";
+import { captureStickerPreview } from "./sticker-preview.ts";
 import { createStickerAssetCache } from "./asset-cache.ts";
 import { observeEmoticonEvents } from "./events-client.ts";
 const boardMode = location.pathname.includes("/board");
@@ -18,6 +19,7 @@ let pending: Effect[] = [];
 let playing = false;
 let generation = 0;
 let cancelPlayback = () => {};
+const stickerPreviews = new Map<string, Promise<string>>();
 const stickerAssets = createStickerAssetCache();
 const stickerAvatars = createStickerAssetCache();
 type StickerSlot = { container: HTMLDivElement; visual: HTMLDivElement; image: HTMLImageElement; video: HTMLVideoElement; avatar: HTMLImageElement };
@@ -185,6 +187,7 @@ const cooldownTicker = boardMode ? setInterval(updateCooldownRings, 100) : undef
 const events = observeEmoticonEvents(boardMode ? "board" : "effects", event => {
   if (event.type === "state") {
     stickerAssets.retain(new Set(event.state.assets.map(asset => `/api/emoticons/assets/${asset.id}`)));
+    for (const id of stickerPreviews.keys()) if (!event.state.assets.some(asset => asset.id === id)) stickerPreviews.delete(id);
     if (!event.state.enabled) clear();
     board.hidden = !boardMode || !event.state.enabled;
     board.replaceChildren(); cooldownRings.clear();
@@ -194,6 +197,22 @@ const events = observeEmoticonEvents(boardMode ? "board" : "effects", event => {
       const list = document.createElement("ul"); section.append(heading, list);
       for (const command of event.state.commands.filter(command => (command.mode === "sticker") === sticker)) {
         const item = document.createElement("li"); const name = document.createElement("strong"); name.textContent = `!${command.command}`; item.append(name);
+        if (boardMode && sticker) {
+          const assetId = command.imageAssetId || command.videoAssetId;
+          if (assetId) {
+            const preview = new Image(); preview.className = "sticker-preview"; preview.alt = ""; item.append(preview);
+            let captured = stickerPreviews.get(assetId);
+            if (!captured) {
+              captured = stickerAssets.load(`/api/emoticons/assets/${assetId}`).then(url => captureStickerPreview(url, Boolean(command.videoAssetId)));
+              stickerPreviews.set(assetId, captured);
+              const pending = captured;
+              void captured.catch(() => { if (stickerPreviews.get(assetId) === pending) stickerPreviews.delete(assetId); });
+            }
+            void captured.then(url => { if (preview.isConnected) preview.src = url; }).catch(error => {
+              preview.remove(); diagnose("emoticons.sticker-preview-failed", { assetId, error: String(error) });
+            });
+          }
+        }
         if (!sticker && command.cooldownSeconds > 0) {
           const ns = "http://www.w3.org/2000/svg";
           const ring = document.createElementNS(ns, "svg"); ring.classList.add("cooldown-ring"); ring.setAttribute("viewBox", "0 0 24 24"); ring.setAttribute("role", "img");
@@ -214,4 +233,4 @@ const events = observeEmoticonEvents(boardMode ? "board" : "effects", event => {
   else if (!boardMode) { diagnose("emoticons.effect-received", { effectId: event.id, command: event.command.command }); if (event.command.mode === "sticker") spawnSticker(event); else { pending.push(event); void next(); } }
 }, () => diagnose("emoticons.events-connected", { transport: "websocket" }),
 () => { diagnose("emoticons.events-disconnected"); clear(); board.hidden = true; }, clientId);
-window.addEventListener("pagehide", () => { clear(); clearInterval(cooldownTicker); events.close(); stickerPool.length = 0; stickerAssets.clear(); stickerAvatars.clear(); });
+window.addEventListener("pagehide", () => { clear(); clearInterval(cooldownTicker); events.close(); stickerPool.length = 0; stickerAssets.clear(); stickerAvatars.clear(); stickerPreviews.clear(); });
