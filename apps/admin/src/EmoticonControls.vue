@@ -140,16 +140,15 @@ function selected(event: Event) { const input = event.target as HTMLInputElement
       <img v-if="imageUrl" :src="imageUrl" class="asset-preview" alt="Selected emoticon">
       <video v-if="videoUrl" :key="videoUrl" :src="videoUrl" class="asset-preview" controls muted playsinline preload="metadata"></video>
       <audio v-if="audioUrl" :key="audioUrl" :src="audioUrl" controls muted preload="metadata"></audio>
-      <label class="compact-field">Duration (seconds) <input v-model.number="form.durationSeconds" type="number" min="0.1" step="0.1" required></label>
+      <div class="fields-row">
+        <label class="compact-field">Duration (seconds) <input v-model.number="form.durationSeconds" type="number" min="0.1" step="0.1" required></label>
+        <label v-if="form.mode === 'effect'" class="compact-field">Cooldown (seconds) <input v-model.number="form.cooldownSeconds" type="number" min="0" step="1" required></label>
+        <label class="compact-field">CSS width <input v-model="form.width" :placeholder="form.mode === 'sticker' ? '80px (default)' : '40vw (default)'"></label>
+        <label class="compact-field">CSS height <input v-model="form.height" :placeholder="form.mode === 'sticker' ? '80px (default)' : '35vh (default)'"></label>
+      </div>
       <small v-if="form.mode === 'sticker'">Drift lifetime. Default: 8 seconds; video loops silently.</small>
-      <small v-else>Plays for at least the audio or video duration. Default: 5 seconds.</small>
-      <template v-if="form.mode === 'effect'">
-      <label class="compact-field">Cooldown (seconds) <input v-model.number="form.cooldownSeconds" type="number" min="0" step="1" required></label>
-      <small>Starts immediately when accepted. Repeats are ignored while queued or playing.</small>
-      <label>Volume <input v-model.number="form.volume" type="range" min="0" max="1" step="0.05"></label>
-      </template>
-      <label class="compact-field">CSS width <input v-model="form.width" :placeholder="form.mode === 'sticker' ? '80px (default)' : '40vw (default)'"></label>
-      <label class="compact-field">CSS height <input v-model="form.height" :placeholder="form.mode === 'sticker' ? '80px (default)' : '35vh (default)'"></label>
+      <small v-else>Plays for at least the audio or video duration. Default: 5 seconds. Cooldown starts when accepted; repeats are ignored while queued or playing.</small>
+      <label v-if="form.mode === 'effect'">Volume <input v-model.number="form.volume" type="range" min="0" max="1" step="0.05"></label>
       <small v-if="form.mode === 'sticker'">Default: 80 × 80 px, preserving proportions, spawning across the bottom and drifting upward.</small>
       <small v-else>Examples: 300px, 40vw, 25vh, 50%, auto. Images and videos keep their proportions inside this box, centered at 5vh from the top.</small>
       <div><button type="submit" :disabled="busy">{{ editing ? 'Save changes' : 'Create command' }}</button><button type="button" :disabled="busy" @click="reset">Cancel</button></div>
@@ -158,5 +157,5 @@ function selected(event: Event) { const input = event.target as HTMLInputElement
   </section>
 </template>
 <style scoped>
-.emoticon-controls{display:grid;gap:12px;margin-top:20px;padding-top:18px;border-top:1px solid #28334b;color:#bdc8df;font-size:.85rem}.emoticon-controls h4,.emoticon-controls p{margin:0}form{display:grid;gap:10px}.command-editor{padding:16px;border:1px solid #36425d;border-radius:10px;background:#0b1220}.compact-field{justify-items:start}.compact-field input{width:14ch;box-sizing:content-box}.command-group{border:1px solid #28334b;border-radius:8px;padding:12px}.command-group summary{cursor:pointer;font-weight:600}.command-group summary span{color:#93a3bf;font-weight:400}.command-group[open] summary{margin-bottom:12px}label{display:grid;gap:6px}input,button{font:inherit;color:#eef2ff;background:#101828;border:1px solid #36425d;border-radius:6px;padding:8px;min-width:0}button{cursor:pointer;margin-right:6px}button:disabled{opacity:.5}input:focus-visible,button:focus-visible{outline:2px solid #7794e8}.sticker-toggle{display:flex;align-items:center;gap:8px}.drop-zone{padding:16px;border:2px dashed #526baf;border-radius:10px;display:grid;gap:8px}.drop-zone:hover{background:#18243b}.attachment{display:flex;align-items:center;gap:8px}.attachment span{flex:1;min-width:0;overflow-wrap:anywhere}.asset-preview{max-width:100%;max-height:150px;object-fit:contain}audio{width:100%}.command-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}.command-list li{display:flex;align-items:center;flex-wrap:wrap;gap:6px}.command-list strong{flex:1}small{color:#93a3bf}
+.emoticon-controls{display:grid;gap:12px;margin-top:20px;padding-top:18px;border-top:1px solid #28334b;color:#bdc8df;font-size:.85rem}.emoticon-controls h4,.emoticon-controls p{margin:0}form{display:grid;gap:10px}.command-editor{padding:16px;border:1px solid #36425d;border-radius:10px;background:#0b1220}.fields-row{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:start}.compact-field{justify-items:start}.compact-field input{width:14ch;box-sizing:content-box}.command-group{border:1px solid #28334b;border-radius:8px;padding:12px}.command-group summary{cursor:pointer;font-weight:600}.command-group summary span{color:#93a3bf;font-weight:400}.command-group[open] summary{margin-bottom:12px}label{display:grid;gap:6px}input,button{font:inherit;color:#eef2ff;background:#101828;border:1px solid #36425d;border-radius:6px;padding:8px;min-width:0}button{cursor:pointer;margin-right:6px}button:disabled{opacity:.5}input:focus-visible,button:focus-visible{outline:2px solid #7794e8}.sticker-toggle{display:flex;align-items:center;gap:8px}.drop-zone{padding:16px;border:2px dashed #526baf;border-radius:10px;display:grid;gap:8px}.drop-zone:hover{background:#18243b}.attachment{display:flex;align-items:center;gap:8px}.attachment span{flex:1;min-width:0;overflow-wrap:anywhere}.asset-preview{max-width:100%;max-height:150px;object-fit:contain}audio{width:100%}.command-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}.command-list li{display:flex;align-items:center;flex-wrap:wrap;gap:6px}.command-list strong{flex:1}small{color:#93a3bf}
 </style>
