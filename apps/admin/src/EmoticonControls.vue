@@ -34,8 +34,8 @@ onMounted(() => {
 onBeforeUnmount(() => events?.close());
 function edit(command: EmoticonCommand) { formOpen.value = true; editing.value = command.id; form.value = { ...command, mode: command.mode ?? "effect" }; message.value = ""; }
 function changeMode() {
-  if (form.value.mode === "sticker") { form.value.audioAssetId = null; form.value.durationSeconds = 8; }
-  else form.value.durationSeconds = 5;
+  if (form.value.mode === "sticker") form.value.audioAssetId = null;
+  if (!form.value.videoAssetId && !form.value.audioAssetId) form.value.durationSeconds = form.value.mode === "sticker" ? 8 : 5;
 }
 function reset() { formOpen.value = false; editing.value = null; form.value = defaults(); }
 function create() { reset(); formOpen.value = true; message.value = ""; }
@@ -91,6 +91,7 @@ async function upload(file: File | undefined) {
     const asset = await result(response) as EmoticonAsset;
     if (!assets.value.some(item => item.id === asset.id)) assets.value.push(asset);
     form.value[assetKey(kind)] = asset.id;
+    if (kind !== "image") form.value.durationSeconds = asset.durationSeconds;
     if (kind === "image") form.value.videoAssetId = null;
     if (kind === "video") form.value.imageAssetId = null;
     message.value = "Uploaded — save the command to use it";
@@ -141,7 +142,7 @@ function selected(event: Event) { const input = event.target as HTMLInputElement
       <video v-if="videoUrl" :key="videoUrl" :src="videoUrl" class="asset-preview" controls muted playsinline preload="metadata"></video>
       <audio v-if="audioUrl" :key="audioUrl" :src="audioUrl" controls muted preload="metadata"></audio>
       <div class="fields-row">
-        <label class="compact-field">Duration (seconds) <input v-model.number="form.durationSeconds" type="number" min="0.1" step="0.1" required></label>
+        <label class="compact-field">Duration (seconds) <input v-model.number="form.durationSeconds" type="number" min="0.001" step="any" required></label>
         <label v-if="form.mode === 'effect'" class="compact-field">Cooldown (seconds) <input v-model.number="form.cooldownSeconds" type="number" min="0" step="1" required></label>
         <label class="compact-field">CSS width <input v-model="form.width" :placeholder="form.mode === 'sticker' ? '80px (default)' : '40vw (default)'"></label>
         <label class="compact-field">CSS height <input v-model="form.height" :placeholder="form.mode === 'sticker' ? '80px (default)' : '35vh (default)'"></label>
