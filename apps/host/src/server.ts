@@ -136,7 +136,10 @@ function streamChatEvents(request: Request) {
       };
       unsubscribe = directChatService.messages.subscribe((message) => {
         try {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(message)}\n\n`));
+          const hydrated = { ...message, author: { ...message.author,
+            avatar: message.author.avatar || `/api/avatars/${encodeURIComponent(message.author.did)}`,
+          } };
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(hydrated)}\n\n`));
           logger.log("chat.message-sent-to-client", { id: message.id });
         } catch {
           close();
@@ -178,15 +181,15 @@ function proxyAdmin(request: Request) {
   return fetch(source, request);
 }
 
-const emoticonProfiles = new Map<string, { expires: number; profile: ReturnType<typeof getActorProfile> }>();
-async function emoticonAvatar(did: string) {
+const avatarProfiles = new Map<string, { expires: number; profile: ReturnType<typeof getActorProfile> }>();
+async function authorAvatar(did: string) {
   if (!/^did:[a-z0-9]+:[A-Za-z0-9._:%-]+$/.test(did)) return new Response(null, { status: 400 });
-  let cached = emoticonProfiles.get(did);
+  let cached = avatarProfiles.get(did);
   if (!cached || cached.expires < Date.now()) {
     const profile = getActorProfile(did);
     cached = { expires: Date.now() + 2 * 60 * 60_000, profile };
-    emoticonProfiles.set(did, cached);
-    void profile.catch(() => { if (emoticonProfiles.get(did)?.profile === profile) emoticonProfiles.delete(did); });
+    avatarProfiles.set(did, cached);
+    void profile.catch(() => { if (avatarProfiles.get(did)?.profile === profile) avatarProfiles.delete(did); });
   }
   try {
     const profile = await cached.profile;
@@ -196,7 +199,7 @@ async function emoticonAvatar(did: string) {
     if (!image.ok || !contentType.startsWith("image/")) throw new Error(`Avatar image unavailable (${image.status})`);
     return new Response(image.body, { headers: { "Content-Type": contentType, "Cache-Control": "public, max-age=7200" } });
   } catch (error) {
-    logger.log("emoticons.avatar-profile-failed", { authorDid: did, error: String(error) });
+    logger.log("identity.avatar-profile-failed", { authorDid: did, error: String(error) });
     return new Response(null, { status: 502 });
   }
 }
@@ -227,7 +230,8 @@ const server = serveHost({
       } })) return;
       return new Response("WebSocket upgrade required", { status: 426 });
     },
-    "/api/emoticons/avatar/:did": request => emoticonAvatar(request.params.did),
+    "/api/avatars/:did": request => authorAvatar(request.params.did),
+    "/api/emoticons/avatar/:did": request => authorAvatar(request.params.did),
     "/api/emoticons/commands": {
       GET: () => Response.json(emoticons.snapshot()),
       POST: request => emoticonWrite(request, async () => Response.json(emoticons.save(await request.json()), { status: 201 })),

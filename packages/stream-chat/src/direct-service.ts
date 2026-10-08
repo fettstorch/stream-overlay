@@ -113,7 +113,7 @@ export class DirectStreamChatService {
           createdAt: message.createdAt, receivedAt,
           ageMs: Date.parse(receivedAt) - Date.parse(message.createdAt),
         });
-        // Author profiles are included: no network lookup or delivery queue in the command path.
+        // Deliver immediately; consumers can resolve missing profile fields separately.
         this.messages.emit(message);
         this.log("chat.direct-message-emitted", { id: message.id });
       } catch (error) {
