@@ -109,8 +109,18 @@ an OBS Browser Source. New messages appear with their author's display name
 (or handle/DID fallback) on a transparent background, newest at the bottom.
 The overlay retains at most 50 messages; previous chat history is not fetched.
 Switching Chat off clears the display and stops its subscription; switching on
-resumes with new incoming messages. It uses the existing shared Jetstream service,
-not a separate Jetstream connection, and requires no additional port or server.
+resumes with new incoming messages. Chat, Emoticons, and both Pokémon modules
+share one direct Stream.place WebSocket connection in the host, with no additional
+port or server. The Jetstream listener remains a separate service for future
+AT Protocol consumers; no current host module needs to start it. Pets continues
+to manage its own upstream connection.
+
+The direct feed includes author profiles, so chat delivery does not wait for a
+profile lookup. Its startup history and repeated message IDs are ignored, including
+on reconnect, to prevent old commands from executing again. Messages created while
+disconnected are not replayed. The feed reconnects automatically and stops when
+its last module is disabled. `chat.direct-*` log entries record connection state,
+message IDs, creation/arrival timestamps, and `ageMs` for delivery latency.
 
 ## Overlay Paint
 

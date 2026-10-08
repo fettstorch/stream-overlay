@@ -8,7 +8,7 @@ import type { PokemonSnapshot } from "@stream-overlay/pokemon-model";
 import { MgbaFileProvider } from "../../../modules/pokemon-blue/src/mgba-file-provider.ts";
 import { CrystalMgbaFileProvider } from "../../../modules/pokemon-crystal/src/mgba-file-provider.ts";
 import { getActorProfile, resolveStreamerIdentity, searchActors } from "./identity.ts";
-import { StreamChatService } from "@stream-overlay/stream-chat";
+import { DirectStreamChatService, StreamChatService } from "@stream-overlay/stream-chat";
 import { FileLogger } from "./logger.ts";
 import { PaintService, parseSegments, parseCursor } from "../../../modules/overlay-paint/src/service.ts";
 import { getStreamDimensions } from "./stream-dimensions.ts";
@@ -23,14 +23,15 @@ import { EmoticonService } from "../../../modules/emoticons/src/service.ts";
 
 import { projectRoot } from "../../../modules/project-root.ts";
 import { defaultHostConfiguration as defaults } from "./default-configuration.ts";
-import { updateSharedChat } from "./chat-lifecycle.ts";
+import { updateDirectChat, updateSharedChat } from "./chat-lifecycle.ts";
 const port = Number(process.env.PORT ?? 3001);
 const configStore = new ConfigStore(join(projectRoot, "runtime/config.json"), defaults);
 const logger = new FileLogger(join(tmpdir(), "stream-overlay", "overlay.log"));
 const supervisor = new ModuleSupervisor((event, details) => logger.log(event, details));
 const chatService = new StreamChatService(getActorProfile, (event, details) => logger.log(event, details));
+const directChatService = new DirectStreamChatService((event, details) => logger.log(event, details));
 const emoticons = new EmoticonService(join(projectRoot, "runtime/emoticons"), (event, details) => logger.log(event, details));
-const unsubscribeEmoticons = chatService.messages.subscribe(message => emoticons.message(message.id, message.text));
+const unsubscribeEmoticons = directChatService.messages.subscribe(message => emoticons.message(message.id, message.text));
 const emoticonBundle = await Bun.build({ entrypoints: [join(projectRoot, "modules/emoticons/src/client.ts")], target: "browser", minify: true });
 if (!emoticonBundle.success) throw new AggregateError(emoticonBundle.logs, "Could not build Emoticons");
 const emoticonJavascript = await emoticonBundle.outputs[0]!.text();
@@ -64,7 +65,7 @@ const crystalProvider = new CrystalMgbaFileProvider(join(crystalRuntimeDirectory
 let crystalSnapshot: PokemonSnapshot | null = null;
 const crystalPetMemory = new PetMemory(join(crystalRuntimeDirectory, "pet-counts.json"));
 const petMemory = new PetMemory(join(pokemonRuntimeDirectory, "pet-counts.json"));
-const unsubscribePetMemory = chatService.messages.subscribe(message => {
+const unsubscribePetMemory = directChatService.messages.subscribe(message => {
   for (const [moduleId, snapshot, memory] of [
     ["pokemon-blue", pokemonSnapshot, petMemory], ["pokemon-crystal", crystalSnapshot, crystalPetMemory],
   ] as const) {
@@ -133,7 +134,7 @@ function streamChatEvents(request: Request) {
         try { controller.close(); } catch { /* Already closed by the browser. */ }
         logger.log("chat.client-disconnected");
       };
-      unsubscribe = chatService.messages.subscribe((message) => {
+      unsubscribe = directChatService.messages.subscribe((message) => {
         try {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(message)}\n\n`));
           logger.log("chat.message-sent-to-client", { id: message.id });
@@ -368,6 +369,7 @@ const server = serveHost({
         configuration.stream = { streamerDid: profile.did };
         configStore.write(configuration);
         updateSharedChat(chatService, configuration);
+        updateDirectChat(directChatService, configuration);
         emoticons.setEnabled(isEnabled("emoticons"));
         moduleStatus.setStreamerDid(profile.did);
         return Response.json({ ...configuration.stream, profile });
@@ -504,6 +506,7 @@ const server = serveHost({
         }
         const configuration = configStore.setModuleEnabled(module.id, body.enabled);
         updateSharedChat(chatService, configuration);
+        updateDirectChat(directChatService, configuration);
         moduleStatus.setEnabled(module.id, body.enabled);
         if (module.id === "emoticons") emoticons.setEnabled(body.enabled);
         if (module.id === "overlay-paint") paintService.setEnabled(body.enabled);
@@ -534,6 +537,7 @@ for (const module of modules) {
   if (isEnabled(module.id)) supervisor.enable(module);
 }
 updateSharedChat(chatService, configStore.read());
+updateDirectChat(directChatService, configStore.read());
 paintService.setEnabled(isEnabled("overlay-paint"));
 emoticons.setEnabled(isEnabled("emoticons"));
 await pokemonProvider.start((snapshot) => {
@@ -545,6 +549,7 @@ const shutDown = () => {
   logger.log("host.stopping");
   supervisor.stopAll(modules);
   chatService.stop();
+  directChatService.stop();
   unsubscribePetMemory();
   unsubscribeEmoticons();
   emoticons.stop();
