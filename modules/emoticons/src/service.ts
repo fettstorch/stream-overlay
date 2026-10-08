@@ -111,7 +111,7 @@ export class EmoticonService {
       for (let index = 1; index < count; index++) {
         const timer = setTimeout(() => {
           this.stickerTimers.delete(timer);
-          if (this.commands.find(item => item.id === command.id)?.mode === "sticker") this.trigger(command.id, "chat", id, author);
+          if (this.commands.find(item => item.id === command.id)?.mode === "sticker") this.trigger(command.id, "chat", id);
         }, index * 3000 / (count - 1));
         this.stickerTimers.set(timer, command.id);
       }
