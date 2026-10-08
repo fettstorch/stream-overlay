@@ -171,10 +171,6 @@ async function load() {
   ]);
   modules.value = await modulesResponse.json() as ModuleStatus[];
   for (const module of modules.value) confirmedModuleStates.set(module.id, module.enabled);
-  // Enabled cards start open, but their layout state is independent after loading.
-  for (const module of modules.value) {
-    if (!(module.id in expandedModules.value)) expandedModules.value[module.id] = module.enabled;
-  }
   if (modules.value.some(module => module.id === "chat")) {
     const response = await fetch("/api/chat/config", { cache: "no-store" });
     if (response.ok) {

@@ -233,12 +233,14 @@ describe("Admin App", () => {
     wrapper.unmount();
   });
 
-  test("enabled modules can fold independently without host writes or reloading their preview", async () => {
+  test("enabled modules start collapsed and can fold independently without host writes or reloading their preview", async () => {
     const fetchMock = mockFetch();
     const wrapper = mount(App);
     try {
       await flushPromises();
       const preview = wrapper.get("iframe").element;
+      expect(wrapper.get(".module-body").attributes("style")).toContain("display: none");
+      await wrapper.get('button[aria-label="Show Pokémon Blue mGBA details"]').trigger("click");
       await wrapper.get('button[aria-label="Hide Pokémon Blue mGBA details"]').trigger("click");
       expect(wrapper.get(".module-body").attributes("style")).toContain("display: none");
       expect(wrapper.get('input[aria-label="Enable Pokémon Blue mGBA"]').element).toHaveProperty("checked", true);
