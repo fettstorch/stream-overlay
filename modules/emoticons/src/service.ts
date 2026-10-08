@@ -97,9 +97,15 @@ export class EmoticonService {
     if (!normalized.startsWith("!")) return;
     if (this.seen.has(id)) { this.log("emoticons.command-rejected", { messageId: id, reason: "duplicate-message" }); return; }
     this.seen.add(id); if (this.seen.size > 2000) this.seen.delete(this.seen.values().next().value!);
-    const command = this.commands.find(item => `!${item.command}` === normalized);
+    const multiplied = /^(![a-z0-9_-]+)\s+x(\d+)$/.exec(normalized);
+    const command = this.commands.find(item => `!${item.command}` === normalized
+      || (item.mode === "sticker" && `!${item.command}` === multiplied?.[1]));
+    const count = command?.mode === "sticker" && multiplied ? Math.min(10, Math.max(1, Number(multiplied[2]))) : 1;
     this.log("emoticons.command-received", { messageId: id, command: normalized });
-    if (command) this.trigger(command.id, "chat", id, author);
+    if (command) {
+      if (multiplied) this.log("emoticons.sticker-multiplier", { messageId: id, command: command.command, requested: multiplied[2], count });
+      for (let index = 0; index < count; index++) this.trigger(command.id, "chat", id, author);
+    }
     else this.log("emoticons.command-rejected", { messageId: id, reason: "unknown-command" });
   }
   trigger(id: string, source = "test", messageId?: string, author?: EmoticonAuthor) {
