@@ -70,6 +70,13 @@ function appendAvatar(container: HTMLElement, event: Effect) {
     tail.src = "/overlays/emoticons/speech-bubble-tail.png"; container.append(tail);
   }
 }
+function sizeMedia(element: HTMLImageElement | HTMLVideoElement, command: Effect["command"], sticker = false) {
+  const custom = Boolean(command.width || command.height);
+  element.style.width = custom ? command.width || "auto" : sticker ? "5vw" : "auto";
+  element.style.height = custom ? command.height || "auto" : sticker ? "5vw" : "auto";
+  element.style.maxWidth = custom || sticker ? "none" : "40vw";
+  element.style.maxHeight = custom || sticker ? "none" : "35vh";
+}
 function spawnSticker(event: Effect) {
   const command = event.command;
   const slot = stickerPool.pop() ?? createStickerSlot();
@@ -86,7 +93,7 @@ function spawnSticker(event: Effect) {
     if (stickerPool.length < 32) stickerPool.push(slot);
   };
   stickers.set(container, remove);
-  container.style.width = command.width || "5vw"; container.style.height = command.height || "5vw";
+  container.style.width = "max-content"; container.style.height = "max-content";
   visual.style.scale = String(0.4 + Math.random() * 0.6);
   container.style.left = `${5 + Math.random() * 90}%`;
   container.style.setProperty("--drift", `${(Math.random() - .5) * 160}px`);
@@ -108,6 +115,7 @@ function spawnSticker(event: Effect) {
     const element = command.imageAssetId ? image : video;
     element.onerror = () => { diagnose("emoticons.sticker-media-failed", { effectId: event.id }); remove(); };
     if (element === image) image.alt = command.command;
+    sizeMedia(element, command, true);
     element.src = url; visual.append(element);
     container.onanimationend = event => { if (event.target === container) remove(); };
     document.body.append(container);
@@ -127,9 +135,7 @@ async function next() {
   playing = true; const current = generation; const command = event.command;
   appendAvatar(effect, event);
   effect.hidden = false;
-  effect.style.setProperty("--clip-width", command.width || "40vw");
-  effect.style.setProperty("--clip-height", command.height || "35vh");
-  if (command.imageAssetId) { const image = new Image(); image.onload = () => diagnose("emoticons.image-loaded", { effectId: event.id, width: image.naturalWidth, height: image.naturalHeight }); image.onerror = () => diagnose("emoticons.image-failed", { effectId: event.id, assetId: command.imageAssetId }); image.src = `/api/emoticons/assets/${command.imageAssetId}`; image.alt = command.command; effect.append(image); effect.hidden = false; }
+  if (command.imageAssetId) { const image = new Image(); sizeMedia(image, command); image.onload = () => diagnose("emoticons.image-loaded", { effectId: event.id, width: image.naturalWidth, height: image.naturalHeight }); image.onerror = () => diagnose("emoticons.image-failed", { effectId: event.id, assetId: command.imageAssetId }); image.src = `/api/emoticons/assets/${command.imageAssetId}`; image.alt = command.command; effect.append(image); effect.hidden = false; }
   // Each renderer also waits for actual media completion: loading delays must not
   // truncate the sound or let the following effect overlap it.
   const finishMedia: Array<() => void> = [];
@@ -160,7 +166,7 @@ async function next() {
   });
   const playback: Promise<void>[] = [];
   if (command.videoAssetId) {
-    const video = document.createElement("video"); video.playsInline = true;
+    const video = document.createElement("video"); video.playsInline = true; sizeMedia(video, command);
     video.onloadeddata = () => diagnose("emoticons.video-loaded", { effectId: event.id, width: video.videoWidth, height: video.videoHeight });
     effect.append(video); effect.hidden = false;
     playback.push(play(video, command.videoAssetId, "video"));
