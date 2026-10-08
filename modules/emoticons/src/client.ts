@@ -188,7 +188,7 @@ const events = observeEmoticonEvents(boardMode ? "board" : "effects", event => {
     if (!event.state.enabled) clear();
     board.hidden = !boardMode || !event.state.enabled;
     board.replaceChildren(); cooldownRings.clear();
-    for (const [title, sticker] of [["Clips", false], ["Emoticons (stickers)", true]] as const) {
+    for (const [title, sticker] of [["Clips", false], ["Stickers", true]] as const) {
       const section = document.createElement("section");
       const heading = document.createElement("h2"); heading.textContent = title;
       const list = document.createElement("ul"); section.append(heading, list);
