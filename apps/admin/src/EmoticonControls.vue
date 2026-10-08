@@ -3,6 +3,10 @@ import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import type { EmoticonAsset, EmoticonCommand, EmoticonState } from "../../../modules/emoticons/src/contracts";
 import { observeEmoticonEvents } from "../../../modules/emoticons/src/events-client";
 const commands = ref<EmoticonCommand[]>([]);
+const commandGroups = computed(() => [
+  { title: "Clips", commands: commands.value.filter(command => command.mode !== "sticker") },
+  { title: "Emoticons (stickers)", commands: commands.value.filter(command => command.mode === "sticker") },
+]);
 const assets = ref<EmoticonAsset[]>([]);
 const editing = ref<string | null>(null);
 const message = ref("");
@@ -107,7 +111,11 @@ function selected(event: Event) { const input = event.target as HTMLInputElement
   <section class="emoticon-controls">
     <h4>Emoticon commands</h4>
     <p>Effect source: match your OBS canvas. Board source: start at 420 × 600 px, then size independently. Both disappear when disabled.</p>
-    <ul class="command-list"><li v-for="command in commands" :key="command.id"><strong>!{{ command.command }}</strong><small>{{ command.mode === 'sticker' ? 'Sticker' : 'Effect' }}</small><button type="button" @click="test(command)">Test</button><button type="button" @click="edit(command)">Edit</button><button type="button" @click="remove(command)">Delete</button></li></ul>
+    <section v-for="group in commandGroups" :key="group.title">
+    <h4>{{ group.title }}</h4>
+    <p v-if="!group.commands.length">No commands yet</p>
+    <ul class="command-list"><li v-for="command in group.commands" :key="command.id"><strong>!{{ command.command }}</strong><button type="button" @click="test(command)">Test</button><button type="button" @click="edit(command)">Edit</button><button type="button" @click="remove(command)">Delete</button></li></ul>
+    </section>
     <form @submit.prevent="save">
       <h4>{{ editing ? 'Edit command' : 'Create command' }}</h4>
       <label class="sticker-toggle"><input type="checkbox" :checked="form.mode === 'sticker'" @change="form.mode = ($event.target as HTMLInputElement).checked ? 'sticker' : 'effect'; changeMode()"> Sticker</label>

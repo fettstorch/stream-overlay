@@ -120,12 +120,18 @@ const events = observeEmoticonEvents(boardMode ? "board" : "effects", event => {
   if (event.type === "state") {
     if (!event.state.enabled) clear();
     board.hidden = !boardMode || !event.state.enabled;
-    const list = board.querySelector("ul")!; list.replaceChildren();
-    for (const command of event.state.commands) {
-      const item = document.createElement("li"); const name = document.createElement("strong"); name.textContent = `!${command.command}`; item.append(name);
-      list.append(item);
+    board.replaceChildren();
+    for (const [title, sticker] of [["Clips", false], ["Emoticons (stickers)", true]] as const) {
+      const section = document.createElement("section");
+      const heading = document.createElement("h2"); heading.textContent = title;
+      const list = document.createElement("ul"); section.append(heading, list);
+      for (const command of event.state.commands.filter(command => (command.mode === "sticker") === sticker)) {
+        const item = document.createElement("li"); const name = document.createElement("strong"); name.textContent = `!${command.command}`; item.append(name);
+        list.append(item);
+      }
+      if (!list.children.length) { const item = document.createElement("li"); item.textContent = "No commands yet"; list.append(item); }
+      board.append(section);
     }
-    if (!event.state.commands.length) { const item = document.createElement("li"); item.textContent = "No commands yet"; list.append(item); }
   } else if (event.type === "clear") clear();
   else if (!boardMode) { diagnose("emoticons.effect-received", { effectId: event.id, command: event.command.command }); if (event.command.mode === "sticker") spawnSticker(event); else { pending.push(event); void next(); } }
 }, () => diagnose("emoticons.events-connected", { transport: "websocket" }),
