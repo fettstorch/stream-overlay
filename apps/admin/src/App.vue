@@ -567,6 +567,7 @@ onBeforeUnmount(() => {
             </div>
           </section>
           <div
+            v-if="module.id !== 'emoticons'"
             class="module-preview"
             :style="module.preview?.streamBackground && streamDimensions
               ? { aspectRatio: `${streamDimensions.width} / ${streamDimensions.height}` } : undefined"

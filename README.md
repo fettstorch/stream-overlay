@@ -242,8 +242,8 @@ properties. Adjust its mixer volume; choose **Monitor and Output** in
 **Advanced Audio Properties → Audio Monitoring** if you also want to hear it
 through your monitoring device. Keep **Shutdown source when not visible** and
 **Refresh browser when scene becomes active** unchecked to maintain its WebSocket
-connection. The Admin live preview is muted by default. Uploaded audio has a
-muted player you can explicitly unmute to audition it. **Test** follows the same
+connection. Use the effect URL’s open icon in Admin to preview effects in a separate
+tab. Uploaded audio has a muted player you can explicitly unmute to audition it. **Test** follows the same
 queue/cooldown rules and plays audio in connected OBS effect sources.
 
 Turning Emoticons off hides both sources, stops audio and clears pending effects.

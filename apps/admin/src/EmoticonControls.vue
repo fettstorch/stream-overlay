@@ -8,6 +8,7 @@ const commandGroups = computed(() => [
   { title: "Emoticons (stickers)", commands: commands.value.filter(command => command.mode === "sticker") },
 ]);
 const assets = ref<EmoticonAsset[]>([]);
+const formOpen = ref(false);
 const editing = ref<string | null>(null);
 const message = ref("");
 const busy = ref(false);
@@ -31,12 +32,13 @@ onMounted(() => {
   events = observeEmoticonEvents("admin", event => { if (event.type === "state") update(event.state); });
 });
 onBeforeUnmount(() => events?.close());
-function edit(command: EmoticonCommand) { editing.value = command.id; form.value = { ...command, mode: command.mode ?? "effect" }; message.value = ""; }
+function edit(command: EmoticonCommand) { formOpen.value = true; editing.value = command.id; form.value = { ...command, mode: command.mode ?? "effect" }; message.value = ""; }
 function changeMode() {
   if (form.value.mode === "sticker") { form.value.audioAssetId = null; form.value.durationSeconds = 8; }
   else form.value.durationSeconds = 5;
 }
-function reset() { editing.value = null; form.value = defaults(); }
+function reset() { formOpen.value = false; editing.value = null; form.value = defaults(); }
+function create() { reset(); formOpen.value = true; message.value = ""; }
 async function save() {
   busy.value = true;
   try {
@@ -51,7 +53,7 @@ async function remove(command: EmoticonCommand) {
   catch (error) { message.value = String(error); }
 }
 async function test(command: EmoticonCommand) {
-  try { const response = await result(await fetch(`/api/emoticons/test/${command.id}`, { method: "POST" })); message.value = response.accepted ? command.mode === "sticker" ? "Sticker spawned" : "Queued — preview is muted; OBS plays audio" : "Not queued: disabled, on cooldown, queued or playing"; }
+  try { const response = await result(await fetch(`/api/emoticons/test/${command.id}`, { method: "POST" })); message.value = response.accepted ? command.mode === "sticker" ? "Sticker spawned" : "Queued — plays in connected effect sources" : "Not queued: disabled, on cooldown, queued or playing"; }
   catch (error) { message.value = String(error); }
 }
 async function upload(file: File | undefined) {
@@ -111,12 +113,13 @@ function selected(event: Event) { const input = event.target as HTMLInputElement
   <section class="emoticon-controls">
     <h4>Emoticon commands</h4>
     <p>Effect source: match your OBS canvas. Board source: start at 420 × 600 px, then size independently. Both disappear when disabled.</p>
-    <section v-for="group in commandGroups" :key="group.title">
-    <h4>{{ group.title }}</h4>
+    <details v-for="group in commandGroups" :key="group.title" class="command-group">
+    <summary>{{ group.title }} <span>({{ group.commands.length }})</span></summary>
     <p v-if="!group.commands.length">No commands yet</p>
     <ul class="command-list"><li v-for="command in group.commands" :key="command.id"><strong>!{{ command.command }}</strong><button type="button" @click="test(command)">Test</button><button type="button" @click="edit(command)">Edit</button><button type="button" @click="remove(command)">Delete</button></li></ul>
-    </section>
-    <form @submit.prevent="save">
+    </details>
+    <div v-if="!formOpen"><button type="button" @click="create">Create command</button></div>
+    <form v-if="formOpen" class="command-editor" @submit.prevent="save">
       <h4>{{ editing ? 'Edit command' : 'Create command' }}</h4>
       <label class="sticker-toggle"><input type="checkbox" :checked="form.mode === 'sticker'" @change="form.mode = ($event.target as HTMLInputElement).checked ? 'sticker' : 'effect'; changeMode()"> Sticker</label>
       <small v-if="form.mode === 'sticker'">Silent stickers drift upward independently. Every message spawns one, with no cooldown or queue.</small>
@@ -137,23 +140,23 @@ function selected(event: Event) { const input = event.target as HTMLInputElement
       <img v-if="imageUrl" :src="imageUrl" class="asset-preview" alt="Selected emoticon">
       <video v-if="videoUrl" :key="videoUrl" :src="videoUrl" class="asset-preview" controls muted playsinline preload="metadata"></video>
       <audio v-if="audioUrl" :key="audioUrl" :src="audioUrl" controls muted preload="metadata"></audio>
-      <label>Duration (seconds) <input v-model.number="form.durationSeconds" type="number" min="0.1" step="0.1" required></label>
+      <label class="compact-field">Duration (seconds) <input v-model.number="form.durationSeconds" type="number" min="0.1" step="0.1" required></label>
       <small v-if="form.mode === 'sticker'">Drift lifetime. Default: 8 seconds; video loops silently.</small>
       <small v-else>Plays for at least the audio or video duration. Default: 5 seconds.</small>
       <template v-if="form.mode === 'effect'">
-      <label>Cooldown (seconds) <input v-model.number="form.cooldownSeconds" type="number" min="0" step="1" required></label>
+      <label class="compact-field">Cooldown (seconds) <input v-model.number="form.cooldownSeconds" type="number" min="0" step="1" required></label>
       <small>Starts immediately when accepted. Repeats are ignored while queued or playing.</small>
       <label>Volume <input v-model.number="form.volume" type="range" min="0" max="1" step="0.05"></label>
       </template>
-      <label>CSS width <input v-model="form.width" :placeholder="form.mode === 'sticker' ? '80px (default)' : '40vw (default)'"></label>
-      <label>CSS height <input v-model="form.height" :placeholder="form.mode === 'sticker' ? '80px (default)' : '35vh (default)'"></label>
+      <label class="compact-field">CSS width <input v-model="form.width" :placeholder="form.mode === 'sticker' ? '80px (default)' : '40vw (default)'"></label>
+      <label class="compact-field">CSS height <input v-model="form.height" :placeholder="form.mode === 'sticker' ? '80px (default)' : '35vh (default)'"></label>
       <small v-if="form.mode === 'sticker'">Default: 80 × 80 px, preserving proportions, spawning across the bottom and drifting upward.</small>
       <small v-else>Examples: 300px, 40vw, 25vh, 50%, auto. Images and videos keep their proportions inside this box, centered at 5vh from the top.</small>
-      <div><button type="submit" :disabled="busy">{{ editing ? 'Save changes' : 'Create command' }}</button><button v-if="editing" type="button" @click="reset">Cancel</button></div>
+      <div><button type="submit" :disabled="busy">{{ editing ? 'Save changes' : 'Create command' }}</button><button type="button" :disabled="busy" @click="reset">Cancel</button></div>
     </form>
     <p role="status">{{ message }}</p>
   </section>
 </template>
 <style scoped>
-.emoticon-controls{display:grid;gap:12px;margin-top:20px;padding-top:18px;border-top:1px solid #28334b;color:#bdc8df;font-size:.85rem}.emoticon-controls h4,.emoticon-controls p{margin:0}form{display:grid;gap:10px}label{display:grid;gap:6px}input,button{font:inherit;color:#eef2ff;background:#101828;border:1px solid #36425d;border-radius:6px;padding:8px;min-width:0}button{cursor:pointer;margin-right:6px}button:disabled{opacity:.5}input:focus-visible,button:focus-visible{outline:2px solid #7794e8}.sticker-toggle{display:flex;align-items:center;gap:8px}.drop-zone{padding:16px;border:2px dashed #526baf;border-radius:10px;display:grid;gap:8px}.drop-zone:hover{background:#18243b}.attachment{display:flex;align-items:center;gap:8px}.attachment span{flex:1;min-width:0;overflow-wrap:anywhere}.asset-preview{max-width:100%;max-height:150px;object-fit:contain}audio{width:100%}.command-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}.command-list li{display:flex;align-items:center;flex-wrap:wrap;gap:6px}.command-list strong{flex:1}small{color:#93a3bf}
+.emoticon-controls{display:grid;gap:12px;margin-top:20px;padding-top:18px;border-top:1px solid #28334b;color:#bdc8df;font-size:.85rem}.emoticon-controls h4,.emoticon-controls p{margin:0}form{display:grid;gap:10px}.command-editor{padding:16px;border:1px solid #36425d;border-radius:10px;background:#0b1220}.compact-field{justify-items:start}.compact-field input{width:14ch;box-sizing:content-box}.command-group{border:1px solid #28334b;border-radius:8px;padding:12px}.command-group summary{cursor:pointer;font-weight:600}.command-group summary span{color:#93a3bf;font-weight:400}.command-group[open] summary{margin-bottom:12px}label{display:grid;gap:6px}input,button{font:inherit;color:#eef2ff;background:#101828;border:1px solid #36425d;border-radius:6px;padding:8px;min-width:0}button{cursor:pointer;margin-right:6px}button:disabled{opacity:.5}input:focus-visible,button:focus-visible{outline:2px solid #7794e8}.sticker-toggle{display:flex;align-items:center;gap:8px}.drop-zone{padding:16px;border:2px dashed #526baf;border-radius:10px;display:grid;gap:8px}.drop-zone:hover{background:#18243b}.attachment{display:flex;align-items:center;gap:8px}.attachment span{flex:1;min-width:0;overflow-wrap:anywhere}.asset-preview{max-width:100%;max-height:150px;object-fit:contain}audio{width:100%}.command-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}.command-list li{display:flex;align-items:center;flex-wrap:wrap;gap:6px}.command-list strong{flex:1}small{color:#93a3bf}
 </style>
