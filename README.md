@@ -213,7 +213,7 @@ Each chat message immediately spawns a separate image, GIF, or muted looping vid
 at a random horizontal position near the bottom, drifting upward and fading out.
 Append a multiplier, such as `!catjam x4`, to spawn several stickers at once.
 Multipliers are capped at 10; larger values still run with 10 spawns.
-Stickers default to an 80 × 80 px box and an eight-second lifetime; CSS size and
+Stickers default to a 5vw × 5vw box and an eight-second lifetime; CSS size and
 duration remain configurable. They bypass effect queues and cooldowns, and can
 overlap normal effects. Disabling the module clears both kinds.
 

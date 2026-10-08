@@ -144,13 +144,13 @@ function selected(event: Event) { const input = event.target as HTMLInputElement
       <div class="fields-row">
         <label class="compact-field">Duration (seconds) <input v-model.number="form.durationSeconds" type="number" min="0.001" step="any" required></label>
         <label v-if="form.mode === 'effect'" class="compact-field">Cooldown (seconds) <input v-model.number="form.cooldownSeconds" type="number" min="0" step="1" required></label>
-        <label class="compact-field">CSS width <input v-model="form.width" :placeholder="form.mode === 'sticker' ? '80px (default)' : '40vw (default)'"></label>
-        <label class="compact-field">CSS height <input v-model="form.height" :placeholder="form.mode === 'sticker' ? '80px (default)' : '35vh (default)'"></label>
+        <label class="compact-field">CSS width <input v-model="form.width" :placeholder="form.mode === 'sticker' ? '5vw (default)' : '40vw (default)'"></label>
+        <label class="compact-field">CSS height <input v-model="form.height" :placeholder="form.mode === 'sticker' ? '5vw (default)' : '35vh (default)'"></label>
       </div>
       <small v-if="form.mode === 'sticker'">Drift lifetime. Default: 8 seconds; video loops silently.</small>
       <small v-else>Plays for at least the audio or video duration. Default: 5 seconds. Cooldown starts when accepted; repeats are ignored while queued or playing.</small>
       <label v-if="form.mode === 'effect'">Volume <input v-model.number="form.volume" type="range" min="0" max="1" step="0.05"></label>
-      <small v-if="form.mode === 'sticker'">Default: 80 × 80 px, preserving proportions, spawning across the bottom and drifting upward.</small>
+      <small v-if="form.mode === 'sticker'">Default: 5vw × 5vw, preserving proportions, spawning across the bottom and drifting upward.</small>
       <small v-else>Examples: 300px, 40vw, 25vh, 50%, auto. Images and videos keep their proportions inside this box, centered at 5vh from the top.</small>
       <div><button type="submit" :disabled="busy">{{ editing ? 'Save changes' : 'Create command' }}</button><button type="button" :disabled="busy" @click="reset">Cancel</button></div>
     </form>

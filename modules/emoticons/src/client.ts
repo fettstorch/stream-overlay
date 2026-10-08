@@ -86,7 +86,7 @@ function spawnSticker(event: Effect) {
     if (stickerPool.length < 32) stickerPool.push(slot);
   };
   stickers.set(container, remove);
-  container.style.width = command.width || "80px"; container.style.height = command.height || "80px";
+  container.style.width = command.width || "5vw"; container.style.height = command.height || "5vw";
   visual.style.scale = String(0.4 + Math.random() * 0.6);
   container.style.left = `${5 + Math.random() * 90}%`;
   container.style.setProperty("--drift", `${(Math.random() - .5) * 160}px`);
