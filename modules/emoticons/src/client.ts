@@ -49,6 +49,10 @@ function appendAvatar(container: HTMLElement, event: Effect) {
   avatar.onload = () => diagnose("emoticons.avatar-loaded", { effectId: event.id });
   avatar.onerror = () => { diagnose("emoticons.avatar-failed", { effectId: event.id, authorDid: event.author?.did }); avatar.remove(); };
   container.append(avatar);
+  if (container === effect && (event.command.imageAssetId || event.command.videoAssetId)) {
+    const tail = new Image(); tail.className = "speech-bubble-tail"; tail.alt = "";
+    tail.src = "/overlays/emoticons/speech-bubble-tail.png"; container.append(tail);
+  }
 }
 function spawnSticker(event: Effect) {
   const command = event.command;

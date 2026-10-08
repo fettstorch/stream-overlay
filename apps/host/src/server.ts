@@ -211,6 +211,7 @@ const server = serveHost({
     "/overlays/emoticons/board": request => Response.redirect(new URL("/overlays/emoticons/board/", request.url), 302),
     "/overlays/emoticons/": () => new Response(emoticonHtml, { headers: { "Content-Type": "text/html; charset=utf-8" } }),
     "/overlays/emoticons/board/": () => new Response(emoticonHtml, { headers: { "Content-Type": "text/html; charset=utf-8" } }),
+    "/overlays/emoticons/speech-bubble-tail.png": () => new Response(Bun.file(join(projectRoot, "modules/emoticons/assets/speech-bubble-tail.png")), { headers: { "Content-Type": "image/png" } }),
     "/overlays/emoticons/client.js": () => new Response(emoticonJavascript, { headers: { "Content-Type": "application/javascript" } }),
     "/api/emoticons/events": (request, server) => { server.timeout(request, 0); return emoticons.events(request); },
     "/api/emoticons/socket": (request, server) => {
