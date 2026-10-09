@@ -1,5 +1,6 @@
 import { describe, expect, test, spyOn } from "bun:test";
 import { parseChatEvent, StreamChatService } from "../src/service.ts";
+import { DirectStreamChatService } from "../src/direct-service.ts";
 
 describe("parseChatEvent", () => {
   test("normalizes a chat message for the configured streamer", () => {
@@ -36,6 +37,38 @@ describe("parseChatEvent", () => {
       },
     }, "did:plc:streamer")).toBeNull();
   });
+});
+
+test("direct browser transport ignores startup history and repeated reconnect events", async () => {
+  class FakeSocket extends EventTarget { close() {} }
+  const sockets: FakeSocket[] = [];
+  const mock = spyOn(globalThis, "WebSocket").mockImplementation(() => {
+    const socket = new FakeSocket(); sockets.push(socket); return socket as unknown as WebSocket;
+  });
+  const service = new DirectStreamChatService();
+  const ids: string[] = [];
+  const unsubscribe = service.messages.subscribe(message => ids.push(message.id));
+  const message = (rkey: string, createdAt: string) => JSON.stringify({
+    $type: "place.stream.chat.defs#messageView",
+    uri: `at://did:plc:viewer/place.stream.chat.message/${rkey}`,
+    author: { did: "did:plc:viewer" },
+    record: { streamer: "did:plc:streamer", text: "!party", createdAt },
+  });
+  try {
+    service.setStreamerDid("did:plc:streamer");
+    sockets[0]!.dispatchEvent(new MessageEvent("message", { data: message("history", new Date(Date.now() - 60_000).toISOString()) }));
+    sockets[0]!.dispatchEvent(new MessageEvent("message", { data: message("live", new Date(Date.now() + 1_000).toISOString()) }));
+    sockets[0]!.dispatchEvent(new MessageEvent("message", { data: message("live", new Date(Date.now() + 1_000).toISOString()) }));
+    expect(ids).toEqual(["did:plc:viewer:live"]);
+
+    sockets[0]!.dispatchEvent(new Event("close"));
+    await Bun.sleep(1050);
+    sockets[1]!.dispatchEvent(new MessageEvent("message", { data: message("live", new Date(Date.now() + 1_000).toISOString()) }));
+    sockets[1]!.dispatchEvent(new MessageEvent("message", { data: message("older-unseen", new Date(Date.now() - 60_000).toISOString()) }));
+    expect(ids).toEqual(["did:plc:viewer:live"]);
+  } finally {
+    unsubscribe(); service.stop(); mock.mockRestore();
+  }
 });
 
 test("profile lookups are concurrent but messages publish in arrival order, including failures", async () => {

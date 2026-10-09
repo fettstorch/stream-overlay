@@ -4,5 +4,5 @@
   "type": "module",
   "scripts": { "typecheck": "tsc --noEmit" },
   "devDependencies": { "typescript": "^5.9.0" },
-  "dependencies": { "@stream-overlay/sdk": "workspace:*", "@fettstorch/jule": "^3.1.0" }
+  "dependencies": { "@stream-overlay/sdk": "workspace:*", "@stream-overlay/stream-chat": "workspace:*", "@fettstorch/jule": "^3.1.0" }
 }

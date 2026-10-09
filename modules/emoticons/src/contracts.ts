@@ -29,4 +29,5 @@ export interface EmoticonState {
 export interface EmoticonAuthor { did?: string; avatar?: string; displayName?: string; handle?: string }
 export type EmoticonEvent = { type: "state"; state: EmoticonState }
   | { type: "effect"; id: string; command: EmoticonCommand; durationSeconds: number; author?: EmoticonAuthor }
+  | { type: "preview"; commandId: string }
   | { type: "clear" };

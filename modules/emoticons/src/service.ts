@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { EmoticonAsset, EmoticonAuthor, EmoticonCommand, EmoticonEvent, EmoticonState } from "./contracts.ts";
+import type { EmoticonAsset, EmoticonCommand, EmoticonEvent, EmoticonState } from "./contracts.ts";
 
 const assetId = /^[a-f0-9-]{36}$/;
 const dimension = /^(?:|auto|(?:\d+(?:\.\d+)?)(?:px|%|vw|vh|vmin|vmax|em|rem))$/;
@@ -8,12 +8,7 @@ export class EmoticonService {
   private commands: EmoticonCommand[] = [];
   private assets: EmoticonAsset[] = [];
   private enabled = false;
-  private queue: { command: EmoticonCommand; author?: EmoticonAuthor }[] = [];
-  private active: EmoticonCommand | null = null;
-  private timer: ReturnType<typeof setTimeout> | undefined;
-  private stickerTimers = new Map<ReturnType<typeof setTimeout>, string>();
   private cooldowns = new Map<string, number>();
-  private seen = new Set<string>();
   private listeners = new Set<(event: EmoticonEvent) => void>();
   readonly assetDirectory: string;
   constructor(private directory: string, private readonly log: (event: string, details?: Record<string, unknown>) => void = () => {}) {
@@ -61,11 +56,10 @@ export class EmoticonService {
     return entry;
   }
   remove(id: string) {
-    for (const [timer, commandId] of this.stickerTimers) if (commandId === id) { clearTimeout(timer); this.stickerTimers.delete(timer); }
     const previous = this.commands;
     this.commands = this.commands.filter(item => item.id !== id);
     try { this.persist(); } catch (error) { this.commands = previous; throw error; }
-    this.queue = this.queue.filter(item => item.command.id !== id);
+    this.cooldowns.delete(id);
   }
   async upload(file: File, kind: string, durationSeconds: number, uploadId: string = crypto.randomUUID()) {
     if (kind !== "image" && kind !== "audio" && kind !== "video") throw new Error("Choose image, audio, or video");
@@ -92,71 +86,29 @@ export class EmoticonService {
   }
   asset(id: string) { return assetId.test(id) ? this.assets.find(item => item.id === id) : undefined; }
   setEnabled(enabled: boolean) {
-    for (const timer of this.stickerTimers.keys()) clearTimeout(timer); this.stickerTimers.clear();
-    this.enabled = enabled; clearTimeout(this.timer); this.active = null; this.queue = []; this.cooldowns.clear();
+    this.enabled = enabled;
+    if (!enabled) this.cooldowns.clear();
     this.log("emoticons.module-state", { enabled, commands: this.commands.map(command => command.command) });
     this.emit({ type: "clear" }); this.emit({ type: "state", state: this.snapshot() });
   }
-  message(id: string, text: string, author?: EmoticonAuthor) {
-    const normalized = text.trim().toLowerCase();
-    if (!normalized.startsWith("!")) return;
-    if (this.seen.has(id)) { this.log("emoticons.command-rejected", { messageId: id, reason: "duplicate-message" }); return; }
-    this.seen.add(id); if (this.seen.size > 2000) this.seen.delete(this.seen.values().next().value!);
-    const multiplied = /^(![a-z0-9_-]+)\s+x(\d+)$/.exec(normalized);
-    const command = this.commands.find(item => `!${item.command}` === normalized
-      || (item.mode === "sticker" && `!${item.command}` === multiplied?.[1]));
-    const count = command?.mode === "sticker" && multiplied ? Math.min(30, Math.max(1, Number(multiplied[2]))) : 1;
-    this.log("emoticons.command-received", { messageId: id, command: normalized });
-    if (command) {
-      if (multiplied) this.log("emoticons.sticker-multiplier", { messageId: id, command: command.command, requested: multiplied[2], count });
-      if (!this.trigger(command.id, "chat", id, author)) return;
-      for (let index = 1; index < count; index++) {
-        const timer = setTimeout(() => {
-          this.stickerTimers.delete(timer);
-          if (this.commands.find(item => item.id === command.id)?.mode === "sticker") this.trigger(command.id, "chat", id);
-        }, index * 3000 / (count - 1));
-        this.stickerTimers.set(timer, command.id);
-      }
-    }
-    else this.log("emoticons.command-rejected", { messageId: id, reason: "unknown-command" });
+  preview(id: string) {
+    if (!this.enabled || !this.commands.some(command => command.id === id)) return false;
+    this.emit({ type: "preview", commandId: id });
+    return true;
   }
-  trigger(id: string, source = "test", messageId?: string, author?: EmoticonAuthor) {
-    const command = this.commands.find(item => item.id === id);
-    const reason = !this.enabled ? "module-disabled" : !command ? "unknown-command"
-      : command.mode === "sticker" ? null : this.active?.id === id ? "already-playing" : this.queue.some(item => item.command.id === id) ? "already-queued"
-      : (this.cooldowns.get(id) ?? 0) > Date.now() ? "cooldown" : null;
-    if (reason || !command) {
-      this.log("emoticons.command-rejected", { commandId: id, command: command?.command, source, messageId, reason, cooldownRemainingMs: Math.max(0, (this.cooldowns.get(id) ?? 0) - Date.now()) });
-      return false;
+  reportCooldowns(value: unknown) {
+    if (!value || typeof value !== "object") throw new Error("Invalid cooldown report");
+    const next = new Map<string, number>();
+    const now = Date.now();
+    for (const command of this.commands.filter(command => command.mode !== "sticker")) {
+      const report = (value as Record<string, unknown>)[command.id];
+      if (!report || typeof report !== "object") continue;
+      const endsAt = (report as { endsAt?: unknown }).endsAt;
+      if (typeof endsAt !== "number" || !Number.isFinite(endsAt) || endsAt <= now || endsAt > now + 24 * 60 * 60_000) continue;
+      next.set(command.id, endsAt);
     }
-    if (source === "test" && !author) author = {
-      displayName: "Test sender",
-      avatar: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="32" fill="#36425d"/><circle cx="32" cy="23" r="12" fill="#bdc8df"/><path d="M10 60v-6a22 22 0 0 1 44 0v6" fill="#bdc8df"/></svg>')}`,
-    };
-    if (command.mode === "sticker") {
-      const effectId = crypto.randomUUID();
-      this.log("emoticons.sticker-broadcast", { effectId, command: command.command, source, messageId, durationSeconds: command.durationSeconds, subscribers: this.listeners.size });
-      this.emit({ type: "effect", id: effectId, command: structuredClone(command), durationSeconds: command.durationSeconds, author });
-      return true;
-    }
-    const endsAt = Date.now() + command.cooldownSeconds * 1000;
-    this.cooldowns.set(id, endsAt);
+    this.cooldowns = next;
     this.emit({ type: "state", state: this.snapshot() });
-    this.log("emoticons.cooldown-broadcast", { commandId: id, endsAt, durationSeconds: command.cooldownSeconds, subscribers: this.listeners.size });
-    this.queue.push(structuredClone({ command, author }));
-    this.log("emoticons.command-queued", { command: command.command, commandId: id, source, messageId, queueLength: this.queue.length });
-    this.next(); return true;
-  }
-  private next() {
-    if (this.active || !this.enabled) return;
-    const queued = this.queue.shift(); if (!queued) return;
-    const { command, author } = queued;
-    this.active = command;
-    const durationSeconds = command.durationSeconds;
-    const effectId = crypto.randomUUID();
-    this.log("emoticons.effect-broadcast", { effectId, command: command.command, durationSeconds, subscribers: this.listeners.size, imageAssetId: command.imageAssetId, audioAssetId: command.audioAssetId, videoAssetId: command.videoAssetId });
-    this.emit({ type: "effect", id: effectId, command, durationSeconds, author });
-    this.timer = setTimeout(() => { this.log("emoticons.effect-finished", { effectId, command: command.command }); this.active = null; this.next(); }, durationSeconds * 1000);
   }
   events(request: Request) {
     const query = new URL(request.url).searchParams;

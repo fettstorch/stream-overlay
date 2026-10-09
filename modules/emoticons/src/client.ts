@@ -1,9 +1,11 @@
 import type { EmoticonEvent } from "./contracts.ts";
+import { DirectStreamChatService } from "@stream-overlay/stream-chat";
 import { captureStickerPreview } from "./sticker-preview.ts";
 import { createStickerAssetCache } from "./asset-cache.ts";
 import { advanceBoardScroll, createBoardScrollState } from "./board-scroll.ts";
 import { effectTop, mediaObjectFit } from "./media-layout.ts";
 import { observeEmoticonEvents } from "./events-client.ts";
+import { EmoticonRuntime } from "./runtime.ts";
 const boardMode = location.pathname.includes("/board");
 const muted = new URLSearchParams(location.search).get("muted") === "1";
 const effect = document.querySelector<HTMLDivElement>("#effect")!;
@@ -225,8 +227,39 @@ if (boardMode) {
   board.addEventListener("touchstart", pauseBoardAutoScroll, { passive: true });
   boardScrollFrame = requestAnimationFrame(updateBoardAutoScroll);
 }
+const runtime = boardMode ? undefined : new EmoticonRuntime({
+  effect: event => {
+    diagnose("emoticons.effect-accepted", { effectId: event.id, command: event.command.command });
+    if (event.command.mode === "sticker") spawnSticker(event);
+    else { pending.push(event); void next(); }
+  },
+  cooldowns: cooldowns => {
+    void fetch("/api/emoticons/runtime/cooldowns", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cooldowns),
+    }).catch(error => diagnose("emoticons.cooldown-report-failed", { error: String(error) }));
+  },
+  log: diagnose,
+});
+const chat = boardMode ? undefined : new DirectStreamChatService(diagnose);
+chat?.messages.subscribe(message => runtime?.message(message.id, message.text, message.author));
+async function refreshStreamer() {
+  if (!chat) return;
+  try {
+    const response = await fetch("/api/config", { headers: { "Accept": "application/json" } });
+    if (!response.ok) throw new Error(`Configuration unavailable (${response.status})`);
+    const configuration = await response.json() as { streamerDid?: unknown };
+    chat.setStreamerDid(typeof configuration.streamerDid === "string" ? configuration.streamerDid : "");
+  } catch (error) {
+    diagnose("emoticons.chat-config-failed", { error: String(error) });
+  }
+}
+void refreshStreamer();
 const events = observeEmoticonEvents(boardMode ? "board" : "effects", event => {
   if (event.type === "state") {
+    runtime?.configure(event.state);
+    if (!boardMode) void refreshStreamer();
     stickerAssets.retain(new Set(event.state.assets.map(asset => `/api/emoticons/assets/${asset.id}`)));
     for (const id of assetPreviews.keys()) if (!event.state.assets.some(asset => asset.id === id)) assetPreviews.delete(id);
     if (!event.state.enabled) clear();
@@ -283,8 +316,8 @@ const events = observeEmoticonEvents(boardMode ? "board" : "effects", event => {
     board.scrollTop = Math.min(scrollTop, Math.max(0, board.scrollHeight - board.clientHeight));
     updateCooldownRings();
     if (boardMode) diagnose("emoticons.board-cooldowns-updated", { activeCooldowns: [...cooldownRings.values()].filter(ring => ring.endsAt > Date.now()).length });
-  } else if (event.type === "clear") { clear(); for (const ring of cooldownRings.values()) ring.endsAt = 0; updateCooldownRings(); }
-  else if (!boardMode) { diagnose("emoticons.effect-received", { effectId: event.id, command: event.command.command }); if (event.command.mode === "sticker") spawnSticker(event); else { pending.push(event); void next(); } }
+  } else if (event.type === "clear") { runtime?.clear(); clear(); for (const ring of cooldownRings.values()) ring.endsAt = 0; updateCooldownRings(); }
+  else if (event.type === "preview" && !boardMode) runtime?.trigger(event.commandId);
 }, () => diagnose("emoticons.events-connected", { transport: "websocket" }),
-() => { diagnose("emoticons.events-disconnected"); clear(); board.hidden = true; }, clientId);
-window.addEventListener("pagehide", () => { clear(); clearInterval(cooldownTicker); if (boardScrollFrame !== undefined) cancelAnimationFrame(boardScrollFrame); events.close(); stickerPool.length = 0; stickerAssets.clear(); stickerAvatars.clear(); assetPreviews.clear(); });
+() => { diagnose("emoticons.events-disconnected"); if (boardMode) board.hidden = true; }, clientId);
+window.addEventListener("pagehide", () => { runtime?.clear(); chat?.stop(); clear(); clearInterval(cooldownTicker); if (boardScrollFrame !== undefined) cancelAnimationFrame(boardScrollFrame); events.close(); stickerPool.length = 0; stickerAssets.clear(); stickerAvatars.clear(); assetPreviews.clear(); });
