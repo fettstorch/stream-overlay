@@ -9,6 +9,24 @@
   background: var(--module-section-background, #1b2435);
 }
 
+/* One continuous list surface: stripes separate rows without individual frames. */
+.command-list.striped-list {
+  gap: 0;
+  overflow: hidden;
+  border-radius: var(--command-list-radius, 10px);
+}
+.command-list.striped-list > li {
+  min-height: 52px;
+  padding: 10px 12px;
+  border: 0;
+}
+.striped-list > li:nth-child(odd) {
+  background: var(--command-row-background, #131c2b);
+}
+.striped-list > li:nth-child(even) {
+  background: var(--command-row-alternate-background, #263248);
+}
+
 @media (max-width: 680px) {
   .module-section {
     padding: var(--module-section-padding, 14px);

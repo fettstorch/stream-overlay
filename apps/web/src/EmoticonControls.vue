@@ -153,7 +153,7 @@ function selected(event: Event) { const input = event.target as HTMLInputElement
     <p>Effect source: match your OBS canvas. Board source: start at 420 × 600 px, then size independently. Both disappear when disabled.</p>
     <CollapsibleSection v-for="group in commandGroups" :key="group.title" class="command-group" :title="group.title" :count="group.commands.length">
     <p v-if="!group.commands.length">No commands yet</p>
-    <ul class="command-list"><li v-for="command in group.commands" :key="command.id"><strong>!{{ command.command }}</strong><button type="button" @click="test(command)">Test</button><button type="button" @click="edit(command)">Edit</button><button type="button" @click="remove(command)">Delete</button></li></ul>
+    <ul class="command-list striped-list"><li v-for="command in group.commands" :key="command.id"><strong>!{{ command.command }}</strong><button type="button" @click="test(command)">Test</button><button type="button" @click="edit(command)">Edit</button><button type="button" @click="remove(command)">Delete</button></li></ul>
     </CollapsibleSection>
     <div v-if="!formOpen"><button type="button" @click="create">Create command</button></div>
     <form v-if="formOpen" class="module-section command-editor" @submit.prevent="save">

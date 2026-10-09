@@ -27,6 +27,7 @@ describe("Cloud Admin", () => {
     await wrapper.get('button[aria-label="Show Emoticons details"]').trigger("click");
     const clipsToggle = wrapper.get('button[aria-label="Hide Clips"]');
     expect(wrapper.get('.command-group').classes()).toContain('module-section');
+    expect(wrapper.get('ul.command-list').classes()).toContain('striped-list');
     expect(clipsToggle.attributes('aria-expanded')).toBe('true');
     expect(clipsToggle.get('svg').classes()).toContain('expanded');
     await clipsToggle.trigger('click');
