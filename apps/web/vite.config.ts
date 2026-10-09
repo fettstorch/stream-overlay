@@ -7,8 +7,9 @@ import { getCloudOverlayPages } from "../../modules/catalog.ts";
 const enablePets = process.env.VITE_ENABLE_CLOUD_PETS === "true";
 const cloudOverlayPages = getCloudOverlayPages(enablePets);
 
-export default defineConfig({
-  base: "/admin/",
+export default defineConfig(({ command }) => ({
+  // The legacy local host proxies Vite under /admin; hosted assets live at /.
+  base: command === "serve" ? "/admin/" : "/",
   plugins: [
     vue(),
     {
@@ -42,4 +43,4 @@ export default defineConfig({
     strictPort: true,
     hmr: { host: "localhost", port: 3003 },
   },
-});
+}));

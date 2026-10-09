@@ -252,6 +252,8 @@ above for the account pilot.
 
 The Streamface admin automatically observes the signed-in ATProto account's
 stream.place stream; no separate streamer selection is needed.
+The cloud user interface is served at `/`. OAuth returns there too; old `/admin/`
+bookmarks redirect to `/`. The separate local overlay host keeps its existing admin URL.
 
 The Streamface admin includes Emoticons, Chat and Overlay Paint. Streamplace
 Pets is temporarily excluded from cloud builds pending upstream permission;

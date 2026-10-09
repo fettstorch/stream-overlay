@@ -49,7 +49,7 @@ function safeFile(pathname: string, webRoot: string, enablePets = false) {
     : pathname.slice(1);
   const pages: Record<string, string> = {
     "/": "cloud-admin.html",
-    "/admin/": "cloud-admin.html",
+    "/index.html": "cloud-admin.html",
     ...getCloudOverlayPages(enablePets),
   };
   relative = pages[pathname] ?? relative;
@@ -239,7 +239,7 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
   if (path === "/oauth/login") {
     const handle = url.searchParams.get("handle")?.trim();
     if (!handle || handle.length > 253)
-      return Response.redirect(new URL("/admin/?error=oauth-start-failed", url), 302);
+      return Response.redirect(new URL("/?error=oauth-start-failed", url), 302);
     deps.logger.log("info", "cloud.oauth.authorize-started", { requestId });
     try {
       const redirect = await deps.oauth.authorize(handle, {
@@ -252,7 +252,7 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
         requestId,
         ...safeError(error),
       });
-      return Response.redirect(new URL("/admin/?error=oauth-start-failed", url), 302);
+      return Response.redirect(new URL("/?error=oauth-start-failed", url), 302);
     }
   }
   if (path === "/oauth/callback") {
@@ -264,7 +264,7 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
       return new Response(null, {
         status: 302,
         headers: {
-          Location: "/admin/",
+          Location: "/",
           "Set-Cookie": `stream_overlay_session=${cookie}; Path=/; HttpOnly;${deps.origin.startsWith("https:") ? " Secure;" : ""} SameSite=Lax; Max-Age=604800`,
         },
       });
@@ -273,7 +273,7 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
         requestId,
         ...safeError(error),
       });
-      return Response.redirect(new URL("/admin/?error=oauth-callback-failed", url), 302);
+      return Response.redirect(new URL("/?error=oauth-callback-failed", url), 302);
     }
   }
   if (path === "/oauth/logout" && request.method === "POST") {
@@ -525,7 +525,11 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
       ),
       oauthConfigured: deps.secret.length >= 32,
     });
-  if (path === "/") return Response.redirect(new URL("/admin/", url), 302);
+  if (path === "/admin" || path === "/admin/") {
+    const destination = new URL("/", url);
+    destination.search = url.search;
+    return Response.redirect(destination, 302);
+  }
   const filePath = safeFile(path, deps.webRoot, deps.enablePets);
   if (filePath) {
     const file = Bun.file(filePath);

@@ -321,15 +321,70 @@ describe("cloud server boundary", () => {
     expect(sent).toHaveLength(2);
   });
 
-  test("serves the built web application under its stable admin path", async () => {
+  test("serves the user application at root with root assets and legacy asset aliases", async () => {
     const root = webRoot();
-    const index = await handleRequest(new Request("http://localhost/admin/"), dependencies(root));
+    const index = await handleRequest(new Request("http://localhost/"), dependencies(root));
+    expect(index.status).toBe(200);
+    expect(index.headers.get("location")).toBeNull();
+    const rootAsset = await handleRequest(
+      new Request("http://localhost/assets/app.js"),
+      dependencies(root),
+    );
+    expect(await rootAsset.text()).toContain("ready");
     const asset = await handleRequest(
       new Request("http://localhost/admin/assets/app.js"),
       dependencies(root),
     );
     expect(await index.text()).toBe("<h1>Admin</h1>");
     expect(await asset.text()).toContain("ready");
+    const html = await handleRequest(
+      new Request("http://localhost/index.html"),
+      dependencies(root),
+    );
+    expect(await html.text()).toBe("<h1>Admin</h1>");
+  });
+
+  test("old admin bookmarks redirect to root, preserving query parameters", async () => {
+    for (const path of ["/admin", "/admin/"]) {
+      const response = await handleRequest(
+        new Request(`http://localhost${path}?error=oauth-start-failed`),
+        dependencies(webRoot()),
+      );
+      expect(response.status).toBe(302);
+      expect(response.headers.get("location")).toBe("http://localhost/?error=oauth-start-failed");
+    }
+  });
+
+  test("OAuth success and failures return users to root rather than an admin panel", async () => {
+    const deps = dependencies(webRoot());
+    deps.oauth.callback = (async () => ({ session: { did: "did:plc:alice" } })) as any;
+    const callback = await handleRequest(
+      new Request("https://overlay.example/oauth/callback"),
+      deps,
+    );
+    expect(callback.headers.get("location")).toBe("/");
+    expect(callback.headers.get("set-cookie")).toContain("stream_overlay_session=");
+    deps.oauth.callback = async () => {
+      throw new Error("fixture failure");
+    };
+    const failed = await handleRequest(new Request("https://overlay.example/oauth/callback"), deps);
+    expect(failed.headers.get("location")).toBe(
+      "https://overlay.example/?error=oauth-callback-failed",
+    );
+    const invalid = await handleRequest(new Request("https://overlay.example/oauth/login"), deps);
+    expect(invalid.headers.get("location")).toBe(
+      "https://overlay.example/?error=oauth-start-failed",
+    );
+    deps.oauth.authorize = async () => {
+      throw new Error("fixture failure");
+    };
+    const rejected = await handleRequest(
+      new Request("https://overlay.example/oauth/login?handle=alice.example"),
+      deps,
+    );
+    expect(rejected.headers.get("location")).toBe(
+      "https://overlay.example/?error=oauth-start-failed",
+    );
   });
 
   test("does not expose files outside the built web directory", async () => {

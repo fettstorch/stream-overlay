@@ -39,6 +39,8 @@ This script intentionally reapplies the documented pilot settings on every run;
 it is not a source-only update that preserves arbitrary console configuration.
 Review and adjust it before changing instance size, region, port or scaling in
 the console. Inspect the service, logs and settings there after deployment.
+The user-facing application is served at `/`, not `/admin/`. Old `/admin` bookmarks
+redirect to `/`; that path is reserved for a possible future owner-only panel.
 Attach your custom domain and update `PUBLIC_ORIGIN` before using that domain for
 OAuth login; the configured origin must match the browser's URL.
 
