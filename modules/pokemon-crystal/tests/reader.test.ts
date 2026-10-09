@@ -21,7 +21,7 @@ function runLua(extra: string) {
     }
     emu.memory.wram = { read8 = function(_, offset) return ram[offset + 0xC000] or 0 end }
     rom[0x14C], rom[0x14E], rom[0x14F] = 1, 0x18, 0xD2
-    console = { log = function() end }
+    console = { log = function() end, error = function(_, message) print(message) end }
     callbacks = { add = function(_, _, fn) tick = fn end }
     io.open = function(path)
       return { write = function(_, value) files[path] = value end, close = function() end }
