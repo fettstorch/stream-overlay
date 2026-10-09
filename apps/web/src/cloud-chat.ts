@@ -1,10 +1,11 @@
 import { createApp } from "vue";
 import Chat from "../../../modules/chat/src/App.vue";
-import { DirectStreamChatService } from "@stream-overlay/stream-chat";
+import { DirectStreamChatService, SampleChatService } from "@stream-overlay/stream-chat";
 import { observeCloudConfig } from "./cloud-module-source.ts";
 
 let subscription: ReturnType<typeof observeCloudConfig> | undefined;
-const chat = new DirectStreamChatService(event => {
+const preview = new URLSearchParams(location.search).get("preview") === "1";
+const chat = preview ? new SampleChatService() : new DirectStreamChatService(event => {
   if (event === "chat.direct-message-emitted") subscription?.report("playback-started", "chat.message-delivered");
   else if (/connected$/.test(event)) subscription?.report("config-loaded", event);
   else if (/error|failed|timeout/.test(event)) subscription?.report("media-failed", event);

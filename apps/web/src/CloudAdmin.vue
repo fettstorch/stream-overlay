@@ -194,6 +194,7 @@ onBeforeUnmount(() => { disposed = true; autocomplete?.dispose(); clearTimeout(c
             </CloudEmoticonControls>
           </template>
           <CloudModuleControls v-else :module-id="module.id" :config="config" :save="candidate => saveConfiguration(candidate, undefined, module.id)" />
+          <p v-if="module.id === 'chat'" class="chat-preview-note">Sample chat preview — these messages are generated here, not sent to your stream. Your OBS source still shows live chat.</p>
           <div v-if="module.id !== 'emoticons' && isExpanded(module)" class="cloud-preview" :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }">
             <iframe v-if="module.id === 'overlay-paint'" :src="streamUrl" title="Stream background" tabindex="-1" class="preview-background" allow="autoplay" />
             <iframe :src="previewUrl(module.id)" :title="`${module.name} preview`" allow="autoplay" />
