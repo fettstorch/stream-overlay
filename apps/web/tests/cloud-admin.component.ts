@@ -75,6 +75,9 @@ describe("Cloud Admin", () => {
     expect(wrapper.findAll("[data-module]").map(card => card.attributes("data-module"))).toEqual(["emoticons", "chat", "overlay-paint", "streamplace-pets"]);
     expect(wrapper.text()).toContain("2560 × 1440");
     expect(wrapper.text()).not.toContain("Your stream");
+    expect(wrapper.get('.obs-guidance').text()).toContain('Browser Sources in OBS');
+    expect(wrapper.get('.obs-guidance').text()).toContain('carefully read its instructions');
+    expect(wrapper.get('.obs-guidance').text()).not.toContain('2560');
     expect(wrapper.findAll('button.info-button')).toHaveLength(4);
     expect(wrapper.get('#module-help-emoticons').text()).toContain('420 × 600');
     expect(wrapper.get('#module-help-chat').text()).toContain('height to 1440 px');
