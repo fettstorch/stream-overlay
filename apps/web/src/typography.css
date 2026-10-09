@@ -11,11 +11,21 @@
 #app .brand-heading { font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
 
 #app .intro { font-size: 1.1em; }
-#app h2 { font-size: 1.1em; font-weight: 700; }
-#app h3 { font-size: 1.4em; font-weight: 700; }
+#app h2 { font-size: 1.3em; font-weight: 800; }
+#app h3 { font-size: 1.5em; font-weight: 800; }
 #app h4,
-#app .section-heading h4 { font-size: 1em; font-weight: 700; }
-#app .module-card.collapsed h3 { font-size: 1.1em; }
+#app .section-heading h4 { font-size: 1.2em; font-weight: 800; }
+#app .module-card.collapsed h3 { font-size: 1.3em; }
+/* Patrick Hand has one weight. Give headings a little extra ink beyond
+   synthesized bold, without changing the wordmark or regular body copy. */
+#app :is(h2, h3, h4, .command-group summary, .command-editor legend) {
+  -webkit-text-stroke: .35px currentColor;
+}
+#app :is(.command-group summary, .command-editor legend) {
+  font-size: 1.1em;
+  font-weight: 800;
+}
+#app .section-heading h4 span { font-weight: 700; }
 #app .emoticon-controls { font-size: 1em; }
 #app :is(.status, .module-card.collapsed .status, .section-kicker, .eyebrow) {
   font-size: .8em;
