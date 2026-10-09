@@ -9,6 +9,7 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
+    "@atproto/api": "^0.24.3",
     "@stream-overlay/browser-runtime": "workspace:*",
     "@stream-overlay/emoticons": "workspace:*",
     "@stream-overlay/protocol": "workspace:*",

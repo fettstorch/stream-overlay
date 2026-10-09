@@ -219,10 +219,17 @@ Docker without host Bun uses the equivalent command:
 docker compose -f infra/koyeb/compose.local.yml up --build
 ```
 
-For faster source development without a container, `bun run cloud:dev` builds the
-web app and starts Bun directly on the same port. Set `PORT=4567 bun run cloud:dev`
-to choose another port; when `PUBLIC_ORIGIN` is omitted, OAuth metadata derives its
-loopback origin from `PORT`.
+For faster source development without a container, `bun run cloud:dev` uses a
+task-local Bun 1.4.2 (downloaded by `bunx` without changing the global Bun install),
+builds the web app, and starts the server on the same port. Set
+`PORT=4567 bun run cloud:dev` to choose another port; when `PUBLIC_ORIGIN` is
+omitted, OAuth metadata derives its loopback origin from `PORT`.
+
+The cloud runtime is pinned to Bun 1.4.2 and the official AT Protocol packages
+`@atproto/api` 0.24.3 and `@atproto/oauth-client-node` 0.5.9. OAuth uses the SDK's
+HTTP handle resolver because its default Node DNS resolver relies on an Undici
+runtime version signal that Bun does not expose. Do not run the cloud server under
+older Bun versions; Bun 1.3.14 cannot import OAuth client 0.5.9 safely.
 
 Both local modes use the development-only namespace and local credentials. A real
 OAuth consent flow still depends on an AT Protocol provider accepting the loopback

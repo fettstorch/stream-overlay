@@ -13,6 +13,7 @@ export function createOAuth(origin: string, dataDir: string, scope: string) {
     },
     stateStore: new JsonStore<NodeSavedState>(dataDir, "oauth-state"),
     sessionStore: new JsonStore<NodeSavedSession>(dataDir, "oauth-session"),
+    handleResolver: "https://bsky.social",
     requestLock: requestLocalLock,
   });
 }
