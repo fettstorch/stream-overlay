@@ -11,6 +11,10 @@
 .appearance-controls input[type=range] { flex:1; min-width:120px; }
 .appearance-controls input[type=color] { width:60px; height:36px; padding:3px; }
 .appearance-controls output { margin-left:auto; color:#b8c8e9; }
+.upstream-info { padding:14px 16px; border:1px solid #75602f; border-radius:10px; background:#332b19; color:#efdcaa; font-size:.9rem; line-height:1.6; }
+.upstream-info p { margin:0; }
+.upstream-info a { color:#ffdf86; text-underline-offset:3px; }
+.upstream-info a:hover { color:#fff0bf; }
 .cloud-preview { position:relative; width:100%; background:#121826; overflow:hidden; border:1px solid #34425e; border-radius:12px; margin:16px 0; }
 .cloud-preview iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
 .cloud-preview .preview-background { pointer-events:none; }

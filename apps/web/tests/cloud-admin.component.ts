@@ -78,6 +78,11 @@ describe("Cloud Admin", () => {
     const saved = JSON.parse(String(write[1]?.body));
     expect(saved.paint.decaySeconds).toBe(3.5); expect(saved.chat.fontSize).toBe(20); expect(saved.commands).toEqual(config.commands);
     expect(wrapper.find('a[href="https://rpg.actor/streampets"]').exists()).toBe(true);
+    const attribution = wrapper.get('aside[aria-label="Streamplace Pets attribution"]');
+    expect(attribution.classes()).toContain('upstream-info');
+    expect(attribution.text()).toContain('Eli Mallon (iameli)');
+    expect(attribution.find('a[href="https://github.com/streamplace/streamplace-pets"]').exists()).toBe(true);
+    expect(wrapper.text()).not.toContain('No redistribution licence');
     await wrapper.get('button[aria-label="Hide Chat details"]').trigger("click");
     expect(wrapper.find('iframe[title="Chat preview"]').exists()).toBe(false);
     wrapper.unmount();
