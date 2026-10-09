@@ -3,6 +3,7 @@ import { StructuredLogger, safeError } from "../src/logger.ts";
 
 describe("cloud structured logger", () => {
   test("identifies missing Streamface schemas without logging upstream payloads", () => {
+    expect(safeError({ status: 400, error: "InvalidRequest", message: "Unknown lexicon type: live.streamface.chat.settings" })).toEqual({ upstreamStatus: 400, upstreamCode: "InvalidRequest", upstreamReason: "lexicon-not-found", lexicon: "live.streamface.chat.settings" });
     expect(safeError({ status: 400, error: "InvalidRequest", message: "Lexicon not found: lex:live.streamface.chat.settings" })).toEqual({ upstreamStatus: 400, upstreamCode: "InvalidRequest", upstreamReason: "lexicon-not-found", lexicon: "live.streamface.chat.settings" });
     expect(safeError({ status: 400, error: "InvalidRequest", message: "Private record contents: secret" })).toEqual({ upstreamStatus: 400, upstreamCode: "InvalidRequest" });
   });

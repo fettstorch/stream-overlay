@@ -24,7 +24,7 @@ export function safeError(error: unknown) {
   // Only retain a recognized schema identifier, never arbitrary upstream messages.
   const message = (error as { message?: unknown })?.message;
   const missing = typeof message === "string"
-    ? message.match(/Lexicon not found: (?:lex:)?(live\.streamface\.[a-zA-Z0-9.]+)/)
+    ? message.match(/(?:Lexicon not found: (?:lex:)?|Unknown lexicon type: )(live\.streamface\.[a-zA-Z0-9.]+)/)
     : null;
   return { ...(status ? { upstreamStatus: status } : {}), upstreamCode: code,
     ...(missing ? { upstreamReason: "lexicon-not-found", lexicon: missing[1] } : {}) };

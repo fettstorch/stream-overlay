@@ -12,7 +12,10 @@ identity. OAuth sessions, live cooldowns and drawings are not repository records
 
 The server validates both reads and writes with the official ATProto Lexicon SDK,
 plus app constraints (HTTPS media, safe command names, colors and CSS sizes).
-Streamface module writes also request PDS-side validation (`validate: true`). The
+Streamface module writes leave PDS validation unset: known schemas are validated,
+but unknown custom schemas remain writable. Bluesky's PDS does not yet dynamically
+resolve published custom schemas; requiring `validate: true` rejects those writes.
+Local SDK validation remains mandatory for every Streamface record. The
 six schemas are published on the Streamface account's PDS and the four module
 authority DNS records resolve to `did:plc:j66wyknizjxecbnrenjzj7l3`. The explicit
 legacy adapter retains `validate: false`; local validation remains mandatory.

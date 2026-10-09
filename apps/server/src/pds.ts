@@ -441,7 +441,7 @@ export class PdsService {
     agent: AgentLike,
     diagnostics?: Diagnostics,
   ) {
-    const context = { requestId: diagnostics?.requestId, pdsValidation: true };
+    const context = { requestId: diagnostics?.requestId, pdsValidation: "known-schemas", localValidation: true };
     diagnostics?.logger.log("info", "cloud.pds.module-save-started", context);
     try {
       const latest = await agent.com.atproto.sync.getLatestCommit({ did });
@@ -485,11 +485,11 @@ export class PdsService {
             rkey: record.rkey,
           });
       if (writes.length > 200) throw new Error("Too many record writes");
-      // Published Streamface schemas are resolved by the PDS; keep local validation too.
+      // Leave validation unset: Bluesky PDS only knows built-in schemas and does not
+      // dynamically resolve custom lexicons yet. Local SDK validation is mandatory.
       await agent.com.atproto.repo.applyWrites({
         repo: did,
         swapCommit: latest.data.cid,
-        validate: true,
         writes,
       });
       const saved = parseModuleRecords(did, records);
