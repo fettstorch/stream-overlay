@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createDependencies, handleRequest } from "../src/server.ts";
 import { sessionCookie } from "../src/auth.ts";
+import { CloudConfigMissingError } from "../src/pds.ts";
 
 const roots: string[] = [];
 afterEach(() => {
@@ -42,6 +43,16 @@ describe("cloud server boundary", () => {
   });
 
   test("rejects cross-origin authenticated writes before touching the PDS", async () => { const root=webRoot();const deps=dependencies(root);let saved=false;(deps as any).pds={save:async()=>{saved=true}};const cookie=await sessionCookie("did:plc:alice",deps.secret);const response=await handleRequest(new Request("https://overlay.example/api/accounts/did:plc:alice/config",{method:"PUT",headers:{origin:"https://evil.example",cookie:`stream_overlay_session=${cookie}`,"content-type":"application/json"},body:JSON.stringify({enabled:true,streamerDid:"did:plc:alice",commands:[]})}),deps);expect(response.status).toBe(403);expect(saved).toBe(false); });
+
+  test("distinguishes a missing cloud configuration from an unavailable PDS", async () => {
+    const root = webRoot(); const deps = dependencies(root);
+    (deps as any).pds = { publicConfig: async () => { throw new CloudConfigMissingError(); } };
+    const missing = await handleRequest(new Request("https://overlay.example/api/accounts/did:plc:alice/config"), deps);
+    expect(missing.status).toBe(404); expect(await missing.json()).toEqual({ error: "configuration-not-found" });
+    (deps as any).pds = { publicConfig: async () => { throw new Error("offline"); } };
+    const unavailable = await handleRequest(new Request("https://overlay.example/api/accounts/did:plc:alice/config"), deps);
+    expect(unavailable.status).toBe(502); expect(await unavailable.json()).toEqual({ error: "configuration-unavailable" });
+  });
 
   test("separates local defaults from deploy configuration and keeps origin aligned with PORT", () => { expect(createDependencies({}).origin).toBe("http://127.0.0.1:3010"); expect(createDependencies({PORT:"4567"}).origin).toBe("http://127.0.0.1:4567"); expect(()=>createDependencies({PUBLIC_ORIGIN:"https://overlay.example",SESSION_SECRET:"test-secret-with-at-least-thirty-two-bytes"})).toThrow("LEXICON_NAMESPACE"); });
 });

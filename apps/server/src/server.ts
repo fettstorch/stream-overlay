@@ -1,6 +1,6 @@
 import { resolve, sep } from "node:path";
 import { createOAuth, readSessionCookie, sessionCookie } from "./auth.ts";
-import { PdsService, type CloudConfig, collections } from "./pds.ts";
+import { CloudConfigMissingError, PdsService, type CloudConfig, collections } from "./pds.ts";
 import { Relay } from "./realtime.ts";
 
 const defaultWebRoot = resolve(import.meta.dir, "../../web/dist");
@@ -21,7 +21,7 @@ export async function handleRequest(request: Request, deps: Dependencies) {
   if (path === "/oauth/logout" && request.method === "POST") { if (!sameOrigin(request, deps.origin)) return json({ error: "invalid-origin" }, 403); return new Response(null, { status: 204, headers: { "Set-Cookie": `stream_overlay_session=; Path=/; HttpOnly;${deps.origin.startsWith("https:") ? " Secure;" : ""} SameSite=Lax; Max-Age=0` } }); }
   if (path === "/api/session") { const did = await readSessionCookie(request, deps.secret); return did ? json({ did }) : json({ authenticated: false }, 401); }
   const configDid = didFromPath(path, "config");
-  if (configDid && request.method === "GET") { try { return json(await deps.pds.publicConfig(configDid, url.searchParams.get("refresh") === "1")); } catch { return json({ error: "configuration-unavailable" }, 502); } }
+  if (configDid && request.method === "GET") { try { return json(await deps.pds.publicConfig(configDid, url.searchParams.get("refresh") === "1")); } catch (error) { return error instanceof CloudConfigMissingError ? json({ error: "configuration-not-found" }, 404) : json({ error: "configuration-unavailable" }, 502); } }
   if (configDid && request.method === "PUT") { if (!sameOrigin(request, deps.origin)) return json({ error: "invalid-origin" }, 403); const authDid = await readSessionCookie(request, deps.secret); if (authDid !== configDid) return json({ error: "forbidden" }, 403); try { const body = await request.json() as CloudConfig; if (!body || !Array.isArray(body.commands) || body.commands.length > 100 || typeof body.streamerDid !== "string" || !/^did:[a-z0-9]+:[A-Za-z0-9._:%-]+$/.test(body.streamerDid)) return json({ error: "invalid-configuration" }, 400); const saved = await deps.pds.save(configDid, body); deps.relay.configChanged(configDid, saved.revision); return json(saved); } catch { return json({ error: "save-failed" }, 400); } }
   const uploadDid = didFromPath(path, "media");
   if (uploadDid && request.method === "POST") { if (!sameOrigin(request, deps.origin)) return json({ error: "invalid-origin" }, 403); const authDid = await readSessionCookie(request, deps.secret); if (authDid !== uploadDid) return json({ error: "forbidden" }, 403); try { const bytes = await boundedBody(request, 10_000_000); return json(await deps.pds.upload(uploadDid, bytes, request.headers.get("content-type") ?? "")); } catch (error) { return error instanceof RangeError ? json({ error: "upload-too-large" }, 413) : json({ error: "upload-failed" }, 400); } }

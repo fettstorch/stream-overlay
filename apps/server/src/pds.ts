@@ -6,6 +6,7 @@ export type CloudCommand = { id: string; command: string; mode: "effect"|"sticke
 export type CloudConfig = { enabled: boolean; streamerDid: string; commands: CloudCommand[]; revision: string };
 type AgentLike = Pick<Agent, "com" | "uploadBlob">;
 type PdsDependencies = { resolvePds?: typeof resolvePds; fetch?: typeof fetch; agent?: (session: Awaited<ReturnType<NodeOAuthClient["restore"]>>) => AgentLike };
+export class CloudConfigMissingError extends Error {}
 export function collections(namespace: string) { if (!/^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*){2,}$/.test(namespace)) throw new Error("Invalid LEXICON_NAMESPACE"); return { settings: `${namespace}.settings`, command: `${namespace}.command` }; }
 export function validateMediaUrl(value: unknown) { if (typeof value !== "string" || value.length > 2048) return; try { const url = new URL(value); if (url.protocol !== "https:") return; return url.toString(); } catch { return; } }
 function validateMedia(value: CloudMedia | undefined) { if (!value) return; if (value.url && value.blob) throw new Error("Media must use one source"); if (value.url) { if (!validateMediaUrl(value.url)) throw new Error("Media URLs must use HTTPS"); return; } const blob = value.blob; if (!blob || blob.$type !== "blob" || typeof blob.ref?.$link !== "string" || !/^[a-z0-9]+$/i.test(blob.ref.$link) || typeof blob.mimeType !== "string" || !/^(image|audio|video)\/[A-Za-z0-9.+-]+$/.test(blob.mimeType) || !Number.isSafeInteger(blob.size) || blob.size < 0 || blob.size > 10_000_000) throw new Error("Invalid media blob"); }
@@ -28,7 +29,10 @@ export class PdsService {
   constructor(private oauth: NodeOAuthClient, private namespace: string, private cacheMs = 60_000, private minimumRefreshMs = 15_000, dependencies: PdsDependencies = {}) { this.resolvePdsFn = dependencies.resolvePds ?? resolvePds; this.fetchFn = dependencies.fetch ?? fetch; this.agentFactory = dependencies.agent ?? (session => new Agent(session)); }
   async publicConfig(did: string, force = false) { const cached = this.cache.get(did); if (cached && Date.now() - cached.loadedAt < (force ? this.minimumRefreshMs : this.cacheMs)) return cached.config;
     try { const service = await this.resolvePdsFn(did); const c = collections(this.namespace); const [settings, commandRecords] = await Promise.all([
-      xrpc(this.fetchFn, service, "com.atproto.repo.getRecord", { repo: did, collection: c.settings, rkey: "self" }),
+      xrpc(this.fetchFn, service, "com.atproto.repo.getRecord", { repo: did, collection: c.settings, rkey: "self" }).catch(error => {
+        if (error instanceof XrpcResponseError && [400, 404].includes(error.status)) throw new CloudConfigMissingError("Cloud configuration not found");
+        throw error;
+      }),
       listAllRecords(async cursor => { const page = await xrpc(this.fetchFn, service, "com.atproto.repo.listRecords", { repo: did, collection: c.command, limit: "100", ...(cursor ? { cursor } : {}) }) as any; return { records: page.records ?? [], cursor: page.cursor }; }),
     ]); const parsed = parseConfig((settings as any).value, commandRecords.map((item:any) => item.value), this.namespace); if (!parsed) throw new Error("Invalid PDS configuration"); for (const command of parsed.commands) for (const media of [command.image, command.audio, command.video]) if (media?.blob && !media.url) media.url = blobUrl(service, did, media.blob); this.cache.set(did, { config: parsed, loadedAt: Date.now() }); return parsed;
     } catch (error) { if (cached) return cached.config; throw error; }
@@ -51,4 +55,5 @@ export class PdsService {
 const didResolver = createDidResolver({});
 async function resolvePds(did: string) { const document = await didResolver.resolve(did as `did:${string}:${string}`); const endpoint = document.service?.find(item => item.id === "#atproto_pds")?.serviceEndpoint; if (typeof endpoint !== "string" || !endpoint.startsWith("https://")) throw new Error("PDS missing"); return endpoint; }
 function blobUrl(service: string, did: string, blob: CloudMedia["blob"]) { const url = new URL("/xrpc/com.atproto.sync.getBlob", service); url.searchParams.set("did", did); url.searchParams.set("cid", blob!.ref.$link); return url.toString(); }
-async function xrpc(fetchFn: typeof fetch, service: string, method: string, params: Record<string,string>) { const url = new URL(`/xrpc/${method}`, service); for (const [key,value] of Object.entries(params)) url.searchParams.set(key,value); const response = await fetchFn(url); if (!response.ok) throw new Error(`${method} failed (${response.status})`); return response.json(); }
+class XrpcResponseError extends Error { constructor(readonly status: number, method: string) { super(`${method} failed (${status})`); } }
+async function xrpc(fetchFn: typeof fetch, service: string, method: string, params: Record<string,string>) { const url = new URL(`/xrpc/${method}`, service); for (const [key,value] of Object.entries(params)) url.searchParams.set(key,value); const response = await fetchFn(url); if (!response.ok) throw new XrpcResponseError(response.status, method); return response.json(); }
