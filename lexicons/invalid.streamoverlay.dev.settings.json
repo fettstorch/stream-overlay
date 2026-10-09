@@ -1,1 +1,33 @@
-{"lexicon":1,"id":"invalid.streamoverlay.dev.settings","defs":{"main":{"type":"record","key":"literal:self","record":{"type":"object","required":["enabled","streamerDid","updatedAt"],"properties":{"enabled":{"type":"boolean"},"streamerDid":{"type":"string","format":"did"},"updatedAt":{"type":"string","format":"datetime"}}}}}}
+{
+  "lexicon": 1,
+  "id": "invalid.streamoverlay.dev.settings",
+  "defs": {
+    "main": { "type": "record", "key": "literal:self", "record": {
+      "type": "object", "required": ["enabled", "streamerDid", "updatedAt"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "streamerDid": { "type": "string", "format": "did" },
+        "updatedAt": { "type": "string", "format": "datetime" },
+        "modules": { "type": "ref", "ref": "#modules" },
+        "chat": { "type": "ref", "ref": "#chat" },
+        "paint": { "type": "ref", "ref": "#paint" }
+      }
+    } },
+    "modules": { "type": "object", "required": ["chat", "paint", "pets"], "properties": {
+      "chat": { "type": "boolean" }, "paint": { "type": "boolean" }, "pets": { "type": "boolean" }
+    } },
+    "chat": { "type": "object", "required": ["fadeOut"], "properties": {
+      "fadeOut": { "type": "integer", "minimum": 0, "maximum": 100 },
+      "fontSize": { "type": "integer", "minimum": 8, "maximum": 72 },
+      "backgroundColor": { "type": "string", "maxLength": 7 },
+      "backgroundOpacity": { "type": "integer", "minimum": 0, "maximum": 100 },
+      "rotationX": { "type": "integer", "minimum": -180, "maximum": 180 },
+      "rotationY": { "type": "integer", "minimum": -180, "maximum": 180 },
+      "perspectiveStrength": { "type": "integer", "minimum": 0, "maximum": 100 }
+    } },
+    "paint": { "type": "object", "required": ["color", "decayMilliseconds"], "properties": {
+      "color": { "type": "string", "maxLength": 7 },
+      "decayMilliseconds": { "type": "integer", "minimum": 100, "maximum": 60000 }
+    } }
+  }
+}

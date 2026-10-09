@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { createDependencies, handleRequest } from "../src/server.ts";
+import { cloudIdleTimeout, createDependencies, handleRequest } from "../src/server.ts";
 import { sessionCookie } from "../src/auth.ts";
 import { CloudConfigMissingError } from "../src/pds.ts";
 import { StructuredLogger } from "../src/logger.ts";
@@ -23,6 +23,20 @@ function webRoot() {
 }
 
 describe("cloud server boundary", () => {
+  test("keeps the real paint SSE transport open until its 15-second heartbeat", async () => {
+    const deps = dependencies(webRoot());
+    (deps as any).pds = { publicConfig: async () => ({ enabled: true, streamerDid: "did:plc:alice", commands: [], revision: "1" }) };
+    const server = Bun.serve({ hostname: "127.0.0.1", port: 0, idleTimeout: cloudIdleTimeout, fetch: request => handleRequest(request, deps) });
+    const controller = new AbortController();
+    try {
+      const response = await fetch(`http://127.0.0.1:${server.port}/api/accounts/did%3Aplc%3Aalice/paint/events`, { signal: controller.signal });
+      const reader = response.body!.getReader();
+      expect(new TextDecoder().decode((await reader.read()).value)).toContain('"type":"state"');
+      const heartbeat = await reader.read();
+      expect(heartbeat.done).toBe(false); expect(new TextDecoder().decode(heartbeat.value)).toContain(": keepalive");
+      await reader.cancel();
+    } finally { controller.abort(); server.stop(true); }
+  }, 18000);
   test("uses a temporary file locally, stdout in production, and honors file overrides", () => {
     expect(createDependencies({}).logger.filePath).toBe(join(tmpdir(), "stream-overlay", "cloud.log"));
     expect(createDependencies({ NODE_ENV: "production" }).logger.filePath).toBeUndefined();
@@ -33,6 +47,24 @@ describe("cloud server boundary", () => {
     const response = await handleRequest(new Request("http://localhost/health"), dependencies("/missing"));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ status: "ok" });
+  });
+  test("paint writes require the matching account session and reach only that account's SSE state", async () => {
+    const deps = dependencies(webRoot());
+    const did = "did:plc:alice", config = { enabled: true, streamerDid: did, commands: [], revision: "1" };
+    (deps as any).pds = { publicConfig: async () => config };
+    const url = `${deps.origin}/api/accounts/${encodeURIComponent(did)}/paint/segments`;
+    const body = JSON.stringify({ segments: [{ x: .5, y: .5, fromX: .1, fromY: .1 }] });
+    const headers = { origin: deps.origin, "Content-Type": "application/json", cookie: `stream_overlay_session=${await sessionCookie(did, deps.secret)}` };
+    expect((await handleRequest(new Request(url, { method: "POST", body, headers: { origin: deps.origin } }), deps)).status).toBe(403);
+    expect((await handleRequest(new Request(url, { method: "POST", body, headers: { ...headers, origin: "https://evil.example" } }), deps)).status).toBe(403);
+    const response = await handleRequest(new Request(url, { method: "POST", body, headers }), deps);
+    expect(response.status).toBe(200); expect((await response.json()).accepted).toBe(true);
+    const sse = await handleRequest(new Request(url.replace("/segments", "/events")), deps);
+    expect(sse.headers.get("content-type")).toBe("text/event-stream");
+    const reader = sse.body!.getReader(); const initial = new TextDecoder().decode((await reader.read()).value);
+    expect(initial).toContain('"x":0.5'); await reader.cancel();
+    expect(deps.paint.service("did:plc:bob", config).service.snapshot().segments).toEqual([]);
+    for (const account of [did, "did:plc:bob"]) deps.paint.configure(account, { ...config, modules: { chat: false, paint: false, pets: false } });
   });
 
   test("authenticates command tests, validates configuration, and reports disconnected sources", async () => {

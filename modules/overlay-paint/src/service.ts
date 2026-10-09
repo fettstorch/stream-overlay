@@ -57,6 +57,7 @@ export class PaintService {
   private readonly listeners = new Set<(event: PaintEvent) => void>();
 
   constructor(private idleDuration = 4000, private readonly fadeDuration = 1000) {}
+  get subscriberCount() { return this.listeners.size; }
 
   configure(configuration: PaintConfiguration) {
     const lastInput = this.fadeAt === null ? null : this.fadeAt - this.idleDuration;
