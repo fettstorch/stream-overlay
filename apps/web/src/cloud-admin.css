@@ -7,9 +7,12 @@
 .pin-button[aria-pressed=true] { border:1px solid #526baf; background:#1a2540; }
 .obs-guidance { gap:0; }
 .obs-guidance p { margin:0; color:#a8b3cc; line-height:1.6; }
-/* Match the original admin's content-height, two-column module layout. */
-.module-grid { display:block; columns:320px 2; column-gap:16px; }
-.module-card { display:inline-block; width:100%; margin:0 0 16px; break-inside:avoid; vertical-align:top; }
+/* Wrap intrinsic card widths, rather than locking modules into equal columns. */
+.module-grid { display:flex; flex-wrap:wrap; align-items:flex-start; gap:16px; }
+.module-card { flex:1 1 auto; width:max-content; min-width:min(320px, 100%); max-width:100%; margin:0; }
+.module-card.collapsed { flex:0 1 auto; }
+.overlay-url { min-width:0; }
+.overlay-url code { overflow-wrap:anywhere; }
 .module-card.collapsed { padding:12px 16px; }
 .module-card.collapsed .module-heading { align-items:center; }
 .module-card.collapsed h3 { margin:0 0 3px; font-size:1rem; }
