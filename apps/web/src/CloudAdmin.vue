@@ -5,6 +5,7 @@ import { loadPublicActorProfile, searchPublicActors, type PublicActorProfile } f
 import CloudEmoticonControls from "./CloudEmoticonControls.vue";
 import CloudModuleControls from "./CloudModuleControls.vue";
 import CollapsibleSection from "./CollapsibleSection.vue";
+import ModuleHelp from "./ModuleHelp.vue";
 import { moduleSettings } from "../../../packages/protocol/src/cloud-settings.ts";
 import type { CloudConfig } from "./cloud-admin-types.ts";
 import { useModuleCollection } from "./use-module-collection.ts";
@@ -21,6 +22,14 @@ const profile = ref<PublicActorProfile | null>(null);
 const profileState = ref<"loading" | "ready" | "unavailable">("loading");
 const copied = ref<string | null>(null);
 const dimensions = ref({ width: 1920, height: 1080 });
+const dimensionsDetected = ref(false);
+let dimensionsTimer: ReturnType<typeof setInterval> | undefined;
+let disposed = false;
+function obsInstructions(moduleId: string) {
+  const { width, height } = dimensions.value;
+  const size = moduleId === "chat" ? `Set the height to ${height} px; choose the width for your chat column.` : `Set the browser source to ${width} × ${height} px to cover your stream.`;
+  return [size, dimensionsDetected.value ? "Dimensions match your stream.place stream." : "1920 × 1080 fallback — stream dimensions are not available yet.", ...(moduleId === "emoticons" ? ["Add the command listing as a separate Browser Source. Start at 420 × 600 px and size it independently."] : [])];
+}
 const listingPreviewOpen = ref(false);
 const effectPreviewOpen = ref(false);
 const handleInput = ref<HTMLInputElement>();
@@ -79,7 +88,11 @@ async function loadConfiguration() {
 }
 async function refreshStream() {
   if (!config.value) return;
-  try { const response = await fetch(`/api/accounts/${encodeURIComponent(did.value)}/dimensions`); if (response.ok) { const result = (await response.json()).dimensions; dimensions.value = result && Number.isSafeInteger(result.width) && result.width > 0 && Number.isSafeInteger(result.height) && result.height > 0 ? result : { width: 1920, height: 1080 }; } } catch { /* Keep documented 1920 × 1080 fallback. */ }
+  let result: { width: number; height: number } | null = null;
+  try { const response = await fetch(`/api/accounts/${encodeURIComponent(did.value)}/dimensions`, { cache: "no-store" }); if (response.ok) { const value = (await response.json()).dimensions; if (value && Number.isSafeInteger(value.width) && value.width > 0 && Number.isSafeInteger(value.height) && value.height > 0) result = value; } } catch { /* Use the documented fallback until the stream is available. */ }
+  if (disposed) return;
+  dimensionsDetected.value = result !== null;
+  dimensions.value = result ?? { width: 1920, height: 1080 };
 }
 async function saveConfiguration(candidate: CloudConfig, _successMessage?: string, moduleId = "emoticons") {
   if (saving.value) return false;
@@ -124,10 +137,11 @@ async function load() {
     await Promise.all([loadProfile(), loadConfiguration()]);
     await nextTick();
     await refreshStream();
+    if (!disposed) dimensionsTimer = setInterval(() => void refreshStream(), 30_000);
   } catch { sessionState.value = "anonymous"; loginMessage.value = "Could not reach the cloud service. Reload to try again."; }
 }
 onMounted(load);
-onBeforeUnmount(() => { autocomplete?.dispose(); clearTimeout(copyTimer); });
+onBeforeUnmount(() => { disposed = true; autocomplete?.dispose(); clearTimeout(copyTimer); clearInterval(dimensionsTimer); });
 </script>
 
 <template>
@@ -144,11 +158,10 @@ onBeforeUnmount(() => { autocomplete?.dispose(); clearTimeout(copyTimer); });
         <div class="account-summary"><p class="section-kicker">ATPROTO ACCOUNT</p><p class="connected-status"><span aria-hidden="true" />Connected</p><div class="account-profile"><img v-if="profile?.avatar" :src="profile.avatar" alt=""><span v-else class="avatar-placeholder" aria-hidden="true" /><span><strong v-if="profileState === 'ready'">{{ profile?.displayName || `@${profile?.handle}` }}</strong><strong v-else-if="profileState === 'loading'">Loading profile…</strong><strong v-else>Profile unavailable</strong><small v-if="profile">@{{ profile.handle }}</small><small v-else-if="profileState === 'unavailable'">Signed in with AT Protocol</small></span></div><button v-if="profileState === 'unavailable'" type="button" class="profile-retry" @click="loadProfile">Retry profile</button></div>
         <button type="button" class="secondary-button" @click="logout">Log out</button>
       </section>
-      <section v-if="config" class="settings streamer-settings"><h2>Your stream</h2><p>Chat and overlays automatically follow the stream.place stream belonging to your signed-in ATProto account<span v-if="profile">, @{{ profile.handle }}</span>.</p><p>OBS browser sources: use {{ dimensions.width }} × {{ dimensions.height }} for full-stream overlays. Set the Chat width as desired and its height to {{ dimensions.height }}. Size the command listing independently. When the stream size cannot be detected, the default is 1920 × 1080.</p></section>
       <p v-if="configurationMessage" role="status">{{ configurationMessage }}</p>
       <section><h2>Modules</h2><label class="module-search"><span class="sr-only">Search modules</span><input v-model="moduleQuery" type="search" placeholder="Search modules…" aria-label="Search modules"></label><p v-if="!matchingCount" class="no-modules" role="status">No modules match your search.</p><div class="module-grid"><article v-for="module in orderedModules" v-show="matchesSearch(module)" :key="module.id" class="module-card cloud-module" :class="{ pinned: isPinned(module.id), collapsed: !isExpanded(module), 'file-drag-active': cardDragDepth[module.id] > 0 }" :data-module="module.id" @click="expandCard(module, $event)" @dragenter="cardDragEnter(module.id, $event)" @dragover="cardDragOver" @dragleave="cardDragLeave(module.id, $event)" @drop="cardDrop(module, $event)">
         <div v-if="cardDragDepth[module.id] > 0" class="module-drop-overlay" role="status">Drop media to create a command</div>
-        <div class="module-heading"><div><h3>{{ module.name }}</h3><span class="status" :data-status="moduleEnabled(module.id) ? 'running' : 'stopped'">{{ moduleEnabled(module.id) ? 'running' : 'stopped' }}</span></div><div class="module-actions"><button type="button" class="module-icon-button pin-button" :aria-label="`${isPinned(module.id) ? 'Unpin' : 'Pin'} ${module.name}`" :aria-pressed="isPinned(module.id)" @click="togglePin(module.id)"><span aria-hidden="true">📌</span></button><button type="button" class="module-icon-button" :aria-label="`${isExpanded(module) ? 'Hide' : 'Show'} ${module.name} details`" :aria-expanded="isExpanded(module)" :aria-controls="`module-body-${module.id}`" @click="toggleDetails(module)"><svg viewBox="0 0 24 24" aria-hidden="true" :class="{ expanded: isExpanded(module) }"><path d="m6 9 6 6 6-6" /></svg></button><label v-if="config" class="switch"><input type="checkbox" :checked="moduleEnabled(module.id)" :aria-label="`Enable ${module.name}`" @change="toggleEnabled(module, $event)"><span /></label></div></div>
+        <div class="module-heading"><div><h3>{{ module.name }}</h3><span class="status" :data-status="moduleEnabled(module.id) ? 'running' : 'stopped'">{{ moduleEnabled(module.id) ? 'running' : 'stopped' }}</span></div><div class="module-actions"><button type="button" class="module-icon-button pin-button" :aria-label="`${isPinned(module.id) ? 'Unpin' : 'Pin'} ${module.name}`" :aria-pressed="isPinned(module.id)" @click="togglePin(module.id)"><span aria-hidden="true">📌</span></button><button type="button" class="module-icon-button" :aria-label="`${isExpanded(module) ? 'Hide' : 'Show'} ${module.name} details`" :aria-expanded="isExpanded(module)" :aria-controls="`module-body-${module.id}`" @click="toggleDetails(module)"><svg viewBox="0 0 24 24" aria-hidden="true" :class="{ expanded: isExpanded(module) }"><path d="m6 9 6 6 6-6" /></svg></button><ModuleHelp :id="module.id" :name="module.name" :description="module.description" :instructions="obsInstructions(module.id)" /><label v-if="config" class="switch"><input type="checkbox" :checked="moduleEnabled(module.id)" :aria-label="`Enable ${module.name}`" @change="toggleEnabled(module, $event)"><span /></label></div></div>
         <div v-if="loadState === 'error'" class="state-panel error-panel"><strong>Your saved configuration could not be loaded.</strong><span>We did not replace it with an empty setup.</span><button type="button" @click="loadConfiguration">Retry</button></div>
         <div v-else-if="loadState === 'loading'" class="state-panel">Loading your configuration…</div>
         <div v-else-if="config" v-show="isExpanded(module)" :id="`module-body-${module.id}`" class="module-body" :inert="saving || undefined">

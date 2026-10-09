@@ -653,7 +653,7 @@ h2 { margin-bottom: 18px; font-size: 1rem; text-transform: uppercase; letter-spa
 .module-icon-button { display: grid; place-items: center; width: 24px; height: 28px; padding: 3px; border: 0; border-radius: 6px; background: transparent; color: #8fa1c7; cursor: pointer; }
 .module-icon-button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .module-icon-button:hover, .module-icon-button:focus-visible { color: white; background: #1a2540; outline: 2px solid #7794e8; }
-.pin-button[aria-pressed="true"] { color: #a9bdf9; }
+.pin-button[aria-pressed="true"] { color: #a9bdf9; border: 1px solid #526baf; background: #1a2540; }
 .pin-button[aria-pressed="true"] svg { fill: #526baf; }
 .module-card.collapsed { cursor: pointer; }
 .module-icon-button svg.expanded { transform: rotate(180deg); }

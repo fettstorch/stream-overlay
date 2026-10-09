@@ -74,6 +74,14 @@ describe("Cloud Admin", () => {
     const wrapper = mount(CloudAdmin); await flushPromises();
     expect(wrapper.findAll("[data-module]").map(card => card.attributes("data-module"))).toEqual(["emoticons", "chat", "overlay-paint", "streamplace-pets"]);
     expect(wrapper.text()).toContain("2560 × 1440");
+    expect(wrapper.text()).not.toContain("Your stream");
+    expect(wrapper.findAll('button.info-button')).toHaveLength(4);
+    expect(wrapper.get('#module-help-emoticons').text()).toContain('420 × 600');
+    expect(wrapper.get('#module-help-chat').text()).toContain('height to 1440 px');
+    expect(wrapper.get('#module-help-chat').text()).not.toContain('420 × 600');
+    expect(wrapper.get('#module-help-overlay-paint').text()).toContain('2560 × 1440');
+    expect(wrapper.get('#module-help-overlay-paint').text()).not.toContain('chat column');
+    expect(wrapper.get('#module-help-streamplace-pets').text()).toContain('Dimensions match');
     for (const [name, path] of [["Chat", "/chat/"], ["Overlay Paint", "/paint/"], ["Streamplace Pets", "/pets/"]]) {
       await wrapper.get(`button[aria-label="Show ${name} details"]`).trigger("click");
       const iframe = wrapper.get(`iframe[title="${name} preview"]`);
@@ -95,6 +103,25 @@ describe("Cloud Admin", () => {
     await wrapper.get('button[aria-label="Hide Chat details"]').trigger("click");
     expect(wrapper.find('iframe[title="Chat preview"]').exists()).toBe(false);
     wrapper.unmount();
+  });
+  test("refreshes module guidance when stream measurements become available and falls back when unavailable", async () => {
+    vi.useFakeTimers();
+    let measured: { width: number; height: number } | null = null;
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => String(input).endsWith('/api/session') ? response(session) : String(input).endsWith('/dimensions') ? response({ dimensions: measured }) : response(config)));
+    const wrapper = mount(CloudAdmin);
+    try {
+      await flushPromises();
+      expect(wrapper.get('#module-help-emoticons').text()).toContain('1920 × 1080 fallback');
+      measured = { width: 1280, height: 720 };
+      await vi.advanceTimersByTimeAsync(30_000); await flushPromises();
+      expect(wrapper.get('#module-help-emoticons').text()).toContain('1280 × 720');
+      expect(wrapper.get('#module-help-chat').text()).toContain('height to 720 px');
+      expect(wrapper.get('#module-help-chat').text()).not.toContain('fallback');
+      measured = null;
+      await vi.advanceTimersByTimeAsync(30_000); await flushPromises();
+      expect(wrapper.get('#module-help-chat').text()).toContain('height to 1080 px');
+      expect(wrapper.get('#module-help-chat').text()).toContain('fallback');
+    } finally { wrapper.unmount(); vi.useRealTimers(); }
   });
   test("tests a saved command through its authenticated account endpoint and preserves editing controls", async () => {
     const fetchMock = vi.fn(async () => response({ delivered: 1, message: "Test sent to connected effect sources." }));

@@ -97,7 +97,7 @@ defineExpose({ acceptCardDrop });
 
 <template>
   <section class="emoticon-controls">
-    <h4>Emoticon commands</h4><p>Effect source: match your OBS canvas. Board source: start at 420 × 600 px, then size independently. Both disappear when disabled.</p>
+      <h4>Emoticon commands</h4>
     <CollapsibleSection v-for="group in groups" :key="group.title" class="command-group" :title="group.title" :count="group.commands.length" initially-open><p v-if="!group.commands.length" class="empty-copy">No commands yet</p><ul class="command-list striped-list"><li v-for="command in group.commands" :key="command.id"><strong>!{{ command.command }}</strong><span v-if="command.mode !== 'sticker'">{{ command.durationSeconds }}s clip</span><button type="button" :disabled="busy" @click="test(command)">Test</button><button type="button" @click="edit(command)">Edit</button><button type="button" class="danger-button" @click="remove(command)">Delete</button></li></ul></CollapsibleSection>
     <div v-if="!formOpen"><button class="primary-button" type="button" @click="create">Create command</button></div>
     <form v-if="formOpen" class="module-section command-editor" @submit.prevent="save">
