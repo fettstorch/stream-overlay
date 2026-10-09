@@ -3,10 +3,18 @@ import mascot from "./assets/branding/mascot.png";
 </script>
 
 <template>
+  <div class="brand-glow" aria-hidden="true" />
   <img class="brand-mascot" :src="mascot" alt="" aria-hidden="true" />
 </template>
 
 <style scoped>
+.brand-glow {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at 100% 100%, #1e2843 0, transparent 38%);
+  pointer-events: none;
+  z-index: 0;
+}
 .brand-mascot {
   position: fixed;
   right: 0;
