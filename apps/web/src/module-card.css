@@ -1,0 +1,40 @@
+/* Nine-slice the original drawing: fixed-size corners, stretchable edges and
+   a white centre. The decorative layer never participates in card sizing. */
+.module-card {
+  position: relative;
+  isolation: isolate;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  box-shadow: none;
+  color: #171717;
+}
+.module-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border: 26px solid transparent;
+  border-image: url("./assets/branding/module-frame.png") 350 fill / 26px / 0 stretch;
+}
+.module-card.collapsed::before {
+  border-width: 18px;
+  border-image-width: 18px;
+}
+.module-card.pinned {
+  outline: 2px solid #526baf;
+  outline-offset: 3px;
+}
+.module-card .module-heading h3 { color: #171717; }
+.module-card .status { color: #606060; }
+.module-card .status[data-status="running"] { color: #23834d; }
+.module-card .module-body > p { color: #414141; }
+.module-card .module-commands h4 { color: #535353; }
+.module-card .module-icon-button { color: #444; }
+.module-card .module-icon-button:hover,
+.module-card .module-icon-button:focus-visible { color: #111; background: #eee; }
+.module-card .pin-button[aria-pressed="true"] { color: #526baf; background: #e8edfa; }
+/* Inner sections keep their current palette until the next styling step. */
+.module-card .module-section { color: #bdc8df; }
+.module-card.file-drag-active::before { filter: drop-shadow(0 0 3px #526baf); }
