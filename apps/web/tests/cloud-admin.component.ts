@@ -93,6 +93,16 @@ describe("Cloud Admin", () => {
     expect(wrapper.get('.pin-button .pin-icon').attributes('aria-hidden')).toBe('true');
     expect(wrapper.findAll('.module-message')).toHaveLength(0);
     await wrapper.get('button[aria-label="Show Emoticons details"]').trigger("click");
+    expect(wrapper.get('button[aria-label="Show General settings"]').attributes('aria-expanded')).toBe('false');
+    expect(wrapper.get('button[aria-label="Show Clips"]').attributes('aria-expanded')).toBe('false');
+    expect(wrapper.get('button[aria-label="Show Emoticons (stickers)"]').attributes('aria-expanded')).toBe('false');
+    expect(wrapper.get('button[aria-label="Show Listing overlay preview"]').attributes('aria-expanded')).toBe('false');
+    expect(wrapper.get('button[aria-label="Show Emoticon overlay preview"]').attributes('aria-expanded')).toBe('false');
+    expect(wrapper.get('.account-preference').element.closest('.section-content')?.getAttribute('style')).toContain('display: none');
+    await wrapper.get('button[aria-label="Show General settings"]').trigger('click');
+    expect(wrapper.get('button[aria-label="Hide General settings"]').attributes('aria-expanded')).toBe('true');
+    expect(wrapper.get('.account-preference').element.closest('.section-content')?.getAttribute('style') ?? '').not.toContain('display: none');
+    await wrapper.get('button[aria-label="Show Clips"]').trigger('click');
     const clipsToggle = wrapper.get('button[aria-label="Hide Clips"]');
     expect(wrapper.get('.command-group').classes()).toContain('module-section');
     expect(wrapper.get('ul.command-list').classes()).toContain('striped-list');
@@ -103,12 +113,12 @@ describe("Cloud Admin", () => {
     await wrapper.get('button[aria-label="Show Clips"]').trigger('click');
     expect(wrapper.find('iframe[title="Emoticons preview"]').exists()).toBe(false);
     expect(wrapper.find('details').exists()).toBe(false);
-    await wrapper.get('button[aria-label="Show Effects preview (with sound)"]').trigger('click');
+    await wrapper.get('button[aria-label="Show Emoticon overlay preview"]').trigger('click');
     expect(wrapper.get('iframe[title="Emoticons preview"]').attributes('src')).not.toContain('muted=1');
     expect(wrapper.get('iframe[title="Stream background"]').attributes('src')).toContain(encodeURIComponent(session.did));
-    await wrapper.get('button[aria-label="Show Live command listing preview"]').trigger('click');
+    await wrapper.get('button[aria-label="Show Listing overlay preview"]').trigger('click');
     expect(wrapper.get('iframe[title="Emoticons command listing preview"]').attributes('src')).toContain('preview=1');
-    await wrapper.get('button[aria-label="Hide Effects preview (with sound)"]').trigger('click');
+    await wrapper.get('button[aria-label="Hide Emoticon overlay preview"]').trigger('click');
     expect(wrapper.find('iframe[title="Emoticons preview"]').exists()).toBe(false);
     wrapper.unmount();
   });
@@ -242,7 +252,7 @@ describe("Cloud Admin", () => {
     expect(wrapper.find('[aria-label="Copy Emoticons effects OBS URL"]').exists()).toBe(true);
     await wrapper.get('button[aria-label="Show Emoticons details"]').trigger("click");
     await wrapper.get(".emoticon-controls .primary-button").trigger("click");
-    expect(wrapper.text()).toContain("Create command"); expect(wrapper.text()).toContain("Media — drop files or choose");
+    expect(wrapper.text()).toContain("Create new command"); expect(wrapper.text()).toContain("Media — drop files or choose");
     expect(wrapper.findAll('.drop-zone input[type="url"]')).toHaveLength(1); expect(wrapper.text()).not.toContain("Image/GIF URL"); expect(wrapper.text()).toContain("one visual and separate audio");
     wrapper.unmount();
   });
@@ -329,7 +339,7 @@ describe("Cloud Admin", () => {
     const wrapper = mount(CloudAdmin, { attachTo: document.body }); await flushPromises(); const card = wrapper.get(".module-card");
     card.element.dispatchEvent(mediaDrag("dragenter")); await wrapper.vm.$nextTick(); expect(card.classes()).toContain("file-drag-active"); expect(wrapper.text()).toContain("Drop media to create a command");
     card.element.dispatchEvent(mediaDrag("drop")); await flushPromises();
-    expect(wrapper.get('button[aria-label="Hide Emoticons details"]').attributes("aria-expanded")).toBe("true"); expect(wrapper.text()).toContain("Create command"); expect(wrapper.text()).toContain("image attached");
+    expect(wrapper.get('button[aria-label="Hide Emoticons details"]').attributes("aria-expanded")).toBe("true"); expect(wrapper.text()).toContain("Create new command"); expect(wrapper.text()).toContain("image attached");
     expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1); wrapper.unmount();
   });
 

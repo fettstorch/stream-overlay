@@ -5,5 +5,6 @@ import "./module-card.css";
 import "./button.css";
 import "./hand-drawn-controls.css";
 import "./section.css";
+import "./slider.css";
 
 createApp(CloudAdmin).mount("#app");

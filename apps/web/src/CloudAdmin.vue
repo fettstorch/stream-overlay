@@ -438,24 +438,26 @@ onBeforeUnmount(() => {
               ></span
             >
           </div>
-          <label v-if="config" class="account-preference"
-            ><input
-              type="checkbox"
-              :checked="config.preferences?.confirmDeletion !== false"
-              :disabled="saving"
-              @change="
-                saveConfiguration(
-                  {
-                    ...config!,
-                    preferences: { confirmDeletion: ($event.target as HTMLInputElement).checked },
-                  },
-                  undefined,
-                  'preferences',
-                )
-              "
-            />Confirm deletions</label
-          >
-          <p v-if="moduleMessages.preferences" role="alert">{{ moduleMessages.preferences }}</p>
+          <CollapsibleSection v-if="config" title="General settings">
+            <label class="account-preference"
+              ><input
+                type="checkbox"
+                :checked="config.preferences?.confirmDeletion !== false"
+                :disabled="saving"
+                @change="
+                  saveConfiguration(
+                    {
+                      ...config!,
+                      preferences: { confirmDeletion: ($event.target as HTMLInputElement).checked },
+                    },
+                    undefined,
+                    'preferences',
+                  )
+                "
+              />Ask for confirmation before deleting commands</label
+            >
+            <p v-if="moduleMessages.preferences" role="alert">{{ moduleMessages.preferences }}</p>
+          </CollapsibleSection>
           <button
             v-if="profileState === 'unavailable'"
             type="button"
@@ -625,7 +627,7 @@ onBeforeUnmount(() => {
                   <template #previews>
                     <CollapsibleSection
                       v-model:open="listingPreviewOpen"
-                      title="Live command listing preview"
+                      title="Listing overlay preview"
                       ><iframe
                         v-if="listingPreviewOpen && isExpanded(module)"
                         :ref="
@@ -637,7 +639,7 @@ onBeforeUnmount(() => {
                     /></CollapsibleSection>
                     <CollapsibleSection
                       v-model:open="effectPreviewOpen"
-                      title="Effects preview (with sound)"
+                      title="Emoticon overlay preview"
                       ><div
                         v-if="effectPreviewOpen && isExpanded(module)"
                         class="cloud-preview"

@@ -4,5 +4,6 @@ import "./module-card.css";
 import "./button.css";
 import "./hand-drawn-controls.css";
 import "./section.css";
+import "./slider.css";
 
 createApp(App).mount("#app");

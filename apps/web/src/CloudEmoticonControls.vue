@@ -395,7 +395,6 @@ defineExpose({ acceptCardDrop });
       class="command-group"
       :title="group.title"
       :count="group.commands.length"
-      initially-open
       ><p v-if="!group.commands.length" class="empty-copy">No commands yet</p>
       <ul class="command-list striped-list">
         <li v-for="command in group.commands" :key="command.id">
@@ -409,7 +408,7 @@ defineExpose({ acceptCardDrop });
     >
     <slot name="previews" />
     <div v-if="!formOpen">
-      <button class="primary-button" type="button" @click="create">Create command</button>
+      <button class="primary-button" type="button" @click="create">Create new command</button>
     </div>
     <form v-if="formOpen" class="module-section command-editor" @submit.prevent="save">
       <div class="editor-heading">
@@ -558,7 +557,7 @@ defineExpose({ acceptCardDrop });
       /></label>
       <div class="form-actions">
         <button class="primary-button" type="submit" :disabled="busy">
-          {{ editing ? "Save changes" : "Create command" }}</button
+          {{ editing ? "Save changes" : "Create new command" }}</button
         ><button type="button" class="secondary-button" :disabled="busy" @click="reset">
           Cancel
         </button>
