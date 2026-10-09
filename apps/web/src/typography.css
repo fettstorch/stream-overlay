@@ -1,0 +1,11 @@
+/* Served with the app, without a third-party font request. The font package
+   includes Patrick Hand's SIL Open Font License. */
+@import "@fontsource/patrick-hand/latin-400.css";
+
+#app {
+  font-family: "Patrick Hand", ui-sans-serif, system-ui, sans-serif;
+  font-size: 18px;
+  line-height: 1.4;
+}
+/* Preserve the existing wordmark and .live badge treatment. */
+#app .brand-heading { font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
