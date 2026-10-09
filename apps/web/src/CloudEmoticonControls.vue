@@ -100,7 +100,7 @@ defineExpose({ acceptCardDrop });
     <h4>Emoticon commands</h4><p>Effect source: match your OBS canvas. Board source: start at 420 × 600 px, then size independently. Both disappear when disabled.</p>
     <CollapsibleSection v-for="group in groups" :key="group.title" class="command-group" :title="group.title" :count="group.commands.length" initially-open><p v-if="!group.commands.length" class="empty-copy">No commands yet</p><ul class="command-list"><li v-for="command in group.commands" :key="command.id"><strong>!{{ command.command }}</strong><span v-if="command.mode !== 'sticker'">{{ command.durationSeconds }}s clip</span><button type="button" :disabled="busy" @click="test(command)">Test</button><button type="button" @click="edit(command)">Edit</button><button type="button" class="danger-button" @click="remove(command)">Delete</button></li></ul></CollapsibleSection>
     <div v-if="!formOpen"><button class="primary-button" type="button" @click="create">Create command</button></div>
-    <form v-if="formOpen" class="command-editor" @submit.prevent="save">
+    <form v-if="formOpen" class="module-section command-editor" @submit.prevent="save">
       <div class="editor-heading"><h4>{{ editing ? 'Edit command' : 'Create command' }}</h4><button type="button" class="secondary-button" @click="reset">Close</button></div>
       <label class="sticker-toggle"><input type="checkbox" :checked="form.mode === 'sticker'" @change="form.mode = ($event.target as HTMLInputElement).checked ? 'sticker' : 'effect'; changeMode()"> Sticker</label>
       <small v-if="form.mode === 'sticker'">Silent stickers drift upward independently. Every matching message spawns one.</small>

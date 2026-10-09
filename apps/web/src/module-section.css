@@ -1,0 +1,17 @@
+/* Visual foundation only: each section owns its content, layout and behavior.
+   Override these custom properties on a section or its containing module. */
+.module-section {
+  min-width: 0;
+  margin-block: var(--module-section-margin, 12px);
+  padding: var(--module-section-padding, 16px);
+  border: 1px solid var(--module-section-border, #3b4862);
+  border-radius: var(--module-section-radius, 16px);
+  background: var(--module-section-background, #1b2435);
+}
+
+@media (max-width: 680px) {
+  .module-section {
+    padding: var(--module-section-padding, 14px);
+    border-radius: var(--module-section-radius, 12px);
+  }
+}

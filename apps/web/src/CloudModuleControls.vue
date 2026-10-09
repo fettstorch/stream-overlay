@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import "./module-section.css";
 import type { CloudConfig } from "./cloud-admin-types.ts";
 import { moduleSettings } from "../../../packages/protocol/src/cloud-settings.ts";
 const props = defineProps<{ moduleId: string; config: CloudConfig; save: (config: CloudConfig) => Promise<boolean> }>();
@@ -17,17 +18,17 @@ const sliders = [
 async function save() { await props.save({ ...props.config, chat: { ...chat.value }, paint: { ...paint.value } }); }
 </script>
 <template>
-  <section v-if="moduleId === 'chat'" class="appearance-controls" aria-label="Chat appearance">
+  <section v-if="moduleId === 'chat'" class="module-section appearance-controls" aria-label="Chat appearance">
     <p>Messages remain for 20 seconds, then fade over 10 seconds.</p>
     <label>Background color<input v-model="chat.backgroundColor" type="color" @change="save"></label>
     <label v-for="slider in sliders" :key="slider.key">{{ slider.label }} <output>{{ chat[slider.key] }}{{ slider.unit }}</output><input v-model.number="chat[slider.key]" type="range" :min="slider.min" :max="slider.max" @change="save"></label>
   </section>
-  <section v-else-if="moduleId === 'overlay-paint'" class="appearance-controls" aria-label="Paint appearance">
+  <section v-else-if="moduleId === 'overlay-paint'" class="module-section appearance-controls" aria-label="Paint appearance">
     <p>Draw on the preview below. Drawings and the cursor are shared with your OBS source, then fade automatically.</p>
     <label>Brush color<input v-model="paint.color" type="color" @change="save"></label>
     <label>Fade delay (seconds)<input v-model.number="paint.decaySeconds" type="number" min="0.1" max="60" step="0.1" @change="save"></label>
   </section>
-  <section v-else class="appearance-controls">
+  <section v-else class="module-section appearance-controls">
     <p>Pets listen to your account’s stream directly. Their characters and settings remain on AT Protocol.</p>
     <a href="https://rpg.actor/streampets" target="_blank" rel="noopener noreferrer">Configure Streamplace Pets</a>
     <aside class="upstream-info" aria-label="Streamplace Pets attribution">

@@ -26,6 +26,7 @@ describe("Cloud Admin", () => {
     expect(wrapper.findAll('.module-message')).toHaveLength(0);
     await wrapper.get('button[aria-label="Show Emoticons details"]').trigger("click");
     const clipsToggle = wrapper.get('button[aria-label="Hide Clips"]');
+    expect(wrapper.get('.command-group').classes()).toContain('module-section');
     expect(clipsToggle.attributes('aria-expanded')).toBe('true');
     expect(clipsToggle.get('svg').classes()).toContain('expanded');
     await clipsToggle.trigger('click');
@@ -78,6 +79,8 @@ describe("Cloud Admin", () => {
       expect(iframe.attributes("src")).toContain(`${path}?did=did%3Aplc%3Aalice`);
     }
     expect(wrapper.findAll('[aria-label="Chat appearance"] input')).toHaveLength(7);
+    expect(wrapper.get('[aria-label="Chat appearance"]').classes()).toContain('module-section');
+    expect(wrapper.get('[aria-label="Paint appearance"]').classes()).toContain('module-section');
     const delay = wrapper.get('[aria-label="Paint appearance"] input[type=number]'); await delay.setValue(3.5); await delay.trigger("change"); await flushPromises();
     const write = fetchMock.mock.calls.find(([, init]) => init?.method === "PUT")!;
     const saved = JSON.parse(String(write[1]?.body));
