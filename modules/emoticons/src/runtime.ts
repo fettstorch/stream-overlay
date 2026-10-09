@@ -1,7 +1,7 @@
 import type { EmoticonAuthor, EmoticonCommand, EmoticonEvent, EmoticonState } from "./contracts.ts";
 
 export interface EmoticonRuntimeOptions {
-  effect: (event: Extract<EmoticonEvent, { type: "effect" }>) => void;
+  effect: (event: Extract<EmoticonEvent, { type: "effect" }>) => void | Promise<void>;
   cooldowns?: (cooldowns: NonNullable<EmoticonState["cooldowns"]>) => void;
   log?: (event: string, details?: Record<string, unknown>) => void;
 }
@@ -75,7 +75,8 @@ export class EmoticonRuntime {
       avatar: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="32" fill="#36425d"/><circle cx="32" cy="23" r="12" fill="#bdc8df"/><path d="M10 60v-6a22 22 0 0 1 44 0v6" fill="#bdc8df"/></svg>')}`,
     };
     if (command.mode === "sticker") {
-      this.emit(command, author);
+      const ready = this.emit(command, author);
+      if (ready instanceof Promise) void ready.catch(() => this.log("emoticons.playback-failed", { commandId: id }));
       return true;
     }
     this.cooldownEnds.set(id, Date.now() + command.cooldownSeconds * 1000);
@@ -109,7 +110,7 @@ export class EmoticonRuntime {
     const event: Extract<EmoticonEvent, { type: "effect" }> = {
       type: "effect", id: crypto.randomUUID(), command: structuredClone(command), durationSeconds: command.durationSeconds, author,
     };
-    this.options.effect(event);
+    return this.options.effect(event);
   }
 
   private next() {
@@ -117,10 +118,20 @@ export class EmoticonRuntime {
     const queued = this.queue.shift();
     if (!queued) return;
     this.active = queued.command;
-    this.emit(queued.command, queued.author);
-    this.activeTimer = setTimeout(() => {
+    const startDuration = () => {
+      if (this.active !== queued.command) return; // Cleared while loading.
+      this.activeTimer = setTimeout(() => {
+        this.active = null;
+        this.next();
+      }, queued.command.durationSeconds * 1000);
+    };
+    const ready = this.emit(queued.command, queued.author);
+    if (ready instanceof Promise) void ready.then(startDuration, () => {
+      if (this.active !== queued.command) return;
+      this.log("emoticons.playback-failed", { commandId: queued.command.id });
       this.active = null;
       this.next();
-    }, queued.command.durationSeconds * 1000);
+    });
+    else startDuration();
   }
 }

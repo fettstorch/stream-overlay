@@ -7,6 +7,22 @@ const command = (id: string, overrides: Partial<EmoticonCommand> = {}): Emoticon
   videoAssetId: null, durationSeconds: 0.01, cooldownSeconds: 1, volume: 1, width: "", height: "", ...overrides,
 });
 const runtimes: EmoticonRuntime[] = [];
+test("clip queue waits for media readiness before consuming display duration", async () => {
+  let ready!: () => void;
+  const effects: string[] = [];
+  const runtime = new EmoticonRuntime({ effect: event => {
+    effects.push(event.command.id);
+    if (event.command.id === "first") return new Promise<void>(resolve => { ready = resolve; });
+  } });
+  runtimes.push(runtime);
+  runtime.configure({ enabled: true, commands: [command("first"), command("second")], assets: [] });
+  runtime.trigger("first"); runtime.trigger("second");
+  await Bun.sleep(30);
+  expect(effects).toEqual(["first"]);
+  ready();
+  await Bun.sleep(20);
+  expect(effects).toEqual(["first", "second"]);
+});
 afterEach(() => { for (const runtime of runtimes.splice(0)) runtime.clear(); });
 
 test("matches chat, deduplicates reconnect repeats, and owns cooldown decisions", () => {
