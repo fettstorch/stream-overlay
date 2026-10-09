@@ -205,6 +205,12 @@ AUTH_DATA_DIR=runtime/cloud-auth \
 bun run server
 ```
 
+For a local development server, `bun run cloud` builds the browser app and serves
+it at `http://127.0.0.1:3000` with the development-only namespace and local auth
+storage. This is suitable for UI and relay testing. A real OAuth consent flow still
+depends on an AT Protocol provider accepting the loopback client metadata and the
+development Lexicons; use the deployment configuration above for the account pilot.
+
 The public OBS URLs are `/effect/?did=did:...` and `/board/?did=did:...`.
 Direct HTTPS media files and PDS blob uploads are supported. Ordinary Giphy page
 URLs are not direct playable media URLs. The checked-in

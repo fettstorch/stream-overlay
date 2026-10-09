@@ -3,11 +3,13 @@ import { timingSafeEqual } from "node:crypto";
 import { JsonStore } from "./store.ts";
 
 export function createOAuth(origin: string, dataDir: string, scope: string) {
+  const local = new URL(origin).protocol === "http:";
+  const clientId = local ? `http://localhost?redirect_uri=${encodeURIComponent(`${origin}/oauth/callback`)}&scope=${encodeURIComponent(scope)}` : `${origin}/oauth/client-metadata.json`;
   return new NodeOAuthClient({
     clientMetadata: {
-      client_id: `${origin}/oauth/client-metadata.json`, client_name: "Stream Overlay", client_uri: origin,
+      client_id: clientId, client_name: "Stream Overlay", client_uri: origin,
       redirect_uris: [`${origin}/oauth/callback`], scope, grant_types: ["authorization_code", "refresh_token"],
-      response_types: ["code"], application_type: "web", token_endpoint_auth_method: "none", dpop_bound_access_tokens: true,
+      response_types: ["code"], application_type: local ? "native" : "web", token_endpoint_auth_method: "none", dpop_bound_access_tokens: true,
     },
     stateStore: new JsonStore<NodeSavedState>(dataDir, "oauth-state"),
     sessionStore: new JsonStore<NodeSavedSession>(dataDir, "oauth-session"),

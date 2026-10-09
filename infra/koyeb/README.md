@@ -14,6 +14,10 @@ Required secrets/settings:
   schemas you have published. Rename the checked-in development schemas accordingly.
 - `AUTH_DATA_DIR=/data/auth` and `PORT=8000`.
 
+The server refuses a non-HTTPS external origin, the checked-in development
+namespace, or the development session secret. Local loopback HTTP is accepted only
+for `bun run cloud`; do not reuse that configuration in Koyeb.
+
 The service accepts only direct HTTPS media URLs in records and PDS blob references.
 Provider page URLs such as normal Giphy pages are not playable media URLs; use a direct
 image/video URL or upload the file to the PDS. The service does not proxy arbitrary URLs.
