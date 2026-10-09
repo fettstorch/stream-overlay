@@ -1,0 +1,69 @@
+/* Shared surfaces, independent of each section's layout and behaviour. */
+#app .settings {
+  position: relative;
+  isolation: isolate;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  box-shadow: none;
+  color: #171717;
+}
+#app .settings::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border: 22px solid transparent;
+  border-image: url("./assets/branding/module-frame.png") 350 fill / 22px / 0 stretch;
+}
+#app .module-section {
+  position: relative;
+  isolation: isolate;
+  border: 0;
+  background: var(--module-section-background, #f5f5f5);
+  color: #171717;
+  --command-row-background: #fff;
+  --command-row-alternate-background: #e8e8e8;
+}
+#app .module-section::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border: 16px solid transparent;
+  border-image: var(--module-section-frame, url("./assets/branding/module-frame.png")) 350 / var(--module-section-frame-width, 16px) / 0 stretch;
+}
+#app h2 { color: #333; }
+#app :is(.settings, .module-section) :is(p, label, h4, strong) { color: #333; }
+#app :is(.settings, .module-section) :is(small, legend, output, .save-status, .empty-copy, .section-heading h4 span, .command-group summary span) { color: #606060; }
+#app .settings .section-kicker { color: #555; }
+#app .settings .connected-status { color: #23834d; }
+#app .settings .connected-status span { background: #23834d; box-shadow: none; }
+#app .emoticon-controls { color: #333; border-top-color: #ccc; }
+#app :is(.settings, .module-section) input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"]),
+#app .module-search input {
+  color: #171717;
+  background: #fff;
+  border-color: #777;
+}
+#app :is(.settings, .module-section) input::placeholder,
+#app .module-search input::placeholder { color: #737373; }
+#app .module-section :is(fieldset, .drop-zone) { border-color: #888; }
+#app .module-section .drop-zone:hover { background: #e8e8e8; }
+#app .module-section .command-list li > span { color: #606060; }
+#app .module-section .module-icon-button { color: #333; }
+#app .module-section .module-icon-button:hover,
+#app .module-section .module-icon-button:focus-visible { color: #111; background: #e2e2e2; }
+#app .state-panel { color: #333; background: #f5f5f5; border-color: #999; }
+#app .error-panel { border-color: #a01e2b; }
+#app .error-panel strong { color: #a01e2b; }
+#app .profile-retry { color: #394b83; }
+#app .settings .actor-suggestions { color: #171717; background: #fff; border-color: #777; }
+#app .settings .actor-suggestions button { color: #171717; }
+#app .settings .actor-suggestions button:hover,
+#app .settings .actor-suggestions button[aria-selected="true"] { background: #eee; }
+#app .module-section .upstream-info { color: #624a16; background: #fff4ce; border-color: #c6a958; }
+#app .module-section .upstream-info p { color: inherit; }
+#app .module-section .upstream-info a { color: #76520a; }
