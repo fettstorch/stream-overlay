@@ -27,6 +27,12 @@ function play(event: Extract<EmoticonEvent, { type: "effect" }>) {
   const wrapper = document.createElement("div"); if (visual) wrapper.append(visual); if (audio) wrapper.append(audio);
   if (command.mode === "sticker") { wrapper.style.cssText = `position:fixed;left:${5 + Math.random()*90}%;bottom:-10vh;transition:transform ${event.durationSeconds}s linear;`; container.append(wrapper); requestAnimationFrame(() => { wrapper.style.transform = `translate(${(Math.random()-.5)*160}px,-120vh)`; }); }
   else container.replaceChildren(wrapper);
+  if (command.mode === "sticker" && visual) setTimeout(() => {
+    if (!wrapper.isConnected) return;
+    const rect = visual.getBoundingClientRect();
+    const position = rect.bottom < 0 ? "above" : rect.top > innerHeight ? "below" : "in-viewport";
+    diagnostic("playback-started", { ...context, count: Math.min(200, wrapper.getAnimations().length), reason: `${position}-top-${Math.round(rect.top)}-height-${Math.round(rect.height)}-viewport-${innerHeight}` });
+  }, 250);
   setTimeout(() => { for (const element of wrapper.querySelectorAll("audio,video")) (element as HTMLMediaElement).pause(); wrapper.remove(); }, event.durationSeconds * 1000);
 }
 function nextRevision() { revision = Math.max(revision + 1, Date.now()); return revision; }
