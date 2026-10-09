@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import CollapsibleSection from "./CollapsibleSection.vue";
 import type { EmoticonAsset, EmoticonCommand, EmoticonState } from "../../../modules/emoticons/src/contracts";
 import { observeEmoticonEvents } from "../../../modules/emoticons/src/events-client";
 const commands = ref<EmoticonCommand[]>([]);
@@ -150,11 +151,10 @@ function selected(event: Event) { const input = event.target as HTMLInputElement
   <section class="emoticon-controls">
     <h4>Emoticon commands</h4>
     <p>Effect source: match your OBS canvas. Board source: start at 420 × 600 px, then size independently. Both disappear when disabled.</p>
-    <details v-for="group in commandGroups" :key="group.title" class="command-group">
-    <summary>{{ group.title }} <span>({{ group.commands.length }})</span></summary>
+    <CollapsibleSection v-for="group in commandGroups" :key="group.title" class="command-group" :title="group.title" :count="group.commands.length">
     <p v-if="!group.commands.length">No commands yet</p>
     <ul class="command-list"><li v-for="command in group.commands" :key="command.id"><strong>!{{ command.command }}</strong><button type="button" @click="test(command)">Test</button><button type="button" @click="edit(command)">Edit</button><button type="button" @click="remove(command)">Delete</button></li></ul>
-    </details>
+    </CollapsibleSection>
     <div v-if="!formOpen"><button type="button" @click="create">Create command</button></div>
     <form v-if="formOpen" class="command-editor" @submit.prevent="save">
       <h4>{{ editing ? 'Edit command' : 'Create command' }}</h4>

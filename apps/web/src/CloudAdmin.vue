@@ -4,6 +4,7 @@ import { attachActorCombobox } from "./actor-combobox.ts";
 import { loadPublicActorProfile, searchPublicActors, type PublicActorProfile } from "./actor-search.ts";
 import CloudEmoticonControls from "./CloudEmoticonControls.vue";
 import CloudModuleControls from "./CloudModuleControls.vue";
+import CollapsibleSection from "./CollapsibleSection.vue";
 import { moduleSettings } from "../../../packages/protocol/src/cloud-settings.ts";
 import type { CloudConfig } from "./cloud-admin-types.ts";
 import { useModuleCollection } from "./use-module-collection.ts";
@@ -156,8 +157,8 @@ onBeforeUnmount(() => { autocomplete?.dispose(); clearTimeout(copyTimer); });
           <template v-if="module.id === 'emoticons'">
             <section class="module-commands"><h4>Command listing OBS URL</h4></section><div class="overlay-url board-url"><code>{{ boardUrl }}</code><a class="open-url-button" :href="boardUrl" target="_blank" rel="noopener noreferrer" aria-label="Open Emoticons instruction board OBS URL"><span class="external-link-icon" aria-hidden="true" /></a><button type="button" class="copy-button" :class="{ copied: copied === 'board' }" aria-label="Copy Emoticons instruction board OBS URL" @click="copyUrl('board')"><span class="copy-icon" aria-hidden="true" /></button></div>
             <CloudEmoticonControls :ref="value => setModuleControls(module.id, value)" :did="did" :config="config" :save="saveConfiguration" />
-            <details @toggle="listingPreviewOpen = ($event.target as HTMLDetailsElement).open"><summary>Live command listing preview</summary><iframe v-if="listingPreviewOpen && isExpanded(module)" :src="listingPreviewUrl" title="Emoticons command listing preview" class="listing-preview" /></details>
-            <details @toggle="effectPreviewOpen = ($event.target as HTMLDetailsElement).open"><summary>Effects preview (with sound)</summary><div v-if="effectPreviewOpen && isExpanded(module)" class="cloud-preview" :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }"><iframe :src="streamUrl" title="Stream background" tabindex="-1" class="preview-background" allow="autoplay" /><iframe :src="previewUrl(module.id)" title="Emoticons preview" allow="autoplay" /></div></details>
+            <CollapsibleSection v-model:open="listingPreviewOpen" title="Live command listing preview"><iframe v-if="listingPreviewOpen && isExpanded(module)" :src="listingPreviewUrl" title="Emoticons command listing preview" class="listing-preview" /></CollapsibleSection>
+            <CollapsibleSection v-model:open="effectPreviewOpen" title="Effects preview (with sound)"><div v-if="effectPreviewOpen && isExpanded(module)" class="cloud-preview" :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }"><iframe :src="streamUrl" title="Stream background" tabindex="-1" class="preview-background" allow="autoplay" /><iframe :src="previewUrl(module.id)" title="Emoticons preview" allow="autoplay" /></div></CollapsibleSection>
           </template>
           <CloudModuleControls v-else :module-id="module.id" :config="config" :save="candidate => saveConfiguration(candidate, undefined, module.id)" />
           <div v-if="module.id !== 'emoticons' && isExpanded(module)" class="cloud-preview" :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }">
