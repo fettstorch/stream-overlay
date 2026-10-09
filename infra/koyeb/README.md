@@ -1,9 +1,15 @@
 # Koyeb pilot deployment
 
 Deploy `infra/koyeb/Dockerfile` as exactly one service instance in Frankfurt. Expose
-port `$PORT` (default 8000) and configure an HTTP health check on `/health`. Attach a
-persistent volume at `/data`; OAuth refresh sessions and authorization state are stored
-under `AUTH_DATA_DIR` and must survive container replacement. Do not scale beyond one
+port `$PORT` (default 8000) and configure an HTTP health check on `/health`. The initial
+pilot uses `eco-nano` with no volume: OAuth refresh sessions and authorization state
+are stored on ephemeral disk under `AUTH_DATA_DIR`. Container replacement loses these
+sessions and requires a new admin login; settings and media remain on users' PDSs,
+and public OBS URLs do not require login. The admin detects missing sessions and
+returns to sign-in rather than attempting a PDS write. Keep `SESSION_SECRET` stable
+in Koyeb secrets across deployments. For persistent login sessions later, move to a
+standard instance with a volume mounted at `/data`, or an external session store.
+Do not scale beyond one
 instance until the in-memory relay has shared state or sticky account routing.
 
 Required secrets/settings:
@@ -31,5 +37,5 @@ service logs. Admin includes the correlated request ID in upload/save failures.
 volume and remains the recommended container configuration.
 
 No Koyeb resource is created by this repository. After providing an account, owned
-domain/namespace, secrets, and volume, build locally with
+domain/namespace, and secrets, build locally with
 `docker build -f infra/koyeb/Dockerfile .` before deploying.

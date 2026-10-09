@@ -18,6 +18,26 @@ function response(body: unknown, status = 200) { return new Response(JSON.string
 function mediaDrag(type: string, name = "drop.gif") { const event = new Event(type, { bubbles: true, cancelable: true }); Object.defineProperty(event, "dataTransfer", { value: { types: ["Files"], files: [new File(["GIF8"], name)], dropEffect: "none" } }); return event; }
 
 describe("Cloud Admin", () => {
+  test("shows sign-in when the cookie outlives server session storage", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => response({ error: "session-expired", message: "Please sign in again. Your saved PDS configuration is unchanged." }, 401)));
+    const wrapper = mount(CloudAdmin);
+    await flushPromises();
+    expect(wrapper.find('.auth-card').exists()).toBe(true);
+    expect(wrapper.text()).toContain("Please sign in again");
+    wrapper.unmount();
+  });
+  test("returns to sign-in when an upload or test reports a vanished session", async () => {
+    let expired = false;
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => String(input).endsWith('/api/session') ? expired ? response({ authenticated: false }, 401) : response(session) : response(config)));
+    const wrapper = mount(CloudAdmin);
+    await flushPromises();
+    expired = true;
+    window.dispatchEvent(new CustomEvent("cloud-session-expired", { detail: "Please sign in again. Your saved PDS configuration is unchanged." }));
+    await flushPromises();
+    expect(wrapper.find('.auth-card').exists()).toBe(true);
+    expect(wrapper.text()).toContain("Please sign in again");
+    wrapper.unmount();
+  });
   test("deletion opt-out saves an account preference atomically and failed saves keep the dialog", async () => {
     HTMLDialogElement.prototype.showModal = vi.fn();
     const save = vi.fn(async () => false);

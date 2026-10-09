@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import BrandWordmark from "./BrandWordmark.vue";
+import { adminFetch } from "./cloud-admin-fetch.ts";
 import BrandMascot from "./BrandMascot.vue";
 import StreamplaceBrand from "./StreamplaceBrand.vue";
 import { cloudModuleCatalog } from "../../../modules/catalog.ts";
@@ -194,7 +195,7 @@ async function loadConfiguration() {
   loadState.value = "loading";
   configurationMessage.value = "";
   try {
-    const response = await fetch(`/api/accounts/${encodeURIComponent(did.value)}/config`, {
+    const response = await adminFetch(`/api/accounts/${encodeURIComponent(did.value)}/config`, {
       cache: "no-store",
     });
     if (response.status === 404) {
@@ -247,7 +248,7 @@ async function saveConfiguration(
   saving.value = true;
   moduleMessages.value[moduleId] = "";
   try {
-    const response = await fetch(`/api/accounts/${encodeURIComponent(did.value)}/config`, {
+    const response = await adminFetch(`/api/accounts/${encodeURIComponent(did.value)}/config`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...candidate, streamerDid: did.value }),
@@ -334,6 +335,10 @@ async function load() {
   try {
     const response = await fetch("/api/session", { cache: "no-store" });
     if (!response.ok) {
+      if (response.status === 401) {
+        const detail = await response.json().catch(() => null);
+        if (detail?.error === "session-expired") loginMessage.value = detail.message;
+      }
       sessionState.value = "anonymous";
       await nextTick();
       if (handleInput.value && loginStatus.value)
@@ -355,8 +360,21 @@ async function load() {
     loginMessage.value = "Could not reach the cloud service. Reload to try again.";
   }
 }
-onMounted(load);
+function sessionExpired(event: Event) {
+  loginMessage.value = (event as CustomEvent<string>).detail;
+  config.value = null;
+  did.value = "";
+  profile.value = null;
+  sessionState.value = "anonymous";
+  clearInterval(dimensionsTimer);
+  void load();
+}
+onMounted(() => {
+  window.addEventListener("cloud-session-expired", sessionExpired);
+  void load();
+});
 onBeforeUnmount(() => {
+  window.removeEventListener("cloud-session-expired", sessionExpired);
   disposed = true;
   autocomplete?.dispose();
   clearTimeout(copyTimer);

@@ -11,6 +11,7 @@ import {
 import { sessionCookie } from "../src/auth.ts";
 import { CloudConfigConflictError, CloudConfigMissingError } from "../src/pds.ts";
 import { StructuredLogger } from "../src/logger.ts";
+import { JsonStore } from "../src/store.ts";
 
 const roots: string[] = [];
 afterEach(() => {
@@ -113,8 +114,30 @@ describe("cloud server boundary", () => {
       LEXICON_NAMESPACE: "com.example.streamoverlay",
       AUTH_DATA_DIR: join(webRoot, "auth"),
     });
+    deps.oauth.hasStoredSession = async () => true;
     return { ...deps, webRoot, logger: new StructuredLogger(undefined, () => {}) };
   }
+  test("expires stale cookies on admin session checks and mutations without touching PDS", async () => {
+    const deps = dependencies(webRoot());
+    const directory = join(webRoot(), "auth");
+    deps.oauth = createDependencies({ PUBLIC_ORIGIN: deps.origin, SESSION_SECRET: deps.secret, AUTH_DATA_DIR: directory }).oauth;
+    const stored = new JsonStore(directory, "oauth-session");
+    await stored.set("did:plc:alice", { testSession: true });
+    expect(await deps.oauth.hasStoredSession("did:plc:alice")).toBe(true);
+    await stored.del("did:plc:alice");
+    deps.pds.save = async () => { throw new Error("Must not write with a missing session"); };
+    const cookie = await sessionCookie("did:plc:alice", deps.secret);
+    for (const [path, method] of [["/api/session", "GET"], ["/api/accounts/did:plc:alice/config", "PUT"], ["/api/accounts/did:plc:alice/media", "POST"], ["/api/accounts/did:plc:alice/test/wave", "POST"]]) {
+      const response = await handleRequest(new Request(`https://overlay.example${path}`, { method, headers: { cookie: `stream_overlay_session=${cookie}`, origin: deps.origin } }), deps);
+      expect(response.status).toBe(401);
+      expect((await response.json()).error).toBe("session-expired");
+      expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+    }
+    const publicConfig = { enabled: true, streamerDid: "did:plc:alice", commands: [], revision: "1" };
+    deps.pds.publicConfig = async () => publicConfig;
+    const overlay = await handleRequest(new Request("https://overlay.example/api/accounts/did:plc:alice/config", { headers: { cookie: `stream_overlay_session=${cookie}` } }), deps);
+    expect(overlay.status).toBe(200);
+  });
   test("reports health without reading web files", async () => {
     const response = await handleRequest(
       new Request("http://localhost/health"),
@@ -378,6 +401,7 @@ describe("cloud server boundary", () => {
       AUTH_DATA_DIR: join(root, "auth"),
     });
     (deps as any).pds = { save: async (_did: string, body: unknown) => body };
+    deps.oauth.hasStoredSession = async () => true;
     const cookie = await sessionCookie("did:plc:alice", deps.secret);
     const response = await handleRequest(
       new Request("http://localhost:3010/api/accounts/did:plc:alice/config", {

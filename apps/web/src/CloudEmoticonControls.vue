@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { adminFetch } from "./cloud-admin-fetch.ts";
 import CollapsibleSection from "./CollapsibleSection.vue";
 import DeleteConfirmation from "./DeleteConfirmation.vue";
 import { computed, onBeforeUnmount, ref } from "vue";
@@ -90,7 +91,7 @@ async function test(command: CloudCommand) {
   busy.value = true;
   try {
     await props.beforeTest?.();
-    const response = await fetch(
+    const response = await adminFetch(
       `/api/accounts/${encodeURIComponent(props.did)}/test/${encodeURIComponent(command.id)}`,
       { method: "POST" },
     );
@@ -246,7 +247,7 @@ async function uploadFiles(files: FileList | null | undefined) {
         continue;
       }
       message.value = `Uploading ${file.name} to your PDS…`;
-      const response = await fetch(`/api/accounts/${encodeURIComponent(props.did)}/media`, {
+      const response = await adminFetch(`/api/accounts/${encodeURIComponent(props.did)}/media`, {
         method: "POST",
         headers: { "Content-Type": media.type },
         body: file,

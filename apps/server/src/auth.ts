@@ -3,18 +3,22 @@ import { timingSafeEqual } from "node:crypto";
 import { JsonStore } from "./store.ts";
 
 export function createOAuth(origin: string, dataDir: string, scope: string) {
+  const sessionStore = new JsonStore<NodeSavedSession>(dataDir, "oauth-session");
   const local = new URL(origin).protocol === "http:";
   const clientId = local ? `http://localhost?redirect_uri=${encodeURIComponent(`${origin}/oauth/callback`)}&scope=${encodeURIComponent(scope)}` : `${origin}/oauth/client-metadata.json`;
-  return new NodeOAuthClient({
+  const client = new NodeOAuthClient({
     clientMetadata: {
       client_id: clientId, client_name: "Streamface", client_uri: origin,
       redirect_uris: [`${origin}/oauth/callback`], scope, grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"], application_type: local ? "native" : "web", token_endpoint_auth_method: "none", dpop_bound_access_tokens: true,
     },
     stateStore: new JsonStore<NodeSavedState>(dataDir, "oauth-state"),
-    sessionStore: new JsonStore<NodeSavedSession>(dataDir, "oauth-session"),
+    sessionStore,
     handleResolver: "https://bsky.social",
     requestLock: requestLocalLock,
+  });
+  return Object.assign(client, {
+    hasStoredSession: async (did: string) => Boolean(await sessionStore.get(did)),
   });
 }
 

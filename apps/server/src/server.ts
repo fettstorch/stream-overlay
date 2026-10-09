@@ -205,6 +205,16 @@ async function boundedBody(request: Request, maximum: number) {
 async function handleRequestInner(request: Request, deps: Dependencies, requestId: string) {
   const url = new URL(request.url);
   const path = url.pathname;
+  // A signed browser cookie can outlive the OAuth session on ephemeral disk.
+  if (path === "/api/session" || (path.startsWith("/api/accounts/") && request.method !== "GET")) {
+    const did = await readSessionCookie(request, deps.secret);
+    if (did && !(await deps.oauth.hasStoredSession(did))) {
+      deps.logger.log("warn", "cloud.auth.session-missing", { requestId, route: routeName(path) });
+      return json({ authenticated: false, error: "session-expired", message: "Your sign-in session has expired. Please sign in again. Your saved PDS configuration is unchanged.", requestId }, 401, {
+        "Set-Cookie": `stream_overlay_session=; Path=/; HttpOnly;${deps.origin.startsWith("https:") ? " Secure;" : ""} SameSite=Lax; Max-Age=0`,
+      });
+    }
+  }
   if (path === "/health") return json({ status: "ok" });
   if (path === "/oauth/client-metadata.json") return json(deps.oauth.clientMetadata);
   if (path === "/oauth/login") {
