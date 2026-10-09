@@ -368,7 +368,10 @@ onBeforeUnmount(() => {
   <main>
     <header>
       <BrandWordmark />
-      <p class="intro">Manage your <StreamplaceBrand /> stream overlays from anywhere and copy their stable URLs into your OBS’s browser sources.</p>
+      <p class="intro">
+        Manage your <StreamplaceBrand /> stream overlays from anywhere and copy their stable URLs
+        into your OBS’s browser sources.
+      </p>
     </header>
     <section v-if="sessionState === 'loading'" class="settings loading-card" aria-live="polite">
       Connecting to Streamface…
