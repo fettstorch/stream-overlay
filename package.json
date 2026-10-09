@@ -1,7 +1,9 @@
 {
   "name": "stream-overlay",
   "private": true,
-  "engines": { "bun": ">=1.4.2" },
+  "engines": {
+    "bun": ">=1.4.2"
+  },
   "workspaces": [
     "apps/*",
     "modules/*",
@@ -9,9 +11,12 @@
   ],
   "devDependencies": {
     "@types/bun": "^1.3.0",
-    "fengari": "^0.1.5"
+    "fengari": "^0.1.5",
+    "prettier": "3.6.2"
   },
   "scripts": {
+    "format": "bun scripts/format.ts --write",
+    "format:check": "bun scripts/format.ts --check",
     "overlay": "bun --no-orphans scripts/start-overlay.ts",
     "overlay:host": "bun --no-orphans apps/local/src/server.ts",
     "admin:dev": "bun run --filter @stream-overlay/web dev -- --host 127.0.0.1 --port 3003",

@@ -1,6 +1,6 @@
 # Stream Overlay
 
-A local overlay control room built with Bun, Vue, TypeScript, and Vite.
+A local and cloud overlay control room built with Bun, Vue, TypeScript, and Vite.
 
 Pokémon Blue, Pokémon Crystal, Chat, and Overlay Paint are served directly by the central host.
 The Vue interfaces are compiled once at startup; the compilers then exit.
@@ -42,16 +42,23 @@ Streamplace Pets retains its separate, unchanged lifecycle.
 
 ## Structure
 
+See `CONTRIBUTING.md` for module registration, state ownership and verification.
+
 ```text
 apps/local                Local Bun API, filesystem adapters, and module supervisor
-apps/web                  Browser UI entrypoints (currently the Admin Center)
-apps/server               Cloud-ready Bun static web server and health endpoint
+apps/web                  Local/cloud admin UI and cloud overlay entrypoints
+apps/server               Cloud HTTP, OAuth, PDS persistence and realtime relay
 modules/pokemon-blue      Pokémon Blue mGBA overlay and adapter
 modules/pokemon-crystal   Pokémon Crystal mGBA adapter, sharing the team HUD
 modules/streamplace-pets  Adapter for the upstream submodule
 modules/overlay-paint     Shared temporary canvas, served by the host
 modules/chat              Stream.place chat display, served by the host
+modules/emoticons         Clips/stickers, command validation and browser runtime
+modules/catalog.ts        Shared cloud module metadata, routes and build entries
 packages/overlay-sdk      Shared module contracts
+packages/stream-chat      Shared live/sample chat sources and stream measurements
+packages/browser-runtime  Browser relay transport and reconnect handling
+packages/protocol         Cloud configuration and transport contracts
 packages/pokemon-model    Normalized Pokémon data
 packages/pokemon-ui       Reusable team and badge components
 streamplace-pets          Upstream Git submodule
@@ -260,7 +267,7 @@ Cloud OBS sources use your account DID in `?did=`:
 All modules share the stream selected in the control room. Stream dimensions
 are detected from Stream.place, with a 1920 × 1080 fallback and OBS setup
 instructions. Each module supports pinning, collapsing, search and an inline
-preview. Emoticons previews are muted and use a separate cooldown channel;
+preview. Emoticons previews play audio and use a separate cooldown channel;
 Test dispatches to both the live source and the preview. Author avatars and
 test placeholders appear with effects. The command listing keeps thumbnails,
 usage examples, cooldown rings and automatic scrolling.
