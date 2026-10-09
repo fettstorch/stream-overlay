@@ -11,7 +11,7 @@ import { getActorProfile, resolveStreamerIdentity, searchActors } from "./identi
 import { DirectStreamChatService, StreamChatService } from "@stream-overlay/stream-chat";
 import { FileLogger } from "./logger.ts";
 import { PaintService, parseSegments, parseCursor } from "../../../modules/overlay-paint/src/service.ts";
-import { getStreamDimensions } from "./stream-dimensions.ts";
+import { getStreamDimensions } from "../../../packages/stream-chat/src/stream-dimensions.ts";
 import { defaultPaintConfiguration, parsePaintConfiguration } from "../../../modules/overlay-paint/src/config.ts";
 import { defaultChatConfiguration, parseChatConfiguration } from "../../../modules/chat/src/config.ts";
 import { buildStaticOverlay } from "./static-overlay.ts";

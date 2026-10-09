@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { getStreamDimensions, parseStreamDimensions } from "../src/stream-dimensions.ts";
+import { getStreamDimensions, parseStreamDimensions } from "../../../packages/stream-chat/src/stream-dimensions.ts";
 
 describe("Stream video dimensions", () => {
   test("reads the video track from the official segment view", () => {

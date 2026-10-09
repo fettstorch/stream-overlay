@@ -1,4 +1,7 @@
-export interface StreamDimensions { width: number; height: number }
+export interface StreamDimensions {
+  width: number;
+  height: number;
+}
 
 export function parseStreamDimensions(value: unknown): StreamDimensions | null {
   if (!value || typeof value !== "object") return null;
@@ -8,8 +11,12 @@ export function parseStreamDimensions(value: unknown): StreamDimensions | null {
     const video = segment?.record?.video;
     if (!Array.isArray(video)) continue;
     for (const track of video) {
-      if (Number.isSafeInteger(track?.width) && Number.isSafeInteger(track?.height)
-        && track.width > 0 && track.height > 0) {
+      if (
+        Number.isSafeInteger(track?.width) &&
+        Number.isSafeInteger(track?.height) &&
+        track.width > 0 &&
+        track.height > 0
+      ) {
         return { width: track.width, height: track.height };
       }
     }

@@ -160,7 +160,7 @@ function selected(event: Event) { const input = event.target as HTMLInputElement
       <h4>{{ editing ? 'Edit command' : 'Create command' }}</h4>
       <label class="sticker-toggle"><input type="checkbox" :checked="form.mode === 'sticker'" @change="form.mode = ($event.target as HTMLInputElement).checked ? 'sticker' : 'effect'; changeMode()"> Sticker</label>
       <small v-if="form.mode === 'sticker'">Silent stickers drift upward independently. Every message spawns one, with no cooldown or queue.</small>
-      <label>Command <input v-model="form.command" placeholder="!wow" required maxlength="33"></label>
+      <label>Command <input v-model="form.command" placeholder="!wow" required maxlength="41"></label>
       <div class="drop-zone" @dragover.prevent @drop.prevent="uploadFiles($event.dataTransfer?.files)">
         <label>Media — drop files or choose
           <input type="file" :accept="form.mode === 'sticker' ? 'image/png,image/jpeg,image/gif,image/webp,video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm' : 'image/png,image/jpeg,image/gif,image/webp,audio/*,video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm'" multiple :disabled="busy" @change="selected">

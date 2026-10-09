@@ -2,9 +2,14 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { cloudIdleTimeout, cloudWebSocketKeepalive, createDependencies, handleRequest } from "../src/server.ts";
+import {
+  cloudIdleTimeout,
+  cloudWebSocketKeepalive,
+  createDependencies,
+  handleRequest,
+} from "../src/server.ts";
 import { sessionCookie } from "../src/auth.ts";
-import { CloudConfigMissingError } from "../src/pds.ts";
+import { CloudConfigConflictError, CloudConfigMissingError } from "../src/pds.ts";
 import { StructuredLogger } from "../src/logger.ts";
 
 const roots: string[] = [];
@@ -23,157 +28,522 @@ function webRoot() {
 }
 
 describe("cloud server boundary", () => {
+  test("returns HTTP 409 for stale configurations without publishing a change", async () => {
+    const deps = dependencies(webRoot());
+    (deps as any).pds = {
+      save: async () => {
+        throw new CloudConfigConflictError();
+      },
+    };
+    deps.relay.configChanged = () => {
+      throw new Error("A rejected save must not publish");
+    };
+    const cookie = await sessionCookie("did:plc:alice", deps.secret);
+    const response = await handleRequest(
+      new Request("https://overlay.example/api/accounts/did:plc:alice/config", {
+        method: "PUT",
+        headers: {
+          origin: "https://overlay.example",
+          cookie: `stream_overlay_session=${cookie}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          enabled: true,
+          streamerDid: "did:plc:alice",
+          commands: [],
+          revision: "stale",
+        }),
+      }),
+      deps,
+    );
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toBe("configuration-changed");
+  });
   test("disables HTTP/SSE and WebSocket idle deadlines while retaining automatic pings", () => {
     expect(cloudIdleTimeout).toBe(0);
     expect(cloudWebSocketKeepalive).toEqual({ idleTimeout: 0, sendPings: true });
   });
   test("keeps the real paint SSE transport open until its 15-second heartbeat", async () => {
     const deps = dependencies(webRoot());
-    (deps as any).pds = { publicConfig: async () => ({ enabled: true, streamerDid: "did:plc:alice", commands: [], revision: "1" }) };
-    const server = Bun.serve({ hostname: "127.0.0.1", port: 0, idleTimeout: cloudIdleTimeout, fetch: request => handleRequest(request, deps) });
+    (deps as any).pds = {
+      publicConfig: async () => ({
+        enabled: true,
+        streamerDid: "did:plc:alice",
+        commands: [],
+        revision: "1",
+      }),
+    };
+    const server = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      idleTimeout: cloudIdleTimeout,
+      fetch: (request) => handleRequest(request, deps),
+    });
     const controller = new AbortController();
     try {
-      const response = await fetch(`http://127.0.0.1:${server.port}/api/accounts/did%3Aplc%3Aalice/paint/events`, { signal: controller.signal });
+      const response = await fetch(
+        `http://127.0.0.1:${server.port}/api/accounts/did%3Aplc%3Aalice/paint/events`,
+        { signal: controller.signal },
+      );
       const reader = response.body!.getReader();
       expect(new TextDecoder().decode((await reader.read()).value)).toContain('"type":"state"');
       const heartbeat = await reader.read();
-      expect(heartbeat.done).toBe(false); expect(new TextDecoder().decode(heartbeat.value)).toContain(": keepalive");
+      expect(heartbeat.done).toBe(false);
+      expect(new TextDecoder().decode(heartbeat.value)).toContain(": keepalive");
       await reader.cancel();
-    } finally { controller.abort(); server.stop(true); }
+    } finally {
+      controller.abort();
+      server.stop(true);
+    }
   }, 18000);
   test("uses a temporary file locally, stdout in production, and honors file overrides", () => {
-    expect(createDependencies({}).logger.filePath).toBe(join(tmpdir(), "stream-overlay", "cloud.log"));
+    expect(createDependencies({}).logger.filePath).toBe(
+      join(tmpdir(), "stream-overlay", "cloud.log"),
+    );
     expect(createDependencies({ NODE_ENV: "production" }).logger.filePath).toBeUndefined();
-    expect(createDependencies({ NODE_ENV: "production", CLOUD_LOG_FILE: "/tmp/custom-cloud.log" }).logger.filePath).toBe("/tmp/custom-cloud.log");
+    expect(
+      createDependencies({ NODE_ENV: "production", CLOUD_LOG_FILE: "/tmp/custom-cloud.log" }).logger
+        .filePath,
+    ).toBe("/tmp/custom-cloud.log");
   });
-  function dependencies(webRoot: string) { const deps = createDependencies({ PUBLIC_ORIGIN: "https://overlay.example", SESSION_SECRET: "test-secret-with-at-least-thirty-two-bytes", LEXICON_NAMESPACE:"com.example.streamoverlay", AUTH_DATA_DIR: join(webRoot, "auth") }); return { ...deps, webRoot, logger: new StructuredLogger(undefined, () => {}) }; }
+  function dependencies(webRoot: string) {
+    const deps = createDependencies({
+      PUBLIC_ORIGIN: "https://overlay.example",
+      SESSION_SECRET: "test-secret-with-at-least-thirty-two-bytes",
+      LEXICON_NAMESPACE: "com.example.streamoverlay",
+      AUTH_DATA_DIR: join(webRoot, "auth"),
+    });
+    return { ...deps, webRoot, logger: new StructuredLogger(undefined, () => {}) };
+  }
   test("reports health without reading web files", async () => {
-    const response = await handleRequest(new Request("http://localhost/health"), dependencies("/missing"));
+    const response = await handleRequest(
+      new Request("http://localhost/health"),
+      dependencies("/missing"),
+    );
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ status: "ok" });
   });
   test("paint writes require the matching account session and reach only that account's SSE state", async () => {
     const deps = dependencies(webRoot());
-    const did = "did:plc:alice", config = { enabled: true, streamerDid: did, commands: [], revision: "1" };
+    const did = "did:plc:alice",
+      config = { enabled: true, streamerDid: did, commands: [], revision: "1" };
     (deps as any).pds = { publicConfig: async () => config };
     const url = `${deps.origin}/api/accounts/${encodeURIComponent(did)}/paint/segments`;
-    const body = JSON.stringify({ segments: [{ x: .5, y: .5, fromX: .1, fromY: .1 }] });
-    const headers = { origin: deps.origin, "Content-Type": "application/json", cookie: `stream_overlay_session=${await sessionCookie(did, deps.secret)}` };
-    expect((await handleRequest(new Request(url, { method: "POST", body, headers: { origin: deps.origin } }), deps)).status).toBe(403);
-    expect((await handleRequest(new Request(url, { method: "POST", body, headers: { ...headers, origin: "https://evil.example" } }), deps)).status).toBe(403);
+    const body = JSON.stringify({ segments: [{ x: 0.5, y: 0.5, fromX: 0.1, fromY: 0.1 }] });
+    const headers = {
+      origin: deps.origin,
+      "Content-Type": "application/json",
+      cookie: `stream_overlay_session=${await sessionCookie(did, deps.secret)}`,
+    };
+    expect(
+      (
+        await handleRequest(
+          new Request(url, { method: "POST", body, headers: { origin: deps.origin } }),
+          deps,
+        )
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await handleRequest(
+          new Request(url, {
+            method: "POST",
+            body,
+            headers: { ...headers, origin: "https://evil.example" },
+          }),
+          deps,
+        )
+      ).status,
+    ).toBe(403);
     const response = await handleRequest(new Request(url, { method: "POST", body, headers }), deps);
-    expect(response.status).toBe(200); expect((await response.json()).accepted).toBe(true);
+    expect(response.status).toBe(200);
+    expect((await response.json()).accepted).toBe(true);
     const sse = await handleRequest(new Request(url.replace("/segments", "/events")), deps);
     expect(sse.headers.get("content-type")).toBe("text/event-stream");
-    const reader = sse.body!.getReader(); const initial = new TextDecoder().decode((await reader.read()).value);
-    expect(initial).toContain('"x":0.5'); await reader.cancel();
+    const reader = sse.body!.getReader();
+    const initial = new TextDecoder().decode((await reader.read()).value);
+    expect(initial).toContain('"x":0.5');
+    await reader.cancel();
     expect(deps.paint.service("did:plc:bob", config).service.snapshot().segments).toEqual([]);
-    for (const account of [did, "did:plc:bob"]) deps.paint.configure(account, { ...config, modules: { chat: false, paint: false, pets: false } });
+    for (const account of [did, "did:plc:bob"])
+      deps.paint.configure(account, {
+        ...config,
+        modules: { chat: false, paint: false, pets: false },
+      });
   });
 
   test("authenticates command tests, validates configuration, and reports disconnected sources", async () => {
-    const deps = dependencies(webRoot()), did = "did:plc:alice";
-    let enabled = true, reads = 0;
-    (deps as any).pds = { publicConfig: async () => { reads++; return { enabled, commands: [{ id: "wave" }] }; } };
+    const deps = dependencies(webRoot()),
+      did = "did:plc:alice";
+    let enabled = true,
+      reads = 0;
+    (deps as any).pds = {
+      publicConfig: async () => {
+        reads++;
+        return { enabled, commands: [{ id: "wave" }] };
+      },
+    };
     const url = `${deps.origin}/api/accounts/${encodeURIComponent(did)}/test/wave`;
-    const headers = { origin: deps.origin, cookie: `stream_overlay_session=${await sessionCookie(did, deps.secret)}` };
-    expect((await handleRequest(new Request(url, { method: "POST", headers: { origin: deps.origin } }), deps)).status).toBe(403);
-    expect((await handleRequest(new Request(url, { method: "POST", headers: { ...headers, origin: "https://evil.example" } }), deps)).status).toBe(403);
+    const headers = {
+      origin: deps.origin,
+      cookie: `stream_overlay_session=${await sessionCookie(did, deps.secret)}`,
+    };
+    expect(
+      (
+        await handleRequest(
+          new Request(url, { method: "POST", headers: { origin: deps.origin } }),
+          deps,
+        )
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await handleRequest(
+          new Request(url, {
+            method: "POST",
+            headers: { ...headers, origin: "https://evil.example" },
+          }),
+          deps,
+        )
+      ).status,
+    ).toBe(403);
     expect(reads).toBe(0);
     const disconnected = await handleRequest(new Request(url, { method: "POST", headers }), deps);
-    expect(await disconnected.json()).toMatchObject({ delivered: 0, message: expect.stringContaining("No effect source") });
+    expect(await disconnected.json()).toMatchObject({
+      delivered: 0,
+      message: expect.stringContaining("No effect source"),
+    });
     const sent: string[] = [];
-    deps.relay.message(deps.relay.open({ send: (value: string) => { sent.push(value); return 1; } } as any), JSON.stringify({ type: "hello", did, page: "effect", channel: "live" }));
+    deps.relay.message(
+      deps.relay.open({
+        send: (value: string) => {
+          sent.push(value);
+          return 1;
+        },
+      } as any),
+      JSON.stringify({ type: "hello", did, page: "effect", channel: "live" }),
+    );
     const connected = await handleRequest(new Request(url, { method: "POST", headers }), deps);
     expect(await connected.json()).toMatchObject({ delivered: 1 });
-    expect(JSON.parse(sent.at(-1)!)).toMatchObject({ type: "test-command", commandId: "wave", requestId: connected.headers.get("x-request-id") });
-    expect((await handleRequest(new Request(url.replace("/wave", "/missing"), { method: "POST", headers }), deps)).status).toBe(404);
+    expect(JSON.parse(sent.at(-1)!)).toMatchObject({
+      type: "test-command",
+      commandId: "wave",
+      requestId: connected.headers.get("x-request-id"),
+    });
+    expect(
+      (
+        await handleRequest(
+          new Request(url.replace("/wave", "/missing"), { method: "POST", headers }),
+          deps,
+        )
+      ).status,
+    ).toBe(404);
     enabled = false;
-    expect((await handleRequest(new Request(url, { method: "POST", headers }), deps)).status).toBe(409);
+    expect((await handleRequest(new Request(url, { method: "POST", headers }), deps)).status).toBe(
+      409,
+    );
     expect(sent).toHaveLength(2);
   });
 
   test("serves the built web application under its stable admin path", async () => {
     const root = webRoot();
     const index = await handleRequest(new Request("http://localhost/admin/"), dependencies(root));
-    const asset = await handleRequest(new Request("http://localhost/admin/assets/app.js"), dependencies(root));
+    const asset = await handleRequest(
+      new Request("http://localhost/admin/assets/app.js"),
+      dependencies(root),
+    );
     expect(await index.text()).toBe("<h1>Admin</h1>");
     expect(await asset.text()).toContain("ready");
   });
 
   test("does not expose files outside the built web directory", async () => {
-    const root = webRoot(); const response = await handleRequest(new Request("http://localhost/other"), dependencies(root));
+    const root = webRoot();
+    const response = await handleRequest(new Request("http://localhost/other"), dependencies(root));
     expect(response.status).toBe(404);
   });
 
-  test("rejects cross-origin authenticated writes before touching the PDS", async () => { const root=webRoot();const deps=dependencies(root);let saved=false;(deps as any).pds={save:async()=>{saved=true}};const cookie=await sessionCookie("did:plc:alice",deps.secret);const response=await handleRequest(new Request("https://overlay.example/api/accounts/did:plc:alice/config",{method:"PUT",headers:{origin:"https://evil.example",cookie:`stream_overlay_session=${cookie}`,"content-type":"application/json"},body:JSON.stringify({enabled:true,streamerDid:"did:plc:alice",commands:[]})}),deps);expect(response.status).toBe(403);expect(saved).toBe(false); });
+  test("rejects cross-origin authenticated writes before touching the PDS", async () => {
+    const root = webRoot();
+    const deps = dependencies(root);
+    let saved = false;
+    (deps as any).pds = {
+      save: async () => {
+        saved = true;
+      },
+    };
+    const cookie = await sessionCookie("did:plc:alice", deps.secret);
+    const response = await handleRequest(
+      new Request("https://overlay.example/api/accounts/did:plc:alice/config", {
+        method: "PUT",
+        headers: {
+          origin: "https://evil.example",
+          cookie: `stream_overlay_session=${cookie}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ enabled: true, streamerDid: "did:plc:alice", commands: [] }),
+      }),
+      deps,
+    );
+    expect(response.status).toBe(403);
+    expect(saved).toBe(false);
+  });
 
   test("routes browser-encoded DIDs for GIF uploads and configuration reads/writes", async () => {
-    const deps = dependencies(webRoot()), did = "did:plc:alice";
+    const deps = dependencies(webRoot()),
+      did = "did:plc:alice";
     const config = { enabled: false, streamerDid: did, commands: [], revision: "test" };
     const blob = { $type: "blob", ref: { $link: "bafktest" }, mimeType: "image/gif", size: 6 };
-    const uploaded: unknown[][] = [], saved: unknown[][] = [], read: string[] = [], lines: string[] = [];
-    deps.logger = new StructuredLogger(undefined, line => lines.push(line));
+    const uploaded: unknown[][] = [],
+      saved: unknown[][] = [],
+      read: string[] = [],
+      lines: string[] = [];
+    deps.logger = new StructuredLogger(undefined, (line) => lines.push(line));
     (deps as any).pds = {
-      upload: async (...args: unknown[]) => { uploaded.push(args); return blob; },
-      publicConfig: async (account: string) => { read.push(account); return config; },
-      save: async (...args: unknown[]) => { saved.push(args); return config; },
+      upload: async (...args: unknown[]) => {
+        uploaded.push(args);
+        return blob;
+      },
+      publicConfig: async (account: string) => {
+        read.push(account);
+        return config;
+      },
+      save: async (...args: unknown[]) => {
+        saved.push(args);
+        return config;
+      },
     };
-    const headers = { origin: deps.origin, cookie: `stream_overlay_session=${await sessionCookie(did, deps.secret)}` };
+    const headers = {
+      origin: deps.origin,
+      cookie: `stream_overlay_session=${await sessionCookie(did, deps.secret)}`,
+    };
     const base = `${deps.origin}/api/accounts/${encodeURIComponent(did)}`;
-    const upload = await handleRequest(new Request(`${base}/media`, { method: "POST", headers: { ...headers, "Content-Type": "image/gif" }, body: new TextEncoder().encode("GIF89a") }), deps);
-    expect(upload.status).toBe(200); expect(await upload.json()).toEqual(blob);
-    expect(uploaded[0][0]).toBe(did); expect(uploaded[0][1]).toEqual(new TextEncoder().encode("GIF89a")); expect(uploaded[0][2]).toBe("image/gif");
+    const upload = await handleRequest(
+      new Request(`${base}/media`, {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "image/gif" },
+        body: new TextEncoder().encode("GIF89a"),
+      }),
+      deps,
+    );
+    expect(upload.status).toBe(200);
+    expect(await upload.json()).toEqual(blob);
+    expect(uploaded[0][0]).toBe(did);
+    expect(uploaded[0][1]).toEqual(new TextEncoder().encode("GIF89a"));
+    expect(uploaded[0][2]).toBe("image/gif");
     const load = await handleRequest(new Request(`${base}/config`), deps);
-    expect(load.status).toBe(200); expect(await load.json()).toEqual(config); expect(read).toEqual([did]);
-    const save = await handleRequest(new Request(`${base}/config`, { method: "PUT", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify(config) }), deps);
-    expect(save.status).toBe(200); expect(saved[0][0]).toBe(did); expect(saved[0][1]).toEqual(config);
-    expect(lines.map(line => JSON.parse(line)).filter(event => event.event === "cloud.http.request-received").map(event => event.route)).toEqual(["accounts.media", "accounts.config", "accounts.config"]);
+    expect(load.status).toBe(200);
+    expect(await load.json()).toEqual(config);
+    expect(read).toEqual([did]);
+    const save = await handleRequest(
+      new Request(`${base}/config`, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(config),
+      }),
+      deps,
+    );
+    expect(save.status).toBe(200);
+    expect(saved[0][0]).toBe(did);
+    expect(saved[0][1]).toEqual(config);
+    expect(
+      lines
+        .map((line) => JSON.parse(line))
+        .filter((event) => event.event === "cloud.http.request-received")
+        .map((event) => event.route),
+    ).toEqual(["accounts.media", "accounts.config", "accounts.config"]);
   });
 
   test("rejects malformed or encoded path separators without invoking the PDS", async () => {
     const deps = dependencies(webRoot());
-    (deps as any).pds = { publicConfig: () => { throw new Error("must not reach PDS"); } };
+    (deps as any).pds = {
+      publicConfig: () => {
+        throw new Error("must not reach PDS");
+      },
+    };
     for (const segment of ["did%ZZ", "did%3Aplc%3Aalice%2Fother", "not-a-did"]) {
-      const response = await handleRequest(new Request(`${deps.origin}/api/accounts/${segment}/config`), deps);
+      const response = await handleRequest(
+        new Request(`${deps.origin}/api/accounts/${segment}/config`),
+        deps,
+      );
       expect(response.status).toBe(404);
     }
   });
 
   test("accepts localhost and 127.0.0.1 as the same local write origin", async () => {
-    const root=webRoot(); const deps=createDependencies({PUBLIC_ORIGIN:"http://127.0.0.1:3010",SESSION_SECRET:"test-secret-with-at-least-thirty-two-bytes",LEXICON_NAMESPACE:"com.example.streamoverlay",AUTH_DATA_DIR:join(root,"auth")});
-    (deps as any).pds={save:async(_did:string,body:unknown)=>body}; const cookie=await sessionCookie("did:plc:alice",deps.secret);
-    const response=await handleRequest(new Request("http://localhost:3010/api/accounts/did:plc:alice/config",{method:"PUT",headers:{origin:"http://localhost:3010",cookie:`stream_overlay_session=${cookie}`,"content-type":"application/json"},body:JSON.stringify({enabled:false,streamerDid:"did:plc:alice",revision:"old",commands:[]})}),deps);
-    expect(response.status).toBe(200); expect((await response.json()).enabled).toBe(false);
+    const root = webRoot();
+    const deps = createDependencies({
+      PUBLIC_ORIGIN: "http://127.0.0.1:3010",
+      SESSION_SECRET: "test-secret-with-at-least-thirty-two-bytes",
+      LEXICON_NAMESPACE: "com.example.streamoverlay",
+      AUTH_DATA_DIR: join(root, "auth"),
+    });
+    (deps as any).pds = { save: async (_did: string, body: unknown) => body };
+    const cookie = await sessionCookie("did:plc:alice", deps.secret);
+    const response = await handleRequest(
+      new Request("http://localhost:3010/api/accounts/did:plc:alice/config", {
+        method: "PUT",
+        headers: {
+          origin: "http://localhost:3010",
+          cookie: `stream_overlay_session=${cookie}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          enabled: false,
+          streamerDid: "did:plc:alice",
+          revision: "old",
+          commands: [],
+        }),
+      }),
+      deps,
+    );
+    expect(response.status).toBe(200);
+    expect((await response.json()).enabled).toBe(false);
   });
 
   test("returns sanitized actionable PDS save failures", async () => {
-    const root=webRoot(); const deps=dependencies(root); (deps as any).pds={save:async()=>{throw Object.assign(new Error("token rejected: secret detail"),{status:403,error:"Forbidden"})}}; const cookie=await sessionCookie("did:plc:alice",deps.secret);
-    const response=await handleRequest(new Request("https://overlay.example/api/accounts/did:plc:alice/config",{method:"PUT",headers:{origin:"https://overlay.example",cookie:`stream_overlay_session=${cookie}`,"content-type":"application/json"},body:JSON.stringify({enabled:false,streamerDid:"did:plc:alice",commands:[]})}),deps);
-    expect(response.status).toBe(400); expect(await response.json()).toEqual({error:"pds-write-not-authorized",message:"Your ATProto session does not grant access to write these records.",requestId:expect.any(String)}); expect(response.headers.get("x-request-id")).toMatch(/^[a-f0-9-]{36}$/);
+    const root = webRoot();
+    const deps = dependencies(root);
+    (deps as any).pds = {
+      save: async () => {
+        throw Object.assign(new Error("token rejected: secret detail"), {
+          status: 403,
+          error: "Forbidden",
+        });
+      },
+    };
+    const cookie = await sessionCookie("did:plc:alice", deps.secret);
+    const response = await handleRequest(
+      new Request("https://overlay.example/api/accounts/did:plc:alice/config", {
+        method: "PUT",
+        headers: {
+          origin: "https://overlay.example",
+          cookie: `stream_overlay_session=${cookie}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ enabled: false, streamerDid: "did:plc:alice", commands: [] }),
+      }),
+      deps,
+    );
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "pds-write-not-authorized",
+      message: "Your ATProto session does not grant access to write these records.",
+      requestId: expect.any(String),
+    });
+    expect(response.headers.get("x-request-id")).toMatch(/^[a-f0-9-]{36}$/);
   });
 
   test("returns sanitized actionable media upload failures", async () => {
-    const root=webRoot(); const deps=dependencies(root); (deps as any).pds={upload:async()=>{throw Object.assign(new Error("token secret rejected"),{status:403,error:"Forbidden"})}}; const cookie=await sessionCookie("did:plc:alice",deps.secret);
-    const response=await handleRequest(new Request("https://overlay.example/api/accounts/did:plc:alice/media",{method:"POST",headers:{origin:"https://overlay.example",cookie:`stream_overlay_session=${cookie}`,"content-type":"image/gif"},body:new Uint8Array([1,2,3])}),deps);
-    expect(response.status).toBe(403); expect(await response.json()).toEqual({error:"pds-upload-not-authorized",message:"Your ATProto session cannot upload media. Sign in again to grant media access.",requestId:expect.any(String)});
+    const root = webRoot();
+    const deps = dependencies(root);
+    (deps as any).pds = {
+      upload: async () => {
+        throw Object.assign(new Error("token secret rejected"), {
+          status: 403,
+          error: "Forbidden",
+        });
+      },
+    };
+    const cookie = await sessionCookie("did:plc:alice", deps.secret);
+    const response = await handleRequest(
+      new Request("https://overlay.example/api/accounts/did:plc:alice/media", {
+        method: "POST",
+        headers: {
+          origin: "https://overlay.example",
+          cookie: `stream_overlay_session=${cookie}`,
+          "content-type": "image/gif",
+        },
+        body: new Uint8Array([1, 2, 3]),
+      }),
+      deps,
+    );
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({
+      error: "pds-upload-not-authorized",
+      message: "Your ATProto session cannot upload media. Sign in again to grant media access.",
+      requestId: expect.any(String),
+    });
   });
 
   test("correlates upload ingress, body read, failure, and response without logging credentials", async () => {
-    const root=webRoot(), lines:string[]=[]; const deps=dependencies(root); deps.logger=new StructuredLogger(undefined,line=>lines.push(line)); (deps as any).pds={upload:async()=>{throw Object.assign(new Error("Bearer super-secret-token"),{status:403,error:"Forbidden"})}}; const cookie=await sessionCookie("did:plc:alice",deps.secret);
-    const response=await handleRequest(new Request("https://overlay.example/api/accounts/did:plc:alice/media?code=oauth-secret",{method:"POST",headers:{origin:"https://overlay.example",cookie:`stream_overlay_session=${cookie}`,authorization:"Bearer hidden","content-type":"image/gif"},body:new Uint8Array([1,2,3])}),deps); const requestId=response.headers.get("x-request-id")!; const events=lines.map(line=>JSON.parse(line));
-    expect(events.filter(entry=>entry.requestId===requestId).map(entry=>entry.event)).toEqual(["cloud.http.request-received","cloud.upload.request-received","cloud.upload.body-read-started","cloud.upload.body-read-completed","cloud.upload.request-failed","cloud.http.request-completed"]); expect(lines.join("\n")).not.toContain("super-secret"); expect(lines.join("\n")).not.toContain("oauth-secret"); expect(lines.join("\n")).not.toContain(cookie);
+    const root = webRoot(),
+      lines: string[] = [];
+    const deps = dependencies(root);
+    deps.logger = new StructuredLogger(undefined, (line) => lines.push(line));
+    (deps as any).pds = {
+      upload: async () => {
+        throw Object.assign(new Error("Bearer super-secret-token"), {
+          status: 403,
+          error: "Forbidden",
+        });
+      },
+    };
+    const cookie = await sessionCookie("did:plc:alice", deps.secret);
+    const response = await handleRequest(
+      new Request("https://overlay.example/api/accounts/did:plc:alice/media?code=oauth-secret", {
+        method: "POST",
+        headers: {
+          origin: "https://overlay.example",
+          cookie: `stream_overlay_session=${cookie}`,
+          authorization: "Bearer hidden",
+          "content-type": "image/gif",
+        },
+        body: new Uint8Array([1, 2, 3]),
+      }),
+      deps,
+    );
+    const requestId = response.headers.get("x-request-id")!;
+    const events = lines.map((line) => JSON.parse(line));
+    expect(
+      events.filter((entry) => entry.requestId === requestId).map((entry) => entry.event),
+    ).toEqual([
+      "cloud.http.request-received",
+      "cloud.upload.request-received",
+      "cloud.upload.body-read-started",
+      "cloud.upload.body-read-completed",
+      "cloud.upload.request-failed",
+      "cloud.http.request-completed",
+    ]);
+    expect(lines.join("\n")).not.toContain("super-secret");
+    expect(lines.join("\n")).not.toContain("oauth-secret");
+    expect(lines.join("\n")).not.toContain(cookie);
   });
 
   test("distinguishes a missing cloud configuration from an unavailable PDS", async () => {
-    const root = webRoot(); const deps = dependencies(root);
-    (deps as any).pds = { publicConfig: async () => { throw new CloudConfigMissingError(); } };
-    const missing = await handleRequest(new Request("https://overlay.example/api/accounts/did:plc:alice/config"), deps);
-    expect(missing.status).toBe(404); expect(await missing.json()).toEqual({ error: "configuration-not-found" });
-    (deps as any).pds = { publicConfig: async () => { throw new Error("offline"); } };
-    const unavailable = await handleRequest(new Request("https://overlay.example/api/accounts/did:plc:alice/config"), deps);
-    expect(unavailable.status).toBe(502); expect(await unavailable.json()).toEqual({ error: "configuration-unavailable" });
+    const root = webRoot();
+    const deps = dependencies(root);
+    (deps as any).pds = {
+      publicConfig: async () => {
+        throw new CloudConfigMissingError();
+      },
+    };
+    const missing = await handleRequest(
+      new Request("https://overlay.example/api/accounts/did:plc:alice/config"),
+      deps,
+    );
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toEqual({ error: "configuration-not-found" });
+    (deps as any).pds = {
+      publicConfig: async () => {
+        throw new Error("offline");
+      },
+    };
+    const unavailable = await handleRequest(
+      new Request("https://overlay.example/api/accounts/did:plc:alice/config"),
+      deps,
+    );
+    expect(unavailable.status).toBe(502);
+    expect(await unavailable.json()).toEqual({ error: "configuration-unavailable" });
   });
 
-  test("separates local defaults from deploy configuration and keeps origin aligned with PORT", () => { expect(createDependencies({}).origin).toBe("http://127.0.0.1:3010"); expect(createDependencies({PORT:"4567"}).origin).toBe("http://127.0.0.1:4567"); expect(()=>createDependencies({PUBLIC_ORIGIN:"https://overlay.example",SESSION_SECRET:"test-secret-with-at-least-thirty-two-bytes"})).toThrow("LEXICON_NAMESPACE"); });
+  test("separates local defaults from deploy configuration and keeps origin aligned with PORT", () => {
+    expect(createDependencies({}).origin).toBe("http://127.0.0.1:3010");
+    expect(createDependencies({ PORT: "4567" }).origin).toBe("http://127.0.0.1:4567");
+    expect(() =>
+      createDependencies({
+        PUBLIC_ORIGIN: "https://overlay.example",
+        SESSION_SECRET: "test-secret-with-at-least-thirty-two-bytes",
+      }),
+    ).toThrow("LEXICON_NAMESPACE");
+  });
 });

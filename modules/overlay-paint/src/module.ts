@@ -1,10 +1,10 @@
 import { join } from "node:path";
 import type { OverlayModule } from "@stream-overlay/sdk";
 import { projectRoot } from "../../project-root.ts";
+import { overlayPaintManifest } from "./manifest.ts";
 
 export const overlayPaintModule: OverlayModule = {
-  id: "overlay-paint",
-  name: "Overlay Paint",
+  ...overlayPaintManifest,
   streamerQuery: false,
   description: "Draw over your stream with a soft brush using a mouse, pen, or touch. Choose a color and how long to wait before the whole drawing fades.",
   requirements: [

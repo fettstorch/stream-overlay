@@ -6,3 +6,4 @@ export type {
   OverlayModule,
   OverlayRoute,
 } from "./module.ts";
+export * from "./manifest.ts";

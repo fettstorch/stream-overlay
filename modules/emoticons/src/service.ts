@@ -1,9 +1,9 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { EmoticonAsset, EmoticonCommand, EmoticonEvent, EmoticonState } from "./contracts.ts";
+import { commandNamePattern, commandNameHint, validDimension } from "./validation.ts";
 
 const assetId = /^[a-f0-9-]{36}$/;
-const dimension = /^(?:|auto|(?:\d+(?:\.\d+)?)(?:px|%|vw|vh|vmin|vmax|em|rem))$/;
 export class EmoticonService {
   private commands: EmoticonCommand[] = [];
   private assets: EmoticonAsset[] = [];
@@ -37,7 +37,7 @@ export class EmoticonService {
     if (mode !== "effect" && mode !== "sticker") throw new Error("Choose Effect or Sticker");
     if (mode === "sticker" && input.audioAssetId) throw new Error("Stickers do not support audio attachments");
     const command = typeof input.command === "string" ? input.command.trim().replace(/^!/, "").toLowerCase() : "";
-    if (!/^[a-z0-9_-]{1,32}$/.test(command)) throw new Error("Use 1–32 letters, numbers, underscores or hyphens");
+    if (!commandNamePattern.test(command)) throw new Error(commandNameHint);
     if (this.commands.some(item => item.command === command && item.id !== id)) throw new Error("This command already exists");
     if (id && !this.commands.some(item => item.id === id)) throw new Error("Command not found");
     for (const [key, kind] of [["imageAssetId", "image"], ["audioAssetId", "audio"], ["videoAssetId", "video"]] as const) {
@@ -47,7 +47,7 @@ export class EmoticonService {
     if (!input.imageAssetId && !input.audioAssetId && !input.videoAssetId) throw new Error("Add an image, audio, or video");
     if (!Number.isFinite(input.durationSeconds) || input.durationSeconds <= 0 || !Number.isFinite(input.cooldownSeconds) || input.cooldownSeconds < 0
       || !Number.isFinite(input.volume) || input.volume < 0 || input.volume > 1) throw new Error("Use a positive duration, nonnegative cooldown and volume from 0 to 1");
-    if (typeof input.width !== "string" || typeof input.height !== "string" || !dimension.test(input.width.trim()) || !dimension.test(input.height.trim())) throw new Error("Use CSS sizes such as 300px, 40vw, 25vh, 50%, or auto");
+    if (!validDimension(input.width) || !validDimension(input.height)) throw new Error("Use CSS sizes such as 300px, 40vw, 25vh, 50%, or auto");
     const entry: EmoticonCommand = { id: id ?? crypto.randomUUID(), command, mode, mirrored: input.mirrored === true, imageAssetId: input.imageAssetId, audioAssetId: input.audioAssetId, videoAssetId: input.videoAssetId,
       durationSeconds: input.durationSeconds, cooldownSeconds: input.cooldownSeconds, volume: input.volume, width: input.width.trim(), height: input.height.trim() };
     const previous = this.commands;

@@ -2,10 +2,10 @@ import { join } from "node:path";
 import type { OverlayModule } from "@stream-overlay/sdk";
 
 import { projectRoot } from "../../project-root.ts";
+import { streamplacePetsManifest } from "./manifest.ts";
 
 export const streamplacePetsModule: OverlayModule = {
-  id: "streamplace-pets",
-  name: "Streamplace Pets",
+  ...streamplacePetsManifest,
   description: "Runs the independent Streamplace Pets overlay from its upstream submodule.",
   configurationLink: {
     url: "https://rpg.actor/streampets",
