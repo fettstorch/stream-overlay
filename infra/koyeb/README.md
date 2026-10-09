@@ -1,5 +1,55 @@
 # Koyeb pilot deployment
 
+## Deploy local source through the CLI
+
+Install and authenticate the Koyeb CLI, create an empty app with
+`koyeb apps create streamface`, and create the `streamface-session-secret`
+secret in the console. No GitHub integration or Git push is required.
+
+Preview the deployment using your app's actual HTTPS domain:
+
+```sh
+bun run cloud:deploy --origin https://YOUR-APP.koyeb.app
+```
+
+This only stages source in a temporary directory and prints the deployment
+command. Inspect that directory or build it with Docker before proceeding.
+It excludes the upstream Pets checkout, runtime/session data, hidden files,
+environment files, dependencies, generated builds, logs, and paths marked
+prod/production or secret/credential. Symlinks are rejected rather than followed.
+Only the required workspace source roots and build files are packaged.
+
+When ready, run the same command with `--execute` yourself:
+
+```sh
+bun run cloud:deploy --origin https://YOUR-APP.koyeb.app --execute
+```
+
+This uploads the staged source and creates or updates `streamface/web` using
+the `hosted` Docker target, one `eco-nano` instance in Frankfurt, HTTP port 8000,
+and `/health`. It references the existing secret by name; it never reads a local
+session secret. Optional flags are `--target app/service` and `--secret secret-name`.
+The temporary directory is removed after execution; preview directories are kept
+for inspection. A non-zero exit leaves diagnostics in the CLI output.
+
+This script intentionally reapplies the documented pilot settings on every run;
+it is not a source-only update that preserves arbitrary console configuration.
+Review and adjust it before changing instance size, region, port or scaling in
+the console. Inspect the service, logs and settings there after deployment.
+Attach your custom domain and update `PUBLIC_ORIGIN` before using that domain for
+OAuth login; the configured origin must match the browser's URL.
+
+```sh
+koyeb service get streamface/web
+koyeb service logs streamface/web --type build
+koyeb service logs streamface/web
+```
+
+Root `README.md` links to this workflow. Never deploy the whole checkout with
+`koyeb deploy .`: Docker ignore rules alone do not protect the uploaded source archive.
+
+## Pilot configuration
+
 Deploy `infra/koyeb/Dockerfile` as exactly one service instance in Frankfurt. Expose
 port `$PORT` (default 8000) and configure an HTTP health check on `/health`. The initial
 pilot uses `eco-nano` with no volume: OAuth refresh sessions and authorization state
