@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import CloudAdmin from "../src/CloudAdmin.vue";
+import CloudEmoticonControls from "../src/CloudEmoticonControls.vue";
 
 const actorMocks = vi.hoisted(() => ({
   loadPublicActorProfile: vi.fn(async () => ({ did: "did:plc:alice", handle: "alice.bsky.social", displayName: "Alice", avatar: "https://cdn.example/alice.jpg" })),
@@ -33,7 +34,29 @@ describe("Cloud Admin", () => {
     await wrapper.get('button[aria-label="Show Emoticons details"]').trigger("click");
     await wrapper.get(".emoticon-controls .primary-button").trigger("click");
     expect(wrapper.text()).toContain("Create command"); expect(wrapper.text()).toContain("Media — drop files or choose");
+    expect(wrapper.findAll('.drop-zone input[type="url"]')).toHaveLength(1); expect(wrapper.text()).not.toContain("Image/GIF URL"); expect(wrapper.text()).toContain("one visual and separate audio");
     wrapper.unmount();
+  });
+
+  test("uploads a GIF with an empty browser MIME and keeps separate audio", async () => {
+    const save = vi.fn(async () => true);
+    const fetchMock = vi.fn(async () => response({ $type: "blob", ref: { $link: "bafygif" }, mimeType: "image/gif", size: 4 }));
+    vi.stubGlobal("fetch", fetchMock); vi.stubGlobal("URL", { ...URL, createObjectURL: vi.fn(() => "blob:preview"), revokeObjectURL: vi.fn() });
+    const wrapper = mount(CloudEmoticonControls, { props: { did: session.did, config: { ...config, commands: [] }, save } });
+    await wrapper.get(".primary-button").trigger("click"); const input = wrapper.get('input[type="file"]');
+    Object.defineProperty(input.element, "files", { configurable: true, value: [new File(["GIF8"], "dance.gif")] }); await input.trigger("change"); await flushPromises();
+    Object.defineProperty(input.element, "files", { configurable: true, value: [new File(["sound"], "sound.mp3", { type: "audio/mpeg" })] }); await input.trigger("change"); await flushPromises();
+    expect(fetchMock).toHaveBeenNthCalledWith(1, expect.any(String), expect.objectContaining({ headers: { "Content-Type": "image/gif" } }));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, expect.any(String), expect.objectContaining({ headers: { "Content-Type": "audio/mpeg" } }));
+    expect(wrapper.text()).toContain("image attached"); expect(wrapper.text()).toContain("audio attached"); wrapper.unmount();
+  });
+
+  test("keeps a loaded blob reference while using its derived URL only for preview", async () => {
+    const save = vi.fn(async () => true), stored = { $type: "blob", ref: { $link: "bafyblob" }, mimeType: "image/gif", size: 4 };
+    const command = { ...config.commands[0], image: { blob: stored, url: "https://pds.example/xrpc/blob" } };
+    const wrapper = mount(CloudEmoticonControls, { props: { did: session.did, config: { ...config, commands: [command] }, save } });
+    await wrapper.get(".command-list button").trigger("click"); await wrapper.get("form").trigger("submit"); await flushPromises();
+    const candidate = save.mock.calls[0][0]; expect(candidate.commands[0].image).toEqual({ blob: stored }); wrapper.unmount();
   });
 
   test("shares baseline search, pin persistence, and collapse behavior", async () => {

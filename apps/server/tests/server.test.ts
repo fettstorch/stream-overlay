@@ -57,6 +57,12 @@ describe("cloud server boundary", () => {
     expect(response.status).toBe(400); expect(await response.json()).toEqual({error:"pds-write-not-authorized",message:"Your ATProto session does not grant access to write these records."});
   });
 
+  test("returns sanitized actionable media upload failures", async () => {
+    const root=webRoot(); const deps=dependencies(root); (deps as any).pds={upload:async()=>{throw Object.assign(new Error("token secret rejected"),{status:403,error:"Forbidden"})}}; const cookie=await sessionCookie("did:plc:alice",deps.secret);
+    const response=await handleRequest(new Request("https://overlay.example/api/accounts/did:plc:alice/media",{method:"POST",headers:{origin:"https://overlay.example",cookie:`stream_overlay_session=${cookie}`,"content-type":"image/gif"},body:new Uint8Array([1,2,3])}),deps);
+    expect(response.status).toBe(403); expect(await response.json()).toEqual({error:"pds-upload-not-authorized",message:"Your ATProto session cannot upload media. Sign in again to grant media access."});
+  });
+
   test("distinguishes a missing cloud configuration from an unavailable PDS", async () => {
     const root = webRoot(); const deps = dependencies(root);
     (deps as any).pds = { publicConfig: async () => { throw new CloudConfigMissingError(); } };
