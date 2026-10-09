@@ -205,11 +205,29 @@ AUTH_DATA_DIR=runtime/cloud-auth \
 bun run server
 ```
 
-For a local development server, `bun run cloud` builds the browser app and serves
-it at `http://127.0.0.1:3000` with the development-only namespace and local auth
-storage. This is suitable for UI and relay testing. A real OAuth consent flow still
-depends on an AT Protocol provider accepting the loopback client metadata and the
-development Lexicons; use the deployment configuration above for the account pilot.
+For local cloud parity, `bun run cloud` builds and starts the same
+`infra/koyeb/Dockerfile` through Docker Compose. The service is available at
+`http://127.0.0.1:3010`; private OAuth state is retained in the named Docker volume
+`stream-overlay-cloud-auth`. This port is separate from Pets (`3000`), the local
+overlay host (`3001`), and Admin development (`3003`). Stop it with Ctrl-C; use
+`docker compose -f infra/koyeb/compose.local.yml down` to remove the container and
+network while preserving the auth volume.
+
+Docker without host Bun uses the equivalent command:
+
+```sh
+docker compose -f infra/koyeb/compose.local.yml up --build
+```
+
+For faster source development without a container, `bun run cloud:dev` builds the
+web app and starts Bun directly on the same port. Set `PORT=4567 bun run cloud:dev`
+to choose another port; when `PUBLIC_ORIGIN` is omitted, OAuth metadata derives its
+loopback origin from `PORT`.
+
+Both local modes use the development-only namespace and local credentials. A real
+OAuth consent flow still depends on an AT Protocol provider accepting the loopback
+client metadata and development Lexicons; use the HTTPS deployment configuration
+above for the account pilot.
 
 The public OBS URLs are `/effect/?did=did:...` and `/board/?did=did:...`.
 Direct HTTPS media files and PDS blob uploads are supported. Ordinary Giphy page

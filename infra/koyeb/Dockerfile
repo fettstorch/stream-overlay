@@ -11,7 +11,7 @@ WORKDIR /app
 ENV PORT=8000 WEB_DIST=/app/apps/web/dist AUTH_DATA_DIR=/data/auth
 COPY --from=build /app/dist/server/server.js /app/server.js
 COPY --from=build /app/apps/web/dist /app/apps/web/dist
-RUN mkdir -p /data/auth && chown -R bun:bun /app /data
+RUN mkdir -p /data/auth && chown -R bun:bun /app /data && chmod 0700 /data/auth
 USER bun
 EXPOSE 8000
 CMD ["bun", "/app/server.js"]

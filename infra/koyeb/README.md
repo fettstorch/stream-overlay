@@ -16,7 +16,10 @@ Required secrets/settings:
 
 The server refuses a non-HTTPS external origin, the checked-in development
 namespace, or the development session secret. Local loopback HTTP is accepted only
-for `bun run cloud`; do not reuse that configuration in Koyeb.
+by the local Compose/direct-development workflows; do not reuse that configuration
+in Koyeb. `compose.local.yml` builds this exact Dockerfile, but intentionally differs
+from hosting in its loopback HTTP origin, development credentials/namespace, local
+Docker network/resource limits, and named OrbStack volume.
 
 The service accepts only direct HTTPS media URLs in records and PDS blob references.
 Provider page URLs such as normal Giphy pages are not playable media URLs; use a direct

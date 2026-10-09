@@ -1,0 +1,30 @@
+name: stream-overlay-cloud-local
+
+services:
+  cloud:
+    build:
+      context: ../..
+      dockerfile: infra/koyeb/Dockerfile
+    image: stream-overlay-cloud-local
+    init: true
+    environment:
+      PORT: "8000"
+      PUBLIC_ORIGIN: http://127.0.0.1:${CLOUD_PORT:-3010}
+      SESSION_SECRET: local-development-only-secret-000000000000
+      LEXICON_NAMESPACE: invalid.streamoverlay.dev
+      AUTH_DATA_DIR: /data/auth
+    ports:
+      - 127.0.0.1:${CLOUD_PORT:-3010}:8000
+    volumes:
+      - cloud-auth:/data/auth
+    healthcheck:
+      test: ["CMD", "bun", "-e", "fetch('http://127.0.0.1:8000/health').then(response => { if (!response.ok) process.exit(1) }).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 3s
+    stop_grace_period: 10s
+
+volumes:
+  cloud-auth:
+    name: ${CLOUD_AUTH_VOLUME:-stream-overlay-cloud-auth}
