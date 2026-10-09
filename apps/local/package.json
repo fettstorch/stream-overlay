@@ -1,5 +1,5 @@
 {
-  "name": "@stream-overlay/host",
+  "name": "@stream-overlay/local",
   "private": true,
   "type": "module",
   "scripts": {

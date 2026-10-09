@@ -12,10 +12,11 @@
   },
   "scripts": {
     "overlay": "bun --no-orphans scripts/start-overlay.ts",
-    "overlay:host": "bun --no-orphans apps/host/src/server.ts",
-    "admin:dev": "bun run --filter @stream-overlay/admin dev -- --host 127.0.0.1 --port 3003",
-    "test": "bun test && bun run --filter @stream-overlay/admin test && bun run --filter @stream-overlay/pokemon-ui test && bun run --filter @stream-overlay/overlay-paint test && bun run --filter @stream-overlay/pokemon-blue test && bun run --filter @stream-overlay/chat test",
-    "typecheck": "bun run --filter @stream-overlay/host typecheck && bun run --filter @stream-overlay/admin typecheck && bun run --filter @stream-overlay/pokemon-ui typecheck && bun run --filter @stream-overlay/pokemon-blue typecheck && bun run --filter @stream-overlay/pokemon-crystal typecheck && bun run --filter @stream-overlay/overlay-paint typecheck && bun run --filter @stream-overlay/chat typecheck && bun run --filter @stream-overlay/emoticons typecheck",
-    "build": "bun run --filter @stream-overlay/admin build && bun run --filter @stream-overlay/pokemon-blue build && bun run --filter @stream-overlay/pokemon-crystal build && bun run --filter @stream-overlay/chat build && bun build apps/host/src/server.ts --target bun --outdir dist/host"
+    "overlay:host": "bun --no-orphans apps/local/src/server.ts",
+    "admin:dev": "bun run --filter @stream-overlay/web dev -- --host 127.0.0.1 --port 3003",
+    "server": "bun --no-orphans apps/server/src/server.ts",
+    "test": "bun test && bun run --filter @stream-overlay/web test && bun run --filter @stream-overlay/pokemon-ui test && bun run --filter @stream-overlay/overlay-paint test && bun run --filter @stream-overlay/pokemon-blue test && bun run --filter @stream-overlay/chat test",
+    "typecheck": "bun run --filter @stream-overlay/local typecheck && bun run --filter @stream-overlay/web typecheck && bun run --filter @stream-overlay/server typecheck && bun run --filter @stream-overlay/pokemon-ui typecheck && bun run --filter @stream-overlay/pokemon-blue typecheck && bun run --filter @stream-overlay/pokemon-crystal typecheck && bun run --filter @stream-overlay/overlay-paint typecheck && bun run --filter @stream-overlay/chat typecheck && bun run --filter @stream-overlay/emoticons typecheck",
+    "build": "bun run --filter @stream-overlay/web build && bun run --filter @stream-overlay/pokemon-blue build && bun run --filter @stream-overlay/pokemon-crystal build && bun run --filter @stream-overlay/chat build && bun build apps/local/src/server.ts --target bun --outdir dist/local && bun build apps/server/src/server.ts --target bun --outdir dist/server"
   }
 }

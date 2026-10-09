@@ -1,5 +1,5 @@
 {
-  "name": "@stream-overlay/admin",
+  "name": "@stream-overlay/web",
   "private": true,
   "type": "module",
   "scripts": {

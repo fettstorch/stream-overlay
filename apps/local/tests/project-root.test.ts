@@ -3,9 +3,9 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { projectRoot, resolveProjectRoot } from "../../../modules/project-root.ts";
 
-test("source and emitted host locations resolve the same project independently of cwd", () => {
-  expect(resolveProjectRoot(join(projectRoot, "apps/host/src"))).toBe(projectRoot);
-  expect(resolveProjectRoot(join(projectRoot, "dist/host"))).toBe(projectRoot);
+test("source and emitted local host locations resolve the same project independently of cwd", () => {
+  expect(resolveProjectRoot(join(projectRoot, "apps/local/src"))).toBe(projectRoot);
+  expect(resolveProjectRoot(join(projectRoot, "dist/local"))).toBe(projectRoot);
   expect(resolveProjectRoot(join(projectRoot, "modules/chat/src"))).toBe(projectRoot);
 });
 
@@ -15,7 +15,7 @@ test("bundled module definitions retain valid asset paths and Pets working direc
   try {
     const output = join(directory, "modules.js");
     // Isolate the bundler's resolver from the test runner's workspace imports.
-    const result = Bun.spawnSync([process.execPath, "build", join(projectRoot, "apps/host/src/modules.ts"), "--target", "bun", "--outfile", output]);
+    const result = Bun.spawnSync([process.execPath, "build", join(projectRoot, "apps/local/src/modules.ts"), "--target", "bun", "--outfile", output]);
     expect(result.exitCode).toBe(0);
     const { modules } = await import(output) as typeof import("../src/modules.ts");
     for (const module of modules) for (const route of module.routes) {

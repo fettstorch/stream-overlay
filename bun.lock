@@ -9,8 +9,8 @@
         "fengari": "^0.1.5",
       },
     },
-    "apps/admin": {
-      "name": "@stream-overlay/admin",
+    "apps/web": {
+      "name": "@stream-overlay/web",
       "dependencies": {
         "vue": "^3.5.0",
       },
@@ -24,13 +24,20 @@
         "vue-tsc": "^3.0.0",
       },
     },
-    "apps/host": {
-      "name": "@stream-overlay/host",
+    "apps/local": {
+      "name": "@stream-overlay/local",
       "dependencies": {
         "@stream-overlay/pokemon-model": "workspace:*",
         "@stream-overlay/sdk": "workspace:*",
         "@stream-overlay/stream-chat": "workspace:*",
       },
+      "devDependencies": {
+        "@types/bun": "^1.3.0",
+        "typescript": "^5.9.0",
+      },
+    },
+    "apps/server": {
+      "name": "@stream-overlay/server",
       "devDependencies": {
         "@types/bun": "^1.3.0",
         "typescript": "^5.9.0",
@@ -287,13 +294,11 @@
 
     "@rollup/rollup-win32-x64-msvc": ["@rollup/rollup-win32-x64-msvc@4.63.6", "", { "os": "win32", "cpu": "x64" }, "sha512-0RAxO1pS/6lY1mSoD2Apm+6aPyfUlm+OWKgncIdj/eVN9I+pDY3lKgD7xsUNFei1u7MZQETGOo6m8POXMDp53A=="],
 
-    "@stream-overlay/admin": ["@stream-overlay/admin@workspace:apps/admin"],
-
     "@stream-overlay/chat": ["@stream-overlay/chat@workspace:modules/chat"],
 
     "@stream-overlay/emoticons": ["@stream-overlay/emoticons@workspace:modules/emoticons"],
 
-    "@stream-overlay/host": ["@stream-overlay/host@workspace:apps/host"],
+    "@stream-overlay/local": ["@stream-overlay/local@workspace:apps/local"],
 
     "@stream-overlay/overlay-paint": ["@stream-overlay/overlay-paint@workspace:modules/overlay-paint"],
 
@@ -308,6 +313,10 @@
     "@stream-overlay/sdk": ["@stream-overlay/sdk@workspace:packages/overlay-sdk"],
 
     "@stream-overlay/stream-chat": ["@stream-overlay/stream-chat@workspace:packages/stream-chat"],
+
+    "@stream-overlay/server": ["@stream-overlay/server@workspace:apps/server"],
+
+    "@stream-overlay/web": ["@stream-overlay/web@workspace:apps/web"],
 
     "@stream-overlay/streamplace-pets": ["@stream-overlay/streamplace-pets@workspace:modules/streamplace-pets"],
 

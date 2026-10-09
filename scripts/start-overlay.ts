@@ -1,7 +1,7 @@
 import { createServer } from "node:net";
 import { join } from "node:path";
-import { ConfigStore } from "../apps/host/src/config-store.ts";
-import { defaultHostConfiguration } from "../apps/host/src/default-configuration.ts";
+import { ConfigStore } from "../apps/local/src/config-store.ts";
+import { defaultHostConfiguration } from "../apps/local/src/default-configuration.ts";
 import { projectRoot } from "../modules/project-root.ts";
 import { requiredOverlayPorts } from "./required-ports.ts";
 
@@ -37,7 +37,7 @@ if (blocked.length) {
 const children = [
   {
     name: "overlay host",
-    process: Bun.spawn(["bun", "--no-orphans", "apps/host/src/server.ts"], {
+    process: Bun.spawn(["bun", "--no-orphans", "apps/local/src/server.ts"], {
       cwd: import.meta.dir + "/..",
       env: process.env,
       stdout: "inherit",
@@ -51,7 +51,7 @@ const children = [
       "--no-orphans",
       "run",
       "--filter",
-      "@stream-overlay/admin",
+      "@stream-overlay/web",
       "dev",
       "--",
       "--host",

@@ -1,4 +1,4 @@
-import type { HostConfiguration } from "../apps/host/src/config-store.ts";
+import type { HostConfiguration } from "../apps/local/src/config-store.ts";
 
 export function requiredOverlayPorts(configuration: HostConfiguration, hostPort = 3001) {
   if (!Number.isInteger(hostPort) || hostPort < 1 || hostPort > 65535) {

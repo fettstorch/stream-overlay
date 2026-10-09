@@ -43,8 +43,9 @@ Streamplace Pets retains its separate, unchanged lifecycle.
 ## Structure
 
 ```text
-apps/host                 Bun API and module supervisor
-apps/admin                Vue administration UI
+apps/local                Local Bun API, filesystem adapters, and module supervisor
+apps/web                  Browser UI entrypoints (currently the Admin Center)
+apps/server               Cloud-ready Bun static web server and health endpoint
 modules/pokemon-blue      Pokémon Blue mGBA overlay and adapter
 modules/pokemon-crystal   Pokémon Crystal mGBA adapter, sharing the team HUD
 modules/streamplace-pets  Adapter for the upstream submodule
