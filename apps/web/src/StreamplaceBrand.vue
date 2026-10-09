@@ -12,7 +12,7 @@ import logo from "./assets/branding/streamplace.svg";
 <style scoped>
 .streamplace-brand {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: 0.3em;
   vertical-align: baseline;
   color: inherit;
