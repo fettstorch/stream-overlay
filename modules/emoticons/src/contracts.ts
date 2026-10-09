@@ -11,6 +11,9 @@ export interface EmoticonCommand {
   volume: number;
   width: string;
   height: string;
+  imageUrl?: string;
+  audioUrl?: string;
+  videoUrl?: string;
 }
 export interface EmoticonAsset {
   id: string;

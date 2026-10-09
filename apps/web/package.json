@@ -9,6 +9,10 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
+    "@stream-overlay/browser-runtime": "workspace:*",
+    "@stream-overlay/emoticons": "workspace:*",
+    "@stream-overlay/protocol": "workspace:*",
+    "@stream-overlay/stream-chat": "workspace:*",
     "vue": "^3.5.0"
   },
   "devDependencies": {

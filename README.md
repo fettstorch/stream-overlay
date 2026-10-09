@@ -189,6 +189,28 @@ The small **Reset pet counts** button asks for confirmation, then clears all
 Pokémon/streamer counts in memory and removes the counter file. It does not
 touch game data or settings. The next new pet starts a fresh saved counter.
 
+## Cloud Emoticons pilot
+
+The cloud app is separate from the local `bun run overlay` workflow and does not
+change its OBS URLs. Build the web app, then run the cloud server with its final
+HTTPS origin, an owned Lexicon namespace, a private session secret, and durable
+OAuth storage:
+
+```sh
+bun run --filter @stream-overlay/web build
+PUBLIC_ORIGIN=https://your-host.example \
+SESSION_SECRET='at-least-32-random-bytes' \
+LEXICON_NAMESPACE=com.your-domain.streamoverlay \
+AUTH_DATA_DIR=runtime/cloud-auth \
+bun run server
+```
+
+The public OBS URLs are `/effect/?did=did:...` and `/board/?did=did:...`.
+Direct HTTPS media files and PDS blob uploads are supported. Ordinary Giphy page
+URLs are not direct playable media URLs. The checked-in
+`invalid.streamoverlay.dev` Lexicons are development examples only; follow
+[the Koyeb deployment notes](infra/koyeb/README.md) before a real pilot.
+
 ## Checks
 
 ```sh
