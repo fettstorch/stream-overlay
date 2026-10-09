@@ -441,7 +441,7 @@ export class PdsService {
     agent: AgentLike,
     diagnostics?: Diagnostics,
   ) {
-    const context = { requestId: diagnostics?.requestId };
+    const context = { requestId: diagnostics?.requestId, pdsValidation: true };
     diagnostics?.logger.log("info", "cloud.pds.module-save-started", context);
     try {
       const latest = await agent.com.atproto.sync.getLatestCommit({ did });
@@ -485,11 +485,11 @@ export class PdsService {
             rkey: record.rkey,
           });
       if (writes.length > 200) throw new Error("Too many record writes");
-      // Local SDK validation is mandatory; PDS-side resolution needs published DNS/lexicons.
+      // Published Streamface schemas are resolved by the PDS; keep local validation too.
       await agent.com.atproto.repo.applyWrites({
         repo: did,
         swapCommit: latest.data.cid,
-        validate: false,
+        validate: true,
         writes,
       });
       const saved = parseModuleRecords(did, records);

@@ -213,12 +213,14 @@ test("legacy read is non-mutating; save migrates atomically and rejects stale up
   });
   expect(calls).toHaveLength(1);
   expect(calls[0].swapCommit).toBe("head");
+  expect(calls[0].validate).toBe(true);
   expect(
     calls[0].writes.every((write: any) => write.collection.startsWith("live.streamface.")),
   ).toBe(true);
   expect(saved.commands).toEqual(config.commands);
   expect(saved.paint).toEqual(loaded.paint);
   expect(lines.join("\n")).toContain('"migrated":true');
+  expect(lines.join("\n")).toContain('"pdsValidation":true');
   expect((await service.publicConfig(did)).revision).toBe(saved.revision);
   await expect(service.save(did, loaded)).rejects.toBeInstanceOf(CloudConfigConflictError);
   records[4].value.command = "outside-edit";

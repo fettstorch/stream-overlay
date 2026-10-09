@@ -12,9 +12,10 @@ identity. OAuth sessions, live cooldowns and drawings are not repository records
 
 The server validates both reads and writes with the official ATProto Lexicon SDK,
 plus app constraints (HTTPS media, safe command names, colors and CSS sizes).
-`applyWrites` still uses `validate: false` until schema publication is configured;
-this does **not** disable the local SDK validation. DNS and public schema records
-have not been published by this change.
+Streamface module writes also request PDS-side validation (`validate: true`). The
+six schemas are published on the Streamface account's PDS and the four module
+authority DNS records resolve to `did:plc:j66wyknizjxecbnrenjzj7l3`. The explicit
+legacy adapter retains `validate: false`; local validation remains mandatory.
 
 ## Migration
 
@@ -38,7 +39,7 @@ Do not delete old records until migration and rollback requirements are reviewed
 
 ## Publication (separate operational step)
 
-Publish these schema documents to a chosen publisher account and configure the
-module authority DNS records under `streamface.live`. Then enable PDS validation
-and test against the target PDS. This requires publisher-account and DNS access;
-no such external writes are performed by the application or migration tests.
+The publisher is `streamface.live` (`did:plc:j66wyknizjxecbnrenjzj7l3`). Schemas
+are records in `com.atproto.lexicon.schema`, keyed by their NSID. DNS records
+`_lexicon.{chat,emoticons,paint,pets}.streamface.live` point to that DID. Publication
+is an authenticated operational step, not part of application startup or tests.
