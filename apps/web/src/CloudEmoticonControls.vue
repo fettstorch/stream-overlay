@@ -42,7 +42,7 @@ async function uploadFiles(files: FileList | null | undefined) {
       if (form.value.mode === "sticker" && kind === "audio") { message.value = "Stickers do not support audio attachments."; continue; }
       message.value = `Uploading ${file.name} to your PDS…`;
       const response = await fetch(`/api/accounts/${encodeURIComponent(props.did)}/media`, { method: "POST", headers: { "Content-Type": media.type }, body: file });
-      if (!response.ok) { const detail = await response.json().catch(() => ({})) as { message?: string }; message.value = detail.message ?? `Upload failed: ${file.name}`; continue; }
+      if (!response.ok) { const detail = await response.json().catch(() => ({})) as { message?: string; requestId?: string }; const requestId = detail.requestId ?? response.headers.get("x-request-id"); message.value = `${detail.message ?? `Upload failed: ${file.name}`}${requestId ? ` Reference: ${requestId}` : ""}`; continue; }
       pending.value[kind] = { blob: await response.json() }; clearPreview(kind); previewUrls.value[kind] = URL.createObjectURL(file);
       if (kind === "image") removeMedia("video"); if (kind === "video") removeMedia("image");
       message.value = "Uploaded — save the command to persist its blob reference.";

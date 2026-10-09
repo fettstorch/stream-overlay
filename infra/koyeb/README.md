@@ -25,6 +25,11 @@ The service accepts only direct HTTPS media URLs in records and PDS blob referen
 Provider page URLs such as normal Giphy pages are not playable media URLs; use a direct
 image/video URL or upload the file to the PDS. The service does not proxy arbitrary URLs.
 
+Structured cloud diagnostics are written to stdout and are available in Koyeb's
+service logs. Admin includes the correlated request ID in upload/save failures.
+`CLOUD_LOG_FILE` is optional for a second JSONL file sink; stdout requires no extra
+volume and remains the recommended container configuration.
+
 No Koyeb resource is created by this repository. After providing an account, owned
 domain/namespace, secrets, and volume, build locally with
 `docker build -f infra/koyeb/Dockerfile .` before deploying.

@@ -326,3 +326,11 @@ effect broadcasts and completion. Overlay logs report connections, effect
 receipt/playback and image/audio failures. Effect IDs and client IDs correlate
 host events with each OBS source or muted Admin preview. Ordinary chat messages
 are not logged by this module.
+
+Cloud diagnostics are emitted as one JSON object per line to stdout, so they appear
+in the `bun run cloud:dev` terminal, Compose logs, and Koyeb service logs. Upload and
+save failures show a `Reference` request ID in Admin; filter logs for that ID to
+follow body reading, OAuth session restore, and the upstream PDS operation without
+exposing credentials or media contents. Set `CLOUD_LOG_FILE` to additionally append
+the same JSONL stream to a local file. It is optional and should not point inside
+`AUTH_DATA_DIR`.

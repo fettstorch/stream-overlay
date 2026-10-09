@@ -52,6 +52,11 @@ describe("Cloud Admin", () => {
     expect(wrapper.text()).toContain("image attached"); expect(wrapper.text()).toContain("audio attached"); wrapper.unmount();
   });
 
+  test("shows the correlated request reference for an upload failure", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => response({ error: "pds-upload-failed", message: "Your PDS rejected the media upload.", requestId: "request-123" }, 502)));
+    const wrapper = mount(CloudEmoticonControls, { props: { did: session.did, config: { ...config, commands: [] }, save: vi.fn(async () => true) } }); await wrapper.get(".primary-button").trigger("click"); const input=wrapper.get('input[type="file"]'); Object.defineProperty(input.element,"files",{configurable:true,value:[new File(["GIF8"],"failed.gif")]}); await input.trigger("change"); await flushPromises(); expect(wrapper.text()).toContain("Your PDS rejected the media upload. Reference: request-123"); wrapper.unmount();
+  });
+
   test("keeps a loaded blob reference while using its derived URL only for preview", async () => {
     const save = vi.fn(async () => true), stored = { $type: "blob", ref: { $link: "bafyblob" }, mimeType: "image/gif", size: 4 };
     const command = { ...config.commands[0], image: { blob: stored, url: "https://pds.example/xrpc/blob" } };
