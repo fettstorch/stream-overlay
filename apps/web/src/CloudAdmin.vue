@@ -7,6 +7,7 @@ import CloudModuleControls from "./CloudModuleControls.vue";
 import CollapsibleSection from "./CollapsibleSection.vue";
 import ModuleHelp from "./ModuleHelp.vue";
 import { moduleSettings } from "../../../packages/protocol/src/cloud-settings.ts";
+import type { ChatConfiguration } from "../../../modules/chat/src/config.ts";
 import type { CloudConfig } from "./cloud-admin-types.ts";
 import { useModuleCollection } from "./use-module-collection.ts";
 
@@ -32,6 +33,16 @@ function obsInstructions(moduleId: string) {
 }
 const listingPreviewOpen = ref(false);
 const effectPreviewOpen = ref(false);
+let chatPreviewFrame: HTMLIFrameElement | undefined;
+let chatPreviewConfiguration: ChatConfiguration | undefined;
+function updateChatPreview(configuration: ChatConfiguration) {
+  chatPreviewConfiguration = configuration;
+  chatPreviewFrame?.contentWindow?.postMessage({ type: "chat-preview-configuration", configuration }, location.origin);
+}
+function chatPreviewLoaded(event: Event) {
+  chatPreviewFrame = event.target as HTMLIFrameElement;
+  if (chatPreviewConfiguration) updateChatPreview(chatPreviewConfiguration);
+}
 const effectPreviewFrame = ref<HTMLIFrameElement>();
 const listingPreviewFrame = ref<HTMLIFrameElement>();
 async function prepareEmoticonTest() {
@@ -193,11 +204,11 @@ onBeforeUnmount(() => { disposed = true; autocomplete?.dispose(); clearTimeout(c
               </template>
             </CloudEmoticonControls>
           </template>
-          <CloudModuleControls v-else :module-id="module.id" :config="config" :save="candidate => saveConfiguration(candidate, undefined, module.id)" />
+          <CloudModuleControls v-else :module-id="module.id" :config="config" :save="candidate => saveConfiguration(candidate, undefined, module.id)" @chat-preview="updateChatPreview" />
           <p v-if="module.id === 'chat'" class="chat-preview-note">Sample chat preview — these messages are generated here, not sent to your stream. Your OBS source still shows live chat.</p>
           <div v-if="module.id !== 'emoticons' && isExpanded(module)" class="cloud-preview" :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }">
             <iframe v-if="module.id === 'overlay-paint'" :src="streamUrl" title="Stream background" tabindex="-1" class="preview-background" allow="autoplay" />
-            <iframe :src="previewUrl(module.id)" :title="`${module.name} preview`" allow="autoplay" />
+            <iframe :src="previewUrl(module.id)" :title="`${module.name} preview`" allow="autoplay" @load="module.id === 'chat' && chatPreviewLoaded($event)" />
           </div>
         </div>
         <p v-if="moduleMessages[module.id]" class="module-message" role="status" aria-live="polite">{{ moduleMessages[module.id] }}</p>

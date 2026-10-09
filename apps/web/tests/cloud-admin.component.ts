@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import CloudAdmin from "../src/CloudAdmin.vue";
 import CloudEmoticonControls from "../src/CloudEmoticonControls.vue";
+import CloudModuleControls from "../src/CloudModuleControls.vue";
 
 const actorMocks = vi.hoisted(() => ({
   loadPublicActorProfile: vi.fn(async () => ({ did: "did:plc:alice", handle: "alice.bsky.social", displayName: "Alice", avatar: "https://cdn.example/alice.jpg" })),
@@ -17,6 +18,18 @@ function response(body: unknown, status = 200) { return new Response(JSON.string
 function mediaDrag(type: string, name = "drop.gif") { const event = new Event(type, { bubbles: true, cancelable: true }); Object.defineProperty(event, "dataTransfer", { value: { types: ["Files"], files: [new File(["GIF8"], name)], dropEffect: "none" } }); return event; }
 
 describe("Cloud Admin", () => {
+  test("chat sliders emit draft preview changes on input and save only on change", async () => {
+    const save = vi.fn(async () => true);
+    const wrapper = mount(CloudModuleControls, { props: { moduleId: 'chat', config, save } });
+    const slider = wrapper.get('input[type="range"][min="8"]');
+    (slider.element as HTMLInputElement).value = '36';
+    await slider.trigger('input');
+    expect(wrapper.emitted('chatPreview')!.at(-1)![0]).toMatchObject({ fontSize: 36 });
+    expect(save).not.toHaveBeenCalled();
+    await slider.trigger('change');
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ chat: expect.objectContaining({ fontSize: 36 }) }));
+    wrapper.unmount();
+  });
   test("uses the account stream, plain pin emoji, lazy audible effects and a matching preview listing channel", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => String(input).endsWith("/api/session") ? response(session) : response({ ...config, streamerDid: "did:plc:someone-else" }));
     vi.stubGlobal("fetch", fetchMock);

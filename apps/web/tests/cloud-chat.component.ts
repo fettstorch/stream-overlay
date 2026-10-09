@@ -18,6 +18,9 @@ test("cloud chat reuses author avatars, appearance and timed decay, then stops w
   await flushPromises();
   expect(document.querySelector<HTMLImageElement>(".chat-avatar")?.src).toBe("https://cdn.example/bob.jpg");
   expect((document.querySelector(".chat-messages") as HTMLElement).style.fontSize).toBe("32px");
+  window.dispatchEvent(new MessageEvent('message', { source: window.parent, origin: location.origin, data: { type: 'chat-preview-configuration', configuration: { ...defaultChatConfiguration, fontSize: 50 } } }));
+  await flushPromises();
+  expect((document.querySelector('.chat-messages') as HTMLElement).style.fontSize).toBe('32px');
   expect((document.querySelector(".chat-message") as HTMLElement).style.animationDelay).toBe("20000ms");
   expect((document.querySelector(".chat-message") as HTMLElement).style.animationDuration).toBe("10000ms");
   await vi.advanceTimersByTimeAsync(30001); await flushPromises();
@@ -37,6 +40,14 @@ test("admin preview generates sample avatars and messages without observing live
   expect(document.body.textContent).toContain('Hey everyone!');
   expect(document.querySelector<HTMLImageElement>('.chat-avatar')?.src).toMatch(/^data:image\/svg\+xml/);
   expect((document.querySelector('.chat-messages') as HTMLElement).style.fontSize).toBe('28px');
+  const update = { type: 'chat-preview-configuration', configuration: { ...defaultChatConfiguration, fontSize: 36, rotationY: 25 } };
+  window.dispatchEvent(new MessageEvent('message', { source: window.parent, origin: 'https://untrusted.example', data: update }));
+  await flushPromises();
+  expect((document.querySelector('.chat-messages') as HTMLElement).style.fontSize).toBe('28px');
+  window.dispatchEvent(new MessageEvent('message', { source: window.parent, origin: location.origin, data: update }));
+  await flushPromises();
+  expect((document.querySelector('.chat-messages') as HTMLElement).style.fontSize).toBe('36px');
+  expect((document.querySelector('.chat-plane') as HTMLElement).style.transform).toContain('rotateY(25deg)');
   await vi.advanceTimersByTimeAsync(35_000); await flushPromises();
   expect(document.querySelector('.chat-message:not(.chat-bubble-leave-active)')).not.toBeNull();
   mocks.receive({ streamerDid: 'did:plc:alice', modules: { chat: false }, chat: defaultChatConfiguration }); await flushPromises();

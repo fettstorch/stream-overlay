@@ -4,8 +4,10 @@ import "./module-section.css";
 import type { CloudConfig } from "./cloud-admin-types.ts";
 import { moduleSettings } from "../../../packages/protocol/src/cloud-settings.ts";
 const props = defineProps<{ moduleId: string; config: CloudConfig; save: (config: CloudConfig) => Promise<boolean> }>();
+const emit = defineEmits<{ chatPreview: [configuration: ReturnType<typeof moduleSettings>["chat"]] }>();
 const settings = computed(() => moduleSettings(props.config));
 const chat = ref({ ...settings.value.chat }), paint = ref({ ...settings.value.paint });
+watch(chat, value => { if (props.moduleId === "chat") emit("chatPreview", { ...value }); }, { deep: true, immediate: true, flush: "sync" });
 watch(settings, value => { chat.value = { ...value.chat }; paint.value = { ...value.paint }; });
 const sliders = [
   { key: "fadeOut", label: "Top fade-out", min: 0, max: 100, unit: "%" },
