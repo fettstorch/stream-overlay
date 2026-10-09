@@ -126,6 +126,33 @@ describe("Cloud Admin", () => {
       expect(wrapper.get('#module-help-chat').text()).toContain('fallback');
     } finally { wrapper.unmount(); vi.useRealTimers(); }
   });
+  test("opens both lazy previews before Test, waits for readiness, and keeps creation last", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => String(input).endsWith('/api/session') ? response(session) : String(input).includes('/test/') ? response({ message: 'Test sent.' }) : response(config));
+    vi.stubGlobal('fetch', fetchMock);
+    const wrapper = mount(CloudAdmin, { attachTo: document.body });
+    try {
+      await flushPromises();
+      await wrapper.get('button[aria-label="Show Emoticons details"]').trigger('click');
+      const sections = wrapper.findAll('.emoticon-controls .collapsible-section');
+      const createButton = wrapper.get('.emoticon-controls > div > .primary-button');
+      expect(sections.at(-1)!.element.compareDocumentPosition(createButton.element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      await wrapper.get('.command-list button').trigger('click'); await flushPromises();
+      expect(wrapper.find('iframe[title="Emoticons preview"]').exists()).toBe(true);
+      expect(wrapper.find('iframe[title="Emoticons command listing preview"]').exists()).toBe(true);
+      expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/test/'))).toBe(false);
+      for (const title of ['Emoticons preview', 'Emoticons command listing preview']) {
+        const frame = wrapper.get(`iframe[title="${title}"]`).element as HTMLIFrameElement;
+        const frameDocument = document.implementation.createHTMLDocument();
+        frameDocument.documentElement.dataset.overlayReady = 'true';
+        Object.defineProperty(frame, 'contentDocument', { configurable: true, value: frameDocument });
+      }
+      await vi.advanceTimersByTimeAsync(200); await flushPromises();
+      expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('/test/'))).toHaveLength(1);
+      await createButton.trigger('click');
+      expect(sections.at(-1)!.element.compareDocumentPosition(wrapper.get('.command-editor').element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    } finally { wrapper.unmount(); vi.useRealTimers(); }
+  });
   test("tests a saved command through its authenticated account endpoint and preserves editing controls", async () => {
     const fetchMock = vi.fn(async () => response({ delivered: 1, message: "Test sent to connected effect sources." }));
     vi.stubGlobal("fetch", fetchMock);

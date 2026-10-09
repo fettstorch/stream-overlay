@@ -32,6 +32,19 @@ function obsInstructions(moduleId: string) {
 }
 const listingPreviewOpen = ref(false);
 const effectPreviewOpen = ref(false);
+const effectPreviewFrame = ref<HTMLIFrameElement>();
+const listingPreviewFrame = ref<HTMLIFrameElement>();
+async function prepareEmoticonTest() {
+  listingPreviewOpen.value = true;
+  effectPreviewOpen.value = true;
+  await nextTick();
+  const deadline = Date.now() + 10_000;
+  while (!disposed && Date.now() < deadline) {
+    if ([effectPreviewFrame.value, listingPreviewFrame.value].every(frame => frame?.contentDocument?.documentElement?.dataset.overlayReady === "true")) return;
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  throw new Error("The previews could not connect. Please try Test again.");
+}
 const handleInput = ref<HTMLInputElement>();
 const loginStatus = ref<HTMLElement>();
 let autocomplete: ReturnType<typeof attachActorCombobox> | undefined;
@@ -173,9 +186,12 @@ onBeforeUnmount(() => { disposed = true; autocomplete?.dispose(); clearTimeout(c
           <section class="module-commands"><h4>{{ module.id === 'emoticons' ? 'Effects OBS URL' : 'OBS URL' }}</h4></section><div class="overlay-url"><code>{{ cloudUrl(paths[module.id]) }}</code><a class="open-url-button" :href="cloudUrl(paths[module.id])" target="_blank" rel="noopener noreferrer" :aria-label="`Open ${module.name} effects OBS URL`"><span class="external-link-icon" aria-hidden="true" /></a><button type="button" class="copy-button" :class="{ copied: copied === module.id || (module.id === 'emoticons' && copied === 'effect') }" :aria-label="`Copy ${module.name} effects OBS URL`" @click="copyUrl(module.id === 'emoticons' ? 'effect' : module.id)"><span class="copy-icon" aria-hidden="true" /></button></div>
           <template v-if="module.id === 'emoticons'">
             <section class="module-commands"><h4>Command listing OBS URL</h4></section><div class="overlay-url board-url"><code>{{ boardUrl }}</code><a class="open-url-button" :href="boardUrl" target="_blank" rel="noopener noreferrer" aria-label="Open Emoticons instruction board OBS URL"><span class="external-link-icon" aria-hidden="true" /></a><button type="button" class="copy-button" :class="{ copied: copied === 'board' }" aria-label="Copy Emoticons instruction board OBS URL" @click="copyUrl('board')"><span class="copy-icon" aria-hidden="true" /></button></div>
-            <CloudEmoticonControls :ref="value => setModuleControls(module.id, value)" :did="did" :config="config" :save="saveConfiguration" />
-            <CollapsibleSection v-model:open="listingPreviewOpen" title="Live command listing preview"><iframe v-if="listingPreviewOpen && isExpanded(module)" :src="listingPreviewUrl" title="Emoticons command listing preview" class="listing-preview" /></CollapsibleSection>
-            <CollapsibleSection v-model:open="effectPreviewOpen" title="Effects preview (with sound)"><div v-if="effectPreviewOpen && isExpanded(module)" class="cloud-preview" :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }"><iframe :src="streamUrl" title="Stream background" tabindex="-1" class="preview-background" allow="autoplay" /><iframe :src="previewUrl(module.id)" title="Emoticons preview" allow="autoplay" /></div></CollapsibleSection>
+            <CloudEmoticonControls :ref="value => setModuleControls(module.id, value)" :did="did" :config="config" :save="saveConfiguration" :before-test="prepareEmoticonTest">
+              <template #previews>
+                <CollapsibleSection v-model:open="listingPreviewOpen" title="Live command listing preview"><iframe v-if="listingPreviewOpen && isExpanded(module)" :ref="value => listingPreviewFrame = value as HTMLIFrameElement | undefined" :src="listingPreviewUrl" title="Emoticons command listing preview" class="listing-preview" /></CollapsibleSection>
+                <CollapsibleSection v-model:open="effectPreviewOpen" title="Effects preview (with sound)"><div v-if="effectPreviewOpen && isExpanded(module)" class="cloud-preview" :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }"><iframe :src="streamUrl" title="Stream background" tabindex="-1" class="preview-background" allow="autoplay" /><iframe :ref="value => effectPreviewFrame = value as HTMLIFrameElement | undefined" :src="previewUrl(module.id)" title="Emoticons preview" allow="autoplay" /></div></CollapsibleSection>
+              </template>
+            </CloudEmoticonControls>
           </template>
           <CloudModuleControls v-else :module-id="module.id" :config="config" :save="candidate => saveConfiguration(candidate, undefined, module.id)" />
           <div v-if="module.id !== 'emoticons' && isExpanded(module)" class="cloud-preview" :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }">

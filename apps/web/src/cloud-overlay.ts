@@ -12,6 +12,8 @@ const boardMode = location.pathname.startsWith("/board"); const did = new URLSea
 if (!did.startsWith("did:")) document.body.textContent = "Missing ?did= account identifier";
 const container = document.querySelector<HTMLElement>(boardMode ? ".board" : ".effect")!; let config: EmoticonState = { enabled: false, commands: [], assets: [] }; let cooldowns: RelaySnapshot["cooldowns"] = {}; let revision = 0;
 const testRequests = new Map<string, string>();
+let configLoaded = false, relayRegistered = false;
+function markPreviewReady() { document.documentElement.dataset.overlayReady = String(configLoaded && relayRegistered); }
 let cooldownRequestId: string | undefined;
 const board = boardMode ? createCloudBoard(container) : undefined;
 const muted = new URLSearchParams(location.search).get("muted") === "1";
@@ -79,12 +81,14 @@ async function refresh(force = false) {
     const commands: EmoticonCommand[] = cloud.commands.map(command => ({ ...command, imageAssetId: null, audioAssetId: null, videoAssetId: null, imageUrl: command.image?.url, audioUrl: command.audio?.url, videoUrl: command.video?.url }));
     config = { enabled: cloud.enabled, commands, assets: [], cooldowns };
     runtime?.configure(config);
+    configLoaded = true; markPreviewReady();
     if (!cloud.enabled) clearPlayback();
     chat?.setStreamerDid(cloud.enabled ? cloud.streamerDid : ""); renderBoard();
     if (!boardMode) diagnostic("config-loaded", { count: commands.length, reason: cloud.enabled ? "enabled" : "disabled" });
   } catch { if (!boardMode) diagnostic("config-failed", { reason: "fetch-or-parse-error" }); }
 }
 const relay = new RelayClient(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/relay`, { type: "hello", did, page: boardMode ? "board" : "effect", channel }, message => {
+  if (message.type === "snapshot") { relayRegistered = true; markPreviewReady(); }
   if (message.type === "snapshot" && boardMode && message.revision >= revision) { revision = message.revision; cooldowns = message.cooldowns; renderBoard(); diagnostic("cooldowns-received", { requestId: message.requestId, count: Object.keys(cooldowns).length }); }
   if (message.type === "config-changed") void refresh(true);
   // Tests use the same browser-owned runtime and cooldowns as chat commands.

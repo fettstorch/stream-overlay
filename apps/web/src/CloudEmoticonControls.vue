@@ -3,7 +3,7 @@ import CollapsibleSection from "./CollapsibleSection.vue";
 import { computed, onBeforeUnmount, ref } from "vue";
 import type { CloudCommand, CloudConfig, CloudMedia } from "./cloud-admin-types.ts";
 
-const props = defineProps<{ did: string; config: CloudConfig; save: (candidate: CloudConfig, successMessage?: string) => Promise<boolean> }>();
+const props = defineProps<{ did: string; config: CloudConfig; save: (candidate: CloudConfig, successMessage?: string) => Promise<boolean>; beforeTest?: () => Promise<void> }>();
 const kinds = ["image", "audio", "video"] as const;
 type MediaKind = typeof kinds[number];
 const formOpen = ref(false), editing = ref<string | null>(null), busy = ref(false), message = ref("");
@@ -32,11 +32,12 @@ function create() { reset(); formOpen.value = true; message.value = ""; }
 async function test(command: CloudCommand) {
   busy.value = true;
   try {
+    await props.beforeTest?.();
     const response = await fetch(`/api/accounts/${encodeURIComponent(props.did)}/test/${encodeURIComponent(command.id)}`, { method: "POST" });
     const detail = await response.json() as { message?: string; requestId?: string };
     message.value = detail.message ?? "Could not test the command.";
     if (!response.ok && detail.requestId) message.value += ` Reference: ${detail.requestId}`;
-  } catch { message.value = "The test could not reach the server."; }
+  } catch (error) { message.value = error instanceof Error ? error.message : "The test could not reach the server."; }
   finally { busy.value = false; }
 }
 function edit(command: CloudCommand) { reset(); formOpen.value = true; editing.value = command.id; form.value = { ...command }; for (const kind of kinds) { const media = command[kind]; if (!media) continue; pending.value[kind] = media.blob ? { blob: media.blob } : { url: media.url }; if (media.blob && media.url) previewUrls.value[kind] = media.url; } message.value = ""; }
@@ -99,6 +100,7 @@ defineExpose({ acceptCardDrop });
   <section class="emoticon-controls">
       <h4>Emoticon commands</h4>
     <CollapsibleSection v-for="group in groups" :key="group.title" class="command-group" :title="group.title" :count="group.commands.length" initially-open><p v-if="!group.commands.length" class="empty-copy">No commands yet</p><ul class="command-list striped-list"><li v-for="command in group.commands" :key="command.id"><strong>!{{ command.command }}</strong><span v-if="command.mode !== 'sticker'">{{ command.durationSeconds }}s clip</span><button type="button" :disabled="busy" @click="test(command)">Test</button><button type="button" @click="edit(command)">Edit</button><button type="button" class="danger-button" @click="remove(command)">Delete</button></li></ul></CollapsibleSection>
+    <slot name="previews" />
     <div v-if="!formOpen"><button class="primary-button" type="button" @click="create">Create command</button></div>
     <form v-if="formOpen" class="module-section command-editor" @submit.prevent="save">
       <div class="editor-heading"><h4>{{ editing ? 'Edit command' : 'Create command' }}</h4><button type="button" class="secondary-button" @click="reset">Close</button></div>
