@@ -7,4 +7,5 @@ export type CloudConfig = CloudModuleSettings & {
   streamerDid: string;
   commands: CloudCommand[];
   revision: string;
+  preferences?: { confirmDeletion: boolean };
 };

@@ -18,6 +18,32 @@ function response(body: unknown, status = 200) { return new Response(JSON.string
 function mediaDrag(type: string, name = "drop.gif") { const event = new Event(type, { bubbles: true, cancelable: true }); Object.defineProperty(event, "dataTransfer", { value: { types: ["Files"], files: [new File(["GIF8"], name)], dropEffect: "none" } }); return event; }
 
 describe("Cloud Admin", () => {
+  test("deletion opt-out saves an account preference atomically and failed saves keep the dialog", async () => {
+    HTMLDialogElement.prototype.showModal = vi.fn();
+    const save = vi.fn(async () => false);
+    const wrapper = mount(CloudEmoticonControls, { props: { did: session.did, config, save } });
+    await wrapper.get('.danger-button').trigger('click');
+    expect(save).not.toHaveBeenCalled();
+    await wrapper.get('dialog input[type="checkbox"]').setValue(true);
+    await wrapper.get('dialog .danger-button').trigger('click');
+    await flushPromises();
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ commands: [], preferences: { confirmDeletion: false } }), expect.any(String));
+    expect(wrapper.find('dialog').exists()).toBe(true);
+    save.mockResolvedValue(true);
+    await wrapper.get('dialog .danger-button').trigger('click');
+    await flushPromises();
+    expect(wrapper.find('dialog').exists()).toBe(false);
+    wrapper.unmount();
+  });
+  test("account opt-out skips the deletion dialog", async () => {
+    const save = vi.fn(async () => true);
+    const wrapper = mount(CloudEmoticonControls, { props: { did: session.did, config: { ...config, preferences: { confirmDeletion: false } }, save } });
+    await wrapper.get('.danger-button').trigger('click');
+    await flushPromises();
+    expect(save).toHaveBeenCalledOnce();
+    expect(wrapper.find('dialog').exists()).toBe(false);
+    wrapper.unmount();
+  });
   test("chat sliders emit draft preview changes on input and save only on change", async () => {
     const save = vi.fn(async () => true);
     const wrapper = mount(CloudModuleControls, { props: { moduleId: 'chat', config, save } });

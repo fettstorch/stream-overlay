@@ -5,6 +5,11 @@ its collection. Chat, Emoticons, Paint and Pets settings use a singleton `self`
 record. Each Emoticons command has a stable record key independent of its invocation
 name; media explicitly chooses an external HTTPS URL or an uploaded PDS blob.
 
+`live.streamface.preferences` stores account-wide UI preferences at `self`, including
+`confirmDeletion`. Absence means confirmations are enabled. The opt-out is saved
+atomically with a successful deletion; older clients preserve this record. Its
+authority DNS record is `_lexicon.streamface.live`, separate from the module records.
+
 All durations are integer milliseconds, volume is an integer percentage, and every
 record has `createdAt` and `updatedAt`. Chat's `topFadePercent` is a spatial mask,
 not message decay. Owner DID and command ID are inferred from repository/record

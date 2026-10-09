@@ -33,5 +33,7 @@
   "apps/web/src/cloud-admin-types.ts",
   "apps/web/src/CloudAdmin.vue",
   "apps/web/src/CloudEmoticonControls.vue",
+  "apps/web/src/DeleteConfirmation.vue",
+  "lexicons/live.streamface.preferences.json",
   "apps/web/vite.config.ts"
 ]

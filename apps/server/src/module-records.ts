@@ -6,6 +6,7 @@ import commandSchema from "../../../lexicons/live.streamface.emoticons.command.j
 import mediaSchema from "../../../lexicons/live.streamface.emoticons.defs.json";
 import paintSchema from "../../../lexicons/live.streamface.paint.settings.json";
 import petsSchema from "../../../lexicons/live.streamface.pets.settings.json";
+import preferencesSchema from "../../../lexicons/live.streamface.preferences.json";
 import { moduleSettings } from "../../../packages/protocol/src/cloud-settings.ts";
 import type { CloudConfig } from "../../../packages/protocol/src/cloud-config.ts";
 import type { CloudCommand, CloudMedia } from "../../../modules/emoticons/src/cloud-contracts.ts";
@@ -14,6 +15,7 @@ import { validateCloudCommand } from "../../../modules/emoticons/src/validation.
 export const STREAMFACE_NAMESPACE = "live.streamface";
 export const LEGACY_NAMESPACE = "invalid.streamoverlay.dev";
 export const moduleCollections = {
+  preferences: preferencesSchema.id,
   chat: chatSchema.id,
   emoticons: emoticonsSchema.id,
   paint: paintSchema.id,
@@ -27,6 +29,7 @@ export const lexicons = new Lexicons([
   mediaSchema,
   paintSchema,
   petsSchema,
+  preferencesSchema,
 ] as LexiconDoc[]);
 export type StoredRecord = { collection: string; rkey: string; value: Record<string, any> };
 export function validateRecord(record: StoredRecord) {
@@ -125,6 +128,9 @@ export function parseModuleRecords(did: string, records: StoredRecord[]): CloudC
     streamerDid: did,
     commands,
     revision: recordRevision(records),
+    ...(get(moduleCollections.preferences)
+      ? { preferences: { confirmDeletion: get(moduleCollections.preferences)!.confirmDeletion } }
+      : {}),
   };
 }
 export function serializeModuleRecords(
@@ -164,6 +170,16 @@ export function serializeModuleRecords(
     }),
     record(moduleCollections.pets, "self", { enabled: appearance.modules.pets }),
   ];
+  const preferences =
+    config.preferences ??
+    previous.find((item) => item.collection === moduleCollections.preferences)?.value;
+  if (preferences !== undefined) {
+    records.push(
+      record(moduleCollections.preferences, "self", {
+        confirmDeletion: preferences.confirmDeletion,
+      }),
+    );
+  }
   for (const command of config.commands) {
     validateCloudCommand(command);
     const media = (value: CloudMedia) =>

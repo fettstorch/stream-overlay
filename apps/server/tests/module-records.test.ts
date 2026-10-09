@@ -40,6 +40,15 @@ const config: CloudConfig = {
     },
   ],
 };
+test("account-wide preferences roundtrip, default to confirmation and survive older clients", () => {
+  const initial = serializeModuleRecords(config, [], timestamp);
+  expect(parseModuleRecords(did, initial).preferences).toBeUndefined();
+  const optedOut = serializeModuleRecords({ ...config, preferences: { confirmDeletion: false } }, initial, timestamp);
+  expect(parseModuleRecords(did, optedOut).preferences).toEqual({ confirmDeletion: false });
+  expect(optedOut.find(r => r.collection === "live.streamface.preferences")?.rkey).toBe("self");
+  expect(parseModuleRecords(did, serializeModuleRecords(config, optedOut, timestamp)).preferences?.confirmDeletion).toBe(false);
+  expect(() => serializeModuleRecords({ ...config, preferences: { confirmDeletion: "no" as any } }, [], timestamp)).toThrow();
+});
 test("fresh accounts save without legacy records and a failed transaction does not populate the cache", async () => {
   let writes = 0;
   const agent: any = {

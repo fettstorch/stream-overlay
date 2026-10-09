@@ -418,6 +418,24 @@ onBeforeUnmount(() => {
               ></span
             >
           </div>
+          <label v-if="config" class="account-preference"
+            ><input
+              type="checkbox"
+              :checked="config.preferences?.confirmDeletion !== false"
+              :disabled="saving"
+              @change="
+                saveConfiguration(
+                  {
+                    ...config!,
+                    preferences: { confirmDeletion: ($event.target as HTMLInputElement).checked },
+                  },
+                  undefined,
+                  'preferences',
+                )
+              "
+            />Confirm deletions</label
+          >
+          <p v-if="moduleMessages.preferences" role="alert">{{ moduleMessages.preferences }}</p>
           <button
             v-if="profileState === 'unavailable'"
             type="button"

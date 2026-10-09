@@ -1,0 +1,20 @@
+{
+  "lexicon": 1,
+  "id": "live.streamface.preferences",
+  "description": "Account-wide Streamface user-interface preferences. Public repository data.",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "literal:self",
+      "record": {
+        "type": "object",
+        "required": ["confirmDeletion", "createdAt", "updatedAt"],
+        "properties": {
+          "confirmDeletion": { "type": "boolean" },
+          "createdAt": { "type": "string", "format": "datetime" },
+          "updatedAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

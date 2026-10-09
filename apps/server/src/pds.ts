@@ -441,7 +441,11 @@ export class PdsService {
     agent: AgentLike,
     diagnostics?: Diagnostics,
   ) {
-    const context = { requestId: diagnostics?.requestId, pdsValidation: "known-schemas", localValidation: true };
+    const context = {
+      requestId: diagnostics?.requestId,
+      pdsValidation: "known-schemas",
+      localValidation: true,
+    };
     diagnostics?.logger.log("info", "cloud.pds.module-save-started", context);
     try {
       const latest = await agent.com.atproto.sync.getLatestCommit({ did });
@@ -501,6 +505,9 @@ export class PdsService {
         ...context,
         writes: writes.length,
         migrated: snapshot.migrated,
+        preferencesChanged:
+          config.preferences !== undefined &&
+          config.preferences.confirmDeletion !== snapshot.config?.preferences?.confirmDeletion,
       });
       return saved;
     } catch (error) {

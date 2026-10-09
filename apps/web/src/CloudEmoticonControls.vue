@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import CollapsibleSection from "./CollapsibleSection.vue";
+import DeleteConfirmation from "./DeleteConfirmation.vue";
 import { computed, onBeforeUnmount, ref } from "vue";
 import type { CloudCommand, CloudConfig, CloudMedia } from "./cloud-admin-types.ts";
 import { validateCloudCommand } from "../../../modules/emoticons/src/validation.ts";
@@ -11,6 +12,7 @@ const props = defineProps<{
   beforeTest?: () => Promise<void>;
 }>();
 const kinds = ["image", "audio", "video"] as const;
+const deleting = ref<CloudCommand | null>(null);
 type MediaKind = (typeof kinds)[number];
 const formOpen = ref(false),
   editing = ref<string | null>(null),
@@ -323,13 +325,24 @@ async function save() {
   if (saved) reset();
 }
 async function remove(command: CloudCommand) {
-  if (!confirm(`Delete !${command.command}?`)) return;
+  if (props.config.preferences?.confirmDeletion !== false) {
+    deleting.value = command;
+    return;
+  }
+  await deleteConfirmed(command);
+}
+async function deleteConfirmed(command: CloudCommand, dontShowAgain = false) {
   busy.value = true;
   const saved = await props.save(
-    { ...props.config, commands: props.config.commands.filter((item) => item.id !== command.id) },
+    {
+      ...props.config,
+      ...(dontShowAgain ? { preferences: { confirmDeletion: false } } : {}),
+      commands: props.config.commands.filter((item) => item.id !== command.id),
+    },
     `!${command.command} deleted from your PDS.`,
   );
   busy.value = false;
+  if (saved) deleting.value = null;
   if (saved && editing.value === command.id) reset();
 }
 onBeforeUnmount(() => {
@@ -340,6 +353,13 @@ defineExpose({ acceptCardDrop });
 
 <template>
   <section class="emoticon-controls">
+    <DeleteConfirmation
+      v-if="deleting"
+      :name="`!${deleting.command}`"
+      :busy="busy"
+      @cancel="deleting = null"
+      @confirm="deleteConfirmed(deleting!, $event)"
+    />
     <h4>Emoticon commands</h4>
     <CollapsibleSection
       v-for="group in groups"
