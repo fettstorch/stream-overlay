@@ -2,7 +2,16 @@ import { expect, test } from "bun:test";
 import { mkdtemp, mkdir, rm, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { deploymentArgs, excluded, stageCloudSource } from "./deploy-cloud.ts";
+import { deploymentArgs, deploymentOptions, excluded, stageCloudSource } from "./deploy-cloud.ts";
+
+test("deployment defaults to our hosted origin with explicit execution and optional overrides", () => {
+  expect(deploymentOptions([]).origin).toBe("https://streamface-fettstorch-f15914a3.koyeb.app");
+  expect(deploymentOptions([]).execute).toBe(false);
+  expect(deploymentOptions(["--execute"]).execute).toBe(true);
+  expect(deploymentOptions(["--origin", "https://streamface.live"]).origin).toBe(
+    "https://streamface.live",
+  );
+});
 
 test("deployment uses the hosted target, one eNano in Frankfurt and a secret reference", () => {
   const args = deploymentArgs("/tmp/source", "https://streamface.example");

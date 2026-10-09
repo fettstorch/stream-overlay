@@ -294,7 +294,7 @@ URLs are not direct playable media URLs. The checked-in
 records remain readable and migrate on the next save without deleting the originals.
 See [the Lexicon and migration guide](lexicons/README.md) and follow
 [the Koyeb deployment notes](infra/koyeb/README.md) before a real pilot.
-`bun run cloud:deploy --origin https://YOUR-APP.koyeb.app` previews a safe local-source
+`bun run cloud:deploy` previews a safe local-source
 package; only an explicit `--execute` uploads and deploys it. The linked notes
 describe the single-instance eNano pilot and required secret.
 

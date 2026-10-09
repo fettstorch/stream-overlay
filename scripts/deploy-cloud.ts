@@ -121,6 +121,19 @@ export function deploymentArgs(
   ];
 }
 
+export function deploymentOptions(args: string[]) {
+  return parseArgs({
+    args,
+    options: {
+      origin: { type: "string", default: "https://streamface-fettstorch-f15914a3.koyeb.app" },
+      target: { type: "string", default: "streamface/web" },
+      secret: { type: "string", default: "streamface-session-secret" },
+      execute: { type: "boolean", default: false },
+      help: { type: "boolean", default: false },
+    },
+  }).values;
+}
+
 if (import.meta.main) {
   const logger = new StructuredLogger();
   const operationId = crypto.randomUUID();
@@ -128,21 +141,11 @@ if (import.meta.main) {
   let executing = false;
   let stage = "arguments";
   try {
-    const { values } = parseArgs({
-      args: Bun.argv.slice(2),
-      options: {
-        origin: { type: "string" },
-        target: { type: "string", default: "streamface/web" },
-        secret: { type: "string", default: "streamface-session-secret" },
-        execute: { type: "boolean", default: false },
-        help: { type: "boolean", default: false },
-      },
-    });
-    if (values.help || !values.origin) {
+    const values = deploymentOptions(Bun.argv.slice(2));
+    if (values.help) {
       console.log(
-        "Usage: bun run cloud:deploy --origin https://YOUR-APP.koyeb.app [--execute]\nDefault: local staging and command preview only. --execute uploads source and creates/updates the service.\nOptional: --target app/service --secret existing-secret-name",
+        "Usage: bun run cloud:deploy [--execute]\nDefault: local staging and command preview only. --execute uploads source and creates/updates the service.\nOptional: --origin https://YOUR-APP.koyeb.app --target app/service --secret existing-secret-name",
       );
-      if (!values.help) process.exitCode = 1;
     } else {
       deploymentArgs("preview", values.origin, values.target, values.secret);
       stage = "source-staging";
