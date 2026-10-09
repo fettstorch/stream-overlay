@@ -39,3 +39,12 @@ test("Test playback starts a keyframe sticker animation rather than a first-fram
   expect(sticker.querySelector(".sender-avatar")?.getAttribute("alt")).toBe("Test sender");
   expect(relay.send).toHaveBeenCalledWith(expect.objectContaining({ type: "diagnostic", event: "test-accepted", requestId: "request-test" }));
 });
+
+test("clip Test publishes its cooldown with the test request ID on the preview runtime", async () => {
+  vi.useFakeTimers(); history.replaceState({}, "", "/effect/?did=did:plc:alice&preview=1");
+  document.body.innerHTML = '<main class="effect"></main>';
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ enabled: true, streamerDid: "did:plc:alice", commands: [{ id: "clip", command: "clip", mode: "effect", durationSeconds: 5, cooldownSeconds: 20, volume: 1, width: "", height: "", mirrored: false, image: { url: "https://example.test/clip.gif" } }] })));
+  await import("../src/cloud-overlay.ts"); await Promise.resolve(); await Promise.resolve();
+  relay.receive!({ type: "test-command", commandId: "clip", requestId: "clip-test" });
+  expect(relay.send).toHaveBeenCalledWith(expect.objectContaining({ type: "cooldowns", requestId: "clip-test", cooldowns: { clip: { endsAt: Date.now() + 20_000, durationSeconds: 20 } } }));
+});

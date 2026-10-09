@@ -2,12 +2,12 @@ export const MAX_MESSAGE_BYTES = 16_384;
 export const MAX_COOLDOWNS = 200;
 export type RelayChannel = "live" | "preview";
 export type Cooldown = { endsAt: number; durationSeconds: number };
-export const DIAGNOSTIC_EVENTS = ["config-loaded", "config-failed", "test-received", "test-accepted", "test-rejected", "playback-started", "media-missing", "media-loaded", "media-failed"] as const;
+export const DIAGNOSTIC_EVENTS = ["config-loaded", "config-failed", "test-received", "test-accepted", "test-rejected", "playback-started", "media-missing", "media-loaded", "media-failed", "cooldowns-received"] as const;
 export type EffectDiagnostic = { type: "diagnostic"; event: typeof DIAGNOSTIC_EVENTS[number]; requestId?: string; commandId?: string; reason?: string; count?: number };
-export type RelaySnapshot = { type: "snapshot"; did: string; channel: RelayChannel; revision: number; cooldowns: Record<string, Cooldown>; configRevision?: string };
+export type RelaySnapshot = { type: "snapshot"; did: string; channel: RelayChannel; revision: number; cooldowns: Record<string, Cooldown>; configRevision?: string; requestId?: string };
 export type RelayClientMessage =
   | { type: "hello"; did: string; page: "effect" | "board" | "admin"; channel: RelayChannel }
-  | { type: "cooldowns"; revision: number; cooldowns: Record<string, Cooldown> }
+  | { type: "cooldowns"; revision: number; cooldowns: Record<string, Cooldown>; requestId?: string }
   | EffectDiagnostic
   | { type: "ping" };
 export type RelayServerMessage = RelaySnapshot | { type: "config-changed"; revision: string } | { type: "test-command"; commandId: string; requestId: string } | { type: "pong" } | { type: "error"; code: string };
@@ -40,5 +40,6 @@ export function parseClientMessage(raw: string, now = Date.now()): RelayClientMe
       || typeof c.durationSeconds !== "number" || c.durationSeconds < 0 || c.durationSeconds > 86_400) return null;
     cooldowns[id] = { endsAt: c.endsAt, durationSeconds: c.durationSeconds };
   }
-  return { type: "cooldowns", revision: Number(item.revision), cooldowns };
+  if (item.requestId !== undefined && (typeof item.requestId !== "string" || !/^[A-Za-z0-9._:-]{1,128}$/.test(item.requestId))) return null;
+  return { type: "cooldowns", revision: Number(item.revision), cooldowns, ...(item.requestId ? { requestId: item.requestId as string } : {}) };
 }

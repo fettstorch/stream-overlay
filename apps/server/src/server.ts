@@ -85,7 +85,7 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
       if (!config.enabled) return json({ message: "Enable Emoticons before testing commands.", requestId }, 409);
       const delivered = deps.relay.testCommand(testDid, commandId, requestId);
       const previewDelivered = deps.relay.testCommand(testDid, commandId, requestId, "preview");
-      return json({ delivered, previewDelivered, message: delivered ? "Test sent to connected effect sources. Playback follows their queue and cooldown rules." : previewDelivered ? "Test sent to the muted admin preview. No live OBS source is connected." : "No effect source is connected. Open your Emoticons effects OBS URL first.", requestId });
+      return json({ delivered, previewDelivered, message: delivered ? "Test sent to connected effect sources. Playback follows their queue and cooldown rules." : previewDelivered ? "Test sent to the admin preview. No live OBS source is connected." : "No effect source is connected. Expand the effects preview or open your Emoticons effects OBS URL first.", requestId });
     } catch (error) {
       deps.logger.log("error", "cloud.command.test-failed", { requestId, ...safeError(error) });
       return json({ message: "Could not test the command. Try again.", requestId }, 502);

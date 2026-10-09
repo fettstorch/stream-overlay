@@ -26,17 +26,19 @@ export class Relay {
     if (!peer.did || !peer.channel) return peer.socket.close(1008, "hello required");
     const account = this.accounts.get(peer.did)!;
     if (message.type === "diagnostic") {
-      if (peer.page !== "effect" && peer.page !== "admin") return peer.socket.close(1008, "runtime diagnostics required");
+      if (peer.page === "board" && message.event !== "cooldowns-received") return peer.socket.close(1008, "board cooldown diagnostics required");
+      if (peer.page !== "effect" && peer.page !== "admin" && peer.page !== "board") return peer.socket.close(1008, "runtime diagnostics required");
       const { type, event, ...details } = message;
-      this.logger?.log(event.endsWith("failed") || event === "media-missing" || event === "test-rejected" ? "warn" : "info", `cloud.${peer.page === "effect" ? "effect" : "module"}.${event}`, { ...details, channel: peer.channel, clientReported: true });
+      this.logger?.log(event.endsWith("failed") || event === "media-missing" || event === "test-rejected" ? "warn" : "info", `cloud.${peer.page === "effect" ? "effect" : peer.page === "board" ? "board" : "module"}.${event}`, { ...details, channel: peer.channel, clientReported: true });
       return;
     }
     if (message.type === "cooldowns") {
       if (peer.page !== "effect") return peer.socket.close(1008, "effect publisher required");
       const previous = account.snapshots.get(peer.channel);
-      if (previous && message.revision <= previous.revision) return;
-      const snapshot: RelaySnapshot = { type: "snapshot", did: peer.did, channel: peer.channel, revision: message.revision, cooldowns: message.cooldowns, configRevision: previous?.configRevision };
+      if (previous && message.revision <= previous.revision) { this.logger?.log("warn", "cloud.relay.cooldowns-rejected", { requestId: message.requestId, reason: "stale-revision", channel: peer.channel }); return; }
+      const snapshot: RelaySnapshot = { type: "snapshot", did: peer.did, channel: peer.channel, revision: message.revision, cooldowns: message.cooldowns, configRevision: previous?.configRevision, requestId: message.requestId };
       account.snapshots.set(peer.channel, snapshot); account.lastMeaningfulAt = now; this.broadcast(account, peer.channel, snapshot);
+      this.logger?.log("info", "cloud.relay.cooldowns-published", { requestId: message.requestId, channel: peer.channel, count: Object.keys(message.cooldowns).length, subscribers: [...account.peers].filter(item => item.page === "board" && item.channel === peer.channel).length });
     }
   }
   close(peer: Peer) { if (!peer.did) return; const account = this.accounts.get(peer.did); if (!account) return; account.peers.delete(peer); this.logger?.log("info", "cloud.relay.connection-closed", { page: peer.page, channel: peer.channel }); if (!account.peers.size) account.disconnectedAt = this.now(); }

@@ -236,9 +236,16 @@ OAuth consent flow still depends on an AT Protocol provider accepting the loopba
 client metadata and development Lexicons; use the HTTPS deployment configuration
 above for the account pilot.
 
+The cloud control room automatically observes the signed-in ATProto account's
+stream.place stream; no separate streamer selection is needed.
+
 The cloud control room includes Emoticons, Chat, Overlay Paint and Streamplace
 Pets. Pokémon Blue and Crystal remain local-only. The local `bun run overlay`
 workflow and its existing OBS URLs are unchanged.
+
+Pets attribution and the unresolved upstream redistribution permission are
+documented in `THIRD_PARTY_NOTICES.md`. Do not publish the bundled Pets code or
+cloud image until that release blocker is resolved with the upstream authors.
 
 Cloud OBS sources use your account DID in `?did=`:
 

@@ -97,7 +97,7 @@ defineExpose({ acceptCardDrop });
 <template>
   <section class="emoticon-controls">
     <h4>Emoticon commands</h4><p>Effect source: match your OBS canvas. Board source: start at 420 × 600 px, then size independently. Both disappear when disabled.</p>
-    <details v-for="group in groups" :key="group.title" class="command-group" open><summary>{{ group.title }} <span>({{ group.commands.length }})</span></summary><p v-if="!group.commands.length" class="empty-copy">No commands yet</p><ul class="command-list"><li v-for="command in group.commands" :key="command.id"><strong>!{{ command.command }}</strong><span>{{ command.mode === 'sticker' ? 'Sticker' : `${command.durationSeconds}s clip` }}</span><button type="button" :disabled="busy" @click="test(command)">Test</button><button type="button" @click="edit(command)">Edit</button><button type="button" class="danger-button" @click="remove(command)">Delete</button></li></ul></details>
+    <details v-for="group in groups" :key="group.title" class="command-group" open><summary>{{ group.title }} <span>({{ group.commands.length }})</span></summary><p v-if="!group.commands.length" class="empty-copy">No commands yet</p><ul class="command-list"><li v-for="command in group.commands" :key="command.id"><strong>!{{ command.command }}</strong><span v-if="command.mode !== 'sticker'">{{ command.durationSeconds }}s clip</span><button type="button" :disabled="busy" @click="test(command)">Test</button><button type="button" @click="edit(command)">Edit</button><button type="button" class="danger-button" @click="remove(command)">Delete</button></li></ul></details>
     <div v-if="!formOpen"><button class="primary-button" type="button" @click="create">Create command</button></div>
     <form v-if="formOpen" class="command-editor" @submit.prevent="save">
       <div class="editor-heading"><h4>{{ editing ? 'Edit command' : 'Create command' }}</h4><button type="button" class="secondary-button" @click="reset">Close</button></div>
@@ -117,6 +117,6 @@ defineExpose({ acceptCardDrop });
       <div class="fields-row"><label class="compact-field">Duration (seconds) <input v-model.number="form.durationSeconds" type="number" min="0.001" max="3600" step="any" required></label><label v-if="form.mode === 'effect'" class="compact-field">Cooldown (seconds) <input v-model.number="form.cooldownSeconds" type="number" min="0" max="86400" step="1" required></label><label class="compact-field">CSS width <input v-model="form.width" :placeholder="form.mode === 'sticker' ? '5vw (default)' : '40vw (default)'"></label><label class="compact-field">CSS height <input v-model="form.height" :placeholder="form.mode === 'sticker' ? '5vw (default)' : '35vh (default)'"></label></div>
       <label v-if="form.mode === 'effect'">Volume <input v-model.number="form.volume" type="range" min="0" max="1" step="0.05"></label>
       <div class="form-actions"><button class="primary-button" type="submit" :disabled="busy">{{ editing ? 'Save changes' : 'Create command' }}</button><button type="button" class="secondary-button" :disabled="busy" @click="reset">Cancel</button></div>
-    </form><p class="module-message" role="status">{{ message }}</p>
+    </form><p v-if="message" class="module-message" role="status">{{ message }}</p>
   </section>
 </template>

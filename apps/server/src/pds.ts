@@ -41,7 +41,7 @@ export class PdsService {
         throw error;
       }),
       listAllRecords(async cursor => { const page = await xrpc(this.fetchFn, service, "com.atproto.repo.listRecords", { repo: did, collection: c.command, limit: "100", ...(cursor ? { cursor } : {}) }) as any; return { records: page.records ?? [], cursor: page.cursor }; }),
-    ]); const parsed = parseConfig((settings as any).value, commandRecords.map((item:any) => item.value), this.namespace); if (!parsed) throw new Error("Invalid PDS configuration"); for (const command of parsed.commands) for (const media of [command.image, command.audio, command.video]) if (media?.blob && !media.url) media.url = blobUrl(service, did, media.blob); this.cache.set(did, { config: parsed, loadedAt: Date.now() }); return parsed;
+    ]); const parsed = parseConfig((settings as any).value, commandRecords.map((item:any) => item.value), this.namespace); if (!parsed) throw new Error("Invalid PDS configuration"); parsed.streamerDid = did; for (const command of parsed.commands) for (const media of [command.image, command.audio, command.video]) if (media?.blob && !media.url) media.url = blobUrl(service, did, media.blob); this.cache.set(did, { config: parsed, loadedAt: Date.now() }); return parsed;
     } catch (error) { if (cached) return cached.config; throw error; }
   }
   async save(did: string, config: CloudConfig, diagnostics?: Diagnostics) { for (const command of config.commands) validateCommand(command); if (new Set(config.commands.map(command => command.id)).size !== config.commands.length || new Set(config.commands.map(command => command.command)).size !== config.commands.length) throw new Error("Duplicate commands"); diagnostics?.logger.log("info", "cloud.pds.session-restore-started", { requestId: diagnostics.requestId, operation: "save" }); let session; try { session = await this.oauth.restore(did); diagnostics?.logger.log("info", "cloud.pds.session-restore-completed", { requestId: diagnostics.requestId, operation: "save" }); } catch (error) { diagnostics?.logger.log("error", "cloud.pds.session-restore-failed", { requestId: diagnostics.requestId, operation: "save", ...safeError(error) }); throw error; } const agent = this.agentFactory(session); const c = collections(this.namespace); const updatedAt = new Date().toISOString();
@@ -50,6 +50,7 @@ export class PdsService {
       agent.com.atproto.repo.getRecord({ repo: did, collection: c.settings, rkey: "self" }).catch((error: any) => error?.status === 400 || error?.status === 404 ? undefined : Promise.reject(error)),
       listAllRecords(async cursor => { const page = await agent.com.atproto.repo.listRecords({ repo: did, collection: c.command, limit: 100, cursor }); return page.data; }),
     ]);
+    config = { ...config, streamerDid: did };
     const appearance = moduleSettings(config);
     // Resolve before committing: a resolver failure must not report a successful write as failed.
     const blobService = config.commands.some(command => [command.image, command.audio, command.video].some(media => media?.blob)) ? await this.resolvePdsFn(did) : undefined;

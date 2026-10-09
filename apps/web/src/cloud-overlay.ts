@@ -12,6 +12,7 @@ const boardMode = location.pathname.startsWith("/board"); const did = new URLSea
 if (!did.startsWith("did:")) document.body.textContent = "Missing ?did= account identifier";
 const container = document.querySelector<HTMLElement>(boardMode ? ".board" : ".effect")!; let config: EmoticonState = { enabled: false, commands: [], assets: [] }; let cooldowns: RelaySnapshot["cooldowns"] = {}; let revision = 0;
 const testRequests = new Map<string, string>();
+let cooldownRequestId: string | undefined;
 const board = boardMode ? createCloudBoard(container) : undefined;
 const muted = new URLSearchParams(location.search).get("muted") === "1";
 const activeMedia = new Set<HTMLMediaElement>(), activeWrappers = new Set<HTMLElement>();
@@ -68,7 +69,7 @@ function play(event: Extract<EmoticonEvent, { type: "effect" }>) {
   setTimeout(() => { for (const element of wrapper.querySelectorAll("audio,video")) { (element as HTMLMediaElement).pause(); activeMedia.delete(element as HTMLMediaElement); } wrapper.remove(); activeWrappers.delete(wrapper); }, event.durationSeconds * 1000);
 }
 function nextRevision() { revision = Math.max(revision + 1, Date.now()); return revision; }
-const runtime = boardMode ? undefined : new EmoticonRuntime({ effect: play, log: (event, details) => { if (event === "emoticons.command-rejected") rejectionReason = String(details?.reason ?? "unknown"); }, cooldowns: state => { cooldowns = state; relay.send({ type: "cooldowns", revision: nextRevision(), cooldowns: state }); } });
+const runtime = boardMode ? undefined : new EmoticonRuntime({ effect: play, log: (event, details) => { if (event === "emoticons.command-rejected") rejectionReason = String(details?.reason ?? "unknown"); }, cooldowns: state => { cooldowns = state; relay.send({ type: "cooldowns", revision: nextRevision(), cooldowns: state, requestId: cooldownRequestId }); } });
 const chat = boardMode ? undefined : new DirectStreamChatService(); chat?.messages.subscribe(message => runtime?.message(message.id, message.text, message.author));
 async function refresh(force = false) {
   try {
@@ -84,13 +85,15 @@ async function refresh(force = false) {
   } catch { if (!boardMode) diagnostic("config-failed", { reason: "fetch-or-parse-error" }); }
 }
 const relay = new RelayClient(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/relay`, { type: "hello", did, page: boardMode ? "board" : "effect", channel }, message => {
-  if (message.type === "snapshot" && boardMode && message.revision >= revision) { revision = message.revision; cooldowns = message.cooldowns; renderBoard(); }
+  if (message.type === "snapshot" && boardMode && message.revision >= revision) { revision = message.revision; cooldowns = message.cooldowns; renderBoard(); diagnostic("cooldowns-received", { requestId: message.requestId, count: Object.keys(cooldowns).length }); }
   if (message.type === "config-changed") void refresh(true);
   // Tests use the same browser-owned runtime and cooldowns as chat commands.
   if (message.type === "test-command" && runtime) {
     diagnostic("test-received", { requestId: message.requestId, commandId: message.commandId });
     testRequests.set(message.commandId, message.requestId); rejectionReason = undefined;
+    cooldownRequestId = message.requestId;
     const accepted = runtime.trigger(message.commandId);
+    cooldownRequestId = undefined;
     diagnostic(accepted ? "test-accepted" : "test-rejected", { requestId: message.requestId, commandId: message.commandId, reason: accepted ? undefined : rejectionReason });
     if (!accepted) testRequests.delete(message.commandId);
   }

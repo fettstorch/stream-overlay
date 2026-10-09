@@ -5,6 +5,17 @@ import { Agent } from "@atproto/api";
 import { StructuredLogger } from "../src/logger.ts";
 const secret = "a-secret-longer-than-thirty-two-characters";
 describe("cloud auth and PDS records", () => {
+  test("binds legacy streamer settings and future writes to the owning ATProto account", async () => {
+    const namespace = "invalid.streamoverlay.dev", writes: any[] = [];
+    const agent: any = { com: { atproto: { sync: { getLatestCommit: async () => ({ data: { cid: "head" } }) }, repo: { getRecord: async () => ({ data: {} }), listRecords: async () => ({ data: { records: [] } }), applyWrites: async (value: any) => { writes.push(value); return { data: {} }; } } } } };
+    const service = new PdsService({ restore: async () => ({}) } as any, namespace, 0, 0, {
+      agent: () => agent, resolvePds: async () => "https://pds.example",
+      fetch: (async (input: RequestInfo | URL) => Response.json(String(input).includes('getRecord') ? { value: { $type: `${namespace}.settings`, enabled: true, streamerDid: "did:plc:other" } } : { records: [] })) as typeof fetch,
+    });
+    expect((await service.publicConfig('did:plc:alice')).streamerDid).toBe('did:plc:alice');
+    const saved = await service.save('did:plc:alice', { enabled: true, streamerDid: 'did:plc:other', revision: 'old', commands: [] });
+    expect(saved.streamerDid).toBe('did:plc:alice'); expect(writes[0].writes[0].value.streamerDid).toBe('did:plc:alice');
+  });
   test("auth cookie is signed and rejects tampering", async () => { const value = await sessionCookie("did:plc:alice", secret); expect(await readSessionCookie(new Request("https://example.test", { headers: { cookie: `stream_overlay_session=${value}` } }), secret)).toBe("did:plc:alice"); expect(await readSessionCookie(new Request("https://example.test", { headers: { cookie: `stream_overlay_session=${value}x` } }), secret)).toBeUndefined(); });
   test("parses command records and converts storage units", () => { const namespace="invalid.streamoverlay.dev"; const result=parseConfig({$type:`${namespace}.settings`,enabled:true,streamerDid:"did:plc:alice",updatedAt:"v1"},[{$type:`${namespace}.command`,id:"one",command:"wave",mode:"effect",durationMilliseconds:1500,cooldownSeconds:20,volumePercent:55,width:"",height:"",mirrored:false}],namespace); expect(result?.commands[0].durationSeconds).toBe(1.5); expect(result?.commands[0].volume).toBe(.55); });
   test("only accepts HTTPS direct URL candidates", () => { expect(validateMediaUrl("https://cdn.example/clip.mp4")).toBe("https://cdn.example/clip.mp4"); expect(validateMediaUrl("http://cdn.example/clip.mp4")).toBeUndefined(); });

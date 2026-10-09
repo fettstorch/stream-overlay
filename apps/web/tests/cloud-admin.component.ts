@@ -17,6 +17,38 @@ function response(body: unknown, status = 200) { return new Response(JSON.string
 function mediaDrag(type: string, name = "drop.gif") { const event = new Event(type, { bubbles: true, cancelable: true }); Object.defineProperty(event, "dataTransfer", { value: { types: ["Files"], files: [new File(["GIF8"], name)], dropEffect: "none" } }); return event; }
 
 describe("Cloud Admin", () => {
+  test("uses the account stream, plain pin emoji, lazy audible effects and a matching preview listing channel", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => String(input).endsWith("/api/session") ? response(session) : response({ ...config, streamerDid: "did:plc:someone-else" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const wrapper = mount(CloudAdmin); await flushPromises();
+    expect(wrapper.find('[aria-label="Streamer handle"]').exists()).toBe(false);
+    expect(wrapper.get('.pin-button').text()).toBe("📌");
+    expect(wrapper.findAll('.module-message')).toHaveLength(0);
+    await wrapper.get('button[aria-label="Show Emoticons details"]').trigger("click");
+    expect(wrapper.find('iframe[title="Emoticons preview"]').exists()).toBe(false);
+    const effects = wrapper.findAll('details').find(item => item.find('summary').text() === "Effects preview (with sound)")!;
+    (effects.element as HTMLDetailsElement).open = true; await effects.trigger('toggle');
+    expect(wrapper.get('iframe[title="Emoticons preview"]').attributes('src')).not.toContain('muted=1');
+    expect(wrapper.get('iframe[title="Stream background"]').attributes('src')).toContain(encodeURIComponent(session.did));
+    const listing = wrapper.findAll('details').find(item => item.find('summary').text() === "Live command listing preview")!;
+    (listing.element as HTMLDetailsElement).open = true; await listing.trigger('toggle');
+    expect(wrapper.get('iframe[title="Emoticons command listing preview"]').attributes('src')).toContain('preview=1');
+    (effects.element as HTMLDetailsElement).open = false; await effects.trigger('toggle');
+    expect(wrapper.find('iframe[title="Emoticons preview"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
+  test("does not label every sticker redundantly", () => {
+    const wrapper = mount(CloudEmoticonControls, { props: { did: session.did, config: { ...config, commands: [{ ...config.commands[0], mode: 'sticker' }] }, save: vi.fn(async () => true) } });
+    expect(wrapper.get('.command-list li').text()).not.toContain('Sticker'); wrapper.unmount();
+  });
+  test("shows save failures only on the module that made the change, with no generic success messages", async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith('/api/session') ? response(session) : init?.method === 'PUT' ? response({ message: 'Pets could not be saved.' }, 400) : response(config)));
+    const wrapper = mount(CloudAdmin); await flushPromises();
+    await wrapper.get('[aria-label="Enable Streamplace Pets"]').setValue(false); await flushPromises();
+    expect(wrapper.findAll('.module-message')).toHaveLength(1);
+    expect(wrapper.get('[data-module="streamplace-pets"] .module-message').text()).toContain('Pets could not be saved.');
+    expect(wrapper.find('[data-module="emoticons"] .module-message').exists()).toBe(false); wrapper.unmount();
+  });
   test("requires playable media and preserves original millisecond duration precision", async () => {
     const save = vi.fn(async () => true);
     const wrapper = mount(CloudEmoticonControls, { props: { did: session.did, config: { ...config, commands: [] }, save } });

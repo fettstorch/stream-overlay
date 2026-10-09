@@ -19,6 +19,19 @@ function startTransport(relay: Relay) {
   }
 }
 describe("relay", () => {
+  test("relays preview Test cooldowns to preview listings with correlated diagnostics, not live OBS", () => {
+    const lines: string[] = [], now = Date.now(), relay = new Relay(() => now, 1000, 12, new StructuredLogger(undefined, line => lines.push(line)));
+    const effect = new Socket(), listing = new Socket(), live = new Socket();
+    const peers = [effect, listing, live].map(socket => relay.open(socket as any));
+    peers.forEach((peer, index) => relay.message(peer, JSON.stringify({ type: "hello", did: "did:plc:a", page: index === 0 ? "effect" : "board", channel: index === 2 ? "live" : "preview" })));
+    relay.message(peers[0], JSON.stringify({ type: "cooldowns", revision: now, cooldowns: { clip: { endsAt: now + 20_000, durationSeconds: 20 } }, requestId: "clip-test" }));
+    expect(JSON.parse(listing.sent.at(-1)!)).toMatchObject({ channel: "preview", requestId: "clip-test", cooldowns: { clip: { durationSeconds: 20 } } });
+    expect(live.sent).toHaveLength(1);
+    relay.message(peers[1], JSON.stringify({ type: "diagnostic", event: "cooldowns-received", requestId: "clip-test", count: 1 }));
+    expect(listing.closed).toBeUndefined();
+    expect(lines.map(line => JSON.parse(line))).toContainEqual(expect.objectContaining({ event: "cloud.relay.cooldowns-published", requestId: "clip-test", channel: "preview", count: 1, subscribers: 1 }));
+    expect(JSON.parse(lines.at(-1)!)).toMatchObject({ event: "cloud.board.cooldowns-received", requestId: "clip-test", count: 1 });
+  });
   test("logs bounded effect diagnostics with the original test request ID", () => {
     const lines: string[] = [], relay = new Relay(() => Date.now(), 1000, 12, new StructuredLogger(undefined, line => lines.push(line)));
     const socket = new Socket(), peer = relay.open(socket as any);
