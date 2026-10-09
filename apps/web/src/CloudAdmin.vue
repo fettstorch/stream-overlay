@@ -525,7 +525,7 @@ onBeforeUnmount(() => {
                   :aria-pressed="isPinned(module.id)"
                   @click="togglePin(module.id)"
                 >
-                  <span aria-hidden="true">📌</span></button
+                  <span class="pin-icon" aria-hidden="true" /></button
                 ><button
                   type="button"
                   class="module-icon-button"

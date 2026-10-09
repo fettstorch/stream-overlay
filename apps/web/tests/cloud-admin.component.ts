@@ -84,12 +84,13 @@ describe("Cloud Admin", () => {
     expect(save).toHaveBeenCalledWith(expect.objectContaining({ chat: expect.objectContaining({ fontSize: 36 }) }));
     wrapper.unmount();
   });
-  test("uses the account stream, plain pin emoji, lazy audible effects and a matching preview listing channel", async () => {
+  test("uses the account stream, accessible hand-drawn pin, lazy audible effects and a matching preview listing channel", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => String(input).endsWith("/api/session") ? response(session) : response({ ...config, streamerDid: "did:plc:someone-else" }));
     vi.stubGlobal("fetch", fetchMock);
     const wrapper = mount(CloudAdmin); await flushPromises();
     expect(wrapper.find('[aria-label="Streamer handle"]').exists()).toBe(false);
-    expect(wrapper.get('.pin-button').text()).toBe("📌");
+    expect(wrapper.get('.pin-button').attributes('aria-label')).toBe('Pin Emoticons');
+    expect(wrapper.get('.pin-button .pin-icon').attributes('aria-hidden')).toBe('true');
     expect(wrapper.findAll('.module-message')).toHaveLength(0);
     await wrapper.get('button[aria-label="Show Emoticons details"]').trigger("click");
     const clipsToggle = wrapper.get('button[aria-label="Hide Clips"]');

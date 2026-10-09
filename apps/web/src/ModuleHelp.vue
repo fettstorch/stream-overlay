@@ -4,7 +4,7 @@ defineProps<{ id: string; name: string; description: string; instructions: strin
 
 <template>
   <span class="module-help" @click.stop>
-    <button type="button" class="info-button" :aria-label="`About ${name}`" :aria-describedby="`module-help-${id}`">i</button>
+    <button type="button" class="info-button" :aria-label="`About ${name}`" :aria-describedby="`module-help-${id}`"><span class="info-icon" aria-hidden="true" /></button>
     <span :id="`module-help-${id}`" class="module-tooltip" role="tooltip">
       <strong>{{ description }}</strong>
       <span class="tooltip-obs"><b>Use in OBS</b><span>Add a Browser Source and paste this module’s URL.</span><span v-for="instruction in instructions" :key="instruction">{{ instruction }}</span></span>

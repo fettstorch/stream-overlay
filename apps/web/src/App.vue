@@ -455,7 +455,7 @@ onBeforeUnmount(() => {
             </div>
             <div class="module-actions">
               <button type="button" class="module-icon-button pin-button" :aria-label="`${isPinned(module.id) ? 'Unpin' : 'Pin'} ${module.name}`" :aria-pressed="isPinned(module.id)" @click="togglePin(module.id)">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m16 3 5 5-4 1-4 5-1 4-3-3-6 6 6-6-3-3 4-1 5-4z" /></svg>
+                <span class="pin-icon" aria-hidden="true" />
               </button>
               <button type="button" class="module-icon-button" :aria-label="`${isExpanded(module) ? 'Hide' : 'Show'} ${module.name} details`" :aria-expanded="isExpanded(module)" :aria-controls="`module-body-${module.id}`" @click="toggleDetails(module)">
                 <svg viewBox="0 0 24 24" aria-hidden="true" :class="{ expanded: isExpanded(module) }"><path d="m6 9 6 6 6-6" /></svg>
@@ -466,7 +466,7 @@ onBeforeUnmount(() => {
                   class="info-button"
                   :aria-label="`About ${module.name}`"
                   :aria-describedby="`module-help-${module.id}`"
-                >i</button>
+                ><span class="info-icon" aria-hidden="true" /></button>
                 <span :id="`module-help-${module.id}`" class="module-tooltip" role="tooltip">
                   <strong>{{ module.description || `Controls the ${module.name} overlay.` }}</strong>
                   <span class="tooltip-obs">
