@@ -2,7 +2,10 @@ import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import { resolve } from "node:path";
 import { readFileSync } from "node:fs";
-import { cloudOverlayPages } from "../../modules/catalog.ts";
+import { getCloudOverlayPages } from "../../modules/catalog.ts";
+
+const enablePets = process.env.VITE_ENABLE_CLOUD_PETS === "true";
+const cloudOverlayPages = getCloudOverlayPages(enablePets);
 
 export default defineConfig({
   base: "/admin/",
@@ -11,6 +14,7 @@ export default defineConfig({
     {
       name: "upstream-pets-assets",
       generateBundle() {
+        if (!enablePets) return;
         for (const file of ["pets.html", "pets.css", "pets.js"])
           this.emitFile({
             type: "asset",

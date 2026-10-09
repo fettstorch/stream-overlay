@@ -18,6 +18,14 @@ function response(body: unknown, status = 200) { return new Response(JSON.string
 function mediaDrag(type: string, name = "drop.gif") { const event = new Event(type, { bubbles: true, cancelable: true }); Object.defineProperty(event, "dataTransfer", { value: { types: ["Files"], files: [new File(["GIF8"], name)], dropEffect: "none" } }); return event; }
 
 describe("Cloud Admin", () => {
+  test("retains upstream attribution in the optional Pets controls", () => {
+    const wrapper = mount(CloudModuleControls, { props: { moduleId: "streamplace-pets", config, save: vi.fn(async () => true) } });
+    const attribution = wrapper.get('aside[aria-label="Streamplace Pets attribution"]');
+    expect(attribution.classes()).toContain('upstream-info');
+    expect(attribution.text()).toContain('Eli Mallon (iameli)');
+    expect(attribution.find('a[href="https://github.com/streamplace/streamplace-pets"]').exists()).toBe(true);
+    wrapper.unmount();
+  });
   test("shows sign-in when the cookie outlives server session storage", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => response({ error: "session-expired", message: "Please sign in again. Your saved PDS configuration is unchanged." }, 401)));
     const wrapper = mount(CloudAdmin);
@@ -108,11 +116,11 @@ describe("Cloud Admin", () => {
     expect(wrapper.get('.command-list li').text()).not.toContain('Sticker'); wrapper.unmount();
   });
   test("shows save failures only on the module that made the change, with no generic success messages", async () => {
-    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith('/api/session') ? response(session) : init?.method === 'PUT' ? response({ message: 'Pets could not be saved.' }, 400) : response(config)));
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith('/api/session') ? response(session) : init?.method === 'PUT' ? response({ message: 'Chat could not be saved.' }, 400) : response(config)));
     const wrapper = mount(CloudAdmin); await flushPromises();
-    await wrapper.get('[aria-label="Enable Streamplace Pets"]').setValue(false); await flushPromises();
+    await wrapper.get('[aria-label="Enable Chat"]').setValue(false); await flushPromises();
     expect(wrapper.findAll('.module-message')).toHaveLength(1);
-    expect(wrapper.get('[data-module="streamplace-pets"] .module-message').text()).toContain('Pets could not be saved.');
+    expect(wrapper.get('[data-module="chat"] .module-message').text()).toContain('Chat could not be saved.');
     expect(wrapper.find('[data-module="emoticons"] .module-message').exists()).toBe(false); wrapper.unmount();
   });
   test("requires playable media and preserves original millisecond duration precision", async () => {
@@ -123,7 +131,7 @@ describe("Cloud Admin", () => {
     expect(save).not.toHaveBeenCalled(); expect(wrapper.text()).toContain("Add an image, audio, or video");
     expect(wrapper.get('input[min="0.001"]').attributes("step")).toBe("any"); wrapper.unmount();
   });
-  test("includes every non-Pokémon module with working URL and appearance controls", async () => {
+  test("includes available hosted modules with working URL and appearance controls, excluding Pets", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (String(input).endsWith("/api/session")) return response(session);
       if (String(input).endsWith("/dimensions")) return response({ dimensions: { width: 2560, height: 1440 } });
@@ -131,20 +139,19 @@ describe("Cloud Admin", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     const wrapper = mount(CloudAdmin); await flushPromises();
-    expect(wrapper.findAll("[data-module]").map(card => card.attributes("data-module"))).toEqual(["emoticons", "chat", "overlay-paint", "streamplace-pets"]);
+    expect(wrapper.findAll("[data-module]").map(card => card.attributes("data-module"))).toEqual(["emoticons", "chat", "overlay-paint"]);
     expect(wrapper.text()).toContain("2560 × 1440");
     expect(wrapper.text()).not.toContain("Your stream");
     expect(wrapper.get('.obs-guidance').text()).toContain('Browser Sources in OBS');
     expect(wrapper.get('.obs-guidance').text()).toContain('carefully read its instructions');
     expect(wrapper.get('.obs-guidance').text()).not.toContain('2560');
-    expect(wrapper.findAll('button.info-button')).toHaveLength(4);
+    expect(wrapper.findAll('button.info-button')).toHaveLength(3);
     expect(wrapper.get('#module-help-emoticons').text()).toContain('420 × 600');
     expect(wrapper.get('#module-help-chat').text()).toContain('height to 1440 px');
     expect(wrapper.get('#module-help-chat').text()).not.toContain('420 × 600');
     expect(wrapper.get('#module-help-overlay-paint').text()).toContain('2560 × 1440');
     expect(wrapper.get('#module-help-overlay-paint').text()).not.toContain('chat column');
-    expect(wrapper.get('#module-help-streamplace-pets').text()).toContain('Dimensions match');
-    for (const [name, path] of [["Chat", "/chat/"], ["Overlay Paint", "/paint/"], ["Streamplace Pets", "/pets/"]]) {
+    for (const [name, path] of [["Chat", "/chat/"], ["Overlay Paint", "/paint/"]]) {
       await wrapper.get(`button[aria-label="Show ${name} details"]`).trigger("click");
       const iframe = wrapper.get(`iframe[title="${name} preview"]`);
       expect(iframe.attributes("src")).toContain(`${path}?did=did%3Aplc%3Aalice`);
@@ -156,11 +163,7 @@ describe("Cloud Admin", () => {
     const write = fetchMock.mock.calls.find(([, init]) => init?.method === "PUT")!;
     const saved = JSON.parse(String(write[1]?.body));
     expect(saved.paint.decaySeconds).toBe(3.5); expect(saved.chat.fontSize).toBe(20); expect(saved.commands).toEqual(config.commands);
-    expect(wrapper.find('a[href="https://rpg.actor/streampets"]').exists()).toBe(true);
-    const attribution = wrapper.get('aside[aria-label="Streamplace Pets attribution"]');
-    expect(attribution.classes()).toContain('upstream-info');
-    expect(attribution.text()).toContain('Eli Mallon (iameli)');
-    expect(attribution.find('a[href="https://github.com/streamplace/streamplace-pets"]').exists()).toBe(true);
+    expect(wrapper.find('[data-module="streamplace-pets"]').exists()).toBe(false);
     expect(wrapper.text()).not.toContain('No redistribution licence');
     await wrapper.get('button[aria-label="Hide Chat details"]').trigger("click");
     expect(wrapper.find('iframe[title="Chat preview"]').exists()).toBe(false);

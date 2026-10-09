@@ -15,3 +15,8 @@ HTML/CSS/JavaScript as part of the hosted service or redistribute cloud images
 until the authors grant permission or publish an applicable licence. Before
 release, record that permission here, or include the licence and all notices it
 requires. Attribution alone does not resolve this release blocker.
+
+Default cloud builds exclude this upstream code and hide its module. The local
+integration and an explicit `pets` Docker target are retained for reinstatement
+after permission; see `infra/koyeb/README.md`. The default hosted image can be
+released without the Pets integration.

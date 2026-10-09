@@ -29,6 +29,32 @@ function webRoot() {
 }
 
 describe("cloud server boundary", () => {
+  test("blocks stale Pets files and encoded aliases unless explicitly enabled", async () => {
+    const root = webRoot();
+    mkdirSync(join(root, "pets/upstream"), { recursive: true });
+    writeFileSync(join(root, "pets.html"), "Pets wrapper");
+    writeFileSync(join(root, "pets/upstream/pets.js"), "upstream code");
+    const deps = dependencies(root);
+    for (const path of [
+      "/pets/",
+      "/pets.html",
+      "/admin/pets.html",
+      "/pets/upstream/pets.js",
+      "/admin/%70ets/upstream/pets.js",
+    ]) {
+      expect(
+        (await handleRequest(new Request(`https://overlay.example${path}`), deps)).status,
+      ).toBe(404);
+    }
+    const enabled = { ...deps, enablePets: true };
+    expect(
+      (await handleRequest(new Request("https://overlay.example/pets/"), enabled)).status,
+    ).toBe(200);
+    expect(
+      (await handleRequest(new Request("https://overlay.example/pets/upstream/pets.js"), enabled))
+        .status,
+    ).toBe(200);
+  });
   test("returns HTTP 409 for stale configurations without publishing a change", async () => {
     const deps = dependencies(webRoot());
     (deps as any).pds = {
@@ -120,22 +146,49 @@ describe("cloud server boundary", () => {
   test("expires stale cookies on admin session checks and mutations without touching PDS", async () => {
     const deps = dependencies(webRoot());
     const directory = join(webRoot(), "auth");
-    deps.oauth = createDependencies({ PUBLIC_ORIGIN: deps.origin, SESSION_SECRET: deps.secret, AUTH_DATA_DIR: directory }).oauth;
+    deps.oauth = createDependencies({
+      PUBLIC_ORIGIN: deps.origin,
+      SESSION_SECRET: deps.secret,
+      AUTH_DATA_DIR: directory,
+    }).oauth;
     const stored = new JsonStore(directory, "oauth-session");
     await stored.set("did:plc:alice", { testSession: true });
     expect(await deps.oauth.hasStoredSession("did:plc:alice")).toBe(true);
     await stored.del("did:plc:alice");
-    deps.pds.save = async () => { throw new Error("Must not write with a missing session"); };
+    deps.pds.save = async () => {
+      throw new Error("Must not write with a missing session");
+    };
     const cookie = await sessionCookie("did:plc:alice", deps.secret);
-    for (const [path, method] of [["/api/session", "GET"], ["/api/accounts/did:plc:alice/config", "PUT"], ["/api/accounts/did:plc:alice/media", "POST"], ["/api/accounts/did:plc:alice/test/wave", "POST"]]) {
-      const response = await handleRequest(new Request(`https://overlay.example${path}`, { method, headers: { cookie: `stream_overlay_session=${cookie}`, origin: deps.origin } }), deps);
+    for (const [path, method] of [
+      ["/api/session", "GET"],
+      ["/api/accounts/did:plc:alice/config", "PUT"],
+      ["/api/accounts/did:plc:alice/media", "POST"],
+      ["/api/accounts/did:plc:alice/test/wave", "POST"],
+    ]) {
+      const response = await handleRequest(
+        new Request(`https://overlay.example${path}`, {
+          method,
+          headers: { cookie: `stream_overlay_session=${cookie}`, origin: deps.origin },
+        }),
+        deps,
+      );
       expect(response.status).toBe(401);
       expect((await response.json()).error).toBe("session-expired");
       expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
     }
-    const publicConfig = { enabled: true, streamerDid: "did:plc:alice", commands: [], revision: "1" };
+    const publicConfig = {
+      enabled: true,
+      streamerDid: "did:plc:alice",
+      commands: [],
+      revision: "1",
+    };
     deps.pds.publicConfig = async () => publicConfig;
-    const overlay = await handleRequest(new Request("https://overlay.example/api/accounts/did:plc:alice/config", { headers: { cookie: `stream_overlay_session=${cookie}` } }), deps);
+    const overlay = await handleRequest(
+      new Request("https://overlay.example/api/accounts/did:plc:alice/config", {
+        headers: { cookie: `stream_overlay_session=${cookie}` },
+      }),
+      deps,
+    );
     expect(overlay.status).toBe(200);
   });
   test("reports health without reading web files", async () => {
@@ -459,12 +512,25 @@ describe("cloud server boundary", () => {
 
   test("explains missing PDS blobs without leaking upstream payloads", async () => {
     const deps = dependencies(webRoot());
-    deps.pds.save = async () => { throw Object.assign(new Error("private upstream payload"), { status: 400, error: "BlobNotFound" }); };
+    deps.pds.save = async () => {
+      throw Object.assign(new Error("private upstream payload"), {
+        status: 400,
+        error: "BlobNotFound",
+      });
+    };
     const cookie = await sessionCookie("did:plc:alice", deps.secret);
-    const response = await handleRequest(new Request(`${deps.origin}/api/accounts/did:plc:alice/config`, {
-      method: "PUT", headers: { origin: deps.origin, cookie: `stream_overlay_session=${cookie}`, "content-type": "application/json" },
-      body: JSON.stringify({ enabled: false, streamerDid: "did:plc:alice", commands: [] }),
-    }), deps);
+    const response = await handleRequest(
+      new Request(`${deps.origin}/api/accounts/did:plc:alice/config`, {
+        method: "PUT",
+        headers: {
+          origin: deps.origin,
+          cookie: `stream_overlay_session=${cookie}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ enabled: false, streamerDid: "did:plc:alice", commands: [] }),
+      }),
+      deps,
+    );
     expect(response.status).toBe(400);
     const body = await response.json();
     expect(body.error).toBe("pds-blob-missing");

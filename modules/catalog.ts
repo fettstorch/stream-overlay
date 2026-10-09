@@ -5,14 +5,23 @@ import { emoticonsManifest } from "./emoticons/src/manifest.ts";
 import { streamplacePetsManifest } from "./streamplace-pets/src/manifest.ts";
 
 /** Curated cloud catalog shared by the admin, static server and frontend build. */
-export const cloudModuleCatalog = [
+const availableCloudModules = [
   emoticonsManifest,
   chatManifest,
   overlayPaintManifest,
   streamplacePetsManifest,
 ] as const satisfies readonly ModuleManifest[];
-export const cloudOverlayPages = Object.fromEntries(
-  cloudModuleCatalog.flatMap((module) =>
-    module.cloud.pages.map((page) => [page.path, page.entrypoint]),
-  ),
-);
+
+/** Pets is opt-in until upstream grants hosted redistribution permission. */
+export function getCloudModuleCatalog(enablePets = false) {
+  return availableCloudModules.filter((module) => enablePets || module.id !== "streamplace-pets");
+}
+export const cloudModuleCatalog = getCloudModuleCatalog();
+export function getCloudOverlayPages(enablePets = false) {
+  return Object.fromEntries(
+    getCloudModuleCatalog(enablePets).flatMap((module) =>
+      module.cloud.pages.map((page) => [page.path, page.entrypoint]),
+    ),
+  );
+}
+export const cloudOverlayPages = getCloudOverlayPages();

@@ -12,6 +12,29 @@ standard instance with a volume mounted at `/data`, or an external session store
 Do not scale beyond one
 instance until the in-memory relay has shared state or sticky account routing.
 
+## Pets release switch
+
+The default Docker target (`hosted`) and ordinary web builds exclude Streamplace
+Pets from the admin, page entrypoints, and upstream HTML/CSS/JavaScript assets.
+The server also rejects Pets URLs by default, including direct paths to stale files.
+Saved Pets preferences are preserved; the local `bun run overlay` integration is unchanged.
+No upstream Pets checkout is needed to build the default image. A CLI source archive
+must also omit the top-level `streamplace-pets/` directory, not merely rely on
+Docker's final-stage exclusion.
+
+After permission is recorded in `THIRD_PARTY_NOTICES.md`, restore the existing
+integration with the opt-in Docker target:
+
+```sh
+docker build --target pets -f infra/koyeb/Dockerfile -t streamface:pets .
+```
+
+This target includes the upstream assets, enables its admin card, and sets
+`ENABLE_CLOUD_PETS=true` for the server. For direct development instead, build
+with `VITE_ENABLE_CLOUD_PETS=true` and run the server with `ENABLE_CLOUD_PETS=true`.
+Both switches deliberately default to false. The opt-in keeps the original
+author attribution and project links. Do not publish this target before permission.
+
 Required secrets/settings:
 
 - `PUBLIC_ORIGIN`: final HTTPS origin, with no trailing slash.

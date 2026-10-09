@@ -1,8 +1,25 @@
 import { expect, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { cloudModuleCatalog, cloudOverlayPages } from "./catalog.ts";
+import {
+  cloudModuleCatalog,
+  cloudOverlayPages,
+  getCloudModuleCatalog,
+  getCloudOverlayPages,
+} from "./catalog.ts";
 import { modules } from "../apps/local/src/modules.ts";
+
+test("Pets is absent by default but retains its opt-in and local integration", () => {
+  expect(cloudModuleCatalog.map((module) => module.id)).toEqual([
+    "emoticons",
+    "chat",
+    "overlay-paint",
+  ]);
+  expect(cloudOverlayPages["/pets/"]).toBeUndefined();
+  expect(getCloudModuleCatalog(true).some((module) => module.id === "streamplace-pets")).toBe(true);
+  expect(getCloudOverlayPages(true)["/pets/"]).toBe("pets.html");
+  expect(modules.some((module) => module.id === "streamplace-pets")).toBe(true);
+});
 
 test("cloud catalog has unique identities and routes with real build entrypoints", () => {
   const ids = cloudModuleCatalog.map((module) => module.id);

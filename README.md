@@ -253,8 +253,9 @@ above for the account pilot.
 The Streamface admin automatically observes the signed-in ATProto account's
 stream.place stream; no separate streamer selection is needed.
 
-The Streamface admin includes Emoticons, Chat, Overlay Paint and Streamplace
-Pets. Pokémon Blue and Crystal remain local-only. The local `bun run overlay`
+The Streamface admin includes Emoticons, Chat and Overlay Paint. Streamplace
+Pets is temporarily excluded from cloud builds pending upstream permission;
+its local integration remains available. Pokémon Blue and Crystal remain local-only. The local `bun run overlay`
 workflow and its existing OBS URLs are unchanged.
 
 Pets attribution and the unresolved upstream redistribution permission are

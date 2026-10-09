@@ -1,5 +1,5 @@
 import { join, resolve, sep } from "node:path";
-import { cloudOverlayPages } from "../../../modules/catalog.ts";
+import { getCloudOverlayPages } from "../../../modules/catalog.ts";
 import { tmpdir } from "node:os";
 import { createOAuth, readSessionCookie, sessionCookie } from "./auth.ts";
 import {
@@ -17,6 +17,7 @@ import { STREAMFACE_NAMESPACE, moduleCollections } from "./module-records.ts";
 
 const defaultWebRoot = resolve(import.meta.dir, "../../web/dist");
 type Dependencies = {
+  enablePets?: boolean;
   origin: string;
   webRoot: string;
   secret: string;
@@ -42,14 +43,14 @@ function routeName(path: string) {
   if (path === "/relay") return "relay";
   return path.startsWith("/api/") ? "api.other" : "static";
 }
-function safeFile(pathname: string, webRoot: string) {
+function safeFile(pathname: string, webRoot: string, enablePets = false) {
   let relative = pathname.startsWith("/admin/")
     ? pathname.slice("/admin/".length)
     : pathname.slice(1);
   const pages: Record<string, string> = {
     "/": "cloud-admin.html",
     "/admin/": "cloud-admin.html",
-    ...cloudOverlayPages,
+    ...getCloudOverlayPages(enablePets),
   };
   relative = pages[pathname] ?? relative;
   try {
@@ -58,6 +59,8 @@ function safeFile(pathname: string, webRoot: string) {
     return;
   }
   if (relative.split("/").includes("..")) return;
+  // Also deny direct/encoded paths to stale Pets artifacts, not just its overlay URL.
+  if (!enablePets && (relative === "pets.html" || relative.split("/").includes("pets"))) return;
   const root = resolve(webRoot);
   const path = resolve(root, relative);
   return path === root || path.startsWith(`${root}${sep}`) ? path : undefined;
@@ -98,7 +101,8 @@ function saveFailure(error: unknown) {
   if (value?.error === "BlobNotFound")
     return {
       error: "pds-blob-missing",
-      message: "An attached media file is no longer available on your PDS. Attach it again and retry saving.",
+      message:
+        "An attached media file is no longer available on your PDS. Attach it again and retry saving.",
     };
   if (
     value?.status === 401 ||
@@ -215,9 +219,19 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
     const did = await readSessionCookie(request, deps.secret);
     if (did && !(await deps.oauth.hasStoredSession(did))) {
       deps.logger.log("warn", "cloud.auth.session-missing", { requestId, route: routeName(path) });
-      return json({ authenticated: false, error: "session-expired", message: "Your sign-in session has expired. Please sign in again. Your saved PDS configuration is unchanged.", requestId }, 401, {
-        "Set-Cookie": `stream_overlay_session=; Path=/; HttpOnly;${deps.origin.startsWith("https:") ? " Secure;" : ""} SameSite=Lax; Max-Age=0`,
-      });
+      return json(
+        {
+          authenticated: false,
+          error: "session-expired",
+          message:
+            "Your sign-in session has expired. Please sign in again. Your saved PDS configuration is unchanged.",
+          requestId,
+        },
+        401,
+        {
+          "Set-Cookie": `stream_overlay_session=; Path=/; HttpOnly;${deps.origin.startsWith("https:") ? " Secure;" : ""} SameSite=Lax; Max-Age=0`,
+        },
+      );
     }
   }
   if (path === "/health") return json({ status: "ok" });
@@ -512,7 +526,7 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
       oauthConfigured: deps.secret.length >= 32,
     });
   if (path === "/") return Response.redirect(new URL("/admin/", url), 302);
-  const filePath = safeFile(path, deps.webRoot);
+  const filePath = safeFile(path, deps.webRoot, deps.enablePets);
   if (filePath) {
     const file = Bun.file(filePath);
     if (await file.exists()) return new Response(file);
@@ -591,6 +605,7 @@ export function createDependencies(env = process.env): Dependencies {
   );
   const oauth = createOAuth(origin, dataDir, scope);
   return {
+    enablePets: env.ENABLE_CLOUD_PETS === "true",
     origin,
     webRoot: env.WEB_DIST ?? resolve(process.cwd(), "apps/web/dist"),
     secret,
@@ -617,6 +632,7 @@ if (import.meta.main) {
     port,
     origin: deps.origin,
     logFile: deps.logger.filePath,
+    petsEnabled: deps.enablePets,
   });
   const server = Bun.serve<SocketData>({
     hostname: "0.0.0.0",

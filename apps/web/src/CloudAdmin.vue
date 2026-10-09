@@ -3,7 +3,7 @@ import BrandWordmark from "./BrandWordmark.vue";
 import { adminFetch } from "./cloud-admin-fetch.ts";
 import BrandMascot from "./BrandMascot.vue";
 import StreamplaceBrand from "./StreamplaceBrand.vue";
-import { cloudModuleCatalog } from "../../../modules/catalog.ts";
+import { getCloudModuleCatalog } from "../../../modules/catalog.ts";
 import type { ModuleManifest as CloudModule } from "../../../packages/overlay-sdk/src/manifest.ts";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { attachActorCombobox } from "./actor-combobox.ts";
@@ -20,6 +20,8 @@ import { moduleSettings } from "../../../packages/protocol/src/cloud-settings.ts
 import type { ChatConfiguration } from "../../../modules/chat/src/config.ts";
 import type { CloudConfig } from "./cloud-admin-types.ts";
 import { useModuleCollection } from "./use-module-collection.ts";
+
+const cloudModuleCatalog = getCloudModuleCatalog(import.meta.env.VITE_ENABLE_CLOUD_PETS === "true");
 
 const sessionState = ref<"loading" | "anonymous" | "authenticated">("loading");
 const loadState = ref<"loading" | "ready" | "error">("loading");
