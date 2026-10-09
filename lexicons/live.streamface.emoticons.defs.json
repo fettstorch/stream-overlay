@@ -1,0 +1,18 @@
+{
+  "lexicon": 1,
+  "id": "live.streamface.emoticons.defs",
+  "defs": {
+    "externalMedia": {
+      "type": "object",
+      "required": ["url"],
+      "properties": { "url": { "type": "string", "format": "uri", "maxLength": 2048 } }
+    },
+    "uploadedMedia": {
+      "type": "object",
+      "required": ["blob"],
+      "properties": {
+        "blob": { "type": "blob", "accept": ["image/*", "video/*", "audio/*"], "maxSize": 10000000 }
+      }
+    }
+  }
+}

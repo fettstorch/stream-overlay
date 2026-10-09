@@ -539,11 +539,11 @@ describe("cloud server boundary", () => {
   test("separates local defaults from deploy configuration and keeps origin aligned with PORT", () => {
     expect(createDependencies({}).origin).toBe("http://127.0.0.1:3010");
     expect(createDependencies({ PORT: "4567" }).origin).toBe("http://127.0.0.1:4567");
-    expect(() =>
+    expect(
       createDependencies({
         PUBLIC_ORIGIN: "https://overlay.example",
         SESSION_SECRET: "test-secret-with-at-least-thirty-two-bytes",
-      }),
-    ).toThrow("LEXICON_NAMESPACE");
+      }).origin,
+    ).toBe("https://overlay.example");
   });
 });

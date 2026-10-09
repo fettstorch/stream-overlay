@@ -214,7 +214,7 @@ OAuth storage:
 bun run --filter @streamface/web build
 PUBLIC_ORIGIN=https://your-host.example \
 SESSION_SECRET='at-least-32-random-bytes' \
-LEXICON_NAMESPACE=com.your-domain.streamface \
+LEXICON_NAMESPACE=live.streamface \
 AUTH_DATA_DIR=runtime/cloud-auth \
 bun run server
 ```
@@ -282,14 +282,16 @@ usage examples, cooldown rings and automatic scrolling.
 Chat uses the original renderer, including author avatars, appearance controls,
 and its 20-second hold/10-second fade. Paint uses the original brush and cursor,
 with transient account-isolated SSE drawing state. Chat appearance, Paint
-appearance and enabled flags persist in the account's PDS settings record;
+appearance and enabled flags persist in the account's module-specific PDS settings records;
 drawings and cooldowns do not. Paint fade delays are stored as integer
 milliseconds. Pets run the upstream browser application directly, with their
 existing external AT Protocol configuration; the upstream submodule is unchanged.
 
 Direct HTTPS media files and PDS blob uploads are supported. Ordinary Giphy page
 URLs are not direct playable media URLs. The checked-in
-`invalid.streamoverlay.dev` Lexicons are development examples only; follow
+`live.streamface` Lexicons define the module records. Legacy `invalid.streamoverlay.dev`
+records remain readable and migrate on the next save without deleting the originals.
+See [the Lexicon and migration guide](lexicons/README.md) and follow
 [the Koyeb deployment notes](infra/koyeb/README.md) before a real pilot.
 
 ## Checks

@@ -1,0 +1,20 @@
+{
+  "lexicon": 1,
+  "id": "live.streamface.pets.settings",
+  "description": "Streamface integration settings only. Upstream Pets owns its own records.",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "literal:self",
+      "record": {
+        "type": "object",
+        "required": ["enabled", "createdAt", "updatedAt"],
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "createdAt": { "type": "string", "format": "datetime" },
+          "updatedAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

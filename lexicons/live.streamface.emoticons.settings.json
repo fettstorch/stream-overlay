@@ -1,0 +1,19 @@
+{
+  "lexicon": 1,
+  "id": "live.streamface.emoticons.settings",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "literal:self",
+      "record": {
+        "type": "object",
+        "required": ["enabled", "createdAt", "updatedAt"],
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "createdAt": { "type": "string", "format": "datetime" },
+          "updatedAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

@@ -1,6 +1,16 @@
 import { Agent, type ComAtprotoRepoApplyWrites } from "@atproto/api";
+import { lexToJson } from "@atproto/lexicon";
 import { createDidResolver, type NodeOAuthClient } from "@atproto/oauth-client-node";
 import { safeError, type StructuredLogger } from "./logger.ts";
+import {
+  LEGACY_NAMESPACE,
+  STREAMFACE_NAMESPACE,
+  moduleCollections,
+  parseModuleRecords,
+  recordRevision,
+  serializeModuleRecords,
+  type StoredRecord,
+} from "./module-records.ts";
 import {
   moduleSettings,
   type CloudModuleSettings,
@@ -25,7 +35,7 @@ export class CloudConfigConflictError extends Error {
   }
 }
 export function collections(namespace: string) {
-  if (!/^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*){2,}$/.test(namespace))
+  if (!/^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*){1,}$/.test(namespace))
     throw new Error("Invalid LEXICON_NAMESPACE");
   return { settings: `${namespace}.settings`, command: `${namespace}.command` };
 }
@@ -131,6 +141,66 @@ export class PdsService {
     this.fetchFn = dependencies.fetch ?? fetch;
     this.agentFactory = dependencies.agent ?? ((session) => new Agent(session));
   }
+  private async readModuleSnapshot(
+    did: string,
+    load: (collection: string, cursor?: string) => Promise<{ records: any[]; cursor?: string }>,
+  ) {
+    const groups = await Promise.all(
+      Object.values(moduleCollections).map(async (collection) =>
+        (await listAllRecords((cursor) => load(collection, cursor))).map(
+          (item) =>
+            ({
+              collection,
+              rkey: item.uri.slice(item.uri.lastIndexOf("/") + 1),
+              value: lexToJson(item.value) as Record<string, any>,
+            }) as StoredRecord,
+        ),
+      ),
+    );
+    const records = groups.flat();
+    if (records.length)
+      return { records, config: parseModuleRecords(did, records), migrated: false };
+    // Public legacy reads need no expanded OAuth permissions. Preserve old records as backup.
+    const service = await this.resolvePdsFn(did);
+    let settings: any;
+    try {
+      settings = await xrpc(this.fetchFn, service, "com.atproto.repo.getRecord", {
+        repo: did,
+        collection: `${LEGACY_NAMESPACE}.settings`,
+        rkey: "self",
+      });
+    } catch (error) {
+      if (error instanceof XrpcResponseError && [400, 404].includes(error.status))
+        return { records, config: undefined, migrated: false };
+      throw error;
+    }
+    const commands = await listAllRecords(
+      async (cursor) =>
+        (await xrpc(this.fetchFn, service, "com.atproto.repo.listRecords", {
+          repo: did,
+          collection: `${LEGACY_NAMESPACE}.command`,
+          limit: "100",
+          ...(cursor ? { cursor } : {}),
+        })) as any,
+    );
+    const config = parseConfig(
+      settings.value,
+      commands.map((item) => item.value),
+      LEGACY_NAMESPACE,
+    );
+    if (!config) throw new Error("Invalid legacy PDS configuration");
+    const legacyRecords: StoredRecord[] = [
+      { collection: `${LEGACY_NAMESPACE}.settings`, rkey: "self", value: settings.value },
+      ...commands.map((item) => ({
+        collection: `${LEGACY_NAMESPACE}.command`,
+        rkey: item.uri.slice(item.uri.lastIndexOf("/") + 1),
+        value: item.value,
+      })),
+    ];
+    config.streamerDid = did;
+    config.revision = recordRevision(legacyRecords);
+    return { records, config, migrated: true };
+  }
   async publicConfig(did: string, force = false) {
     this.cleanup();
     const cached = this.cache.get(did);
@@ -143,6 +213,24 @@ export class PdsService {
       return cached.config;
     try {
       const service = await this.resolvePdsFn(did);
+      if (this.namespace === STREAMFACE_NAMESPACE) {
+        const snapshot = await this.readModuleSnapshot(
+          did,
+          async (collection, cursor) =>
+            (await xrpc(this.fetchFn, service, "com.atproto.repo.listRecords", {
+              repo: did,
+              collection,
+              limit: "100",
+              ...(cursor ? { cursor } : {}),
+            })) as any,
+        );
+        if (!snapshot.config) throw new CloudConfigMissingError("Cloud configuration not found");
+        for (const command of snapshot.config.commands)
+          for (const media of [command.image, command.audio, command.video])
+            if (media?.blob) media.url = blobUrl(service, did, media.blob);
+        this.remember(did, snapshot.config);
+        return snapshot.config;
+      }
       const c = collections(this.namespace);
       const [settings, commandRecords] = await Promise.all([
         xrpc(this.fetchFn, service, "com.atproto.repo.getRecord", {
@@ -215,6 +303,8 @@ export class PdsService {
       throw error;
     }
     const agent = this.agentFactory(session);
+    if (this.namespace === STREAMFACE_NAMESPACE)
+      return this.saveModules(did, config, agent, diagnostics);
     const c = collections(this.namespace);
     const [latest, settings, existing] = await Promise.all([
       agent.com.atproto.sync.getLatestCommit({ did }),
@@ -344,6 +434,82 @@ export class PdsService {
     }
     this.remember(did, hydrated);
     return hydrated;
+  }
+  private async saveModules(
+    did: string,
+    config: CloudConfig,
+    agent: AgentLike,
+    diagnostics?: Diagnostics,
+  ) {
+    const context = { requestId: diagnostics?.requestId };
+    diagnostics?.logger.log("info", "cloud.pds.module-save-started", context);
+    try {
+      const latest = await agent.com.atproto.sync.getLatestCommit({ did });
+      const snapshot = await this.readModuleSnapshot(
+        did,
+        async (collection, cursor) =>
+          (await agent.com.atproto.repo.listRecords({ repo: did, collection, limit: 100, cursor }))
+            .data,
+      );
+      if (config.revision !== (snapshot.config?.revision ?? "new")) {
+        diagnostics?.logger.log("warn", "cloud.pds.save-conflict", context);
+        throw new CloudConfigConflictError();
+      }
+      const latestTime = Math.max(
+        0,
+        ...snapshot.records.map((record) => Date.parse(record.value.updatedAt) || 0),
+      );
+      const updatedAt = new Date(Math.max(Date.now(), latestTime + 1)).toISOString();
+      const records = serializeModuleRecords(
+        { ...config, streamerDid: did },
+        snapshot.records,
+        updatedAt,
+      );
+      const service = await this.resolvePdsFn(did);
+      const identity = (record: StoredRecord) => `${record.collection}/${record.rkey}`;
+      const existing = new Set(snapshot.records.map(identity)),
+        wanted = new Set(records.map(identity));
+      const writes: ComAtprotoRepoApplyWrites.InputSchema["writes"] = records.map((record) => ({
+        $type: existing.has(identity(record))
+          ? "com.atproto.repo.applyWrites#update"
+          : "com.atproto.repo.applyWrites#create",
+        collection: record.collection,
+        rkey: record.rkey,
+        value: record.value,
+      }));
+      for (const record of snapshot.records)
+        if (!wanted.has(identity(record)))
+          writes.push({
+            $type: "com.atproto.repo.applyWrites#delete",
+            collection: record.collection,
+            rkey: record.rkey,
+          });
+      if (writes.length > 200) throw new Error("Too many record writes");
+      // Local SDK validation is mandatory; PDS-side resolution needs published DNS/lexicons.
+      await agent.com.atproto.repo.applyWrites({
+        repo: did,
+        swapCommit: latest.data.cid,
+        validate: false,
+        writes,
+      });
+      const saved = parseModuleRecords(did, records);
+      for (const command of saved.commands)
+        for (const media of [command.image, command.audio, command.video])
+          if (media?.blob) media.url = blobUrl(service, did, media.blob);
+      this.remember(did, saved);
+      diagnostics?.logger.log("info", "cloud.pds.module-save-completed", {
+        ...context,
+        writes: writes.length,
+        migrated: snapshot.migrated,
+      });
+      return saved;
+    } catch (error) {
+      diagnostics?.logger.log("error", "cloud.pds.module-save-failed", {
+        ...context,
+        ...safeError(error),
+      });
+      throw error;
+    }
   }
   async upload(did: string, bytes: Uint8Array, type: string, diagnostics?: Diagnostics) {
     const normalized = normalizeMediaType(type);

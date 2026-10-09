@@ -4,6 +4,7 @@ COPY package.json bun.lock tsconfig.json ./
 COPY apps ./apps
 COPY modules ./modules
 COPY packages ./packages
+COPY lexicons ./lexicons
 COPY streamplace-pets ./streamplace-pets
 RUN bun install --frozen-lockfile && bun run --filter @streamface/web build && bun build apps/server/src/server.ts --target bun --outdir dist/server
 

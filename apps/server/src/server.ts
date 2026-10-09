@@ -13,6 +13,7 @@ import { Relay } from "./realtime.ts";
 import { safeError, StructuredLogger } from "./logger.ts";
 import { CloudPaint } from "./cloud-paint.ts";
 import { getStreamDimensions } from "../../../packages/stream-chat/src/stream-dimensions.ts";
+import { STREAMFACE_NAMESPACE, moduleCollections } from "./module-records.ts";
 
 const defaultWebRoot = resolve(import.meta.dir, "../../web/dist");
 type Dependencies = {
@@ -489,7 +490,9 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
   if (path === "/api/meta")
     return json({
       namespace: Object.values(
-        collections(process.env.LEXICON_NAMESPACE ?? "invalid.streamoverlay.dev"),
+        process.env.LEXICON_NAMESPACE && process.env.LEXICON_NAMESPACE !== STREAMFACE_NAMESPACE
+          ? collections(process.env.LEXICON_NAMESPACE)
+          : moduleCollections,
       ),
       oauthConfigured: deps.secret.length >= 32,
     });
@@ -551,7 +554,7 @@ export function createDependencies(env = process.env): Dependencies {
   if (parsedOrigin.protocol !== "https:" && !local)
     throw new Error("PUBLIC_ORIGIN must use HTTPS outside local development");
   const dataDir = env.AUTH_DATA_DIR ?? resolve(import.meta.dir, "../../../runtime/cloud-auth");
-  const namespace = env.LEXICON_NAMESPACE ?? "invalid.streamoverlay.dev";
+  const namespace = env.LEXICON_NAMESPACE ?? STREAMFACE_NAMESPACE;
   const secret = env.SESSION_SECRET ?? "development-only-secret-change-me-000000";
   if (
     !local &&
@@ -560,7 +563,11 @@ export function createDependencies(env = process.env): Dependencies {
     throw new Error("SESSION_SECRET must contain at least 32 bytes");
   if (!local && namespace === "invalid.streamoverlay.dev")
     throw new Error("LEXICON_NAMESPACE must be configured for deployment");
-  const scope = `atproto repo:${namespace}.settings repo:${namespace}.command blob:image/* blob:audio/* blob:video/*`;
+  const scope = `atproto ${Object.values(
+    namespace === STREAMFACE_NAMESPACE ? moduleCollections : collections(namespace),
+  )
+    .map((collection) => `repo:${collection}`)
+    .join(" ")} blob:image/* blob:audio/* blob:video/*`;
   const logger = new StructuredLogger(
     env.CLOUD_LOG_FILE ??
       (local && env.NODE_ENV !== "production"

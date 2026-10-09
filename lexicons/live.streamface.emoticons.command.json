@@ -1,0 +1,66 @@
+{
+  "lexicon": 1,
+  "id": "live.streamface.emoticons.command",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "any",
+      "record": {
+        "type": "object",
+        "required": [
+          "command",
+          "mode",
+          "durationMilliseconds",
+          "cooldownMilliseconds",
+          "volumePercent",
+          "width",
+          "height",
+          "mirrored",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "command": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40,
+            "description": "Lowercase invocation name without the leading !."
+          },
+          "mode": { "type": "string", "enum": ["effect", "sticker"] },
+          "image": {
+            "type": "union",
+            "refs": [
+              "live.streamface.emoticons.defs#externalMedia",
+              "live.streamface.emoticons.defs#uploadedMedia"
+            ],
+            "closed": true
+          },
+          "audio": {
+            "type": "union",
+            "refs": [
+              "live.streamface.emoticons.defs#externalMedia",
+              "live.streamface.emoticons.defs#uploadedMedia"
+            ],
+            "closed": true
+          },
+          "video": {
+            "type": "union",
+            "refs": [
+              "live.streamface.emoticons.defs#externalMedia",
+              "live.streamface.emoticons.defs#uploadedMedia"
+            ],
+            "closed": true
+          },
+          "durationMilliseconds": { "type": "integer", "minimum": 1, "maximum": 3600000 },
+          "cooldownMilliseconds": { "type": "integer", "minimum": 0, "maximum": 86400000 },
+          "volumePercent": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "width": { "type": "string", "maxLength": 64 },
+          "height": { "type": "string", "maxLength": 64 },
+          "mirrored": { "type": "boolean" },
+          "createdAt": { "type": "string", "format": "datetime" },
+          "updatedAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

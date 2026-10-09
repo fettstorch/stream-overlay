@@ -1,0 +1,21 @@
+{
+  "lexicon": 1,
+  "id": "live.streamface.paint.settings",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "literal:self",
+      "record": {
+        "type": "object",
+        "required": ["enabled", "color", "decayMilliseconds", "createdAt", "updatedAt"],
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "color": { "type": "string", "minLength": 7, "maxLength": 7 },
+          "decayMilliseconds": { "type": "integer", "minimum": 100, "maximum": 60000 },
+          "createdAt": { "type": "string", "format": "datetime" },
+          "updatedAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

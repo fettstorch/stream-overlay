@@ -10,16 +10,16 @@ Required secrets/settings:
 
 - `PUBLIC_ORIGIN`: final HTTPS origin, with no trailing slash.
 - `SESSION_SECRET`: at least 32 random bytes, held only in Koyeb secrets.
-- `LEXICON_NAMESPACE`: reverse-DNS namespace backed by a domain you control and whose
-  schemas you have published. Rename the checked-in development schemas accordingly.
+- `LEXICON_NAMESPACE=live.streamface` (the default): the module schemas in `lexicons/`.
+  Follow `lexicons/README.md` for publication and migration details.
 - `AUTH_DATA_DIR=/data/auth` and `PORT=8000`.
 
 The server refuses a non-HTTPS external origin, the checked-in development
 namespace, or the development session secret. Local loopback HTTP is accepted only
 by the local Compose/direct-development workflows; do not reuse that configuration
 in Koyeb. `compose.local.yml` builds this exact Dockerfile, but intentionally differs
-from hosting in its loopback HTTP origin, development credentials/namespace, local
-Docker network/resource limits, and named OrbStack volume.
+from hosting in its loopback HTTP origin, development credentials, local
+Docker network/resource limits, and named OrbStack volume. Both use `live.streamface`.
 
 The service accepts only direct HTTPS media URLs in records and PDS blob references.
 Provider page URLs such as normal Giphy pages are not playable media URLs; use a direct

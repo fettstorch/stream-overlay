@@ -27,6 +27,7 @@
       "dependencies": {
         "@atproto/api": "^0.24.3",
         "@atproto/jwk-jose": "^0.2.4",
+        "@atproto/lexicon": "^0.7.16",
         "@atproto/oauth-client-node": "0.5.9",
         "@streamface/protocol": "workspace:*",
       },
