@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { cloudIdleTimeout, createDependencies, handleRequest } from "../src/server.ts";
+import { cloudIdleTimeout, cloudWebSocketKeepalive, createDependencies, handleRequest } from "../src/server.ts";
 import { sessionCookie } from "../src/auth.ts";
 import { CloudConfigMissingError } from "../src/pds.ts";
 import { StructuredLogger } from "../src/logger.ts";
@@ -23,6 +23,10 @@ function webRoot() {
 }
 
 describe("cloud server boundary", () => {
+  test("disables HTTP/SSE and WebSocket idle deadlines while retaining automatic pings", () => {
+    expect(cloudIdleTimeout).toBe(0);
+    expect(cloudWebSocketKeepalive).toEqual({ idleTimeout: 0, sendPings: true });
+  });
   test("keeps the real paint SSE transport open until its 15-second heartbeat", async () => {
     const deps = dependencies(webRoot());
     (deps as any).pds = { publicConfig: async () => ({ enabled: true, streamerDid: "did:plc:alice", commands: [], revision: "1" }) };

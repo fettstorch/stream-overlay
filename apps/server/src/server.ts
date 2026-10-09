@@ -127,15 +127,17 @@ export function createDependencies(env = process.env): Dependencies {
   const logger = new StructuredLogger(env.CLOUD_LOG_FILE ?? (local && env.NODE_ENV !== "production" ? join(tmpdir(), "stream-overlay", "cloud.log") : undefined)); const oauth = createOAuth(origin, dataDir, scope); return { origin, webRoot: env.WEB_DIST ?? resolve(process.cwd(), "apps/web/dist"), secret, oauth, pds: new PdsService(oauth, namespace), relay: new Relay(() => Date.now(), 3_600_000, 12, logger), paint: new CloudPaint(logger), logger };
 }
 
-// Paint emits a keepalive every 15 seconds; Bun's shorter default closes idle SSE.
-export const cloudIdleTimeout = 30;
+// OBS connections must survive quiet streams and delayed heartbeats. Zero disables
+// Bun's HTTP/SSE and WebSocket idle deadlines; application cleanup remains bounded.
+export const cloudIdleTimeout = 0;
+export const cloudWebSocketKeepalive = { idleTimeout: cloudIdleTimeout, sendPings: true } as const;
 
 if (import.meta.main) {
   const deps = createDependencies(); const port = Number(process.env.PORT ?? 3010);
   deps.logger.log("info", "cloud.server.starting", { port, origin: deps.origin, logFile: deps.logger.filePath });
   const server = Bun.serve<SocketData>({ hostname: "0.0.0.0", port, idleTimeout: cloudIdleTimeout,
     fetch(request, server) { const url = new URL(request.url); if (url.pathname === "/relay") { if (!sameOrigin(request, deps.origin)) return new Response("Forbidden", { status: 403 }); if (server.upgrade(request, { data: {} })) return; } return handleRequest(request, deps); },
-    websocket: { open(socket) { socket.data.peer = deps.relay.open(socket); }, message(socket, message) { deps.relay.message(socket.data.peer!, String(message)); }, close(socket) { if (socket.data.peer) deps.relay.close(socket.data.peer); } },
+    websocket: { ...cloudWebSocketKeepalive, open(socket) { socket.data.peer = deps.relay.open(socket); }, message(socket, message) { deps.relay.message(socket.data.peer!, String(message)); }, close(socket) { if (socket.data.peer) deps.relay.close(socket.data.peer); } },
   });
   const cleanup = setInterval(() => { deps.relay.cleanup(); deps.paint.cleanup(); }, 60_000); const shutdown = () => { clearInterval(cleanup); server.stop(true); };
   process.once("SIGTERM", shutdown); process.once("SIGINT", shutdown); console.log(`Stream Overlay server listening on ${server.hostname}:${server.port}`);
