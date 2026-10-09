@@ -4,6 +4,18 @@ import mask from "./assets/branding/mask.png";
 </script>
 
 <template>
+  <svg class="wordmark-filters" aria-hidden="true" focusable="false">
+    <defs>
+      <filter id="streamface-ink-wordmark" x="-5%" y="-20%" width="110%" height="140%" color-interpolation-filters="sRGB">
+        <feMorphology in="SourceAlpha" operator="dilate" radius="3" result="outline" />
+        <feFlood flood-color="black" />
+        <feComposite in2="outline" operator="in" result="ink" />
+        <feFlood flood-color="white" />
+        <feComposite in2="SourceAlpha" operator="in" result="letters" />
+        <feMerge><feMergeNode in="ink" /><feMergeNode in="letters" /></feMerge>
+      </filter>
+    </defs>
+  </svg>
   <h1 class="brand-heading">
     <span class="wordmark">
       <img class="wordmark-image" :src="wordmark" alt="streamface" />
@@ -14,6 +26,12 @@ import mask from "./assets/branding/mask.png";
 </template>
 
 <style scoped>
+.wordmark-filters {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
 .brand-heading {
   display: flex;
   align-items: center;
@@ -31,6 +49,7 @@ import mask from "./assets/branding/mask.png";
   display: block;
   width: 100%;
   height: auto;
+  filter: url(#streamface-ink-wordmark);
 }
 .wordmark-mask {
   position: absolute;
