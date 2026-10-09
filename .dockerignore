@@ -1,0 +1,15 @@
+.git
+**/.git
+.agents
+.codex
+node_modules
+**/node_modules
+dist
+**/dist
+runtime
+specs
+.env*
+**/.env*
+**/*.log
+**/*prod*
+**/*production*

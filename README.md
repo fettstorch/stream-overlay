@@ -189,7 +189,7 @@ The small **Reset pet counts** button asks for confirmation, then clears all
 Pokémon/streamer counts in memory and removes the counter file. It does not
 touch game data or settings. The next new pet starts a fresh saved counter.
 
-## Cloud Emoticons pilot
+## Cloud overlays
 
 The cloud app is separate from the local `bun run overlay` workflow and does not
 change its OBS URLs. Build the web app, then run the cloud server with its final
@@ -236,7 +236,36 @@ OAuth consent flow still depends on an AT Protocol provider accepting the loopba
 client metadata and development Lexicons; use the HTTPS deployment configuration
 above for the account pilot.
 
-The public OBS URLs are `/effect/?did=did:...` and `/board/?did=did:...`.
+The cloud control room includes Emoticons, Chat, Overlay Paint and Streamplace
+Pets. Pokémon Blue and Crystal remain local-only. The local `bun run overlay`
+workflow and its existing OBS URLs are unchanged.
+
+Cloud OBS sources use your account DID in `?did=`:
+
+| Source | Path |
+| --- | --- |
+| Emoticon effects | `/effect/` |
+| Emoticon command listing | `/board/` |
+| Chat | `/chat/` |
+| Overlay Paint | `/paint/` |
+| Streamplace Pets | `/pets/` |
+
+All modules share the stream selected in the control room. Stream dimensions
+are detected from Stream.place, with a 1920 × 1080 fallback and OBS setup
+instructions. Each module supports pinning, collapsing, search and an inline
+preview. Emoticons previews are muted and use a separate cooldown channel;
+Test dispatches to both the live source and the preview. Author avatars and
+test placeholders appear with effects. The command listing keeps thumbnails,
+usage examples, cooldown rings and automatic scrolling.
+
+Chat uses the original renderer, including author avatars, appearance controls,
+and its 20-second hold/10-second fade. Paint uses the original brush and cursor,
+with transient account-isolated SSE drawing state. Chat appearance, Paint
+appearance and enabled flags persist in the account's PDS settings record;
+drawings and cooldowns do not. Paint fade delays are stored as integer
+milliseconds. Pets run the upstream browser application directly, with their
+existing external AT Protocol configuration; the upstream submodule is unchanged.
+
 Direct HTTPS media files and PDS blob uploads are supported. Ordinary Giphy page
 URLs are not direct playable media URLs. The checked-in
 `invalid.streamoverlay.dev` Lexicons are development examples only; follow
