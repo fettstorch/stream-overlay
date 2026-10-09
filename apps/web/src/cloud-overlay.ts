@@ -23,5 +23,13 @@ function nextRevision() { revision = Math.max(revision + 1, Date.now()); return 
 const runtime = boardMode ? undefined : new EmoticonRuntime({ effect: play, cooldowns: state => { cooldowns = state; relay.send({ type: "cooldowns", revision: nextRevision(), cooldowns: state }); } });
 const chat = boardMode ? undefined : new DirectStreamChatService(); chat?.messages.subscribe(message => runtime?.message(message.id, message.text, message.author));
 async function refresh(force = false) { const response = await fetch(`/api/accounts/${encodeURIComponent(did)}/config${force ? "?refresh=1" : ""}`, { cache: "no-store" }); if (!response.ok) return; const cloud = await response.json() as any; const commands: EmoticonCommand[] = cloud.commands.map((command:any) => ({ ...command, imageAssetId: null, audioAssetId: null, videoAssetId: null, imageUrl: command.image?.url, audioUrl: command.audio?.url, videoUrl: command.video?.url })); config = { enabled: cloud.enabled, commands, assets: [], cooldowns }; runtime?.configure(config); chat?.setStreamerDid(cloud.streamerDid); renderBoard(); }
-const relay = new RelayClient(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/relay`, { type: "hello", did, page: boardMode ? "board" : "effect", channel }, message => { if (message.type === "snapshot" && boardMode && message.revision >= revision) { revision = message.revision; cooldowns = message.cooldowns; renderBoard(); } if (message.type === "config-changed") void refresh(true); }, () => { if (!boardMode) relay.send({ type: "cooldowns", revision: nextRevision(), cooldowns }); });
+const relay = new RelayClient(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/relay`, { type: "hello", did, page: boardMode ? "board" : "effect", channel }, message => {
+  if (message.type === "snapshot" && boardMode && message.revision >= revision) { revision = message.revision; cooldowns = message.cooldowns; renderBoard(); }
+  if (message.type === "config-changed") void refresh(true);
+  // Tests use the same browser-owned runtime and cooldowns as chat commands.
+  if (message.type === "test-command" && runtime) {
+    const accepted = runtime.trigger(message.commandId);
+    console.info("emoticons.test-command", { requestId: message.requestId, commandId: message.commandId, accepted });
+  }
+}, () => { if (!boardMode) relay.send({ type: "cooldowns", revision: nextRevision(), cooldowns }); });
 void refresh(); const poll = setInterval(() => void refresh(true), 60_000); addEventListener("pagehide", () => { clearInterval(poll); relay.close(); chat?.stop(); runtime?.clear(); });

@@ -17,6 +17,15 @@ function response(body: unknown, status = 200) { return new Response(JSON.string
 function mediaDrag(type: string, name = "drop.gif") { const event = new Event(type, { bubbles: true, cancelable: true }); Object.defineProperty(event, "dataTransfer", { value: { types: ["Files"], files: [new File(["GIF8"], name)], dropEffect: "none" } }); return event; }
 
 describe("Cloud Admin", () => {
+  test("tests a saved command through its authenticated account endpoint and preserves editing controls", async () => {
+    const fetchMock = vi.fn(async () => response({ delivered: 1, message: "Test sent to connected effect sources." }));
+    vi.stubGlobal("fetch", fetchMock);
+    const wrapper = mount(CloudEmoticonControls, { props: { did: session.did, config, save: vi.fn(async () => true) } });
+    expect(wrapper.findAll(".command-list button").map(button => button.text())).toEqual(["Test", "Edit", "Delete"]);
+    await wrapper.get(".command-list button").trigger("click"); await flushPromises();
+    expect(fetchMock).toHaveBeenCalledWith("/api/accounts/did%3Aplc%3Aalice/test/wave", { method: "POST" });
+    expect(wrapper.text()).toContain("Test sent to connected effect sources."); wrapper.unmount();
+  });
   test("presents anonymous sign-in as an ATProto account with accessible handle search", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => response({ authenticated: false }, 401)));
     const wrapper = mount(CloudAdmin, { attachTo: document.body }); await flushPromises();
@@ -61,7 +70,7 @@ describe("Cloud Admin", () => {
     const save = vi.fn(async () => true), stored = { $type: "blob", ref: { $link: "bafyblob" }, mimeType: "image/gif", size: 4 };
     const command = { ...config.commands[0], image: { blob: stored, url: "https://pds.example/xrpc/blob" } };
     const wrapper = mount(CloudEmoticonControls, { props: { did: session.did, config: { ...config, commands: [command] }, save } });
-    await wrapper.get(".command-list button").trigger("click"); await wrapper.get("form").trigger("submit"); await flushPromises();
+    await wrapper.get(".command-list button:nth-of-type(2)").trigger("click"); await wrapper.get("form").trigger("submit"); await flushPromises();
     const candidate = save.mock.calls[0][0]; expect(candidate.commands[0].image).toEqual({ blob: stored }); wrapper.unmount();
   });
 

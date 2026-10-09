@@ -55,6 +55,24 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
   if (path === "/oauth/callback") { deps.logger.log("info", "cloud.oauth.callback-started", { requestId }); try { const { session } = await deps.oauth.callback(url.searchParams); const cookie = await sessionCookie(session.did, deps.secret); deps.logger.log("info", "cloud.oauth.callback-completed", { requestId }); return new Response(null, { status: 302, headers: { Location: "/admin/", "Set-Cookie": `stream_overlay_session=${cookie}; Path=/; HttpOnly;${deps.origin.startsWith("https:") ? " Secure;" : ""} SameSite=Lax; Max-Age=604800` } }); } catch (error) { deps.logger.log("error", "cloud.oauth.callback-failed", { requestId, ...safeError(error) }); return Response.redirect(new URL("/admin/?error=oauth-callback-failed", url), 302); } }
   if (path === "/oauth/logout" && request.method === "POST") { if (!sameOrigin(request, deps.origin)) return json({ error: "invalid-origin" }, 403); return new Response(null, { status: 204, headers: { "Set-Cookie": `stream_overlay_session=; Path=/; HttpOnly;${deps.origin.startsWith("https:") ? " Secure;" : ""} SameSite=Lax; Max-Age=0` } }); }
   if (path === "/api/session") { const did = await readSessionCookie(request, deps.secret); return did ? json({ did }) : json({ authenticated: false }, 401); }
+  const testDid = didFromPath(path, "test/[^/]+");
+  if (testDid && request.method === "POST") {
+    if (!sameOrigin(request, deps.origin) || await readSessionCookie(request, deps.secret) !== testDid) {
+      deps.logger.log("warn", "cloud.command.test-rejected", { requestId, reason: "forbidden" });
+      return json({ message: "Sign in to test your commands from the admin page.", requestId }, 403);
+    }
+    try {
+      const commandId = decodeURIComponent(path.slice(path.lastIndexOf("/") + 1));
+      const config = await deps.pds.publicConfig(testDid);
+      if (!config.commands.some(command => command.id === commandId)) return json({ message: "This command no longer exists. Reload the configuration.", requestId }, 404);
+      if (!config.enabled) return json({ message: "Enable Emoticons before testing commands.", requestId }, 409);
+      const delivered = deps.relay.testCommand(testDid, commandId, requestId);
+      return json({ delivered, message: delivered ? "Test sent to connected effect sources. Playback follows their queue and cooldown rules." : "No effect source is connected. Open your Emoticons effects OBS URL first.", requestId });
+    } catch (error) {
+      deps.logger.log("error", "cloud.command.test-failed", { requestId, ...safeError(error) });
+      return json({ message: "Could not test the command. Try again.", requestId }, 502);
+    }
+  }
   const configDid = didFromPath(path, "config");
   if (configDid && request.method === "GET") { try { return json(await deps.pds.publicConfig(configDid, url.searchParams.get("refresh") === "1")); } catch (error) { return error instanceof CloudConfigMissingError ? json({ error: "configuration-not-found" }, 404) : json({ error: "configuration-unavailable" }, 502); } }
   if (configDid && request.method === "PUT") { if (!sameOrigin(request, deps.origin)) { deps.logger.log("warn", "cloud.config.origin-rejected", { requestId }); return json({ error: "invalid-origin", message: "Open the admin from the same origin shown in its OAuth metadata." }, 403); } const authDid = await readSessionCookie(request, deps.secret); if (authDid !== configDid) { deps.logger.log("warn", "cloud.config.auth-rejected", { requestId }); return json({ error: "forbidden", message: "Sign in again before saving." }, 403); } try { const body = await request.json() as CloudConfig; if (!body || !Array.isArray(body.commands) || body.commands.length > 100 || typeof body.streamerDid !== "string" || !/^did:[a-z0-9]+:[A-Za-z0-9._:%-]+$/.test(body.streamerDid)) return json({ error: "invalid-configuration", message: "The configuration contains invalid values." }, 400); const saved = await deps.pds.save(configDid, body, { logger: deps.logger, requestId }); deps.relay.configChanged(configDid, saved.revision); return json(saved); } catch (error) { deps.logger.log("error", "cloud.config.failed", { requestId, ...safeError(error) }); return json({ ...saveFailure(error), requestId }, 400); } }

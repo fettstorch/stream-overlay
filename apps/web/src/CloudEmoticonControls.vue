@@ -20,6 +20,16 @@ function clearPreview(kind: MediaKind) { const preview = previewUrls.value[kind]
 function removeMedia(kind: MediaKind) { clearPreview(kind); delete pending.value[kind]; }
 function reset() { formOpen.value = false; editing.value = null; form.value = defaults(); pending.value = {}; mediaUrlInput.value = ""; unresolvedUrl.value = ""; for (const kind of kinds) clearPreview(kind); }
 function create() { reset(); formOpen.value = true; message.value = ""; }
+async function test(command: CloudCommand) {
+  busy.value = true;
+  try {
+    const response = await fetch(`/api/accounts/${encodeURIComponent(props.did)}/test/${encodeURIComponent(command.id)}`, { method: "POST" });
+    const detail = await response.json() as { message?: string; requestId?: string };
+    message.value = detail.message ?? "Could not test the command.";
+    if (!response.ok && detail.requestId) message.value += ` Reference: ${detail.requestId}`;
+  } catch { message.value = "The test could not reach the server."; }
+  finally { busy.value = false; }
+}
 function edit(command: CloudCommand) { reset(); formOpen.value = true; editing.value = command.id; form.value = { ...command }; for (const kind of kinds) { const media = command[kind]; if (!media) continue; pending.value[kind] = media.blob ? { blob: media.blob } : { url: media.url }; if (media.blob && media.url) previewUrls.value[kind] = media.url; } message.value = ""; }
 function changeMode() { if (form.value.mode === "sticker") removeMedia("audio"); if (!pending.value.video && !pending.value.audio) form.value.durationSeconds = form.value.mode === "sticker" ? 8 : 5; }
 const mediaTypes: Record<string, { kind: MediaKind; type: string }> = {
@@ -78,7 +88,7 @@ defineExpose({ acceptCardDrop });
 <template>
   <section class="emoticon-controls">
     <h4>Emoticon commands</h4><p>Effect source: match your OBS canvas. Board source: start at 420 × 600 px, then size independently. Both disappear when disabled.</p>
-    <details v-for="group in groups" :key="group.title" class="command-group" open><summary>{{ group.title }} <span>({{ group.commands.length }})</span></summary><p v-if="!group.commands.length" class="empty-copy">No commands yet</p><ul class="command-list"><li v-for="command in group.commands" :key="command.id"><strong>!{{ command.command }}</strong><span>{{ command.mode === 'sticker' ? 'Sticker' : `${command.durationSeconds}s clip` }}</span><button type="button" @click="edit(command)">Edit</button><button type="button" class="danger-button" @click="remove(command)">Delete</button></li></ul></details>
+    <details v-for="group in groups" :key="group.title" class="command-group" open><summary>{{ group.title }} <span>({{ group.commands.length }})</span></summary><p v-if="!group.commands.length" class="empty-copy">No commands yet</p><ul class="command-list"><li v-for="command in group.commands" :key="command.id"><strong>!{{ command.command }}</strong><span>{{ command.mode === 'sticker' ? 'Sticker' : `${command.durationSeconds}s clip` }}</span><button type="button" :disabled="busy" @click="test(command)">Test</button><button type="button" @click="edit(command)">Edit</button><button type="button" class="danger-button" @click="remove(command)">Delete</button></li></ul></details>
     <div v-if="!formOpen"><button class="primary-button" type="button" @click="create">Create command</button></div>
     <form v-if="formOpen" class="command-editor" @submit.prevent="save">
       <div class="editor-heading"><h4>{{ editing ? 'Edit command' : 'Create command' }}</h4><button type="button" class="secondary-button" @click="reset">Close</button></div>

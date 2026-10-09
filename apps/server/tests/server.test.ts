@@ -30,6 +30,28 @@ describe("cloud server boundary", () => {
     expect(await response.json()).toEqual({ status: "ok" });
   });
 
+  test("authenticates command tests, validates configuration, and reports disconnected sources", async () => {
+    const deps = dependencies(webRoot()), did = "did:plc:alice";
+    let enabled = true, reads = 0;
+    (deps as any).pds = { publicConfig: async () => { reads++; return { enabled, commands: [{ id: "wave" }] }; } };
+    const url = `${deps.origin}/api/accounts/${encodeURIComponent(did)}/test/wave`;
+    const headers = { origin: deps.origin, cookie: `stream_overlay_session=${await sessionCookie(did, deps.secret)}` };
+    expect((await handleRequest(new Request(url, { method: "POST", headers: { origin: deps.origin } }), deps)).status).toBe(403);
+    expect((await handleRequest(new Request(url, { method: "POST", headers: { ...headers, origin: "https://evil.example" } }), deps)).status).toBe(403);
+    expect(reads).toBe(0);
+    const disconnected = await handleRequest(new Request(url, { method: "POST", headers }), deps);
+    expect(await disconnected.json()).toMatchObject({ delivered: 0, message: expect.stringContaining("No effect source") });
+    const sent: string[] = [];
+    deps.relay.message(deps.relay.open({ send: (value: string) => { sent.push(value); return 1; } } as any), JSON.stringify({ type: "hello", did, page: "effect", channel: "live" }));
+    const connected = await handleRequest(new Request(url, { method: "POST", headers }), deps);
+    expect(await connected.json()).toMatchObject({ delivered: 1 });
+    expect(JSON.parse(sent.at(-1)!)).toMatchObject({ type: "test-command", commandId: "wave", requestId: connected.headers.get("x-request-id") });
+    expect((await handleRequest(new Request(url.replace("/wave", "/missing"), { method: "POST", headers }), deps)).status).toBe(404);
+    enabled = false;
+    expect((await handleRequest(new Request(url, { method: "POST", headers }), deps)).status).toBe(409);
+    expect(sent).toHaveLength(2);
+  });
+
   test("serves the built web application under its stable admin path", async () => {
     const root = webRoot();
     const index = await handleRequest(new Request("http://localhost/admin/"), dependencies(root));
