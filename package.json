@@ -22,7 +22,7 @@
     "admin:dev": "bun run --filter @streamface/web dev -- --host 127.0.0.1 --port 3003",
     "server": "bun --no-orphans apps/server/src/server.ts",
     "cloud": "docker compose -f infra/koyeb/compose.local.yml up --build",
-    "cloud:deploy": "bunx bun@1.4.2 scripts/deploy-cloud.ts",
+    "deploy": "bunx bun@1.4.2 scripts/deploy-cloud.ts",
     "cloud:dev": "bunx bun@1.4.2 run --filter @streamface/web build && PORT=${PORT:-3010} bunx bun@1.4.2 --no-orphans apps/server/src/server.ts",
     "test": "bun test && bun run --filter @streamface/web test && bun run --filter @streamface/pokemon-ui test && bun run --filter @streamface/overlay-paint test && bun run --filter @streamface/pokemon-blue test && bun run --filter @streamface/chat test",
     "typecheck": "bun run --filter @streamface/local typecheck && bun run --filter @streamface/web typecheck && bun run --filter @streamface/server typecheck && bun run --filter @streamface/pokemon-ui typecheck && bun run --filter @streamface/pokemon-blue typecheck && bun run --filter @streamface/pokemon-crystal typecheck && bun run --filter @streamface/overlay-paint typecheck && bun run --filter @streamface/chat typecheck && bun run --filter @streamface/emoticons typecheck",

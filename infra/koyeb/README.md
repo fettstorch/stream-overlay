@@ -9,7 +9,7 @@ secret in the console. No GitHub integration or Git push is required.
 Preview the deployment:
 
 ```sh
-bun run cloud:deploy
+bun run deploy
 ```
 
 This only stages source in a temporary directory and prints the deployment
@@ -22,7 +22,7 @@ Only the required workspace source roots and build files are packaged.
 When ready, run the same command with `--execute` yourself:
 
 ```sh
-bun run cloud:deploy --execute
+bun run deploy --execute
 ```
 
 This uploads the staged source and creates or updates `streamface/web` using

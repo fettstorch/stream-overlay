@@ -144,7 +144,7 @@ if (import.meta.main) {
     const values = deploymentOptions(Bun.argv.slice(2));
     if (values.help) {
       console.log(
-        "Usage: bun run cloud:deploy [--execute]\nDefault: local staging and command preview only. --execute uploads source and creates/updates the service.\nOptional: --origin https://YOUR-APP.koyeb.app --target app/service --secret existing-secret-name",
+        "Usage: bun run deploy [--execute]\nDefault: local staging and command preview only. --execute uploads source and creates/updates the service.\nOptional: --origin https://YOUR-APP.koyeb.app --target app/service --secret existing-secret-name",
       );
     } else {
       deploymentArgs("preview", values.origin, values.target, values.secret);
