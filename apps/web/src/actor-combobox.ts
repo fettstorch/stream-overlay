@@ -5,9 +5,10 @@ type Options = {
   status: HTMLElement;
   searcher: (query: string, signal: AbortSignal) => Promise<ActorSuggestion[]>;
   delayMs?: number;
+  onSelect?: (actor: ActorSuggestion) => void;
 };
 
-export function attachActorCombobox({ input, status, searcher, delayMs = 300 }: Options) {
+export function attachActorCombobox({ input, status, searcher, delayMs = 300, onSelect }: Options) {
   const list = document.createElement("div");
   list.id = `actor-suggestions-${crypto.randomUUID()}`;
   list.className = "actor-suggestions";
@@ -46,6 +47,7 @@ export function attachActorCombobox({ input, status, searcher, delayMs = 300 }: 
     close();
     status.textContent = `Selected @${actor.handle}`;
     input.focus();
+    onSelect?.(actor);
   }
 
   function render(actors: ActorSuggestion[]) {

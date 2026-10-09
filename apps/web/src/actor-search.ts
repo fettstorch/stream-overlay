@@ -24,7 +24,14 @@ export async function searchPublicActors(query: string, signal: AbortSignal): Pr
 export async function loadPublicActorProfile(did: string): Promise<PublicActorProfile> {
   if (!/^did:[a-z0-9]+:[A-Za-z0-9._:%-]+$/.test(did)) throw new Error("Invalid DID");
   const agent = await getPublicAgent();
-  const { data } = await agent.app.bsky.actor.getProfile({ actor: did });
+  const { data } = await agent.app.bsky.actor.getProfile({ actor: did }, { signal: AbortSignal.timeout(5000) });
   if (data.did !== did || !data.handle) throw new Error("Profile unavailable");
   return { did: data.did, handle: data.handle, displayName: data.displayName ?? "", avatar: data.avatar?.startsWith("https://") ? data.avatar : "" };
+}
+
+export async function resolvePublicActor(value: string): Promise<PublicActorProfile> {
+  const handle = value.trim().replace(/^@/, "").toLowerCase();
+  const did = value.startsWith("did:") ? value.trim() : (await (await getPublicAgent()).com.atproto.identity.resolveHandle({ handle }, { signal: AbortSignal.timeout(5000) })).data.did;
+  try { return await loadPublicActorProfile(did); }
+  catch { return { did, handle: value.startsWith("did:") ? "" : handle, displayName: "", avatar: "" }; }
 }

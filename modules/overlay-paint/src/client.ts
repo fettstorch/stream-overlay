@@ -5,6 +5,8 @@ const context = canvas.getContext("2d")!;
 const status = document.querySelector<HTMLElement>("#status")!;
 const pencil = document.querySelector<HTMLImageElement>("#pencil")!;
 const interactive = new URL(location.href).searchParams.get("interactive") === "1";
+const accountDid = new URL(location.href).searchParams.get("did");
+const api = (action: string) => accountDid ? `/api/accounts/${encodeURIComponent(accountDid)}/paint/${action}` : `/api/overlay-paint/${action}`;
 document.body.dataset.interactive = String(interactive);
 let state: PaintState = { cursor: null, enabled: false, segments: [], fadeAt: null, fadeDuration: 1000 };
 let localCursor: PaintCursor | null = null;
@@ -24,7 +26,7 @@ async function flushCursor() {
   pendingCursor = undefined;
   cursorSending = true;
   try {
-    await fetch("/api/overlay-paint/cursor", {
+    await fetch(api("cursor"), {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ cursor }), signal: AbortSignal.timeout(3000),
     });
@@ -59,7 +61,7 @@ let sendTimer: ReturnType<typeof setTimeout> | undefined;
 let sending = false;
 const pending: PaintSegment[] = [];
 const pointers = new Map<number, { x: number; y: number }>();
-const events = new EventSource("/api/overlay-paint/events");
+const events = new EventSource(api("events"));
 
 function updateStatus(message = "") {
   status.textContent = interactive ? message || (!connected ? "Connecting…" : !state.enabled ? "Paint module disabled" : "") : "";
@@ -138,7 +140,7 @@ async function flush() {
   sending = true;
   const segments = pending.splice(0, 128);
   try {
-    const response = await fetch("/api/overlay-paint/segments", {
+    const response = await fetch(api("segments"), {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ segments }), signal: AbortSignal.timeout(5000),
     });
@@ -190,7 +192,7 @@ canvas.addEventListener("lostpointercapture", event => { pointers.delete(event.p
 window.addEventListener("pagehide", () => {
   disposed = true;
   clearTimeout(cursorTimer); clearInterval(cursorLease);
-  if (interactive && localCursor) void fetch("/api/overlay-paint/cursor", {
+  if (interactive && localCursor) void fetch(api("cursor"), {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cursor: null }), keepalive: true,
   }).catch(() => {});
   events.close(); observer.disconnect(); cancelAnimationFrame(frame); clearTimeout(sendTimer);

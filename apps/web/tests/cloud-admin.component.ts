@@ -17,6 +17,31 @@ function response(body: unknown, status = 200) { return new Response(JSON.string
 function mediaDrag(type: string, name = "drop.gif") { const event = new Event(type, { bubbles: true, cancelable: true }); Object.defineProperty(event, "dataTransfer", { value: { types: ["Files"], files: [new File(["GIF8"], name)], dropEffect: "none" } }); return event; }
 
 describe("Cloud Admin", () => {
+  test("includes every non-Pokémon module with working URL and appearance controls", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith("/api/session")) return response(session);
+      if (String(input).endsWith("/dimensions")) return response({ dimensions: { width: 2560, height: 1440 } });
+      return response(init?.method === "PUT" ? JSON.parse(String(init.body)) : config);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const wrapper = mount(CloudAdmin); await flushPromises();
+    expect(wrapper.findAll("[data-module]").map(card => card.attributes("data-module"))).toEqual(["emoticons", "chat", "overlay-paint", "streamplace-pets"]);
+    expect(wrapper.text()).toContain("2560 × 1440");
+    for (const [name, path] of [["Chat", "/chat/"], ["Overlay Paint", "/paint/"], ["Streamplace Pets", "/pets/"]]) {
+      await wrapper.get(`button[aria-label="Show ${name} details"]`).trigger("click");
+      const iframe = wrapper.get(`iframe[title="${name} preview"]`);
+      expect(iframe.attributes("src")).toContain(`${path}?did=did%3Aplc%3Aalice`);
+    }
+    expect(wrapper.findAll('[aria-label="Chat appearance"] input')).toHaveLength(7);
+    const delay = wrapper.get('[aria-label="Paint appearance"] input[type=number]'); await delay.setValue(3.5); await delay.trigger("change"); await flushPromises();
+    const write = fetchMock.mock.calls.find(([, init]) => init?.method === "PUT")!;
+    const saved = JSON.parse(String(write[1]?.body));
+    expect(saved.paint.decaySeconds).toBe(3.5); expect(saved.chat.fontSize).toBe(20); expect(saved.commands).toEqual(config.commands);
+    expect(wrapper.find('a[href="https://rpg.actor/streampets"]').exists()).toBe(true);
+    await wrapper.get('button[aria-label="Hide Chat details"]').trigger("click");
+    expect(wrapper.find('iframe[title="Chat preview"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
   test("tests a saved command through its authenticated account endpoint and preserves editing controls", async () => {
     const fetchMock = vi.fn(async () => response({ delivered: 1, message: "Test sent to connected effect sources." }));
     vi.stubGlobal("fetch", fetchMock);

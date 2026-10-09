@@ -35,5 +35,7 @@ test("Test playback starts a keyframe sticker animation rather than a first-fram
   expect(sticker.style.getPropertyValue("--drift")).toMatch(/px$/);
   expect(sticker.style.transition).toBe("");
   expect(sticker.querySelector("img")?.src).toBe("https://example.test/wave.gif");
+  expect(sticker.querySelector<HTMLImageElement>(".sender-avatar")?.src).toMatch(/^data:image\/svg\+xml/);
+  expect(sticker.querySelector(".sender-avatar")?.getAttribute("alt")).toBe("Test sender");
   expect(relay.send).toHaveBeenCalledWith(expect.objectContaining({ type: "diagnostic", event: "test-accepted", requestId: "request-test" }));
 });

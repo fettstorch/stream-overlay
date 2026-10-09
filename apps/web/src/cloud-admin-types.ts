@@ -13,4 +13,4 @@ export type CloudCommand = {
   height: string;
   mirrored: boolean;
 };
-export type CloudConfig = { enabled: boolean; streamerDid: string; revision: string; commands: CloudCommand[] };
+export type CloudConfig = import("../../../packages/protocol/src/cloud-settings.ts").CloudModuleSettings & { enabled: boolean; streamerDid: string; revision: string; commands: CloudCommand[] };

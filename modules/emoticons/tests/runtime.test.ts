@@ -39,16 +39,18 @@ test("queues different clips locally and preserves arrival order", async () => {
 });
 
 test("sticker multipliers stay browser-local and are capped", async () => {
-  const effect = mock(() => {});
+  const effect = mock((_event: Extract<EmoticonEvent, { type: "effect" }>) => {});
   const runtime = new EmoticonRuntime({ effect });
   runtimes.push(runtime);
   runtime.configure({ enabled: true, commands: [command("rain", { mode: "sticker", durationSeconds: 1, cooldownSeconds: 0 })], assets: [] });
 
-  runtime.message("1", "!rain x99");
+  const author = { did: "did:plc:alice", avatar: "https://cdn.example/alice.png" };
+  runtime.message("1", "!rain x99", author);
   expect(effect).toHaveBeenCalledTimes(1);
   await Bun.sleep(110);
   expect(effect.mock.calls.length).toBeGreaterThan(1);
   expect(effect.mock.calls.length).toBeLessThanOrEqual(30);
+  expect(effect.mock.calls.every(([event]) => event.author?.avatar === author.avatar)).toBe(true);
 });
 
 test("disabled runtimes ignore commands", () => {

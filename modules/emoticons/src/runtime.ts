@@ -53,7 +53,7 @@ export class EmoticonRuntime {
     for (let index = 1; index < count; index++) {
       const timer = setTimeout(() => {
         this.stickerTimers.delete(timer);
-        if (this.commands.some(item => item.id === command.id && item.mode === "sticker")) this.trigger(command.id, "chat", id);
+        if (this.commands.some(item => item.id === command.id && item.mode === "sticker")) this.trigger(command.id, "chat", id, author);
       }, index * 3000 / (count - 1));
       this.stickerTimers.add(timer);
     }

@@ -11,6 +11,14 @@ const previewUrls = ref<Partial<Record<MediaKind, string>>>({});
 const mediaUrlInput = ref(""), unresolvedUrl = ref("");
 const defaults = (): CloudCommand => ({ id: "", command: "", mode: "effect", durationSeconds: 5, cooldownSeconds: 20, volume: 1, width: "", height: "", mirrored: false });
 const form = ref(defaults());
+const mediaDurations = ref<Partial<Record<MediaKind, number>>>({});
+function readDuration(kind: MediaKind, event: Event) {
+  const duration = (event.target as HTMLMediaElement).duration;
+  if (!Number.isFinite(duration) || duration <= 0) return;
+  mediaDurations.value[kind] = duration;
+  if (!editing.value && (form.value.durationSeconds === 5 || form.value.durationSeconds === 8)) form.value.durationSeconds = Math.min(3600, Math.round(duration * 10) / 10);
+}
+function trimPreview(event: Event) { const element = event.target as HTMLMediaElement; if (element.currentTime >= form.value.durationSeconds) { element.pause(); element.currentTime = 0; } }
 const groups = computed(() => [
   { title: "Clips", commands: props.config.commands.filter(command => command.mode !== "sticker") },
   { title: "Emoticons (stickers)", commands: props.config.commands.filter(command => command.mode === "sticker") },
@@ -18,7 +26,7 @@ const groups = computed(() => [
 function mediaUrl(kind: MediaKind) { return previewUrls.value[kind] || pending.value[kind]?.url || ""; }
 function clearPreview(kind: MediaKind) { const preview = previewUrls.value[kind]; if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview); delete previewUrls.value[kind]; }
 function removeMedia(kind: MediaKind) { clearPreview(kind); delete pending.value[kind]; }
-function reset() { formOpen.value = false; editing.value = null; form.value = defaults(); pending.value = {}; mediaUrlInput.value = ""; unresolvedUrl.value = ""; for (const kind of kinds) clearPreview(kind); }
+function reset() { formOpen.value = false; editing.value = null; form.value = defaults(); pending.value = {}; mediaDurations.value = {}; mediaUrlInput.value = ""; unresolvedUrl.value = ""; for (const kind of kinds) clearPreview(kind); }
 function create() { reset(); formOpen.value = true; message.value = ""; }
 async function test(command: CloudCommand) {
   busy.value = true;
@@ -103,7 +111,8 @@ defineExpose({ acceptCardDrop });
         <div v-for="kind in kinds" v-show="pending[kind]" :key="kind" class="attachment"><span>{{ kind }} attached</span><button type="button" @click="removeMedia(kind)">Remove</button></div>
       </div>
       <label v-if="mediaUrl('image') || mediaUrl('video')" class="sticker-toggle"><input v-model="form.mirrored" type="checkbox"> Mirror horizontally</label>
-      <img v-if="mediaUrl('image')" :src="mediaUrl('image')" class="asset-preview" :style="{ transform: form.mirrored ? 'scaleX(-1)' : undefined }" alt="Selected emoticon"><video v-if="mediaUrl('video')" :src="mediaUrl('video')" class="asset-preview" :style="{ transform: form.mirrored ? 'scaleX(-1)' : undefined }" controls muted playsinline preload="metadata" /><audio v-if="form.mode === 'effect' && mediaUrl('audio')" :src="mediaUrl('audio')" controls muted preload="metadata" />
+      <img v-if="mediaUrl('image')" :src="mediaUrl('image')" class="asset-preview" :style="{ transform: form.mirrored ? 'scaleX(-1)' : undefined }" alt="Selected emoticon"><video v-if="mediaUrl('video')" :src="mediaUrl('video')" class="asset-preview" :style="{ transform: form.mirrored ? 'scaleX(-1)' : undefined }" controls muted playsinline preload="metadata" @loadedmetadata="readDuration('video', $event)" @timeupdate="trimPreview" /><audio v-if="form.mode === 'effect' && mediaUrl('audio')" :src="mediaUrl('audio')" controls muted preload="metadata" @loadedmetadata="readDuration('audio', $event)" @timeupdate="trimPreview" />
+      <small v-if="mediaDurations.video || mediaDurations.audio">Full media duration: {{ Math.max(mediaDurations.video || 0, mediaDurations.audio || 0).toFixed(1) }}s. Playback stops at the configured duration.</small>
       <div class="fields-row"><label class="compact-field">Duration (seconds) <input v-model.number="form.durationSeconds" type="number" min="0.1" max="3600" step="0.1" required></label><label v-if="form.mode === 'effect'" class="compact-field">Cooldown (seconds) <input v-model.number="form.cooldownSeconds" type="number" min="0" max="86400" step="1" required></label><label class="compact-field">CSS width <input v-model="form.width" :placeholder="form.mode === 'sticker' ? '5vw (default)' : '40vw (default)'"></label><label class="compact-field">CSS height <input v-model="form.height" :placeholder="form.mode === 'sticker' ? '5vw (default)' : '35vh (default)'"></label></div>
       <label v-if="form.mode === 'effect'">Volume <input v-model.number="form.volume" type="range" min="0" max="1" step="0.05"></label>
       <div class="form-actions"><button class="primary-button" type="submit" :disabled="busy">{{ editing ? 'Save changes' : 'Create command' }}</button><button type="button" class="secondary-button" :disabled="busy" @click="reset">Cancel</button></div>

@@ -5,6 +5,10 @@ import { chatBackground, chatMask, defaultChatConfiguration, parseChatConfigurat
 import { freezeLeavingMessage, messageDecayStyle, messageLifetimeMs, restoreLeavingMessage } from "./message-transition";
 
 const enabled = ref(false);
+const props = defineProps<{ source?: {
+  observe: typeof observeStreamChat;
+  subscribe: (receive: (state: { enabled: boolean; configuration: unknown; streamerDid: string }) => void) => () => void;
+} }>();
 const configuration = ref(defaultChatConfiguration);
 // Transform the whole chat plane, separately from bubble entrance/move transforms.
 // A viewport-relative camera distance keeps perspective usable at different OBS sizes.
@@ -48,7 +52,7 @@ function setEnabled(next: boolean) {
   closeChat = undefined;
   clearMessages();
   if (!next) return;
-  const chat = observeStreamChat();
+  const chat = props.source ? props.source.observe() : observeStreamChat();
   closeChat = chat.close;
   unsubscribe = chat.messages.subscribe(message => {
     if (!enabled.value || currentSession !== session) return;
@@ -71,6 +75,16 @@ function setEnabled(next: boolean) {
 }
 
 onMounted(() => {
+  if (props.source) {
+    const dispose = props.source.subscribe(state => {
+      if (state.streamerDid !== streamerDid) { streamerDid = state.streamerDid; setEnabled(false); }
+      const settings = parseChatConfiguration(state.configuration);
+      if (settings) configuration.value = settings;
+      setEnabled(state.enabled);
+    });
+    status = { close: dispose } as EventSource;
+    return;
+  }
   status = new EventSource("/api/modules/chat/events");
   status.onmessage = event => {
     try {
