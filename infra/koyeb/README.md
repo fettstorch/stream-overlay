@@ -9,7 +9,7 @@ secret in the console. No GitHub integration or Git push is required.
 Preview the deployment:
 
 ```sh
-bun run deploy
+npm run deploy:preview
 ```
 
 This only stages source in a temporary directory and prints the deployment
@@ -19,18 +19,19 @@ environment files, dependencies, generated builds, logs, and paths marked
 prod/production or secret/credential. Symlinks are rejected rather than followed.
 Only the required workspace source roots and build files are packaged.
 
-When ready, run the same command with `--execute` yourself:
+When ready, deploy with one command (also works as `bun run deploy`):
 
 ```sh
-bun run deploy --execute
+npm run deploy
 ```
 
 This uploads the staged source and creates or updates `streamface/web` using
 the `hosted` Docker target, one `eco-nano` instance in Frankfurt, HTTP port 8000,
 and `/health`. It references the existing secret by name; it never reads a local
-session secret. The default origin is `https://streamface-fettstorch-f15914a3.koyeb.app`.
-Override it with `--origin https://YOUR-APP.koyeb.app` for another deployment or
-when switching to the custom domain. Other optional flags are `--target app/service`
+session secret. The default origin is `https://streamface.live`; the app and
+secret setup above is one-time, not repeated per deployment.
+Override it with `npm run deploy -- --origin https://YOUR-DOMAIN` for another deployment.
+Other optional flags are `--target app/service`
 and `--secret secret-name`.
 The temporary directory is removed after execution; preview directories are kept
 for inspection. A non-zero exit leaves diagnostics in the CLI output.

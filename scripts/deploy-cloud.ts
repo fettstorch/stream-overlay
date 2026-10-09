@@ -125,7 +125,7 @@ export function deploymentOptions(args: string[]) {
   return parseArgs({
     args,
     options: {
-      origin: { type: "string", default: "https://streamface-fettstorch-f15914a3.koyeb.app" },
+      origin: { type: "string", default: "https://streamface.live" },
       target: { type: "string", default: "streamface/web" },
       secret: { type: "string", default: "streamface-session-secret" },
       execute: { type: "boolean", default: false },
@@ -144,7 +144,7 @@ if (import.meta.main) {
     const values = deploymentOptions(Bun.argv.slice(2));
     if (values.help) {
       console.log(
-        "Usage: bun run deploy [--execute]\nDefault: local staging and command preview only. --execute uploads source and creates/updates the service.\nOptional: --origin https://YOUR-APP.koyeb.app --target app/service --secret existing-secret-name",
+        "Usage: npm run deploy\nDeploys to streamface.live using the existing Koyeb secret. npm run deploy:preview stages source locally without uploading.\nOptional overrides: npm run deploy -- --origin https://YOUR-DOMAIN --target app/service --secret existing-secret-name",
       );
     } else {
       deploymentArgs("preview", values.origin, values.target, values.secret);

@@ -296,8 +296,9 @@ URLs are not direct playable media URLs. The checked-in
 records remain readable and migrate on the next save without deleting the originals.
 See [the Lexicon and migration guide](lexicons/README.md) and follow
 [the Koyeb deployment notes](infra/koyeb/README.md) before a real pilot.
-`bun run deploy` previews a safe local-source
-package; only an explicit `--execute` uploads and deploys it. The linked notes
+`npm run deploy` packages safe local source and deploys it to `https://streamface.live`;
+`npm run deploy:preview` stages it without uploading. Both also work with `bun run`.
+The linked notes
 describe the single-instance eNano pilot and required secret.
 
 ## Checks

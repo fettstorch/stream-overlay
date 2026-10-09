@@ -5,12 +5,18 @@ import { tmpdir } from "node:os";
 import { deploymentArgs, deploymentOptions, excluded, stageCloudSource } from "./deploy-cloud.ts";
 
 test("deployment defaults to our hosted origin with explicit execution and optional overrides", () => {
-  expect(deploymentOptions([]).origin).toBe("https://streamface-fettstorch-f15914a3.koyeb.app");
+  expect(deploymentOptions([]).origin).toBe("https://streamface.live");
   expect(deploymentOptions([]).execute).toBe(false);
   expect(deploymentOptions(["--execute"]).execute).toBe(true);
-  expect(deploymentOptions(["--origin", "https://streamface.live"]).origin).toBe(
-    "https://streamface.live",
+  expect(deploymentOptions(["--origin", "https://other.example"]).origin).toBe(
+    "https://other.example",
   );
+});
+
+test("package deploy executes by default while preview never uploads", async () => {
+  const { scripts } = await Bun.file(new URL("../package.json", import.meta.url)).json();
+  expect(scripts.deploy).toBe(`${scripts["deploy:preview"]} --execute`);
+  expect(scripts["deploy:preview"]).toBe("bunx bun@1.4.2 scripts/deploy-cloud.ts");
 });
 
 test("deployment uses the hosted target, one eNano in Frankfurt and a secret reference", () => {
