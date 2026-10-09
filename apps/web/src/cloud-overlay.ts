@@ -25,7 +25,13 @@ function play(event: Extract<EmoticonEvent, { type: "effect" }>) {
   if (visual) { visual.src = command.videoUrl ?? command.imageUrl!; visual.style.width = command.width || (command.mode === "sticker" ? "5vw" : "auto"); visual.style.height = command.height || (command.mode === "sticker" ? "5vw" : "auto"); visual.style.objectFit = "contain"; visual.style.transform = command.mirrored ? "scaleX(-1)" : "none"; if (visual instanceof HTMLVideoElement) { visual.autoplay = true; visual.loop = command.mode === "sticker"; visual.muted = command.mode === "sticker"; visual.volume = command.volume; } }
   if (audio) { audio.src = command.audioUrl!; audio.autoplay = true; audio.volume = command.volume; }
   const wrapper = document.createElement("div"); if (visual) wrapper.append(visual); if (audio) wrapper.append(audio);
-  if (command.mode === "sticker") { wrapper.style.cssText = `position:fixed;left:${5 + Math.random()*90}%;bottom:-10vh;transition:transform ${event.durationSeconds}s linear;`; container.append(wrapper); requestAnimationFrame(() => { wrapper.style.transform = `translate(${(Math.random()-.5)*160}px,-120vh)`; }); }
+  if (command.mode === "sticker") {
+    wrapper.className = "sticker";
+    wrapper.style.left = `${5 + Math.random()*90}%`;
+    wrapper.style.setProperty("--drift", `${(Math.random()-.5)*160}px`);
+    wrapper.style.animationDuration = `${event.durationSeconds}s`;
+    container.append(wrapper);
+  }
   else container.replaceChildren(wrapper);
   if (command.mode === "sticker" && visual) setTimeout(() => {
     if (!wrapper.isConnected) return;
