@@ -29,6 +29,7 @@ const mediaTypes: Record<string, { kind: MediaKind; type: string }> = {
 };
 function extension(value: string) { try { return new URL(value, "https://local.invalid").pathname.match(/\.([a-z0-9]+)$/i)?.[1].toLowerCase(); } catch { return value.match(/\.([a-z0-9]+)$/i)?.[1].toLowerCase(); } }
 function fileMedia(file: File) { const declared = file.type.split(";", 1)[0].trim().toLowerCase(); const kind: MediaKind | undefined = declared.startsWith("image/") ? "image" : declared.startsWith("audio/") ? "audio" : declared.startsWith("video/") ? "video" : undefined; if (kind) return { kind, type: declared === "image/jpg" ? "image/jpeg" : declared }; return mediaTypes[extension(file.name) ?? ""]; }
+function unsupportedFile(file: File) { return `Unsupported file: ${file.name}. Choose an image, GIF, audio, MP4, MOV, or WebM file.`; }
 function attachUrl(kind: MediaKind, value: string) { if (form.value.mode === "sticker" && kind === "audio") { message.value = "Stickers do not support audio attachments."; return; } pending.value[kind] = { url: value }; clearPreview(kind); if (kind === "image") removeMedia("video"); if (kind === "video") removeMedia("image"); mediaUrlInput.value = ""; unresolvedUrl.value = ""; message.value = `${kind[0].toUpperCase()}${kind.slice(1)} URL attached.`; }
 function probe(url: string, kind: MediaKind) { return new Promise<boolean>(resolve => { const element = kind === "image" ? new Image() : document.createElement(kind); const timer = setTimeout(() => finish(false), 4000); const finish = (result: boolean) => { clearTimeout(timer); element.onload = null; element.onerror = null; if (element instanceof HTMLMediaElement) { element.onloadedmetadata = null; element.removeAttribute("src"); element.load(); } resolve(result); }; element.onerror = () => finish(false); if (element instanceof HTMLMediaElement) { element.preload = "metadata"; element.onloadedmetadata = () => finish(true); } else element.onload = () => finish(true); element.src = url; }); }
 async function addMediaUrl() { const value = mediaUrlInput.value.trim(); unresolvedUrl.value = ""; let url: URL; try { url = new URL(value); } catch { message.value = "Enter a valid direct HTTPS media URL."; return; } if (url.protocol !== "https:") { message.value = "Direct media URLs must use HTTPS."; return; } const known = mediaTypes[extension(url.toString()) ?? ""]; if (known) { attachUrl(known.kind, url.toString()); return; } busy.value = true; message.value = "Checking the direct media URL…"; try { for (const kind of kinds) if (await probe(url.toString(), kind)) { attachUrl(kind, url.toString()); return; } unresolvedUrl.value = url.toString(); message.value = "The URL did not identify playable media. Provider pages such as Giphy pages are not direct media URLs."; } finally { busy.value = false; } }
@@ -37,7 +38,7 @@ async function uploadFiles(files: FileList | null | undefined) {
   try {
     for (const file of Array.from(files)) {
       const media = fileMedia(file), kind = media?.kind;
-      if (!media || !kind) { message.value = `Unsupported file: ${file.name}. Choose an image, GIF, audio, MP4, MOV, or WebM file.`; continue; }
+      if (!media || !kind) { message.value = unsupportedFile(file); continue; }
       if (form.value.mode === "sticker" && kind === "audio") { message.value = "Stickers do not support audio attachments."; continue; }
       message.value = `Uploading ${file.name} to your PDS…`;
       const response = await fetch(`/api/accounts/${encodeURIComponent(props.did)}/media`, { method: "POST", headers: { "Content-Type": media.type }, body: file });
@@ -48,6 +49,13 @@ async function uploadFiles(files: FileList | null | undefined) {
     }
   } catch { message.value = "The upload could not reach the server. Your existing command was not changed."; }
   finally { busy.value = false; }
+}
+async function acceptCardDrop(files: FileList | null | undefined) {
+  const list = Array.from(files ?? []), supported = list.filter(file => fileMedia(file));
+  if (!supported.length) { const error = list[0] ? unsupportedFile(list[0]) : "Drop an image, GIF, audio, MP4, MOV, or WebM file."; message.value = error; return { accepted: false, message: error }; }
+  if (!formOpen.value) create();
+  await uploadFiles(files);
+  return { accepted: true };
 }
 function selected(event: Event) { const input = event.target as HTMLInputElement; void uploadFiles(input.files); input.value = ""; }
 async function save() {
@@ -64,6 +72,7 @@ async function save() {
 }
 async function remove(command: CloudCommand) { if (!confirm(`Delete !${command.command}?`)) return; busy.value = true; const saved = await props.save({ ...props.config, commands: props.config.commands.filter(item => item.id !== command.id) }, `!${command.command} deleted from your PDS.`); busy.value = false; if (saved && editing.value === command.id) reset(); }
 onBeforeUnmount(() => { for (const kind of kinds) clearPreview(kind); });
+defineExpose({ acceptCardDrop });
 </script>
 
 <template>
@@ -76,7 +85,7 @@ onBeforeUnmount(() => { for (const kind of kinds) clearPreview(kind); });
       <label class="sticker-toggle"><input type="checkbox" :checked="form.mode === 'sticker'" @change="form.mode = ($event.target as HTMLInputElement).checked ? 'sticker' : 'effect'; changeMode()"> Sticker</label>
       <small v-if="form.mode === 'sticker'">Silent stickers drift upward independently. Every matching message spawns one.</small>
       <label>Command <input v-model="form.command" placeholder="!wow" required maxlength="40"></label>
-      <div class="drop-zone" @dragover.prevent @drop.prevent="uploadFiles($event.dataTransfer?.files)">
+      <div class="drop-zone" @dragenter.stop @dragover.stop.prevent @dragleave.stop @drop.stop.prevent="uploadFiles($event.dataTransfer?.files)">
         <label>Media — drop files or choose<input type="file" :accept="form.mode === 'sticker' ? 'image/*,video/*,.gif,.mp4,.mov,.webm' : 'image/*,audio/*,video/*,.gif,.mp4,.mov,.webm'" multiple :disabled="busy" @change="selected"></label>
         <div class="media-url-row"><label>Or add a direct HTTPS media URL<input v-model="mediaUrlInput" type="url" placeholder="https://…/media.gif" :disabled="busy" @keydown.enter.prevent="addMediaUrl"></label><button type="button" :disabled="busy || !mediaUrlInput.trim()" @click="addMediaUrl">Add URL</button></div>
         <small>{{ form.mode === 'sticker' ? 'Images, GIFs, or muted MP4/MOV/WebM videos. Use a file or a direct media URL.' : 'Images, GIFs, audio, MP4/MOV/WebM video. Use files or direct media URLs; you can attach one visual and separate audio.' }} A new image or video replaces the current visual.</small>

@@ -14,6 +14,7 @@ const session = { did: "did:plc:alice" };
 const config = { enabled: true, streamerDid: session.did, revision: "1", commands: [{ id: "wave", command: "wave", mode: "effect", durationSeconds: 5, cooldownSeconds: 20, volume: 1, width: "", height: "", mirrored: false, image: { url: "https://cdn.example/wave.gif" } }] };
 
 function response(body: unknown, status = 200) { return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }); }
+function mediaDrag(type: string, name = "drop.gif") { const event = new Event(type, { bubbles: true, cancelable: true }); Object.defineProperty(event, "dataTransfer", { value: { types: ["Files"], files: [new File(["GIF8"], name)], dropEffect: "none" } }); return event; }
 
 describe("Cloud Admin", () => {
   test("presents anonymous sign-in as an ATProto account with accessible handle search", async () => {
@@ -41,7 +42,7 @@ describe("Cloud Admin", () => {
   test("uploads a GIF with an empty browser MIME and keeps separate audio", async () => {
     const save = vi.fn(async () => true);
     const fetchMock = vi.fn(async () => response({ $type: "blob", ref: { $link: "bafygif" }, mimeType: "image/gif", size: 4 }));
-    vi.stubGlobal("fetch", fetchMock); vi.stubGlobal("URL", { ...URL, createObjectURL: vi.fn(() => "blob:preview"), revokeObjectURL: vi.fn() });
+    vi.stubGlobal("fetch", fetchMock); vi.stubGlobal("URL", class extends URL { static createObjectURL = vi.fn(() => "blob:preview"); static revokeObjectURL = vi.fn(); });
     const wrapper = mount(CloudEmoticonControls, { props: { did: session.did, config: { ...config, commands: [] }, save } });
     await wrapper.get(".primary-button").trigger("click"); const input = wrapper.get('input[type="file"]');
     Object.defineProperty(input.element, "files", { configurable: true, value: [new File(["GIF8"], "dance.gif")] }); await input.trigger("change"); await flushPromises();
@@ -57,6 +58,34 @@ describe("Cloud Admin", () => {
     const wrapper = mount(CloudEmoticonControls, { props: { did: session.did, config: { ...config, commands: [command] }, save } });
     await wrapper.get(".command-list button").trigger("click"); await wrapper.get("form").trigger("submit"); await flushPromises();
     const candidate = save.mock.calls[0][0]; expect(candidate.commands[0].image).toEqual({ blob: stored }); wrapper.unmount();
+  });
+
+  test("opens collapsed Create and uploads a card-dropped file exactly once", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith("/api/session")) return response(session);
+      if (init?.method === "POST") return response({ $type: "blob", ref: { $link: "bafydrop" }, mimeType: "image/gif", size: 4 });
+      return response(config);
+    });
+    vi.stubGlobal("fetch", fetchMock); vi.stubGlobal("URL", class extends URL { static createObjectURL = vi.fn(() => "blob:drop"); static revokeObjectURL = vi.fn(); });
+    const wrapper = mount(CloudAdmin, { attachTo: document.body }); await flushPromises(); const card = wrapper.get(".module-card");
+    card.element.dispatchEvent(mediaDrag("dragenter")); await wrapper.vm.$nextTick(); expect(card.classes()).toContain("file-drag-active"); expect(wrapper.text()).toContain("Drop media to create a command");
+    card.element.dispatchEvent(mediaDrag("drop")); await flushPromises();
+    expect(wrapper.get('button[aria-label="Hide Emoticons details"]').attributes("aria-expanded")).toBe("true"); expect(wrapper.text()).toContain("Create command"); expect(wrapper.text()).toContain("image attached");
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1); wrapper.unmount();
+  });
+
+  test("does not duplicate nested drops or discard an open draft", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith("/api/session") ? response(session) : init?.method === "POST" ? response({ $type: "blob", ref: { $link: "bafydrop" }, mimeType: "image/gif", size: 4 }) : response(config));
+    vi.stubGlobal("fetch", fetchMock); vi.stubGlobal("URL", class extends URL { static createObjectURL = vi.fn(() => "blob:drop"); static revokeObjectURL = vi.fn(); });
+    const wrapper = mount(CloudAdmin, { attachTo: document.body }); await flushPromises(); await wrapper.get('button[aria-label="Show Emoticons details"]').trigger("click"); await wrapper.get(".emoticon-controls .primary-button").trigger("click"); await wrapper.get('input[placeholder="!wow"]').setValue("draft");
+    wrapper.get(".drop-zone").element.dispatchEvent(mediaDrag("drop")); await flushPromises();
+    expect((wrapper.get('input[placeholder="!wow"]').element as HTMLInputElement).value).toBe("draft"); expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1); wrapper.unmount();
+  });
+
+  test("rejects unsupported card drops without opening an empty editor", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => String(input).endsWith("/api/session") ? response(session) : response(config)); vi.stubGlobal("fetch", fetchMock);
+    const wrapper = mount(CloudAdmin, { attachTo: document.body }); await flushPromises(); wrapper.get(".module-card").element.dispatchEvent(mediaDrag("drop", "notes.txt")); await flushPromises();
+    expect(wrapper.find(".command-editor").exists()).toBe(false); expect(wrapper.text()).toContain("Unsupported file: notes.txt"); expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(0); wrapper.unmount();
   });
 
   test("shares baseline search, pin persistence, and collapse behavior", async () => {
