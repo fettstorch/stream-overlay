@@ -17,6 +17,14 @@ function response(body: unknown, status = 200) { return new Response(JSON.string
 function mediaDrag(type: string, name = "drop.gif") { const event = new Event(type, { bubbles: true, cancelable: true }); Object.defineProperty(event, "dataTransfer", { value: { types: ["Files"], files: [new File(["GIF8"], name)], dropEffect: "none" } }); return event; }
 
 describe("Cloud Admin", () => {
+  test("requires playable media and preserves original millisecond duration precision", async () => {
+    const save = vi.fn(async () => true);
+    const wrapper = mount(CloudEmoticonControls, { props: { did: session.did, config: { ...config, commands: [] }, save } });
+    await wrapper.get(".primary-button").trigger("click"); await wrapper.get('input[placeholder="!wow"]').setValue("wave");
+    await wrapper.get("form").trigger("submit"); await flushPromises();
+    expect(save).not.toHaveBeenCalled(); expect(wrapper.text()).toContain("Add an image, audio, or video");
+    expect(wrapper.get('input[min="0.001"]').attributes("step")).toBe("any"); wrapper.unmount();
+  });
   test("includes every non-Pokémon module with working URL and appearance controls", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (String(input).endsWith("/api/session")) return response(session);

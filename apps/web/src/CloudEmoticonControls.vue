@@ -16,7 +16,7 @@ function readDuration(kind: MediaKind, event: Event) {
   const duration = (event.target as HTMLMediaElement).duration;
   if (!Number.isFinite(duration) || duration <= 0) return;
   mediaDurations.value[kind] = duration;
-  if (!editing.value && (form.value.durationSeconds === 5 || form.value.durationSeconds === 8)) form.value.durationSeconds = Math.min(3600, Math.round(duration * 10) / 10);
+  if (!editing.value && (form.value.durationSeconds === 5 || form.value.durationSeconds === 8)) form.value.durationSeconds = Math.min(3600, Math.round(duration * 1000) / 1000);
 }
 function trimPreview(event: Event) { const element = event.target as HTMLMediaElement; if (element.currentTime >= form.value.durationSeconds) { element.pause(); element.currentTime = 0; } }
 const groups = computed(() => [
@@ -79,6 +79,7 @@ function selected(event: Event) { const input = event.target as HTMLInputElement
 async function save() {
   const normalized = form.value.command.trim().replace(/^!/, "").toLowerCase();
   if (!/^[a-z0-9_-]{1,40}$/.test(normalized)) { message.value = "Use 1–40 lowercase letters, numbers, underscores, or hyphens."; return; }
+  if (!pending.value.image && !pending.value.video && !pending.value.audio) { message.value = "Add an image, audio, or video before saving."; return; }
   const command: CloudCommand = { ...form.value, id: editing.value ?? crypto.randomUUID(), command: normalized, image: pending.value.image, audio: form.value.mode === "sticker" ? undefined : pending.value.audio, video: pending.value.video };
   const commands = props.config.commands.slice(), index = commands.findIndex(item => item.id === command.id);
   if (commands.some((item, itemIndex) => item.command === command.command && itemIndex !== index)) { message.value = `!${command.command} already exists.`; return; }
@@ -113,7 +114,7 @@ defineExpose({ acceptCardDrop });
       <label v-if="mediaUrl('image') || mediaUrl('video')" class="sticker-toggle"><input v-model="form.mirrored" type="checkbox"> Mirror horizontally</label>
       <img v-if="mediaUrl('image')" :src="mediaUrl('image')" class="asset-preview" :style="{ transform: form.mirrored ? 'scaleX(-1)' : undefined }" alt="Selected emoticon"><video v-if="mediaUrl('video')" :src="mediaUrl('video')" class="asset-preview" :style="{ transform: form.mirrored ? 'scaleX(-1)' : undefined }" controls muted playsinline preload="metadata" @loadedmetadata="readDuration('video', $event)" @timeupdate="trimPreview" /><audio v-if="form.mode === 'effect' && mediaUrl('audio')" :src="mediaUrl('audio')" controls muted preload="metadata" @loadedmetadata="readDuration('audio', $event)" @timeupdate="trimPreview" />
       <small v-if="mediaDurations.video || mediaDurations.audio">Full media duration: {{ Math.max(mediaDurations.video || 0, mediaDurations.audio || 0).toFixed(1) }}s. Playback stops at the configured duration.</small>
-      <div class="fields-row"><label class="compact-field">Duration (seconds) <input v-model.number="form.durationSeconds" type="number" min="0.1" max="3600" step="0.1" required></label><label v-if="form.mode === 'effect'" class="compact-field">Cooldown (seconds) <input v-model.number="form.cooldownSeconds" type="number" min="0" max="86400" step="1" required></label><label class="compact-field">CSS width <input v-model="form.width" :placeholder="form.mode === 'sticker' ? '5vw (default)' : '40vw (default)'"></label><label class="compact-field">CSS height <input v-model="form.height" :placeholder="form.mode === 'sticker' ? '5vw (default)' : '35vh (default)'"></label></div>
+      <div class="fields-row"><label class="compact-field">Duration (seconds) <input v-model.number="form.durationSeconds" type="number" min="0.001" max="3600" step="any" required></label><label v-if="form.mode === 'effect'" class="compact-field">Cooldown (seconds) <input v-model.number="form.cooldownSeconds" type="number" min="0" max="86400" step="1" required></label><label class="compact-field">CSS width <input v-model="form.width" :placeholder="form.mode === 'sticker' ? '5vw (default)' : '40vw (default)'"></label><label class="compact-field">CSS height <input v-model="form.height" :placeholder="form.mode === 'sticker' ? '5vw (default)' : '35vh (default)'"></label></div>
       <label v-if="form.mode === 'effect'">Volume <input v-model.number="form.volume" type="range" min="0" max="1" step="0.05"></label>
       <div class="form-actions"><button class="primary-button" type="submit" :disabled="busy">{{ editing ? 'Save changes' : 'Create command' }}</button><button type="button" class="secondary-button" :disabled="busy" @click="reset">Cancel</button></div>
     </form><p class="module-message" role="status">{{ message }}</p>
