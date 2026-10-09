@@ -1,4 +1,4 @@
-import type { EmoticonState } from "@stream-overlay/emoticons/src/contracts.ts";
+import type { EmoticonState } from "@streamface/emoticons/src/contracts.ts";
 import { advanceBoardScroll, createBoardScrollState } from "../../../modules/emoticons/src/board-scroll.ts";
 import { captureStickerPreview } from "../../../modules/emoticons/src/sticker-preview.ts";
 import { createStickerAssetCache } from "../../../modules/emoticons/src/asset-cache.ts";

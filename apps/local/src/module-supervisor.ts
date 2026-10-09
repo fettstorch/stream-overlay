@@ -1,4 +1,4 @@
-import type { ModuleRuntime, OverlayModule } from "@stream-overlay/sdk";
+import type { ModuleRuntime, OverlayModule } from "@streamface/sdk";
 
 export class ModuleSupervisor {
   private readonly processes = new Map<string, Bun.Subprocess>();

@@ -1,6 +1,6 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { afterEach, expect, test, vi } from "vitest";
-import type { StreamChatMessage } from "@stream-overlay/stream-chat";
+import type { StreamChatMessage } from "@streamface/stream-chat";
 import App from "../src/App.vue";
 import { freezeLeavingMessage, restoreLeavingMessage } from "../src/message-transition";
 

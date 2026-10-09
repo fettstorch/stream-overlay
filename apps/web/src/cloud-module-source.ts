@@ -1,7 +1,7 @@
-import { RelayClient } from "@stream-overlay/browser-runtime";
+import { RelayClient } from "@streamface/browser-runtime";
 import { moduleSettings } from "../../../packages/protocol/src/cloud-settings.ts";
 import type { CloudConfig } from "./cloud-admin-types.ts";
-import type { EffectDiagnostic } from "@stream-overlay/protocol";
+import type { EffectDiagnostic } from "@streamface/protocol";
 
 export function observeCloudConfig(receive: (config: CloudConfig & ReturnType<typeof moduleSettings>) => void, module = "module") {
   const did = new URLSearchParams(location.search).get("did") ?? "";

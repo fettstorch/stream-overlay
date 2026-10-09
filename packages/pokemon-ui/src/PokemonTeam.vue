@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import type { Pokemon } from "@stream-overlay/pokemon-model";
+import type { Pokemon } from "@streamface/pokemon-model";
 import type { PetAppearance, ThoughtAppearance } from "./types.ts";
 
 type GrowthRate = "fast" | "medium-fast" | "medium-slow" | "slow";

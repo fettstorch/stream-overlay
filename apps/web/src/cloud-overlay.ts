@@ -1,8 +1,8 @@
-import { RelayClient } from "@stream-overlay/browser-runtime";
-import { DirectStreamChatService } from "@stream-overlay/stream-chat";
-import { EmoticonRuntime } from "@stream-overlay/emoticons/src/runtime.ts";
-import type { EmoticonCommand, EmoticonEvent, EmoticonState } from "@stream-overlay/emoticons/src/contracts.ts";
-import type { RelaySnapshot, EffectDiagnostic } from "@stream-overlay/protocol";
+import { RelayClient } from "@streamface/browser-runtime";
+import { DirectStreamChatService } from "@streamface/stream-chat";
+import { EmoticonRuntime } from "@streamface/emoticons/src/runtime.ts";
+import type { EmoticonCommand, EmoticonEvent, EmoticonState } from "@streamface/emoticons/src/contracts.ts";
+import type { RelaySnapshot, EffectDiagnostic } from "@streamface/protocol";
 import { createCloudBoard } from "./cloud-board.ts";
 import { effectTop, mediaObjectFit } from "../../../modules/emoticons/src/media-layout.ts";
 import { loadPublicActorProfile } from "./actor-search.ts";

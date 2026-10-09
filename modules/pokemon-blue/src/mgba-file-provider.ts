@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
-import type { GameDataProvider } from "@stream-overlay/sdk";
-import type { BadgeProgress, Pokemon, PokemonSnapshot } from "@stream-overlay/pokemon-model";
+import type { GameDataProvider } from "@streamface/sdk";
+import type { BadgeProgress, Pokemon, PokemonSnapshot } from "@streamface/pokemon-model";
 
 interface MgbaPokemon {
   id?: string;

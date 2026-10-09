@@ -1,4 +1,4 @@
-import type { Pokemon } from "@stream-overlay/pokemon-model";
+import type { Pokemon } from "@streamface/pokemon-model";
 
 export interface PetAuthor {
   did: string;

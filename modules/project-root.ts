@@ -8,10 +8,10 @@ export function resolveProjectRoot(startDirectory: string): string {
     const manifest = join(directory, "package.json");
     if (existsSync(manifest)) {
       const metadata = JSON.parse(readFileSync(manifest, "utf8")) as { name?: string };
-      if (metadata.name === "stream-overlay" && existsSync(join(directory, "modules"))) return directory;
+      if (metadata.name === "streamface" && existsSync(join(directory, "modules"))) return directory;
     }
     const parent = dirname(directory);
-    if (parent === directory) throw new Error(`Cannot locate the stream-overlay project from ${startDirectory}`);
+    if (parent === directory) throw new Error(`Cannot locate the Streamface project from ${startDirectory}`);
     directory = parent;
   }
 }

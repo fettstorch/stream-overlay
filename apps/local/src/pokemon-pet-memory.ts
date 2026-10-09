@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import type { Pokemon } from "@stream-overlay/pokemon-model";
-import type { StreamChatMessage } from "@stream-overlay/stream-chat";
+import type { Pokemon } from "@streamface/pokemon-model";
+import type { StreamChatMessage } from "@streamface/stream-chat";
 
 interface PetCount { streamerDid: string; pokemonId: string; authorDid: string; count: number }
 

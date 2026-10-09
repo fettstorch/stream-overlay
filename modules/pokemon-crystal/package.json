@@ -1,5 +1,5 @@
 {
-  "name": "@stream-overlay/pokemon-crystal",
+  "name": "@streamface/pokemon-crystal",
   "private": true,
   "type": "module",
   "scripts": {
@@ -7,9 +7,9 @@
     "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "@stream-overlay/pokemon-ui": "workspace:*",
-    "@stream-overlay/pokemon-model": "workspace:*",
-    "@stream-overlay/sdk": "workspace:*",
+    "@streamface/pokemon-ui": "workspace:*",
+    "@streamface/pokemon-model": "workspace:*",
+    "@streamface/sdk": "workspace:*",
     "vue": "^3.5.0"
   },
   "devDependencies": {

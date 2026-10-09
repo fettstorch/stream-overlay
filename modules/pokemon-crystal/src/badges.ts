@@ -1,4 +1,4 @@
-import type { BadgeDefinition } from "@stream-overlay/pokemon-ui";
+import type { BadgeDefinition } from "@streamface/pokemon-ui";
 import zephyr from "../../../assets/badges/crystal/zephyr.png";
 import hive from "../../../assets/badges/crystal/hive.png";
 import plain from "../../../assets/badges/crystal/plain.png";

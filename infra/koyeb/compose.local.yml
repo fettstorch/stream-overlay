@@ -1,11 +1,11 @@
-name: stream-overlay-cloud-local
+name: streamface-cloud-local
 
 services:
   cloud:
     build:
       context: ../..
       dockerfile: infra/koyeb/Dockerfile
-    image: stream-overlay-cloud-local
+    image: streamface-cloud-local
     init: true
     environment:
       PORT: "8000"
@@ -27,4 +27,5 @@ services:
 
 volumes:
   cloud-auth:
+    # Preserve the existing credential volume across the Streamface rename.
     name: ${CLOUD_AUTH_VOLUME:-stream-overlay-cloud-auth}

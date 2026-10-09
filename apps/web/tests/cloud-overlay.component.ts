@@ -1,12 +1,12 @@
 import { afterEach, expect, test, vi } from "vitest";
 
 const relay = vi.hoisted(() => ({ receive: undefined as undefined | ((message: any) => void), send: vi.fn(), close: vi.fn() }));
-vi.mock("@stream-overlay/browser-runtime", () => ({ RelayClient: class {
+vi.mock("@streamface/browser-runtime", () => ({ RelayClient: class {
   constructor(_url: string, _hello: unknown, receive: (message: any) => void) { relay.receive = receive; }
   send = relay.send;
   close = relay.close;
 } }));
-vi.mock("@stream-overlay/stream-chat", () => ({ DirectStreamChatService: class {
+vi.mock("@streamface/stream-chat", () => ({ DirectStreamChatService: class {
   messages = { subscribe: vi.fn() };
   setStreamerDid = vi.fn();
   stop = vi.fn();

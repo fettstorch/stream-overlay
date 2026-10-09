@@ -6,7 +6,7 @@ const chat = vi.hoisted(() => ({
   listeners: new Set<(message: { id: string; text: string; author: { did: string } }) => void>(),
   close: vi.fn(),
 }));
-vi.mock("@stream-overlay/stream-chat", () => ({ observeStreamChat: () => ({
+vi.mock("@streamface/stream-chat", () => ({ observeStreamChat: () => ({
   close: chat.close,
   messages: { subscribe: (listener: Parameters<typeof chat.listeners.add>[0]) => {
     chat.listeners.add(listener);

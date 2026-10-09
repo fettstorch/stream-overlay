@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { projectRoot } from "../../project-root.ts";
-import type { OverlayModule } from "@stream-overlay/sdk";
+import type { OverlayModule } from "@streamface/sdk";
 import { emoticonsManifest } from "./manifest.ts";
 export const emoticonsModule: OverlayModule = {
   ...emoticonsManifest, streamerQuery: false,

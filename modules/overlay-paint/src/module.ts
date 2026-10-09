@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import type { OverlayModule } from "@stream-overlay/sdk";
+import type { OverlayModule } from "@streamface/sdk";
 import { projectRoot } from "../../project-root.ts";
 import { overlayPaintManifest } from "./manifest.ts";
 

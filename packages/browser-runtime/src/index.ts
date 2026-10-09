@@ -1,4 +1,4 @@
-import type { RelayClientMessage, RelayServerMessage } from "@stream-overlay/protocol";
+import type { RelayClientMessage, RelayServerMessage } from "@streamface/protocol";
 
 export class RelayClient {
   private socket?: WebSocket; private timer?: ReturnType<typeof setTimeout>; private heartbeat?: ReturnType<typeof setInterval>; private delay = 500; private closed = false; private lastPong = 0;

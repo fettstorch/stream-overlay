@@ -28,7 +28,7 @@ const availability = await Promise.all(
 const blocked = availability.filter(({ available }) => !available);
 
 if (blocked.length) {
-  console.error("Cannot start the stream overlay because required ports are already in use:");
+  console.error("Cannot start Streamface because required ports are already in use:");
   for (const { port, service } of blocked) console.error(`  Port ${port}: ${service}`);
   console.error("Stop the program using those ports, then run `bun run overlay` again.");
   process.exit(1);
@@ -51,7 +51,7 @@ const children = [
       "--no-orphans",
       "run",
       "--filter",
-      "@stream-overlay/web",
+      "@streamface/web",
       "dev",
       "--",
       "--host",
@@ -86,7 +86,7 @@ async function stop(exitCode: number) {
 process.once("SIGINT", () => void stop(0));
 process.once("SIGTERM", () => void stop(0));
 
-console.log("Stream overlay starting. Press Control-C to stop every module.");
+console.log("Streamface starting. Press Control-C to stop every module.");
 
 const firstExit = await Promise.race(children.map(async (child) => ({
   name: child.name,

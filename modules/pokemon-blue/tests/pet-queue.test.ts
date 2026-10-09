@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { Pokemon } from "@stream-overlay/pokemon-model";
+import type { Pokemon } from "@streamface/pokemon-model";
 import { PokemonPetQueues } from "../src/pet-queue.ts";
 
 const kleo: Pokemon = {

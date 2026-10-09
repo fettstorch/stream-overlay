@@ -1,5 +1,5 @@
 {
-  "name": "@stream-overlay/web",
+  "name": "@streamface/web",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,10 +10,10 @@
   },
   "dependencies": {
     "@atproto/api": "^0.24.3",
-    "@stream-overlay/browser-runtime": "workspace:*",
-    "@stream-overlay/emoticons": "workspace:*",
-    "@stream-overlay/protocol": "workspace:*",
-    "@stream-overlay/stream-chat": "workspace:*",
+    "@streamface/browser-runtime": "workspace:*",
+    "@streamface/emoticons": "workspace:*",
+    "@streamface/protocol": "workspace:*",
+    "@streamface/stream-chat": "workspace:*",
     "vue": "^3.5.0"
   },
   "devDependencies": {

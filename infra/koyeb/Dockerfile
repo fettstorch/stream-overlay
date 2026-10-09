@@ -5,7 +5,7 @@ COPY apps ./apps
 COPY modules ./modules
 COPY packages ./packages
 COPY streamplace-pets ./streamplace-pets
-RUN bun install --frozen-lockfile && bun run --filter @stream-overlay/web build && bun build apps/server/src/server.ts --target bun --outdir dist/server
+RUN bun install --frozen-lockfile && bun run --filter @streamface/web build && bun build apps/server/src/server.ts --target bun --outdir dist/server
 
 FROM oven/bun:1.4.2-slim
 WORKDIR /app

@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import type { ModuleConfiguration } from "@stream-overlay/sdk";
+import type { ModuleConfiguration } from "@streamface/sdk";
 import { parsePaintConfiguration, type PaintConfiguration } from "../../../modules/overlay-paint/src/config.ts";
 import { parseChatConfiguration, type ChatConfiguration } from "../../../modules/chat/src/config.ts";
 import { parseThoughtInterval, type PokemonBlueConfiguration } from "../../../modules/pokemon-blue/src/config.ts";

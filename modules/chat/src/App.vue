@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import { observeStreamChat, type StreamChatMessage } from "@stream-overlay/stream-chat";
+import { observeStreamChat, type StreamChatMessage } from "@streamface/stream-chat";
 import { chatBackground, chatMask, defaultChatConfiguration, parseChatConfiguration } from "./config";
 import { freezeLeavingMessage, messageDecayStyle, messageLifetimeMs, restoreLeavingMessage } from "./message-transition";
 

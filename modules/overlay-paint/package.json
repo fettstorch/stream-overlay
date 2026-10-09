@@ -1,8 +1,8 @@
 {
-  "name": "@stream-overlay/overlay-paint",
+  "name": "@streamface/overlay-paint",
   "private": true,
   "type": "module",
   "scripts": { "typecheck": "tsc --noEmit", "test": "vitest run" },
   "devDependencies": { "typescript": "^5.9.0", "vitest": "^3.2.0", "jsdom": "^27.0.0" },
-  "dependencies": { "@fettstorch/jule": "^3.1.0", "@stream-overlay/sdk": "workspace:*" }
+  "dependencies": { "@fettstorch/jule": "^3.1.0", "@streamface/sdk": "workspace:*" }
 }

@@ -3,8 +3,8 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PetMemory } from "../src/pokemon-pet-memory.ts";
-import type { Pokemon } from "@stream-overlay/pokemon-model";
-import type { StreamChatMessage } from "@stream-overlay/stream-chat";
+import type { Pokemon } from "@streamface/pokemon-model";
+import type { StreamChatMessage } from "@streamface/stream-chat";
 
 const party: Pokemon[] = [{ id: "stable-id", nationalDexNumber: 37, name: " Kleo ", level: 40, hp: 50, maxHp: 100, experience: 67907 }];
 const message = (id: string, did = "viewer-a", text = " !PET kleo ", streamerDid = "streamer"): StreamChatMessage => ({

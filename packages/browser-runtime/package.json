@@ -1,1 +1,1 @@
-{"name":"@stream-overlay/browser-runtime","private":true,"type":"module","exports":"./src/index.ts","dependencies":{"@stream-overlay/protocol":"workspace:*"}}
+{"name":"@streamface/browser-runtime","private":true,"type":"module","exports":"./src/index.ts","dependencies":{"@streamface/protocol":"workspace:*"}}

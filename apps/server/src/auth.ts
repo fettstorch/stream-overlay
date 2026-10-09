@@ -7,7 +7,7 @@ export function createOAuth(origin: string, dataDir: string, scope: string) {
   const clientId = local ? `http://localhost?redirect_uri=${encodeURIComponent(`${origin}/oauth/callback`)}&scope=${encodeURIComponent(scope)}` : `${origin}/oauth/client-metadata.json`;
   return new NodeOAuthClient({
     clientMetadata: {
-      client_id: clientId, client_name: "Stream Overlay", client_uri: origin,
+      client_id: clientId, client_name: "Streamface", client_uri: origin,
       redirect_uris: [`${origin}/oauth/callback`], scope, grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"], application_type: local ? "native" : "web", token_endpoint_auth_method: "none", dpop_bound_access_tokens: true,
     },

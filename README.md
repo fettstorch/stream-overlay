@@ -1,6 +1,13 @@
-# Stream Overlay
+# Streamface
 
-A local and cloud overlay control room built with Bun, Vue, TypeScript, and Vite.
+A local and cloud stream overlay app built with Bun, Vue, TypeScript, and Vite.
+
+The app and workspace packages are named Streamface (`@streamface/*`). Existing
+OBS URLs remain unchanged. The legacy `stream_overlay_session` cookie,
+`stream-overlay.admin.pinned-modules` browser key, `stream-overlay-cloud-auth`
+Docker volume and temporary `stream-overlay` log directory are intentionally
+retained for compatibility. Development lexicon IDs remain provisional until the
+production namespace is chosen.
 
 Pokémon Blue, Pokémon Crystal, Chat, and Overlay Paint are served directly by the central host.
 The Vue interfaces are compiled once at startup; the compilers then exit.
@@ -204,10 +211,10 @@ HTTPS origin, an owned Lexicon namespace, a private session secret, and durable
 OAuth storage:
 
 ```sh
-bun run --filter @stream-overlay/web build
+bun run --filter @streamface/web build
 PUBLIC_ORIGIN=https://your-host.example \
 SESSION_SECRET='at-least-32-random-bytes' \
-LEXICON_NAMESPACE=com.your-domain.streamoverlay \
+LEXICON_NAMESPACE=com.your-domain.streamface \
 AUTH_DATA_DIR=runtime/cloud-auth \
 bun run server
 ```
@@ -243,10 +250,10 @@ OAuth consent flow still depends on an AT Protocol provider accepting the loopba
 client metadata and development Lexicons; use the HTTPS deployment configuration
 above for the account pilot.
 
-The cloud control room automatically observes the signed-in ATProto account's
+The Streamface admin automatically observes the signed-in ATProto account's
 stream.place stream; no separate streamer selection is needed.
 
-The cloud control room includes Emoticons, Chat, Overlay Paint and Streamplace
+The Streamface admin includes Emoticons, Chat, Overlay Paint and Streamplace
 Pets. Pokémon Blue and Crystal remain local-only. The local `bun run overlay`
 workflow and its existing OBS URLs are unchanged.
 
@@ -264,7 +271,7 @@ Cloud OBS sources use your account DID in `?did=`:
 | Overlay Paint | `/paint/` |
 | Streamplace Pets | `/pets/` |
 
-All modules share the stream selected in the control room. Stream dimensions
+All modules share the stream selected in the admin. Stream dimensions
 are detected from Stream.place, with a 1920 × 1080 fallback and OBS setup
 instructions. Each module supports pinning, collapsing, search and an inline
 preview. Emoticons previews play audio and use a separate cooldown channel;

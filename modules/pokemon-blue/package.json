@@ -1,5 +1,5 @@
 {
-  "name": "@stream-overlay/pokemon-blue",
+  "name": "@streamface/pokemon-blue",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,10 +9,10 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@stream-overlay/sdk": "workspace:*",
-    "@stream-overlay/pokemon-model": "workspace:*",
-    "@stream-overlay/pokemon-ui": "workspace:*",
-    "@stream-overlay/stream-chat": "workspace:*",
+    "@streamface/sdk": "workspace:*",
+    "@streamface/pokemon-model": "workspace:*",
+    "@streamface/pokemon-ui": "workspace:*",
+    "@streamface/stream-chat": "workspace:*",
     "vue": "^3.5.0"
   },
   "devDependencies": {

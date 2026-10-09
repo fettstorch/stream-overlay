@@ -111,7 +111,7 @@ function saveFailure(error: unknown) {
   if (/lexicon|record|schema|validation/.test(detail))
     return {
       error: "pds-rejected-record",
-      message: "Your PDS rejected the Stream Overlay record format.",
+      message: "Your PDS rejected the Streamface record format.",
     };
   return {
     error: "save-failed",
@@ -632,5 +632,5 @@ if (import.meta.main) {
   };
   process.once("SIGTERM", shutdown);
   process.once("SIGINT", shutdown);
-  console.log(`Stream Overlay server listening on ${server.hostname}:${server.port}`);
+  console.log(`Streamface server listening on ${server.hostname}:${server.port}`);
 }

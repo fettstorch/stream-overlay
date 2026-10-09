@@ -1,5 +1,5 @@
 import type { EmoticonEvent } from "./contracts.ts";
-import { DirectStreamChatService } from "@stream-overlay/stream-chat";
+import { DirectStreamChatService } from "@streamface/stream-chat";
 import { captureStickerPreview } from "./sticker-preview.ts";
 import { createStickerAssetCache } from "./asset-cache.ts";
 import { advanceBoardScroll, createBoardScrollState } from "./board-scroll.ts";

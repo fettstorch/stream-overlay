@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "stream-overlay",
+      "name": "streamface",
       "devDependencies": {
         "@types/bun": "^1.3.0",
         "fengari": "^0.1.5",
@@ -11,11 +11,11 @@
       },
     },
     "apps/local": {
-      "name": "@stream-overlay/local",
+      "name": "@streamface/local",
       "dependencies": {
-        "@stream-overlay/pokemon-model": "workspace:*",
-        "@stream-overlay/sdk": "workspace:*",
-        "@stream-overlay/stream-chat": "workspace:*",
+        "@streamface/pokemon-model": "workspace:*",
+        "@streamface/sdk": "workspace:*",
+        "@streamface/stream-chat": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "^1.3.0",
@@ -23,12 +23,12 @@
       },
     },
     "apps/server": {
-      "name": "@stream-overlay/server",
+      "name": "@streamface/server",
       "dependencies": {
         "@atproto/api": "^0.24.3",
         "@atproto/jwk-jose": "^0.2.4",
         "@atproto/oauth-client-node": "0.5.9",
-        "@stream-overlay/protocol": "workspace:*",
+        "@streamface/protocol": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "^1.3.0",
@@ -36,13 +36,13 @@
       },
     },
     "apps/web": {
-      "name": "@stream-overlay/web",
+      "name": "@streamface/web",
       "dependencies": {
         "@atproto/api": "^0.24.3",
-        "@stream-overlay/browser-runtime": "workspace:*",
-        "@stream-overlay/emoticons": "workspace:*",
-        "@stream-overlay/protocol": "workspace:*",
-        "@stream-overlay/stream-chat": "workspace:*",
+        "@streamface/browser-runtime": "workspace:*",
+        "@streamface/emoticons": "workspace:*",
+        "@streamface/protocol": "workspace:*",
+        "@streamface/stream-chat": "workspace:*",
         "vue": "^3.5.0",
       },
       "devDependencies": {
@@ -56,10 +56,10 @@
       },
     },
     "modules/chat": {
-      "name": "@stream-overlay/chat",
+      "name": "@streamface/chat",
       "dependencies": {
-        "@stream-overlay/sdk": "workspace:*",
-        "@stream-overlay/stream-chat": "workspace:*",
+        "@streamface/sdk": "workspace:*",
+        "@streamface/stream-chat": "workspace:*",
         "vue": "^3.5.0",
       },
       "devDependencies": {
@@ -73,21 +73,21 @@
       },
     },
     "modules/emoticons": {
-      "name": "@stream-overlay/emoticons",
+      "name": "@streamface/emoticons",
       "dependencies": {
         "@fettstorch/jule": "^3.1.0",
-        "@stream-overlay/sdk": "workspace:*",
-        "@stream-overlay/stream-chat": "workspace:*",
+        "@streamface/sdk": "workspace:*",
+        "@streamface/stream-chat": "workspace:*",
       },
       "devDependencies": {
         "typescript": "^5.9.0",
       },
     },
     "modules/overlay-paint": {
-      "name": "@stream-overlay/overlay-paint",
+      "name": "@streamface/overlay-paint",
       "dependencies": {
         "@fettstorch/jule": "^3.1.0",
-        "@stream-overlay/sdk": "workspace:*",
+        "@streamface/sdk": "workspace:*",
       },
       "devDependencies": {
         "jsdom": "^27.0.0",
@@ -96,12 +96,12 @@
       },
     },
     "modules/pokemon-blue": {
-      "name": "@stream-overlay/pokemon-blue",
+      "name": "@streamface/pokemon-blue",
       "dependencies": {
-        "@stream-overlay/pokemon-model": "workspace:*",
-        "@stream-overlay/pokemon-ui": "workspace:*",
-        "@stream-overlay/sdk": "workspace:*",
-        "@stream-overlay/stream-chat": "workspace:*",
+        "@streamface/pokemon-model": "workspace:*",
+        "@streamface/pokemon-ui": "workspace:*",
+        "@streamface/sdk": "workspace:*",
+        "@streamface/stream-chat": "workspace:*",
         "vue": "^3.5.0",
       },
       "devDependencies": {
@@ -115,11 +115,11 @@
       },
     },
     "modules/pokemon-crystal": {
-      "name": "@stream-overlay/pokemon-crystal",
+      "name": "@streamface/pokemon-crystal",
       "dependencies": {
-        "@stream-overlay/pokemon-model": "workspace:*",
-        "@stream-overlay/pokemon-ui": "workspace:*",
-        "@stream-overlay/sdk": "workspace:*",
+        "@streamface/pokemon-model": "workspace:*",
+        "@streamface/pokemon-ui": "workspace:*",
+        "@streamface/sdk": "workspace:*",
         "vue": "^3.5.0",
       },
       "devDependencies": {
@@ -130,27 +130,27 @@
       },
     },
     "modules/streamplace-pets": {
-      "name": "@stream-overlay/streamplace-pets",
+      "name": "@streamface/streamplace-pets",
       "dependencies": {
-        "@stream-overlay/sdk": "workspace:*",
+        "@streamface/sdk": "workspace:*",
       },
     },
     "packages/browser-runtime": {
-      "name": "@stream-overlay/browser-runtime",
+      "name": "@streamface/browser-runtime",
       "dependencies": {
-        "@stream-overlay/protocol": "workspace:*",
+        "@streamface/protocol": "workspace:*",
       },
     },
     "packages/overlay-sdk": {
-      "name": "@stream-overlay/sdk",
+      "name": "@streamface/sdk",
     },
     "packages/pokemon-model": {
-      "name": "@stream-overlay/pokemon-model",
+      "name": "@streamface/pokemon-model",
     },
     "packages/pokemon-ui": {
-      "name": "@stream-overlay/pokemon-ui",
+      "name": "@streamface/pokemon-ui",
       "dependencies": {
-        "@stream-overlay/pokemon-model": "workspace:*",
+        "@streamface/pokemon-model": "workspace:*",
         "vue": "^3.5.0",
       },
       "devDependencies": {
@@ -164,10 +164,10 @@
       },
     },
     "packages/protocol": {
-      "name": "@stream-overlay/protocol",
+      "name": "@streamface/protocol",
     },
     "packages/stream-chat": {
-      "name": "@stream-overlay/stream-chat",
+      "name": "@streamface/stream-chat",
       "dependencies": {
         "@fettstorch/jule": "^3.1.0",
       },
@@ -362,35 +362,35 @@
 
     "@rollup/rollup-win32-x64-msvc": ["@rollup/rollup-win32-x64-msvc@4.63.6", "", { "os": "win32", "cpu": "x64" }, "sha512-0RAxO1pS/6lY1mSoD2Apm+6aPyfUlm+OWKgncIdj/eVN9I+pDY3lKgD7xsUNFei1u7MZQETGOo6m8POXMDp53A=="],
 
-    "@stream-overlay/browser-runtime": ["@stream-overlay/browser-runtime@workspace:packages/browser-runtime"],
+    "@streamface/browser-runtime": ["@streamface/browser-runtime@workspace:packages/browser-runtime"],
 
-    "@stream-overlay/chat": ["@stream-overlay/chat@workspace:modules/chat"],
+    "@streamface/chat": ["@streamface/chat@workspace:modules/chat"],
 
-    "@stream-overlay/emoticons": ["@stream-overlay/emoticons@workspace:modules/emoticons"],
+    "@streamface/emoticons": ["@streamface/emoticons@workspace:modules/emoticons"],
 
-    "@stream-overlay/local": ["@stream-overlay/local@workspace:apps/local"],
+    "@streamface/local": ["@streamface/local@workspace:apps/local"],
 
-    "@stream-overlay/overlay-paint": ["@stream-overlay/overlay-paint@workspace:modules/overlay-paint"],
+    "@streamface/overlay-paint": ["@streamface/overlay-paint@workspace:modules/overlay-paint"],
 
-    "@stream-overlay/pokemon-blue": ["@stream-overlay/pokemon-blue@workspace:modules/pokemon-blue"],
+    "@streamface/pokemon-blue": ["@streamface/pokemon-blue@workspace:modules/pokemon-blue"],
 
-    "@stream-overlay/pokemon-crystal": ["@stream-overlay/pokemon-crystal@workspace:modules/pokemon-crystal"],
+    "@streamface/pokemon-crystal": ["@streamface/pokemon-crystal@workspace:modules/pokemon-crystal"],
 
-    "@stream-overlay/pokemon-model": ["@stream-overlay/pokemon-model@workspace:packages/pokemon-model"],
+    "@streamface/pokemon-model": ["@streamface/pokemon-model@workspace:packages/pokemon-model"],
 
-    "@stream-overlay/pokemon-ui": ["@stream-overlay/pokemon-ui@workspace:packages/pokemon-ui"],
+    "@streamface/pokemon-ui": ["@streamface/pokemon-ui@workspace:packages/pokemon-ui"],
 
-    "@stream-overlay/protocol": ["@stream-overlay/protocol@workspace:packages/protocol"],
+    "@streamface/protocol": ["@streamface/protocol@workspace:packages/protocol"],
 
-    "@stream-overlay/sdk": ["@stream-overlay/sdk@workspace:packages/overlay-sdk"],
+    "@streamface/sdk": ["@streamface/sdk@workspace:packages/overlay-sdk"],
 
-    "@stream-overlay/server": ["@stream-overlay/server@workspace:apps/server"],
+    "@streamface/server": ["@streamface/server@workspace:apps/server"],
 
-    "@stream-overlay/stream-chat": ["@stream-overlay/stream-chat@workspace:packages/stream-chat"],
+    "@streamface/stream-chat": ["@streamface/stream-chat@workspace:packages/stream-chat"],
 
-    "@stream-overlay/streamplace-pets": ["@stream-overlay/streamplace-pets@workspace:modules/streamplace-pets"],
+    "@streamface/streamplace-pets": ["@streamface/streamplace-pets@workspace:modules/streamplace-pets"],
 
-    "@stream-overlay/web": ["@stream-overlay/web@workspace:apps/web"],
+    "@streamface/web": ["@streamface/web@workspace:apps/web"],
 
     "@types/bun": ["@types/bun@1.4.2", "", { "dependencies": { "bun-types": "1.4.2" } }, "sha512-GimotNn7+ZV0uVArItBbriZsR1oNf0+WTzPkdcFrzShI7k2norL0uzEaJT8T33dWr7O/c9ZDuAFQrctKCi72oQ=="],
 

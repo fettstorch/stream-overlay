@@ -1,8 +1,8 @@
 {
-  "name": "@stream-overlay/emoticons",
+  "name": "@streamface/emoticons",
   "private": true,
   "type": "module",
   "scripts": { "typecheck": "tsc --noEmit" },
   "devDependencies": { "typescript": "^5.9.0" },
-  "dependencies": { "@stream-overlay/sdk": "workspace:*", "@stream-overlay/stream-chat": "workspace:*", "@fettstorch/jule": "^3.1.0" }
+  "dependencies": { "@streamface/sdk": "workspace:*", "@streamface/stream-chat": "workspace:*", "@fettstorch/jule": "^3.1.0" }
 }

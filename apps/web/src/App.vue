@@ -390,8 +390,7 @@ onBeforeUnmount(() => {
 <template>
   <main>
     <header>
-      <p class="eyebrow">STREAM.PLACE OVERLAY</p>
-      <h1>Control room</h1>
+      <h1>streamface</h1>
       <p class="intro">Manage local overlay modules and copy their stable OBS URLs.</p>
     </header>
 

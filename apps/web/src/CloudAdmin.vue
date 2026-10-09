@@ -265,7 +265,7 @@ async function saveConfiguration(
             "pds-write-not-authorized":
               "Your ATProto session does not grant access to write these records.",
             "configuration-changed": "The configuration changed on your PDS. Reload and try again.",
-            "pds-rejected-record": "Your PDS rejected the Stream Overlay record format.",
+            "pds-rejected-record": "Your PDS rejected the Streamface record format.",
           }[body.error ?? ""] ??
             reason);
         const requestId = body.requestId ?? response.headers.get("x-request-id");
@@ -364,12 +364,11 @@ onBeforeUnmount(() => {
 <template>
   <main>
     <header>
-      <p class="eyebrow">STREAM.PLACE OVERLAY</p>
-      <h1>Control room</h1>
+      <h1>streamface</h1>
       <p class="intro">Manage your stream overlays from anywhere and copy their stable OBS URLs.</p>
     </header>
     <section v-if="sessionState === 'loading'" class="settings loading-card" aria-live="polite">
-      Connecting to Stream Overlay…
+      Connecting to Streamface…
     </section>
     <section v-else-if="sessionState === 'anonymous'" class="settings auth-card">
       <div>

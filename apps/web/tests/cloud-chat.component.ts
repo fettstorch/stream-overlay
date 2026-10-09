@@ -3,7 +3,7 @@ import { flushPromises } from "@vue/test-utils";
 import { defaultChatConfiguration } from "../../../modules/chat/src/config.ts";
 const mocks = vi.hoisted(() => ({ receive: undefined as any, message: undefined as any, close: vi.fn(), streamer: vi.fn(), report: vi.fn(), directCreated: vi.fn() }));
 vi.mock("../src/cloud-module-source.ts", () => ({ observeCloudConfig: (receive: any) => { mocks.receive = receive; return Object.assign(mocks.close, { report: mocks.report }); } }));
-vi.mock("@stream-overlay/stream-chat", async importOriginal => ({ ...await importOriginal<typeof import('@stream-overlay/stream-chat')>(), DirectStreamChatService: class {
+vi.mock("@streamface/stream-chat", async importOriginal => ({ ...await importOriginal<typeof import('@streamface/stream-chat')>(), DirectStreamChatService: class {
   constructor() { mocks.directCreated(); }
   messages = { subscribe: (receive: any) => { mocks.message = receive; return () => {}; } };
   setStreamerDid = mocks.streamer; stop = vi.fn();

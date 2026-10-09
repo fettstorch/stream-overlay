@@ -1,8 +1,8 @@
 {
-  "name": "@stream-overlay/streamplace-pets",
+  "name": "@streamface/streamplace-pets",
   "private": true,
   "type": "module",
   "dependencies": {
-    "@stream-overlay/sdk": "workspace:*"
+    "@streamface/sdk": "workspace:*"
   }
 }

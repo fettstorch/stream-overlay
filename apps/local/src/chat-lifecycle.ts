@@ -1,4 +1,4 @@
-import type { StreamChatService } from "@stream-overlay/stream-chat";
+import type { StreamChatService } from "@streamface/stream-chat";
 import type { HostConfiguration } from "./config-store.ts";
 
 /** Jetstream remains available for consumers that need AT Protocol events. */

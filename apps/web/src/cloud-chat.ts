@@ -1,6 +1,6 @@
 import { createApp } from "vue";
 import Chat from "../../../modules/chat/src/App.vue";
-import { DirectStreamChatService, SampleChatService } from "@stream-overlay/stream-chat";
+import { DirectStreamChatService, SampleChatService } from "@streamface/stream-chat";
 import { observeCloudConfig } from "./cloud-module-source.ts";
 import { parseChatConfiguration, type ChatConfiguration } from "../../../modules/chat/src/config.ts";
 

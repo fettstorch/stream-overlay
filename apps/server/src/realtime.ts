@@ -1,4 +1,4 @@
-import { parseClientMessage, type RelayServerMessage, type RelaySnapshot } from "@stream-overlay/protocol";
+import { parseClientMessage, type RelayServerMessage, type RelaySnapshot } from "@streamface/protocol";
 import type { ServerWebSocket } from "bun";
 import type { StructuredLogger } from "./logger.ts";
 

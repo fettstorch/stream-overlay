@@ -1,5 +1,5 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
-import type { OverlayModule } from "@stream-overlay/sdk";
+import type { OverlayModule } from "@streamface/sdk";
 import { ModuleSupervisor } from "../src/module-supervisor.ts";
 
 afterEach(() => { mockSpawn?.mockRestore(); });

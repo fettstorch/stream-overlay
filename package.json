@@ -1,5 +1,5 @@
 {
-  "name": "stream-overlay",
+  "name": "streamface",
   "private": true,
   "engines": {
     "bun": ">=1.4.2"
@@ -19,12 +19,12 @@
     "format:check": "bun scripts/format.ts --check",
     "overlay": "bun --no-orphans scripts/start-overlay.ts",
     "overlay:host": "bun --no-orphans apps/local/src/server.ts",
-    "admin:dev": "bun run --filter @stream-overlay/web dev -- --host 127.0.0.1 --port 3003",
+    "admin:dev": "bun run --filter @streamface/web dev -- --host 127.0.0.1 --port 3003",
     "server": "bun --no-orphans apps/server/src/server.ts",
     "cloud": "docker compose -f infra/koyeb/compose.local.yml up --build",
-    "cloud:dev": "bunx bun@1.4.2 run --filter @stream-overlay/web build && PORT=${PORT:-3010} bunx bun@1.4.2 --no-orphans apps/server/src/server.ts",
-    "test": "bun test && bun run --filter @stream-overlay/web test && bun run --filter @stream-overlay/pokemon-ui test && bun run --filter @stream-overlay/overlay-paint test && bun run --filter @stream-overlay/pokemon-blue test && bun run --filter @stream-overlay/chat test",
-    "typecheck": "bun run --filter @stream-overlay/local typecheck && bun run --filter @stream-overlay/web typecheck && bun run --filter @stream-overlay/server typecheck && bun run --filter @stream-overlay/pokemon-ui typecheck && bun run --filter @stream-overlay/pokemon-blue typecheck && bun run --filter @stream-overlay/pokemon-crystal typecheck && bun run --filter @stream-overlay/overlay-paint typecheck && bun run --filter @stream-overlay/chat typecheck && bun run --filter @stream-overlay/emoticons typecheck",
-    "build": "bun run --filter @stream-overlay/web build && bun run --filter @stream-overlay/pokemon-blue build && bun run --filter @stream-overlay/pokemon-crystal build && bun run --filter @stream-overlay/chat build && bun build apps/local/src/server.ts --target bun --outdir dist/local && bun build apps/server/src/server.ts --target bun --outdir dist/server"
+    "cloud:dev": "bunx bun@1.4.2 run --filter @streamface/web build && PORT=${PORT:-3010} bunx bun@1.4.2 --no-orphans apps/server/src/server.ts",
+    "test": "bun test && bun run --filter @streamface/web test && bun run --filter @streamface/pokemon-ui test && bun run --filter @streamface/overlay-paint test && bun run --filter @streamface/pokemon-blue test && bun run --filter @streamface/chat test",
+    "typecheck": "bun run --filter @streamface/local typecheck && bun run --filter @streamface/web typecheck && bun run --filter @streamface/server typecheck && bun run --filter @streamface/pokemon-ui typecheck && bun run --filter @streamface/pokemon-blue typecheck && bun run --filter @streamface/pokemon-crystal typecheck && bun run --filter @streamface/overlay-paint typecheck && bun run --filter @streamface/chat typecheck && bun run --filter @streamface/emoticons typecheck",
+    "build": "bun run --filter @streamface/web build && bun run --filter @streamface/pokemon-blue build && bun run --filter @streamface/pokemon-crystal build && bun run --filter @streamface/chat build && bun build apps/local/src/server.ts --target bun --outdir dist/local && bun build apps/server/src/server.ts --target bun --outdir dist/server"
   }
 }

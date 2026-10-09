@@ -2,6 +2,8 @@ import { computed, ref, type Ref } from "vue";
 
 export type ControlRoomModule = { id: string; name: string; description: string };
 
+// Retain the original storage key so renaming Streamface does not reset pinned modules.
+
 export function useModuleCollection<T extends ControlRoomModule>(modules: Readonly<Ref<T[]>>, storageKey = "stream-overlay.admin.pinned-modules") {
   const query = ref("");
   const expanded = ref<Record<string, boolean>>({});

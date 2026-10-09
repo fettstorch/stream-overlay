@@ -1,4 +1,4 @@
-import type { OverlayModule } from "@stream-overlay/sdk";
+import type { OverlayModule } from "@streamface/sdk";
 import { pokemonBlueModule } from "../../../modules/pokemon-blue/src/module.ts";
 import { pokemonCrystalModule } from "../../../modules/pokemon-crystal/src/module.ts";
 import { streamplacePetsModule } from "../../../modules/streamplace-pets/src/module.ts";

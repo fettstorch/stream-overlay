@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
-import { BadgeStrip, PokemonTeam, type BadgeDefinition, type PetAppearance, type ThoughtAppearance } from "@stream-overlay/pokemon-ui";
-import type { PokemonSnapshot } from "@stream-overlay/pokemon-model";
+import { BadgeStrip, PokemonTeam, type BadgeDefinition, type PetAppearance, type ThoughtAppearance } from "@streamface/pokemon-ui";
+import type { PokemonSnapshot } from "@streamface/pokemon-model";
 import { PokemonPetQueues, type PetAuthor } from "./pet-queue.ts";
-import { observeStreamChat } from "@stream-overlay/stream-chat";
+import { observeStreamChat } from "@streamface/stream-chat";
 import { parseThoughtInterval, type PokemonBlueConfiguration } from "./config.ts";
 import fallbackImage from "../../../assets/unknown-pokemon.svg";
 import petEffectImage from "../../../assets/pat-pat-pet-pet.gif";

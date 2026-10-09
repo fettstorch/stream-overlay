@@ -1,5 +1,5 @@
 import { expect, test, spyOn } from "bun:test";
-import { DirectStreamChatService } from "@stream-overlay/stream-chat";
+import { DirectStreamChatService } from "@streamface/stream-chat";
 import { defaultHostConfiguration } from "../src/default-configuration.ts";
 import { updateDirectChat } from "../src/chat-lifecycle.ts";
 

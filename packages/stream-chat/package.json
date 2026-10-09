@@ -1,5 +1,5 @@
 {
-  "name": "@stream-overlay/stream-chat",
+  "name": "@streamface/stream-chat",
   "private": true,
   "type": "module",
   "exports": "./src/index.ts",
