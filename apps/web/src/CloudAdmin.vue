@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { attachActorCombobox } from "./actor-combobox.ts";
-import { searchPublicActors } from "./actor-search.ts";
+import { loadPublicActorProfile, searchPublicActors, type PublicActorProfile } from "./actor-search.ts";
 import CloudEmoticonControls from "./CloudEmoticonControls.vue";
 import type { CloudConfig } from "./cloud-admin-types.ts";
 
@@ -11,6 +11,8 @@ const did = ref("");
 const config = ref<CloudConfig | null>(null);
 const loginMessage = ref("");
 const moduleMessage = ref("");
+const profile = ref<PublicActorProfile | null>(null);
+const profileState = ref<"loading" | "ready" | "unavailable">("loading");
 const copied = ref<"effect" | "board" | null>(null);
 const handleInput = ref<HTMLInputElement>();
 const loginStatus = ref<HTMLElement>();
@@ -22,6 +24,11 @@ const boardUrl = computed(() => cloudUrl("/board/"));
 function cloudUrl(path: string) { const url = new URL(path, location.origin); if (did.value) url.searchParams.set("did", did.value); return url.toString(); }
 async function parseError(response: Response, fallback: string) { try { const body = await response.json() as { error?: string }; return body.error || fallback; } catch { return fallback; } }
 function initialConfig(): CloudConfig { return { enabled: true, streamerDid: did.value, revision: "new", commands: [] }; }
+async function loadProfile() {
+  profileState.value = "loading";
+  try { profile.value = await loadPublicActorProfile(did.value); profileState.value = "ready"; }
+  catch { profile.value = null; profileState.value = "unavailable"; }
+}
 
 async function loadConfiguration() {
   loadState.value = "loading"; moduleMessage.value = "Loading your PDS configuration…";
@@ -29,7 +36,7 @@ async function loadConfiguration() {
     const response = await fetch(`/api/accounts/${encodeURIComponent(did.value)}/config`, { cache: "no-store" });
     if (response.status === 404) {
       config.value = initialConfig(); loadState.value = "ready";
-      moduleMessage.value = "No cloud configuration yet. Your first save will create it on your PDS.";
+      moduleMessage.value = "No PDS configuration yet. Your first save will create it.";
       return;
     }
     if (!response.ok) throw new Error(await parseError(response, "Could not load your PDS configuration."));
@@ -68,7 +75,8 @@ async function load() {
       if (handleInput.value && loginStatus.value) autocomplete = attachActorCombobox({ input: handleInput.value, status: loginStatus.value, searcher: searchPublicActors });
       return;
     }
-    did.value = (await response.json() as { did: string }).did; sessionState.value = "authenticated"; await loadConfiguration();
+    did.value = (await response.json() as { did: string }).did; sessionState.value = "authenticated";
+    await Promise.all([loadProfile(), loadConfiguration()]);
   } catch { sessionState.value = "anonymous"; loginMessage.value = "Could not reach the cloud service. Reload to try again."; }
 }
 onMounted(load);
@@ -77,15 +85,18 @@ onBeforeUnmount(() => { autocomplete?.dispose(); clearTimeout(copyTimer); });
 
 <template>
   <main>
-    <header><p class="eyebrow">STREAM.PLACE OVERLAY</p><h1>Control room</h1><p class="intro">Manage your cloud Emoticons and copy their stable OBS URLs.</p></header>
+    <header><p class="eyebrow">STREAM.PLACE OVERLAY</p><h1>Control room</h1><p class="intro">Manage your Emoticons from anywhere and copy their stable OBS URLs.</p></header>
     <section v-if="sessionState === 'loading'" class="settings loading-card" aria-live="polite">Connecting to Stream Overlay…</section>
     <section v-else-if="sessionState === 'anonymous'" class="settings auth-card">
       <div><p class="section-kicker">AT PROTOCOL</p><h2>Connect your account</h2><p>Your commands and media stay in your own PDS. Sign in to open the same Emoticons controls you use locally.</p></div>
-      <form class="login-form" @submit.prevent="login"><label>Bluesky handle<input ref="handleInput" name="handle" autocomplete="username" placeholder="Search name or handle" required></label><button class="primary-button" type="submit">Continue with AT Protocol</button></form>
+      <form class="login-form" @submit.prevent="login"><label>ATProto handle<input ref="handleInput" name="handle" autocomplete="username" placeholder="Search name or handle" required></label><button class="primary-button" type="submit">Continue with AT Protocol</button></form>
       <p ref="loginStatus" class="save-status login-status" aria-live="polite">{{ loginMessage }}</p>
     </section>
     <template v-else>
-      <section class="settings account-card"><div><p class="section-kicker">CLOUD ACCOUNT</p><h2>Connected</h2><code>{{ did }}</code></div><button type="button" class="secondary-button" @click="logout">Log out</button></section>
+      <section class="settings account-card">
+        <div class="account-summary"><p class="section-kicker">ATPROTO ACCOUNT</p><p class="connected-status"><span aria-hidden="true" />Connected</p><div class="account-profile"><img v-if="profile?.avatar" :src="profile.avatar" alt=""><span v-else class="avatar-placeholder" aria-hidden="true" /><span><strong v-if="profileState === 'ready'">{{ profile?.displayName || `@${profile?.handle}` }}</strong><strong v-else-if="profileState === 'loading'">Loading profile…</strong><strong v-else>Profile unavailable</strong><small v-if="profile">@{{ profile.handle }}</small><small v-else-if="profileState === 'unavailable'">Signed in with AT Protocol</small></span></div><button v-if="profileState === 'unavailable'" type="button" class="profile-retry" @click="loadProfile">Retry profile</button></div>
+        <button type="button" class="secondary-button" @click="logout">Log out</button>
+      </section>
       <section><h2>Modules</h2><article class="module-card cloud-module">
         <div class="module-heading"><div><h3>Emoticons</h3><span class="status" :data-status="config?.enabled ? 'running' : 'stopped'">{{ config?.enabled ? 'running' : 'stopped' }}</span></div><label v-if="config" class="switch"><input type="checkbox" :checked="config.enabled" aria-label="Enable Emoticons" @change="toggleEnabled"><span /></label></div>
         <div v-if="loadState === 'error'" class="state-panel error-panel"><strong>Your saved configuration could not be loaded.</strong><span>We did not replace it with an empty setup.</span><button type="button" @click="loadConfiguration">Retry</button></div>
