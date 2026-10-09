@@ -23,7 +23,7 @@ async function save() { await props.save({ ...props.config, chat: { ...chat.valu
   <section v-if="moduleId === 'chat'" class="module-section appearance-controls" aria-label="Chat appearance">
     <p>Messages remain for 20 seconds, then fade over 10 seconds.</p>
     <label>Background color<input v-model="chat.backgroundColor" type="color" @change="save"></label>
-    <label v-for="slider in sliders" :key="slider.key">{{ slider.label }} <output>{{ chat[slider.key] }}{{ slider.unit }}</output><input v-model.number="chat[slider.key]" type="range" :min="slider.min" :max="slider.max" @change="save"></label>
+    <label v-for="slider in sliders" :key="slider.key" class="chat-slider"><span>{{ slider.label }}</span><output>{{ chat[slider.key] }}{{ slider.unit }}</output><input v-model.number="chat[slider.key]" type="range" :min="slider.min" :max="slider.max" @change="save"></label>
   </section>
   <section v-else-if="moduleId === 'overlay-paint'" class="module-section appearance-controls" aria-label="Paint appearance">
     <p>Draw on the preview below. Drawings and the cursor are shared with your OBS source, then fade automatically.</p>

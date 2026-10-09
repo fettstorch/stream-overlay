@@ -21,6 +21,13 @@
 .appearance-controls { display:grid; gap:12px; margin:16px 0; }
 .appearance-controls label { display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
 .appearance-controls input[type=range] { flex:1; min-width:120px; }
+.appearance-controls .chat-slider { display:grid; grid-template-columns:150px 6ch minmax(0,1fr); gap:12px; }
+.chat-slider output { margin:0; text-align:right; font-variant-numeric:tabular-nums; }
+.chat-slider input[type=range] { width:100%; min-width:0; margin:0; }
+@media(max-width:680px) {
+  .appearance-controls .chat-slider { grid-template-columns:minmax(0,1fr) 6ch; gap:6px 12px; }
+  .chat-slider input[type=range] { grid-column:1 / -1; }
+}
 .appearance-controls input[type=color] { width:60px; height:36px; padding:3px; }
 .appearance-controls output { margin-left:auto; color:#b8c8e9; }
 .upstream-info { padding:14px 16px; border:1px solid #75602f; border-radius:10px; background:#332b19; color:#efdcaa; font-size:.9rem; line-height:1.6; }
