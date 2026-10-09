@@ -9,7 +9,22 @@ type SocketData = { peer?: ReturnType<Relay["open"]> };
 function json(value: unknown, status = 200, headers: HeadersInit = {}) { return Response.json(value, { status, headers: { "Cache-Control": "no-store", ...headers } }); }
 function safeFile(pathname: string, webRoot: string) { let relative = pathname.startsWith("/admin/") ? pathname.slice("/admin/".length) : pathname.slice(1); if (pathname === "/" || pathname === "/admin/") relative = "cloud-admin.html"; if (pathname === "/effect/") relative = "effect.html"; if (pathname === "/board/") relative = "board.html"; try { relative = decodeURIComponent(relative); } catch { return; } if (relative.split("/").includes("..")) return; const root = resolve(webRoot); const path = resolve(root, relative); return path === root || path.startsWith(`${root}${sep}`) ? path : undefined; }
 function didFromPath(path: string, suffix: string) { const match = new RegExp(`^/api/accounts/(did:[^/]+)/${suffix}$`).exec(path); return match ? decodeURIComponent(match[1]) : undefined; }
-function sameOrigin(request: Request, origin: string) { try { return new URL(request.headers.get("origin") ?? "").origin === new URL(origin).origin; } catch { return false; } }
+function sameOrigin(request: Request, origin: string) {
+  try {
+    const actual = new URL(request.headers.get("origin") ?? ""), expected = new URL(origin);
+    if (actual.origin === expected.origin) return true;
+    const loopback = (hostname: string) => ["127.0.0.1", "localhost", "[::1]"].includes(hostname);
+    return actual.protocol === "http:" && expected.protocol === "http:" && actual.port === expected.port && loopback(actual.hostname) && loopback(expected.hostname);
+  } catch { return false; }
+}
+function saveFailure(error: unknown) {
+  const value = error as { status?: number; error?: string; message?: string };
+  const detail = `${value?.error ?? ""} ${value?.message ?? ""}`.toLowerCase();
+  if (value?.status === 401 || value?.status === 403 || /unauthor|forbidden|scope|permission/.test(detail)) return { error: "pds-write-not-authorized", message: "Your ATProto session does not grant access to write these records." };
+  if (/invalidswap|swap|concurrent/.test(detail)) return { error: "configuration-changed", message: "The PDS configuration changed since it was loaded. Reload and try again." };
+  if (/lexicon|record|schema|validation/.test(detail)) return { error: "pds-rejected-record", message: "Your PDS rejected the Stream Overlay record format." };
+  return { error: "save-failed", message: "Your PDS could not save the configuration." };
+}
 async function boundedBody(request: Request, maximum: number) { const declared = Number(request.headers.get("content-length") ?? 0); if (declared > maximum) throw new RangeError("Body too large"); const reader = request.body?.getReader(); if (!reader) return new Uint8Array(); const chunks: Uint8Array[] = []; let length = 0; while (true) { const { done, value } = await reader.read(); if (done) break; length += value.byteLength; if (length > maximum) { await reader.cancel(); throw new RangeError("Body too large"); } chunks.push(value); } const bytes = new Uint8Array(length); let offset = 0; for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; } return bytes; }
 
 export async function handleRequest(request: Request, deps: Dependencies) {
@@ -22,7 +37,7 @@ export async function handleRequest(request: Request, deps: Dependencies) {
   if (path === "/api/session") { const did = await readSessionCookie(request, deps.secret); return did ? json({ did }) : json({ authenticated: false }, 401); }
   const configDid = didFromPath(path, "config");
   if (configDid && request.method === "GET") { try { return json(await deps.pds.publicConfig(configDid, url.searchParams.get("refresh") === "1")); } catch (error) { return error instanceof CloudConfigMissingError ? json({ error: "configuration-not-found" }, 404) : json({ error: "configuration-unavailable" }, 502); } }
-  if (configDid && request.method === "PUT") { if (!sameOrigin(request, deps.origin)) return json({ error: "invalid-origin" }, 403); const authDid = await readSessionCookie(request, deps.secret); if (authDid !== configDid) return json({ error: "forbidden" }, 403); try { const body = await request.json() as CloudConfig; if (!body || !Array.isArray(body.commands) || body.commands.length > 100 || typeof body.streamerDid !== "string" || !/^did:[a-z0-9]+:[A-Za-z0-9._:%-]+$/.test(body.streamerDid)) return json({ error: "invalid-configuration" }, 400); const saved = await deps.pds.save(configDid, body); deps.relay.configChanged(configDid, saved.revision); return json(saved); } catch { return json({ error: "save-failed" }, 400); } }
+  if (configDid && request.method === "PUT") { if (!sameOrigin(request, deps.origin)) return json({ error: "invalid-origin", message: "Open the admin from the same origin shown in its OAuth metadata." }, 403); const authDid = await readSessionCookie(request, deps.secret); if (authDid !== configDid) return json({ error: "forbidden", message: "Sign in again before saving." }, 403); try { const body = await request.json() as CloudConfig; if (!body || !Array.isArray(body.commands) || body.commands.length > 100 || typeof body.streamerDid !== "string" || !/^did:[a-z0-9]+:[A-Za-z0-9._:%-]+$/.test(body.streamerDid)) return json({ error: "invalid-configuration", message: "The configuration contains invalid values." }, 400); const saved = await deps.pds.save(configDid, body); deps.relay.configChanged(configDid, saved.revision); return json(saved); } catch (error) { return json(saveFailure(error), 400); } }
   const uploadDid = didFromPath(path, "media");
   if (uploadDid && request.method === "POST") { if (!sameOrigin(request, deps.origin)) return json({ error: "invalid-origin" }, 403); const authDid = await readSessionCookie(request, deps.secret); if (authDid !== uploadDid) return json({ error: "forbidden" }, 403); try { const bytes = await boundedBody(request, 10_000_000); return json(await deps.pds.upload(uploadDid, bytes, request.headers.get("content-type") ?? "")); } catch (error) { return error instanceof RangeError ? json({ error: "upload-too-large" }, 413) : json({ error: "upload-failed" }, 400); } }
   if (path === "/api/meta") return json({ namespace: Object.values(collections(process.env.LEXICON_NAMESPACE ?? "invalid.streamoverlay.dev")), oauthConfigured: deps.secret.length >= 32 });

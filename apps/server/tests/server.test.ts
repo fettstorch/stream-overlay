@@ -44,6 +44,19 @@ describe("cloud server boundary", () => {
 
   test("rejects cross-origin authenticated writes before touching the PDS", async () => { const root=webRoot();const deps=dependencies(root);let saved=false;(deps as any).pds={save:async()=>{saved=true}};const cookie=await sessionCookie("did:plc:alice",deps.secret);const response=await handleRequest(new Request("https://overlay.example/api/accounts/did:plc:alice/config",{method:"PUT",headers:{origin:"https://evil.example",cookie:`stream_overlay_session=${cookie}`,"content-type":"application/json"},body:JSON.stringify({enabled:true,streamerDid:"did:plc:alice",commands:[]})}),deps);expect(response.status).toBe(403);expect(saved).toBe(false); });
 
+  test("accepts localhost and 127.0.0.1 as the same local write origin", async () => {
+    const root=webRoot(); const deps=createDependencies({PUBLIC_ORIGIN:"http://127.0.0.1:3010",SESSION_SECRET:"test-secret-with-at-least-thirty-two-bytes",LEXICON_NAMESPACE:"com.example.streamoverlay",AUTH_DATA_DIR:join(root,"auth")});
+    (deps as any).pds={save:async(_did:string,body:unknown)=>body}; const cookie=await sessionCookie("did:plc:alice",deps.secret);
+    const response=await handleRequest(new Request("http://localhost:3010/api/accounts/did:plc:alice/config",{method:"PUT",headers:{origin:"http://localhost:3010",cookie:`stream_overlay_session=${cookie}`,"content-type":"application/json"},body:JSON.stringify({enabled:false,streamerDid:"did:plc:alice",revision:"old",commands:[]})}),deps);
+    expect(response.status).toBe(200); expect((await response.json()).enabled).toBe(false);
+  });
+
+  test("returns sanitized actionable PDS save failures", async () => {
+    const root=webRoot(); const deps=dependencies(root); (deps as any).pds={save:async()=>{throw Object.assign(new Error("token rejected: secret detail"),{status:403,error:"Forbidden"})}}; const cookie=await sessionCookie("did:plc:alice",deps.secret);
+    const response=await handleRequest(new Request("https://overlay.example/api/accounts/did:plc:alice/config",{method:"PUT",headers:{origin:"https://overlay.example",cookie:`stream_overlay_session=${cookie}`,"content-type":"application/json"},body:JSON.stringify({enabled:false,streamerDid:"did:plc:alice",commands:[]})}),deps);
+    expect(response.status).toBe(400); expect(await response.json()).toEqual({error:"pds-write-not-authorized",message:"Your ATProto session does not grant access to write these records."});
+  });
+
   test("distinguishes a missing cloud configuration from an unavailable PDS", async () => {
     const root = webRoot(); const deps = dependencies(root);
     (deps as any).pds = { publicConfig: async () => { throw new CloudConfigMissingError(); } };

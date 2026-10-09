@@ -4,6 +4,7 @@ import { attachActorCombobox } from "./actor-combobox.ts";
 import { loadPublicActorProfile, searchPublicActors, type PublicActorProfile } from "./actor-search.ts";
 import CloudEmoticonControls from "./CloudEmoticonControls.vue";
 import type { CloudConfig } from "./cloud-admin-types.ts";
+import { useModuleCollection } from "./use-module-collection.ts";
 
 const sessionState = ref<"loading" | "anonymous" | "authenticated">("loading");
 const loadState = ref<"loading" | "ready" | "error">("loading");
@@ -18,6 +19,8 @@ const handleInput = ref<HTMLInputElement>();
 const loginStatus = ref<HTMLElement>();
 let autocomplete: ReturnType<typeof attachActorCombobox> | undefined;
 let copyTimer: ReturnType<typeof setTimeout> | undefined;
+const cloudModules = ref([{ id: "emoticons", name: "Emoticons", description: "Trigger clips and stickers from stream chat." }]);
+const { query: moduleQuery, isPinned, togglePin, isExpanded, toggleDetails, expandCard, matchesSearch, orderedModules, matchingCount } = useModuleCollection(cloudModules);
 
 const effectUrl = computed(() => cloudUrl("/effect/"));
 const boardUrl = computed(() => cloudUrl("/board/"));
@@ -50,9 +53,13 @@ async function saveConfiguration(candidate: CloudConfig, successMessage = "Saved
   moduleMessage.value = "Saving to your PDS…";
   try {
     const response = await fetch(`/api/accounts/${encodeURIComponent(did.value)}/config`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(candidate) });
-    if (!response.ok) throw new Error(await parseError(response, "Save failed"));
+    if (!response.ok) {
+      let reason = "Your PDS could not save the configuration.";
+      try { const body = await response.json() as { error?: string; message?: string }; reason = body.message || ({ "invalid-origin": "Open this admin from its configured OAuth URL, then try again.", forbidden: "Sign in again before saving.", "pds-write-not-authorized": "Your ATProto session does not grant access to write these records.", "configuration-changed": "The configuration changed on your PDS. Reload and try again.", "pds-rejected-record": "Your PDS rejected the Stream Overlay record format." }[body.error ?? ""] ?? reason); } catch { /* Use the safe fallback. */ }
+      throw new Error(reason);
+    }
     config.value = await response.json() as CloudConfig; moduleMessage.value = successMessage; return true;
-  } catch { moduleMessage.value = "Save failed. Your last saved configuration is still active."; return false; }
+  } catch (error) { moduleMessage.value = `${error instanceof Error ? error.message : "Save failed."} Your last saved configuration is still active.`; return false; }
 }
 async function toggleEnabled(event: Event) {
   if (!config.value) return;
@@ -97,17 +104,17 @@ onBeforeUnmount(() => { autocomplete?.dispose(); clearTimeout(copyTimer); });
         <div class="account-summary"><p class="section-kicker">ATPROTO ACCOUNT</p><p class="connected-status"><span aria-hidden="true" />Connected</p><div class="account-profile"><img v-if="profile?.avatar" :src="profile.avatar" alt=""><span v-else class="avatar-placeholder" aria-hidden="true" /><span><strong v-if="profileState === 'ready'">{{ profile?.displayName || `@${profile?.handle}` }}</strong><strong v-else-if="profileState === 'loading'">Loading profile…</strong><strong v-else>Profile unavailable</strong><small v-if="profile">@{{ profile.handle }}</small><small v-else-if="profileState === 'unavailable'">Signed in with AT Protocol</small></span></div><button v-if="profileState === 'unavailable'" type="button" class="profile-retry" @click="loadProfile">Retry profile</button></div>
         <button type="button" class="secondary-button" @click="logout">Log out</button>
       </section>
-      <section><h2>Modules</h2><article class="module-card cloud-module">
-        <div class="module-heading"><div><h3>Emoticons</h3><span class="status" :data-status="config?.enabled ? 'running' : 'stopped'">{{ config?.enabled ? 'running' : 'stopped' }}</span></div><label v-if="config" class="switch"><input type="checkbox" :checked="config.enabled" aria-label="Enable Emoticons" @change="toggleEnabled"><span /></label></div>
+      <section><h2>Modules</h2><label class="module-search"><span class="sr-only">Search modules</span><input v-model="moduleQuery" type="search" placeholder="Search modules…" aria-label="Search modules"></label><p v-if="!matchingCount" class="no-modules" role="status">No modules match your search.</p><div class="module-grid"><article v-for="module in orderedModules" v-show="matchesSearch(module)" :key="module.id" class="module-card cloud-module" :class="{ pinned: isPinned(module.id), collapsed: !isExpanded(module) }" @click="expandCard(module, $event)">
+        <div class="module-heading"><div><h3>{{ module.name }}</h3><span class="status" :data-status="config?.enabled ? 'running' : 'stopped'">{{ config?.enabled ? 'running' : 'stopped' }}</span></div><div class="module-actions"><button type="button" class="module-icon-button pin-button" :aria-label="`${isPinned(module.id) ? 'Unpin' : 'Pin'} ${module.name}`" :aria-pressed="isPinned(module.id)" @click="togglePin(module.id)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m16 3 5 5-4 1-4 5-1 4-3-3-6 6 6-6-3-3 4-1 5-4z" /></svg></button><button type="button" class="module-icon-button" :aria-label="`${isExpanded(module) ? 'Hide' : 'Show'} ${module.name} details`" :aria-expanded="isExpanded(module)" :aria-controls="`module-body-${module.id}`" @click="toggleDetails(module)"><svg viewBox="0 0 24 24" aria-hidden="true" :class="{ expanded: isExpanded(module) }"><path d="m6 9 6 6 6-6" /></svg></button><label v-if="config" class="switch"><input type="checkbox" :checked="config.enabled" aria-label="Enable Emoticons" @change="toggleEnabled"><span /></label></div></div>
         <div v-if="loadState === 'error'" class="state-panel error-panel"><strong>Your saved configuration could not be loaded.</strong><span>We did not replace it with an empty setup.</span><button type="button" @click="loadConfiguration">Retry</button></div>
         <div v-else-if="loadState === 'loading'" class="state-panel">Loading your configuration…</div>
-        <div v-else-if="config" class="module-body">
+        <div v-else-if="config" v-show="isExpanded(module)" :id="`module-body-${module.id}`" class="module-body">
           <section class="module-commands"><h4>Effects OBS URL</h4></section><div class="overlay-url"><code>{{ effectUrl }}</code><a class="open-url-button" :href="effectUrl" target="_blank" rel="noopener noreferrer" aria-label="Open Emoticons effects OBS URL"><span class="external-link-icon" aria-hidden="true" /></a><button type="button" class="copy-button" :class="{ copied: copied === 'effect' }" aria-label="Copy Emoticons effects OBS URL" @click="copyUrl('effect')"><span class="copy-icon" aria-hidden="true" /></button></div>
           <section class="module-commands"><h4>Instruction board OBS URL</h4></section><div class="overlay-url board-url"><code>{{ boardUrl }}</code><a class="open-url-button" :href="boardUrl" target="_blank" rel="noopener noreferrer" aria-label="Open Emoticons instruction board OBS URL"><span class="external-link-icon" aria-hidden="true" /></a><button type="button" class="copy-button" :class="{ copied: copied === 'board' }" aria-label="Copy Emoticons instruction board OBS URL" @click="copyUrl('board')"><span class="copy-icon" aria-hidden="true" /></button></div>
           <CloudEmoticonControls :did="did" :config="config" :save="saveConfiguration" />
         </div>
         <p class="module-message" role="status" aria-live="polite">{{ moduleMessage }}</p>
-      </article></section>
+      </article></div></section>
     </template>
   </main>
 </template>

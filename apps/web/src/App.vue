@@ -5,6 +5,7 @@ import EmoticonControls from "./EmoticonControls.vue";
 import PokemonModuleControls from "./PokemonModuleControls.vue";
 import { defaultChatConfiguration, parseChatConfiguration } from "../../../modules/chat/src/config";
 import { parseThoughtInterval, type PokemonBlueConfiguration } from "../../../modules/pokemon-blue/src/config";
+import { useModuleCollection } from "./use-module-collection.ts";
 
 interface ModuleStatus {
   id: string;
@@ -35,38 +36,7 @@ interface ActorProfile {
 }
 
 const modules = ref<ModuleStatus[]>([]);
-const moduleQuery = ref("");
-const expandedModules = ref<Record<string, boolean>>({});
-const pinStorageKey = "stream-overlay.admin.pinned-modules";
-const pinnedModuleIds = ref<string[]>(readPins());
-function readPins(): string[] {
-  try {
-    const value: unknown = JSON.parse(localStorage.getItem(pinStorageKey) ?? "[]");
-    return Array.isArray(value) ? [...new Set(value.filter((id): id is string => typeof id === "string"))] : [];
-  } catch { return []; }
-}
-function isPinned(id: string) { return pinnedModuleIds.value.includes(id); }
-function togglePin(id: string) {
-  pinnedModuleIds.value = isPinned(id) ? pinnedModuleIds.value.filter(candidate => candidate !== id) : [...pinnedModuleIds.value, id];
-  // These are browser-only layout preferences, not settings used by OBS.
-  try { localStorage.setItem(pinStorageKey, JSON.stringify(pinnedModuleIds.value)); } catch { /* Keep working when browser storage is unavailable. */ }
-}
-function isExpanded(module: ModuleStatus) {
-  return expandedModules.value[module.id] ?? false;
-}
-function expandCard(module: ModuleStatus, event: MouseEvent) {
-  if (isExpanded(module) || (event.target as Element).closest("button, a, input, select, textarea, label")) return;
-  expandedModules.value[module.id] = true;
-}
-function toggleDetails(module: ModuleStatus) {
-  expandedModules.value[module.id] = !isExpanded(module);
-}
-function matchesSearch(module: ModuleStatus) {
-  const query = moduleQuery.value.trim().toLocaleLowerCase();
-  return `${module.name} ${module.description}`.toLocaleLowerCase().includes(query);
-}
-const orderedModules = computed(() => [...modules.value].sort((a, b) => Number(isPinned(b.id)) - Number(isPinned(a.id))));
-const matchingModuleCount = computed(() => modules.value.filter(matchesSearch).length);
+const { query: moduleQuery, isPinned, togglePin, isExpanded, toggleDetails, expandCard, matchesSearch, orderedModules, matchingCount: matchingModuleCount } = useModuleCollection(modules);
 const configuration = ref<PokemonBlueConfiguration>({
   thoughtIntervalSeconds: 120,
   components: { team: true, badges: true },
