@@ -332,5 +332,8 @@ in the `bun run cloud:dev` terminal, Compose logs, and Koyeb service logs. Uploa
 save failures show a `Reference` request ID in Admin; filter logs for that ID to
 follow body reading, OAuth session restore, and the upstream PDS operation without
 exposing credentials or media contents. Set `CLOUD_LOG_FILE` to additionally append
-the same JSONL stream to a local file. It is optional and should not point inside
-`AUTH_DATA_DIR`.
+the same JSONL stream to a file; it should not point inside `AUTH_DATA_DIR`.
+Direct local development also writes to `join(tmpdir(), "stream-overlay", "cloud.log")`
+by default, alongside stdout. The exact path appears in the startup event's
+`logFile` field. Production containers default to stdout only, which the hosting
+platform collects; their temporary filesystem is not durable log storage.

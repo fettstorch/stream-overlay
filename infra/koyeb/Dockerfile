@@ -8,7 +8,7 @@ RUN bun install --frozen-lockfile && bun run --filter @stream-overlay/web build 
 
 FROM oven/bun:1.4.2-slim
 WORKDIR /app
-ENV PORT=8000 WEB_DIST=/app/apps/web/dist AUTH_DATA_DIR=/data/auth
+ENV NODE_ENV=production PORT=8000 WEB_DIST=/app/apps/web/dist AUTH_DATA_DIR=/data/auth
 COPY --from=build /app/dist/server/server.js /app/server.js
 COPY --from=build /app/apps/web/dist /app/apps/web/dist
 RUN mkdir -p /data/auth && chown -R bun:bun /app /data && chmod 0700 /data/auth

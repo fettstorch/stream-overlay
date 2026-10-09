@@ -23,6 +23,11 @@ function webRoot() {
 }
 
 describe("cloud server boundary", () => {
+  test("uses a temporary file locally, stdout in production, and honors file overrides", () => {
+    expect(createDependencies({}).logger.filePath).toBe(join(tmpdir(), "stream-overlay", "cloud.log"));
+    expect(createDependencies({ NODE_ENV: "production" }).logger.filePath).toBeUndefined();
+    expect(createDependencies({ NODE_ENV: "production", CLOUD_LOG_FILE: "/tmp/custom-cloud.log" }).logger.filePath).toBe("/tmp/custom-cloud.log");
+  });
   function dependencies(webRoot: string) { const deps = createDependencies({ PUBLIC_ORIGIN: "https://overlay.example", SESSION_SECRET: "test-secret-with-at-least-thirty-two-bytes", LEXICON_NAMESPACE:"com.example.streamoverlay", AUTH_DATA_DIR: join(webRoot, "auth") }); return { ...deps, webRoot, logger: new StructuredLogger(undefined, () => {}) }; }
   test("reports health without reading web files", async () => {
     const response = await handleRequest(new Request("http://localhost/health"), dependencies("/missing"));
