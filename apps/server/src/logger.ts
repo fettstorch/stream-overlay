@@ -21,7 +21,13 @@ export function safeError(error: unknown) {
   const status = typeof value?.status === "number" ? value.status : undefined;
   const candidate = typeof value?.error === "string" ? value.error : typeof value?.name === "string" ? value.name : "UnknownError";
   const code = /^[A-Za-z0-9._-]{1,80}$/.test(candidate) ? candidate : "UnknownError";
-  return { ...(status ? { upstreamStatus: status } : {}), upstreamCode: code };
+  // Only retain a recognized schema identifier, never arbitrary upstream messages.
+  const message = (error as { message?: unknown })?.message;
+  const missing = typeof message === "string"
+    ? message.match(/Lexicon not found: (?:lex:)?(live\.streamface\.[a-zA-Z0-9.]+)/)
+    : null;
+  return { ...(status ? { upstreamStatus: status } : {}), upstreamCode: code,
+    ...(missing ? { upstreamReason: "lexicon-not-found", lexicon: missing[1] } : {}) };
 }
 
 export class StructuredLogger {
