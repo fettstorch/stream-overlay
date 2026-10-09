@@ -56,7 +56,15 @@ function play(event: Extract<EmoticonEvent, { type: "effect" }>) {
     wrapper.style.left = `${5 + Math.random()*90}%`;
     wrapper.style.setProperty("--drift", `${(Math.random()-.5)*160}px`);
     wrapper.style.animationDuration = `${event.durationSeconds}s`;
-    if (visual) visual.style.scale = String(.4 + Math.random() * .6);
+    if (visual) {
+      const media = document.createElement("div");
+      media.className = "sticker-media";
+      media.style.transformOrigin = "left center";
+      media.style.scale = String(.4 + Math.random() * .6);
+      // Scale independently of the media's centered mirror transform.
+      visual.replaceWith(media);
+      media.append(visual);
+    }
     container.append(wrapper);
   }
   else { wrapper.className = "clip"; wrapper.style.top = effectTop(command.height); container.append(wrapper); }

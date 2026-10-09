@@ -34,6 +34,12 @@ test("Test playback starts a keyframe sticker animation rather than a first-fram
   expect(sticker.style.animationDuration).toBe("8s");
   expect(sticker.style.getPropertyValue("--drift")).toMatch(/px$/);
   expect(sticker.style.transition).toBe("");
+  const media = sticker.querySelector<HTMLElement>(".sticker-media")!;
+  expect(media.style.transformOrigin).toBe("left center");
+  expect(Number(media.style.scale)).toBeGreaterThanOrEqual(0.4);
+  expect(Number(media.style.scale)).toBeLessThanOrEqual(1);
+  expect(media.querySelector(".sender-avatar")).toBeNull();
+  expect(media.querySelector<HTMLElement>("img")?.style.scale).toBe("");
   expect(sticker.querySelector("img")?.src).toBe("https://example.test/wave.gif");
   expect(sticker.querySelector<HTMLImageElement>(".sender-avatar")?.src).toMatch(/^data:image\/svg\+xml/);
   expect(sticker.querySelector(".sender-avatar")?.getAttribute("alt")).toBe("Test sender");
