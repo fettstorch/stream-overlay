@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import BrandWordmark from "./BrandWordmark.vue";
+import BrandMascot from "./BrandMascot.vue";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { mutePreview } from "./mute-preview.ts";
 import EmoticonControls from "./EmoticonControls.vue";
@@ -390,7 +392,7 @@ onBeforeUnmount(() => {
 <template>
   <main>
     <header>
-      <h1>streamface</h1>
+      <BrandWordmark />
       <p class="intro">Manage local overlay modules and copy their stable OBS URLs.</p>
     </header>
 
@@ -630,6 +632,7 @@ onBeforeUnmount(() => {
       </div>
     </section>
   </main>
+  <BrandMascot />
 </template>
 
 <style>

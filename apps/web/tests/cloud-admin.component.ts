@@ -185,7 +185,7 @@ describe("Cloud Admin", () => {
   test("renders Streamface branding and the module and command editor for saved PDS data", async () => {
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => String(input).endsWith("/api/session") ? response(session) : response(config)));
     const wrapper = mount(CloudAdmin, { attachTo: document.body }); await flushPromises();
-    expect(wrapper.get("h1").text()).toBe("streamface"); expect(wrapper.text()).not.toContain("STREAM.PLACE OVERLAY"); expect(wrapper.text()).toContain("Emoticons"); expect(wrapper.text()).toContain("!wave");
+    expect(wrapper.get("h1 img").attributes("alt")).toBe("streamface"); expect(wrapper.get(".brand-mascot").attributes("aria-hidden")).toBe("true"); expect(wrapper.text()).not.toContain("STREAM.PLACE OVERLAY"); expect(wrapper.text()).toContain("Emoticons"); expect(wrapper.text()).toContain("!wave");
     expect(wrapper.text()).toContain("ATPROTO ACCOUNT"); expect(wrapper.text()).toContain("Connected"); expect(wrapper.text()).toContain("@alice.bsky.social"); expect(wrapper.text()).not.toContain("CLOUD ACCOUNT");
     expect(wrapper.get(".account-profile img").attributes("src")).toBe("https://cdn.example/alice.jpg");
     expect(wrapper.find('[aria-label="Enable Emoticons"]').exists()).toBe(true);

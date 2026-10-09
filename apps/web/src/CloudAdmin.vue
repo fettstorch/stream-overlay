@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import BrandWordmark from "./BrandWordmark.vue";
+import BrandMascot from "./BrandMascot.vue";
 import { cloudModuleCatalog } from "../../../modules/catalog.ts";
 import type { ModuleManifest as CloudModule } from "../../../packages/overlay-sdk/src/manifest.ts";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
@@ -364,7 +366,7 @@ onBeforeUnmount(() => {
 <template>
   <main>
     <header>
-      <h1>streamface</h1>
+      <BrandWordmark />
       <p class="intro">Manage your stream overlays from anywhere and copy their stable OBS URLs.</p>
     </header>
     <section v-if="sessionState === 'loading'" class="settings loading-card" aria-live="polite">
@@ -664,4 +666,5 @@ onBeforeUnmount(() => {
       </section>
     </template>
   </main>
+  <BrandMascot />
 </template>

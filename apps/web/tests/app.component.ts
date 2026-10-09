@@ -36,7 +36,8 @@ test("runtime failures update an open card without remounting previews and stop 
     ? Response.json(moduleResponse.map(module => ({ ...module, status: failed ? "failed" : "running", error: failed ? "Process exited" : null })))
     : fallback(input, init));
   const wrapper = mount(App);
-  expect(wrapper.get("h1").text()).toBe("streamface");
+  expect(wrapper.get("h1 img").attributes("alt")).toBe("streamface");
+  expect(wrapper.get(".brand-mascot").attributes("aria-hidden")).toBe("true");
   expect(wrapper.text()).not.toContain("STREAM.PLACE OVERLAY");
   await flushPromises();
   const iframe = wrapper.get("iframe").element;
