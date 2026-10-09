@@ -94,12 +94,12 @@ export async function handleRequest(request: Request, deps: Dependencies) {
 export function createDependencies(env = process.env): Dependencies {
   const origin = (env.PUBLIC_ORIGIN ?? `http://127.0.0.1:${env.PORT ?? "3010"}`).replace(/\/$/, ""); const parsedOrigin = new URL(origin); const local = parsedOrigin.protocol === "http:" && ["127.0.0.1", "localhost", "[::1]"].includes(parsedOrigin.hostname); if (parsedOrigin.protocol !== "https:" && !local) throw new Error("PUBLIC_ORIGIN must use HTTPS outside local development"); const dataDir = env.AUTH_DATA_DIR ?? resolve(import.meta.dir, "../../../runtime/cloud-auth"); const namespace = env.LEXICON_NAMESPACE ?? "invalid.streamoverlay.dev";
   const secret = env.SESSION_SECRET ?? "development-only-secret-change-me-000000"; if (!local && (secret === "development-only-secret-change-me-000000" || Buffer.byteLength(secret) < 32)) throw new Error("SESSION_SECRET must contain at least 32 bytes"); if (!local && namespace === "invalid.streamoverlay.dev") throw new Error("LEXICON_NAMESPACE must be configured for deployment"); const scope = `atproto repo:${namespace}.settings repo:${namespace}.command blob:image/* blob:audio/* blob:video/*`;
-  const logger = new StructuredLogger(env.CLOUD_LOG_FILE); const oauth = createOAuth(origin, dataDir, scope); return { origin, webRoot: env.WEB_DIST ?? resolve(process.cwd(), "apps/web/dist"), secret, oauth, pds: new PdsService(oauth, namespace), relay: new Relay(() => Date.now(), 3_600_000, 12, logger), logger };
+  const logger = new StructuredLogger(env.CLOUD_LOG_FILE ?? (local ? resolve(process.cwd(), "runtime/cloud.log.jsonl") : undefined)); const oauth = createOAuth(origin, dataDir, scope); return { origin, webRoot: env.WEB_DIST ?? resolve(process.cwd(), "apps/web/dist"), secret, oauth, pds: new PdsService(oauth, namespace), relay: new Relay(() => Date.now(), 3_600_000, 12, logger), logger };
 }
 
 if (import.meta.main) {
   const deps = createDependencies(); const port = Number(process.env.PORT ?? 3010);
-  deps.logger.log("info", "cloud.server.starting", { port, origin: deps.origin });
+  deps.logger.log("info", "cloud.server.starting", { port, origin: deps.origin, logFile: deps.logger.filePath });
   const server = Bun.serve<SocketData>({ hostname: "0.0.0.0", port,
     fetch(request, server) { const url = new URL(request.url); if (url.pathname === "/relay") { if (!sameOrigin(request, deps.origin)) return new Response("Forbidden", { status: 403 }); if (server.upgrade(request, { data: {} })) return; } return handleRequest(request, deps); },
     websocket: { open(socket) { socket.data.peer = deps.relay.open(socket); }, message(socket, message) { deps.relay.message(socket.data.peer!, String(message)); }, close(socket) { if (socket.data.peer) deps.relay.close(socket.data.peer); } },

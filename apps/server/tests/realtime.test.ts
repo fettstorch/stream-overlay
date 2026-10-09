@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Relay } from "../src/realtime.ts";
+import { StructuredLogger } from "../src/logger.ts";
 class Socket { sent:string[]=[]; closed?:number; send(value:string){this.sent.push(value)} close(code:number){this.closed=code} }
 function startTransport(relay: Relay) {
   try {
@@ -18,6 +19,17 @@ function startTransport(relay: Relay) {
   }
 }
 describe("relay", () => {
+  test("logs bounded effect diagnostics with the original test request ID", () => {
+    const lines: string[] = [], relay = new Relay(() => Date.now(), 1000, 12, new StructuredLogger(undefined, line => lines.push(line)));
+    const socket = new Socket(), peer = relay.open(socket as any);
+    relay.message(peer, JSON.stringify({ type: "hello", did: "did:plc:a", page: "effect", channel: "live" }));
+    relay.message(peer, JSON.stringify({ type: "diagnostic", event: "media-missing", commandId: "wave", requestId: "request-1", cookie: "must-not-log" }));
+    expect(JSON.parse(lines.at(-1)!)).toMatchObject({ event: "cloud.effect.media-missing", requestId: "request-1", commandId: "wave", clientReported: true });
+    expect(lines.join("\n")).not.toContain("must-not-log");
+    const count = lines.length;
+    relay.message(peer, JSON.stringify({ type: "diagnostic", event: "arbitrary-event", reason: "Bearer secret" }));
+    expect(lines).toHaveLength(count); expect(socket.sent.at(-1)).toContain("invalid-message");
+  });
   test("sends tests only to the account's live effect sources", () => {
     const relay = new Relay(), sockets = [new Socket(), new Socket(), new Socket(), new Socket()];
     const registrations = [

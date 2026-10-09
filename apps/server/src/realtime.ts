@@ -25,6 +25,12 @@ export class Relay {
     }
     if (!peer.did || !peer.channel) return peer.socket.close(1008, "hello required");
     const account = this.accounts.get(peer.did)!;
+    if (message.type === "diagnostic") {
+      if (peer.page !== "effect") return peer.socket.close(1008, "effect diagnostics required");
+      const { type, event, ...details } = message;
+      this.logger?.log(event.endsWith("failed") || event === "media-missing" || event === "test-rejected" ? "warn" : "info", `cloud.effect.${event}`, { ...details, channel: peer.channel, clientReported: true });
+      return;
+    }
     if (message.type === "cooldowns") {
       if (peer.page !== "effect") return peer.socket.close(1008, "effect publisher required");
       const previous = account.snapshots.get(peer.channel);
