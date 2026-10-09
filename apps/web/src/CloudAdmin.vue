@@ -534,13 +534,11 @@ onBeforeUnmount(() => {
                   :aria-controls="`module-body-${module.id}`"
                   @click="toggleDetails(module)"
                 >
-                  <svg
-                    viewBox="0 0 24 24"
+                  <span
+                    class="fold-icon"
                     aria-hidden="true"
                     :class="{ expanded: isExpanded(module) }"
-                  >
-                    <path d="m6 9 6 6 6-6" />
-                  </svg></button
+                  /></button
                 ><ModuleHelp
                   :id="module.id"
                   :name="module.name"

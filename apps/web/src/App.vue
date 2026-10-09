@@ -458,7 +458,7 @@ onBeforeUnmount(() => {
                 <span class="pin-icon" aria-hidden="true" />
               </button>
               <button type="button" class="module-icon-button" :aria-label="`${isExpanded(module) ? 'Hide' : 'Show'} ${module.name} details`" :aria-expanded="isExpanded(module)" :aria-controls="`module-body-${module.id}`" @click="toggleDetails(module)">
-                <svg viewBox="0 0 24 24" aria-hidden="true" :class="{ expanded: isExpanded(module) }"><path d="m6 9 6 6 6-6" /></svg>
+                <span class="fold-icon" aria-hidden="true" :class="{ expanded: isExpanded(module) }" />
               </button>
               <span class="module-help">
                 <button

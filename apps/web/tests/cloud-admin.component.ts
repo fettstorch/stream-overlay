@@ -97,7 +97,7 @@ describe("Cloud Admin", () => {
     expect(wrapper.get('.command-group').classes()).toContain('module-section');
     expect(wrapper.get('ul.command-list').classes()).toContain('striped-list');
     expect(clipsToggle.attributes('aria-expanded')).toBe('true');
-    expect(clipsToggle.get('svg').classes()).toContain('expanded');
+    expect(clipsToggle.get('.fold-icon').classes()).toContain('expanded');
     await clipsToggle.trigger('click');
     expect(wrapper.get('button[aria-label="Show Clips"]').attributes('aria-expanded')).toBe('false');
     await wrapper.get('button[aria-label="Show Clips"]').trigger('click');

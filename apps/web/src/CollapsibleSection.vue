@@ -12,7 +12,7 @@ const bodyId = `section-${useId()}`;
     <div class="section-heading" @click="expanded = !expanded">
       <h4>{{ title }} <span v-if="count !== undefined">({{ count }})</span></h4>
       <button type="button" class="module-icon-button" :aria-label="`${expanded ? 'Hide' : 'Show'} ${title}`" :aria-expanded="expanded" :aria-controls="bodyId" @click.stop="expanded = !expanded">
-        <svg viewBox="0 0 24 24" aria-hidden="true" :class="{ expanded }"><path d="m6 9 6 6 6-6" /></svg>
+        <span class="fold-icon" aria-hidden="true" :class="{ expanded }" />
       </button>
     </div>
     <div v-show="expanded" :id="bodyId" class="section-content"><slot /></div>

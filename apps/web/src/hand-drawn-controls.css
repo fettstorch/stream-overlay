@@ -11,6 +11,15 @@
 #app .info-icon { --control-image: url("./assets/branding/controls/info.png"); }
 #app .copy-icon { --control-image: url("./assets/branding/controls/copy.png"); }
 #app .external-link-icon { --control-image: url("./assets/branding/controls/open-tab.png"); }
+#app .fold-icon {
+  display: block;
+  width: 18px;
+  height: 14px;
+  background: currentColor;
+  mask: url("./assets/branding/controls/chevron.png") center / contain no-repeat;
+  -webkit-mask: url("./assets/branding/controls/chevron.png") center / contain no-repeat;
+}
+#app .fold-icon.expanded { transform: rotate(180deg); }
 #app .info-button {
   border: 0;
   padding: 1px;
