@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import wordmark from "./assets/branding/wordmark.png";
+import mask from "./assets/branding/mask.png";
 </script>
 
 <template>
   <h1 class="brand-heading">
-    <img :src="wordmark" alt="streamface" />
+    <span class="wordmark">
+      <img class="wordmark-image" :src="wordmark" alt="streamface" />
+      <img class="wordmark-mask" :src="mask" alt="" aria-hidden="true" />
+    </span>
     <span class="live-badge">.live</span>
   </h1>
 </template>
@@ -16,13 +20,25 @@ import wordmark from "./assets/branding/wordmark.png";
   gap: 12px;
   width: min(580px, 100%);
 }
-.brand-heading img {
-  display: block;
+.wordmark {
+  position: relative;
   flex: 1;
   min-width: 0;
   width: 0;
   max-width: 420px;
+}
+.wordmark-image {
+  display: block;
+  width: 100%;
   height: auto;
+}
+.wordmark-mask {
+  position: absolute;
+  left: 33%;
+  top: 29%;
+  width: 18%;
+  height: auto;
+  pointer-events: none;
 }
 .live-badge {
   flex: none;
