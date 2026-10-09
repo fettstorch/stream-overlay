@@ -256,6 +256,52 @@ describe("Cloud Admin", () => {
     expect(wrapper.text()).toContain("image attached"); expect(wrapper.text()).toContain("audio attached"); wrapper.unmount();
   });
 
+  test("refreshes draft bytes after deletion invalidates an earlier upload", async () => {
+    let blobAvailable = true;
+    const blob = { $type: "blob", ref: { $link: "bafycube" }, mimeType: "image/png", size: 4 };
+    const fetchMock = vi.fn(async () => { blobAvailable = true; return response(blob); });
+    const save = vi.fn(async (candidate: typeof config) => {
+      expect(blobAvailable).toBe(true);
+      expect(candidate.commands[0].image).toEqual({ blob });
+      return true;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("URL", class extends URL { static createObjectURL = vi.fn(() => "blob:cube"); static revokeObjectURL = vi.fn(); });
+    const wrapper = mount(CloudEmoticonControls, { props: { did: session.did, config: { ...config, commands: [] }, save } });
+    await wrapper.get(".primary-button").trigger("click");
+    await wrapper.get('input[placeholder="!wow"]').setValue("cube");
+    await wrapper.get('.sticker-toggle input').setValue(true);
+    const file = new File(["cube"], "cube.png", { type: "image/png" });
+    const input = wrapper.get('input[type="file"]');
+    Object.defineProperty(input.element, "files", { configurable: true, value: [file] });
+    await input.trigger("change"); await flushPromises();
+    expect(fetchMock).toHaveBeenCalledOnce();
+    blobAvailable = false; // PDS deleted the last saved record referencing this CID.
+    await wrapper.get("form").trigger("submit"); await flushPromises();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenLastCalledWith(expect.stringContaining("/media"), expect.objectContaining({ body: file }));
+    expect(save).toHaveBeenCalledOnce();
+    wrapper.unmount();
+  });
+  test("does not save a stale blob when refreshing its draft upload fails", async () => {
+    const blob = { $type: "blob", ref: { $link: "bafycube" }, mimeType: "image/png", size: 4 };
+    const fetchMock = vi.fn().mockResolvedValueOnce(response(blob)).mockResolvedValueOnce(response({ message: "Upload rejected", requestId: "refresh-failure" }, 502));
+    const save = vi.fn(async () => true);
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("URL", class extends URL { static createObjectURL = vi.fn(() => "blob:cube"); static revokeObjectURL = vi.fn(); });
+    const wrapper = mount(CloudEmoticonControls, { props: { did: session.did, config: { ...config, commands: [] }, save } });
+    await wrapper.get(".primary-button").trigger("click");
+    await wrapper.get('input[placeholder="!wow"]').setValue("cube");
+    const input = wrapper.get('input[type="file"]');
+    Object.defineProperty(input.element, "files", { configurable: true, value: [new File(["cube"], "cube.png", { type: "image/png" })] });
+    await input.trigger("change"); await flushPromises();
+    await wrapper.get("form").trigger("submit"); await flushPromises();
+    expect(save).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain("Upload rejected Reference: refresh-failure");
+    expect(wrapper.find("form").exists()).toBe(true);
+    wrapper.unmount();
+  });
+
   test("shows the correlated request reference for an upload failure", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => response({ error: "pds-upload-failed", message: "Your PDS rejected the media upload.", requestId: "request-123" }, 502)));
     const wrapper = mount(CloudEmoticonControls, { props: { did: session.did, config: { ...config, commands: [] }, save: vi.fn(async () => true) } }); await wrapper.get(".primary-button").trigger("click"); const input=wrapper.get('input[type="file"]'); Object.defineProperty(input.element,"files",{configurable:true,value:[new File(["GIF8"],"failed.gif")]}); await input.trigger("change"); await flushPromises(); expect(wrapper.text()).toContain("Your PDS rejected the media upload. Reference: request-123"); wrapper.unmount();

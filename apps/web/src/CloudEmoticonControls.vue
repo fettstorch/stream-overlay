@@ -20,6 +20,9 @@ const formOpen = ref(false),
   busy = ref(false),
   message = ref("");
 const pending = ref<Partial<Record<MediaKind, CloudMedia>>>({});
+// Keep draft bytes until saved: deleting the last record using an uploaded CID
+// can invalidate its blob reference, even after a successful duplicate upload.
+const draftFiles: Partial<Record<MediaKind, File>> = {};
 const previewUrls = ref<Partial<Record<MediaKind, string>>>({});
 const mediaUrlInput = ref(""),
   unresolvedUrl = ref("");
@@ -71,12 +74,14 @@ function clearPreview(kind: MediaKind) {
 function removeMedia(kind: MediaKind) {
   clearPreview(kind);
   delete pending.value[kind];
+  delete draftFiles[kind];
 }
 function reset() {
   formOpen.value = false;
   editing.value = null;
   form.value = defaults();
   pending.value = {};
+  for (const kind of kinds) delete draftFiles[kind];
   mediaDurations.value = {};
   mediaUrlInput.value = "";
   unresolvedUrl.value = "";
@@ -167,6 +172,7 @@ function attachUrl(kind: MediaKind, value: string) {
     return;
   }
   pending.value[kind] = { url: value };
+  delete draftFiles[kind];
   clearPreview(kind);
   if (kind === "image") removeMedia("video");
   if (kind === "video") removeMedia("image");
@@ -262,6 +268,7 @@ async function uploadFiles(files: FileList | null | undefined) {
         continue;
       }
       pending.value[kind] = { blob: await response.json() };
+      draftFiles[kind] = file;
       clearPreview(kind);
       previewUrls.value[kind] = URL.createObjectURL(file);
       if (kind === "image") removeMedia("video");
@@ -294,6 +301,7 @@ function selected(event: Event) {
   input.value = "";
 }
 async function save() {
+  if (busy.value) return;
   const normalized = form.value.command.trim().replace(/^!/, "").toLowerCase();
   const command: CloudCommand = {
     ...form.value,
@@ -318,12 +326,31 @@ async function save() {
   if (index < 0) commands.push(command);
   else commands[index] = command;
   busy.value = true;
-  const saved = await props.save(
-    { ...props.config, commands },
-    editing.value ? "Command updated on your PDS." : "Command created on your PDS.",
-  );
-  busy.value = false;
-  if (saved) reset();
+  try {
+    for (const kind of kinds) {
+      const file = draftFiles[kind];
+      if (!file || !command[kind]?.blob) continue;
+      message.value = "Refreshing draft media on your PDS before saving…";
+      const response = await adminFetch(`/api/accounts/${encodeURIComponent(props.did)}/media`, {
+        method: "POST", headers: { "Content-Type": fileMedia(file)!.type }, body: file,
+      });
+      if (!response.ok) {
+        const detail = await response.json().catch(() => ({}));
+        throw new Error(`${detail.message ?? "Could not refresh the draft media."}${detail.requestId ? ` Reference: ${detail.requestId}` : ""}`);
+      }
+      pending.value[kind] = command[kind] = { blob: await response.json() };
+    }
+    const saved = await props.save(
+      { ...props.config, commands },
+      editing.value ? "Command updated on your PDS." : "Command created on your PDS.",
+    );
+    if (saved) reset();
+    message.value = "";
+  } catch (error) {
+    message.value = error instanceof Error ? error.message : "Could not save the command.";
+  } finally {
+    busy.value = false;
+  }
 }
 async function remove(command: CloudCommand) {
   if (props.config.preferences?.confirmDeletion !== false) {

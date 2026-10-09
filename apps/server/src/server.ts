@@ -95,6 +95,11 @@ function saveFailure(error: unknown) {
     return { error: "configuration-changed", message: error.message };
   const value = error as { status?: number; error?: string; message?: string };
   const detail = `${value?.error ?? ""} ${value?.message ?? ""}`.toLowerCase();
+  if (value?.error === "BlobNotFound")
+    return {
+      error: "pds-blob-missing",
+      message: "An attached media file is no longer available on your PDS. Attach it again and retry saving.",
+    };
   if (
     value?.status === 401 ||
     value?.status === 403 ||

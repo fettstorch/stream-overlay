@@ -457,6 +457,20 @@ describe("cloud server boundary", () => {
     expect(response.headers.get("x-request-id")).toMatch(/^[a-f0-9-]{36}$/);
   });
 
+  test("explains missing PDS blobs without leaking upstream payloads", async () => {
+    const deps = dependencies(webRoot());
+    deps.pds.save = async () => { throw Object.assign(new Error("private upstream payload"), { status: 400, error: "BlobNotFound" }); };
+    const cookie = await sessionCookie("did:plc:alice", deps.secret);
+    const response = await handleRequest(new Request(`${deps.origin}/api/accounts/did:plc:alice/config`, {
+      method: "PUT", headers: { origin: deps.origin, cookie: `stream_overlay_session=${cookie}`, "content-type": "application/json" },
+      body: JSON.stringify({ enabled: false, streamerDid: "did:plc:alice", commands: [] }),
+    }), deps);
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toBe("pds-blob-missing");
+    expect(body.message).toContain("Attach it again");
+    expect(JSON.stringify(body)).not.toContain("private upstream payload");
+  });
   test("returns sanitized actionable media upload failures", async () => {
     const root = webRoot();
     const deps = dependencies(root);
