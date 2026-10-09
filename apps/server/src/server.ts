@@ -8,9 +8,17 @@ const defaultWebRoot = resolve(import.meta.dir, "../../web/dist");
 type Dependencies = { origin: string; webRoot: string; secret: string; oauth: ReturnType<typeof createOAuth>; pds: PdsService; relay: Relay; logger: StructuredLogger };
 type SocketData = { peer?: ReturnType<Relay["open"]> };
 function json(value: unknown, status = 200, headers: HeadersInit = {}) { return Response.json(value, { status, headers: { "Cache-Control": "no-store", ...headers } }); }
-function routeName(path: string) { if (path === "/health") return "health"; if (path.startsWith("/oauth/")) return `oauth.${path.slice(7).replaceAll("/", ".")}`; if (/^\/api\/accounts\/did:[^/]+\/media$/.test(path)) return "accounts.media"; if (/^\/api\/accounts\/did:[^/]+\/config$/.test(path)) return "accounts.config"; if (path === "/api/session") return "session"; if (path === "/relay") return "relay"; return path.startsWith("/api/") ? "api.other" : "static"; }
+function routeName(path: string) { if (path === "/health") return "health"; if (path.startsWith("/oauth/")) return `oauth.${path.slice(7).replaceAll("/", ".")}`; if (didFromPath(path, "media")) return "accounts.media"; if (didFromPath(path, "config")) return "accounts.config"; if (path === "/api/session") return "session"; if (path === "/relay") return "relay"; return path.startsWith("/api/") ? "api.other" : "static"; }
 function safeFile(pathname: string, webRoot: string) { let relative = pathname.startsWith("/admin/") ? pathname.slice("/admin/".length) : pathname.slice(1); if (pathname === "/" || pathname === "/admin/") relative = "cloud-admin.html"; if (pathname === "/effect/") relative = "effect.html"; if (pathname === "/board/") relative = "board.html"; try { relative = decodeURIComponent(relative); } catch { return; } if (relative.split("/").includes("..")) return; const root = resolve(webRoot); const path = resolve(root, relative); return path === root || path.startsWith(`${root}${sep}`) ? path : undefined; }
-function didFromPath(path: string, suffix: string) { const match = new RegExp(`^/api/accounts/(did:[^/]+)/${suffix}$`).exec(path); return match ? decodeURIComponent(match[1]) : undefined; }
+function didFromPath(path: string, suffix: string) {
+  const match = new RegExp(`^/api/accounts/([^/]+)/${suffix}$`).exec(path);
+  if (!match) return;
+  try {
+    // Browser clients encode the whole DID, including its colon separators.
+    const did = decodeURIComponent(match[1]);
+    return /^did:[a-z0-9]+:[^/?#\s]+$/.test(did) ? did : undefined;
+  } catch { return; }
+}
 function sameOrigin(request: Request, origin: string) {
   try {
     const actual = new URL(request.headers.get("origin") ?? ""), expected = new URL(origin);

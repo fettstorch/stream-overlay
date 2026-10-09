@@ -45,6 +45,38 @@ describe("cloud server boundary", () => {
 
   test("rejects cross-origin authenticated writes before touching the PDS", async () => { const root=webRoot();const deps=dependencies(root);let saved=false;(deps as any).pds={save:async()=>{saved=true}};const cookie=await sessionCookie("did:plc:alice",deps.secret);const response=await handleRequest(new Request("https://overlay.example/api/accounts/did:plc:alice/config",{method:"PUT",headers:{origin:"https://evil.example",cookie:`stream_overlay_session=${cookie}`,"content-type":"application/json"},body:JSON.stringify({enabled:true,streamerDid:"did:plc:alice",commands:[]})}),deps);expect(response.status).toBe(403);expect(saved).toBe(false); });
 
+  test("routes browser-encoded DIDs for GIF uploads and configuration reads/writes", async () => {
+    const deps = dependencies(webRoot()), did = "did:plc:alice";
+    const config = { enabled: false, streamerDid: did, commands: [], revision: "test" };
+    const blob = { $type: "blob", ref: { $link: "bafktest" }, mimeType: "image/gif", size: 6 };
+    const uploaded: unknown[][] = [], saved: unknown[][] = [], read: string[] = [], lines: string[] = [];
+    deps.logger = new StructuredLogger(undefined, line => lines.push(line));
+    (deps as any).pds = {
+      upload: async (...args: unknown[]) => { uploaded.push(args); return blob; },
+      publicConfig: async (account: string) => { read.push(account); return config; },
+      save: async (...args: unknown[]) => { saved.push(args); return config; },
+    };
+    const headers = { origin: deps.origin, cookie: `stream_overlay_session=${await sessionCookie(did, deps.secret)}` };
+    const base = `${deps.origin}/api/accounts/${encodeURIComponent(did)}`;
+    const upload = await handleRequest(new Request(`${base}/media`, { method: "POST", headers: { ...headers, "Content-Type": "image/gif" }, body: new TextEncoder().encode("GIF89a") }), deps);
+    expect(upload.status).toBe(200); expect(await upload.json()).toEqual(blob);
+    expect(uploaded[0][0]).toBe(did); expect(uploaded[0][1]).toEqual(new TextEncoder().encode("GIF89a")); expect(uploaded[0][2]).toBe("image/gif");
+    const load = await handleRequest(new Request(`${base}/config`), deps);
+    expect(load.status).toBe(200); expect(await load.json()).toEqual(config); expect(read).toEqual([did]);
+    const save = await handleRequest(new Request(`${base}/config`, { method: "PUT", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify(config) }), deps);
+    expect(save.status).toBe(200); expect(saved[0][0]).toBe(did); expect(saved[0][1]).toEqual(config);
+    expect(lines.map(line => JSON.parse(line)).filter(event => event.event === "cloud.http.request-received").map(event => event.route)).toEqual(["accounts.media", "accounts.config", "accounts.config"]);
+  });
+
+  test("rejects malformed or encoded path separators without invoking the PDS", async () => {
+    const deps = dependencies(webRoot());
+    (deps as any).pds = { publicConfig: () => { throw new Error("must not reach PDS"); } };
+    for (const segment of ["did%ZZ", "did%3Aplc%3Aalice%2Fother", "not-a-did"]) {
+      const response = await handleRequest(new Request(`${deps.origin}/api/accounts/${segment}/config`), deps);
+      expect(response.status).toBe(404);
+    }
+  });
+
   test("accepts localhost and 127.0.0.1 as the same local write origin", async () => {
     const root=webRoot(); const deps=createDependencies({PUBLIC_ORIGIN:"http://127.0.0.1:3010",SESSION_SECRET:"test-secret-with-at-least-thirty-two-bytes",LEXICON_NAMESPACE:"com.example.streamoverlay",AUTH_DATA_DIR:join(root,"auth")});
     (deps as any).pds={save:async(_did:string,body:unknown)=>body}; const cookie=await sessionCookie("did:plc:alice",deps.secret);
