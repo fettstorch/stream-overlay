@@ -4,8 +4,25 @@
 
 #app {
   font-family: "Patrick Hand", ui-sans-serif, system-ui, sans-serif;
-  font-size: 18px;
-  line-height: 1.4;
+  font-size: 20px;
+  line-height: 1.45;
 }
 /* Preserve the existing wordmark and .live badge treatment. */
 #app .brand-heading { font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+
+#app .intro { font-size: 1.1em; }
+#app h2 { font-size: 1.1em; font-weight: 700; }
+#app h3 { font-size: 1.4em; font-weight: 700; }
+#app h4,
+#app .section-heading h4 { font-size: 1em; font-weight: 700; }
+#app .module-card.collapsed h3 { font-size: 1.1em; }
+#app .emoticon-controls { font-size: 1em; }
+#app :is(.status, .module-card.collapsed .status, .section-kicker, .eyebrow) {
+  font-size: .8em;
+  font-weight: 700;
+}
+#app :is(small, .save-status, .module-message, .profile-retry) { font-size: .9em; }
+#app :is(.login-form, .command-editor, .appearance-controls) label { font-weight: 700; }
+#app .command-list strong { font-size: 1.1em; font-weight: 700; }
+#app .account-profile strong { font-size: 1.15em; font-weight: 700; }
+#app .primary-button { font-weight: 800; }
