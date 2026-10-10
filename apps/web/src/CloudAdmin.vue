@@ -83,20 +83,17 @@ const emoticonTabs = computed(() => [
 ]);
 async function prepareEmoticonTest() {
   emoticonTab.value = "commands";
-  listingPreviewOpen.value = true;
   effectPreviewOpen.value = true;
   await nextTick();
   const deadline = Date.now() + 10_000;
   while (!disposed && Date.now() < deadline) {
     if (
-      [effectPreviewFrame.value, listingPreviewFrame.value].every(
-        (frame) => frame?.contentDocument?.documentElement?.dataset.overlayReady === "true",
-      )
+      effectPreviewFrame.value?.contentDocument?.documentElement?.dataset.overlayReady === "true"
     )
       return;
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
-  throw new Error("The previews could not connect. Please try Test again.");
+  throw new Error("The emoticon preview could not connect. Please try Test again.");
 }
 const handleInput = ref<HTMLInputElement>();
 const loginStatus = ref<HTMLElement>();

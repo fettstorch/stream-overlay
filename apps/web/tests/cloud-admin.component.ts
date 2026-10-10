@@ -208,7 +208,7 @@ describe("Cloud Admin", () => {
       expect(wrapper.get('#module-help-chat').text()).toContain('fallback');
     } finally { wrapper.unmount(); vi.useRealTimers(); }
   });
-  test("opens both lazy previews before Test, waits for readiness, and separates creation into its tab", async () => {
+  test("opens only the effect preview before Test, waits for readiness, and separates creation into its tab", async () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => String(input).endsWith('/api/session') ? response(session) : String(input).includes('/test/') ? response({ message: 'Test sent.' }) : response(config));
     vi.stubGlobal('fetch', fetchMock);
@@ -221,9 +221,9 @@ describe("Cloud Admin", () => {
       expect(wrapper.find('.command-editor').exists()).toBe(false);
       await wrapper.get('.command-list button').trigger('click'); await flushPromises();
       expect(wrapper.find('iframe[title="Emoticons preview"]').exists()).toBe(true);
-      expect(wrapper.find('iframe[title="Emoticons command listing preview"]').exists()).toBe(true);
+      expect(wrapper.find('iframe[title="Emoticons command listing preview"]').exists()).toBe(false);
       expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/test/'))).toBe(false);
-      for (const title of ['Emoticons preview', 'Emoticons command listing preview']) {
+      for (const title of ['Emoticons preview']) {
         const frame = wrapper.get(`iframe[title="${title}"]`).element as HTMLIFrameElement;
         const frameDocument = document.implementation.createHTMLDocument();
         frameDocument.documentElement.dataset.overlayReady = 'true';
