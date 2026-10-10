@@ -157,7 +157,6 @@ async function copy() {
           <p v-if="chatStatus" role="status">{{ chatStatus }}</p>
           <a v-if="chatPermissionRequired" :href="`/oauth/login?handle=${encodeURIComponent(config.streamerDid)}`">Authorize chat posting</a>
         </form>
-        <p class="settings-hint">Type commands in your chat to test real bot replies. Normal roles, restrictions and cooldowns apply.</p>
         <p v-if="!config.bot?.enabled" class="settings-hint">Enable the Bot module to respond to commands here.</p>
         <iframe v-if="tab === 'commands' && sourceUrl && configured && config.bot?.enabled"
           :src="sourceUrl" title="Bot chat listener" hidden aria-hidden="true" tabindex="-1" referrerpolicy="no-referrer" />
