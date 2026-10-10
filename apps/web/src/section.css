@@ -67,3 +67,40 @@
 #app .module-section .upstream-info { color: #624a16; background: #fff4ce; border-color: #c6a958; }
 #app .module-section .upstream-info p { color: inherit; }
 #app .module-section .upstream-info a { color: #76520a; }
+
+/* Shared editor fields: Create new and Moderation use the same foundation. */
+#app .editor-fields label:not(.switch) {
+  display: grid;
+  gap: 7px;
+  color: #333;
+  font-weight: 700;
+}
+#app .editor-fields input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"]) {
+  width: 100%;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid #777;
+  border-radius: 8px;
+  color: #171717;
+  background: #fff;
+  font: inherit;
+}
+#app .editor-fields input:focus-visible { outline: 2px solid #526baf; outline-offset: 2px; }
+#app .editor-fields .compact-field input { width: 14ch; }
+#app .module-section .actor-suggestions { color: #171717; background: #fff; border-color: #777; }
+#app .module-section .actor-suggestions button { color: #171717; }
+#app .module-section .actor-suggestions button:hover,
+#app .module-section .actor-suggestions button[aria-selected="true"] { background: #eee; }
+
+#app .drawn-dialog {
+  color: #171717;
+  background: transparent;
+  border: 22px solid transparent;
+  border-image: url("./assets/branding/module-frame.png") 350 fill / 22px / 0 stretch;
+  padding: 16px;
+  font: inherit;
+  width: min(480px, calc(100vw - 32px));
+  max-width: none;
+}
+#app .drawn-dialog::backdrop { background: #0006; }
+#app .drawn-dialog .preference-hint { color: #555; font-size: 1em; }

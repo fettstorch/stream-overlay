@@ -32,6 +32,7 @@ async function navigate(event: KeyboardEvent, index: number) {
         type="button"
         role="tab"
         class="drawn-tab"
+        :style="{ zIndex: active === tab.id ? tabs.length + 2 : tabs.length - index }"
         :class="{
           selected: active === tab.id,
           'tab-left': index === 0,

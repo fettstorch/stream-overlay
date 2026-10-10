@@ -3,7 +3,8 @@ import { mount, flushPromises } from "@vue/test-utils";
 import EmoticonModeration from "../src/EmoticonModeration.vue";
 import type { CloudConfig } from "../src/cloud-admin-types.ts";
 
-const actors = vi.hoisted(() => ({ resolvePublicActor: vi.fn(), searchPublicActors: vi.fn(async () => []) }));
+const actors = vi.hoisted(() => ({ resolvePublicActor: vi.fn(), searchPublicActors: vi.fn(async () => []),
+  loadPublicActorProfile: vi.fn(async (did: string) => ({ did, handle: "viewer.example", displayName: "Viewer", avatar: "https://cdn.example/viewer.png" })) }));
 vi.mock("../src/actor-search.ts", () => actors);
 afterEach(() => vi.clearAllMocks());
 const config = { enabled: true, commands: [], streamerDid: "did:plc:owner", revision: "1" } as unknown as CloudConfig;
@@ -28,6 +29,10 @@ test("edits and removes rules without dropping other restrictions or command con
     { did: "did:plc:other", blocked: true, cooldownSeconds: 0 }];
   const save = vi.fn(async () => true);
   const wrapper = mount(EmoticonModeration, { props: { config: { ...config, moderation }, save } });
+  await flushPromises();
+  expect(wrapper.findAll('.moderation-avatar')).toHaveLength(2);
+  expect(wrapper.get('img.moderation-avatar').attributes('src')).toBe('https://cdn.example/viewer.png');
+  expect(wrapper.get('form').classes()).toContain('editor-fields');
   await wrapper.get('.moderation-list button').trigger('click');
   await wrapper.get('input[role="switch"]').setValue(true);
   await wrapper.get('form').trigger('submit'); await flushPromises();
@@ -35,6 +40,16 @@ test("edits and removes rules without dropping other restrictions or command con
     moderation: [moderation[1], { ...moderation[0], blocked: true }] }));
   await wrapper.findAll('.moderation-list button')[1].trigger('click'); await flushPromises();
   expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ moderation: [moderation[1]] }));
+  wrapper.unmount();
+});
+test("unavailable profiles show an accessible placeholder without losing the rule", async () => {
+  actors.loadPublicActorProfile.mockRejectedValueOnce(new Error('Unavailable'));
+  const wrapper = mount(EmoticonModeration, { props: { config: { ...config,
+    moderation: [{ did: 'did:plc:missing', handle: 'missing.example', blocked: true, cooldownSeconds: 0 }] }, save: vi.fn() } });
+  await flushPromises();
+  expect(wrapper.get('[aria-label="Profile picture unavailable"]').exists()).toBe(true);
+  expect(wrapper.text()).toContain('@missing.example');
+  expect(wrapper.text()).toContain('Blocked from all commands');
   wrapper.unmount();
 });
 test("resolution and validation failures never write a rule", async () => {

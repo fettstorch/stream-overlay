@@ -427,7 +427,7 @@ defineExpose({ acceptCardDrop });
     <div v-if="!formOpen && !panel">
       <button class="primary-button" type="button" @click="create">Create new command</button>
     </div>
-    <form v-if="formOpen" v-show="!panel || panel === 'create'" :inert="panel === 'commands' || undefined" class="module-section command-editor" @submit.prevent="save">
+    <form v-if="formOpen" v-show="!panel || panel === 'create'" :inert="panel === 'commands' || undefined" class="module-section command-editor editor-fields" @submit.prevent="save">
       <div class="editor-heading">
         <h4>{{ editing ? "Edit command" : "Create command" }}</h4>
         <button v-if="!panel" type="button" class="secondary-button" @click="reset">Close</button>

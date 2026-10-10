@@ -9,7 +9,7 @@ onMounted(() => dialog.value?.showModal());
 <template>
   <dialog
     ref="dialog"
-    class="delete-confirmation"
+    class="delete-confirmation drawn-dialog"
     aria-labelledby="delete-confirmation-title"
     @cancel.prevent="!busy && emit('cancel')"
   >
@@ -33,52 +33,15 @@ onMounted(() => dialog.value?.showModal());
   </dialog>
 </template>
 <style scoped>
-.delete-confirmation {
-  color: inherit;
-  background: #20283a;
-  border: 1px solid #49536a;
-  border-radius: 14px;
-  padding: 24px;
-  max-width: min(420px, calc(100vw - 32px));
-}
-.delete-confirmation::backdrop {
-  background: #0009;
-}
 label {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-.preference-hint {
-  font-size: 0.85rem;
-  color: #a9b4cb;
 }
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
   margin-top: 20px;
-}
-button {
-  padding: 9px 14px;
-  border: 1px solid #485570;
-  border-radius: 8px;
-  background: #111827;
-  color: #eef2ff;
-  font: inherit;
-  font-weight: 650;
-  cursor: pointer;
-}
-button.danger-button {
-  color: #ffcad1;
-  border-color: #874451;
-}
-button:focus-visible {
-  outline: 2px solid #88a6ff;
-  outline-offset: 3px;
-}
-button:disabled {
-  opacity: 0.6;
-  cursor: wait;
 }
 </style>
