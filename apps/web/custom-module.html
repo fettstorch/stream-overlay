@@ -1,0 +1,48 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Custom Module</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: transparent;
+      }
+      iframe {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        border: 0;
+        color-scheme: light;
+      }
+      #status {
+        position: absolute;
+        bottom: 8px;
+        left: 8px;
+        color: white;
+        background: #111c;
+        padding: 8px;
+        font: 14px sans-serif;
+      }
+      #status:empty {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <iframe
+      sandbox="allow-scripts"
+      allow="autoplay"
+      referrerpolicy="no-referrer"
+      title="Custom Module overlay"
+    ></iframe
+    ><span id="status" role="status">Loading Custom Module…</span>
+    <script type="module" src="./src/cloud-custom-module.ts"></script>
+  </body>
+</html>

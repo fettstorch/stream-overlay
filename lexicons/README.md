@@ -16,6 +16,26 @@ chat feed, with a matching recipient DID; Bot uses its server-verified message,
 never client-supplied role claims. OBS/browser instances enforce Emotes roles;
 the server enforces Bot roles. Publish updated settings schemas before rollout.
 
+## Custom Module
+
+`live.streamface.custommodule` contains one record per custom module with an arbitrary
+stable record key, a `name` (1–200 UTF-8 bytes), `enabled`, HTML/CSS source
+(at most 50,000 UTF-8 bytes each), and creation/update timestamps. There is no module-count
+limit in the app. Renaming preserves the record key and OBS URL.
+Optional legacy canvas width/height fields are ignored and omitted
+from new saves; the overlay fills its viewport. Source is public and untrusted;
+validation bounds storage, while each renderer sanitizes it and enforces a
+script-disabled, opaque-origin sandbox and restrictive resource policy.
+Clients preserve all records when `customModules` is omitted; an explicit empty array
+deletes them. The retired singleton collection is read as `legacy-self` / “My overlay”
+and replaced by the new record on the next authenticated save. Its old OBS URL remains
+an alias. Quickstart copies append records with fresh IDs and preserve destination modules.
+
+Before deploying, publish this new schema using the existing publisher account
+and delegate `_lexicon.custommodule.streamface.live` to that publisher DID, as for
+the other module authorities. A fresh OAuth login grants the new collection.
+Application startup and tests do not publish schemas or modify DNS.
+
 ## Bot
 
 `live.streamface.bot.settings` is a singleton `self` record containing `enabled`

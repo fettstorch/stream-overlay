@@ -40,13 +40,14 @@ test("copies shared uploaded media once and preserves URLs and Giphy IDs", async
   vi.stubGlobal("fetch", fetch);
   const config = { ...source, commands: [{ ...command, image: { blob, url: "https://pds.example/blob" } },
     { ...command, id: "second", image: { blob, url: "https://pds.example/blob" }, video: { url: "https://example.test/a.mp4" } },
-    { ...command, id: "gif", image: { giphyId: "abc" } }] };
+    { ...command, id: "gif", image: { giphyId: "abc" } }], customModules: [{ id: "module", name: "Module", enabled: false, html: '<img src="streamface-media:pic">', css: "", media: [{ id: "pic", blob, url: "https://pds.example/blob" }] }] };
   const copied = await copySetupMedia(config, target.streamerDid);
   expect(fetch).toHaveBeenCalledTimes(2);
   expect(copied.commands[0].image).toEqual({ blob: newBlob });
   expect(copied.commands[1].image).toEqual({ blob: newBlob });
   expect(copied.commands[1].video).toEqual(config.commands[1].video);
   expect(copied.commands[2].image).toEqual({ giphyId: "abc" });
+  expect(copied.customModules?.[0].media).toEqual([{ id: "pic", blob: newBlob }]);
   expect(config.commands[0].image?.blob?.ref.$link).toBe("sourcecid");
 });
 test("failed media copies never return a candidate containing foreign blob references", async () => {

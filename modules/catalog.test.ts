@@ -15,6 +15,7 @@ test("Pets is absent by default but retains its opt-in and local integration", (
     "chat",
     "bot",
     "overlay-paint",
+    "custom-module",
   ]);
   expect(cloudOverlayPages["/pets/"]).toBeUndefined();
   expect(getCloudModuleCatalog(true).some((module) => module.id === "streamplace-pets")).toBe(true);
@@ -42,8 +43,10 @@ test("Emotes uses readable overlay URLs while preserving legacy OBS paths", () =
 test("local adapters retain catalog identities and stable OBS routes", () => {
   for (const manifest of cloudModuleCatalog) {
     // The central authenticated service-account bot is cloud-only.
-    if (manifest.id === "bot") {
-      expect(cloudOverlayPages["/bot/"]).toBe("bot.html");
+    if (manifest.id === "bot" || manifest.id === "custom-module") {
+      expect(cloudOverlayPages[manifest.cloud.pages[0].path]).toBe(
+        manifest.cloud.pages[0].entrypoint,
+      );
       continue;
     }
     const local = modules.find((module) => module.id === manifest.id);

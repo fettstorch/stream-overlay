@@ -18,6 +18,216 @@ import { jsonToLex, lexToJson } from "@atproto/lexicon";
 
 const did = "did:plc:alice",
   timestamp = "2026-10-09T12:00:00.000Z";
+test("custom media persists native blob references without delivery URLs, and Vim preferences survive older clients", () => {
+  const blob = {
+    $type: "blob" as const,
+    ref: { $link: "bafkreigh2akiscaildc6rnag6ni5nrd6tmjuj6aqn5mltlhdp4dt2o5x4i" },
+    mimeType: "video/mp4",
+    size: 123,
+  };
+  const module = {
+    id: "video",
+    name: "Video",
+    enabled: true,
+    html: '<video src="streamface-media:clip"></video>',
+    css: "",
+    media: [{ id: "clip", blob, url: "blob:preview" }],
+  };
+  const records = serializeModuleRecords(
+    {
+      ...config,
+      customModules: [module],
+      preferences: { confirmDeletion: true, vimControls: true },
+    },
+    [],
+    timestamp,
+  );
+  const saved = records.find((record) => record.collection === moduleCollections.customModule)!;
+  expect(saved.value.media).toEqual([{ id: "clip", blob }]);
+  expect(lexToJson(jsonToLex(saved.value))).toEqual(saved.value);
+  const parsed = parseModuleRecords(did, records);
+  expect(parsed.customModules![0].media).toEqual([{ id: "clip", blob }]);
+  expect(parsed.preferences?.vimControls).toBe(true);
+  const older = serializeModuleRecords(
+    { ...parsed, preferences: { confirmDeletion: false } },
+    records,
+    timestamp,
+  );
+  expect(parseModuleRecords(did, older).preferences).toEqual({
+    confirmDeletion: false,
+    vimControls: true,
+  });
+  expect(() =>
+    serializeModuleRecords(
+      {
+        ...config,
+        customModules: [
+          { ...module, media: [{ id: "clip", blob: { ...blob, mimeType: "image/svg+xml" } }] },
+        ],
+      },
+      [],
+      timestamp,
+    ),
+  ).toThrow();
+});
+test("public Custom Module media URLs resolve against the owning PDS", async () => {
+  const blob = {
+    $type: "blob" as const,
+    ref: { $link: "bafkreigh2akiscaildc6rnag6ni5nrd6tmjuj6aqn5mltlhdp4dt2o5x4i" },
+    mimeType: "image/png",
+    size: 4,
+  };
+  const records = serializeModuleRecords(
+    {
+      ...config,
+      customModules: [
+        {
+          id: "one",
+          name: "Media",
+          enabled: true,
+          html: '<img src="streamface-media:pic">',
+          css: "",
+          media: [{ id: "pic", blob }],
+        },
+      ],
+    },
+    [],
+    timestamp,
+  );
+  const pds = new PdsService({} as any, "live.streamface", 0, 0, {
+    resolvePds: async () => "https://pds.example",
+    fetch: (async (input: RequestInfo | URL) => {
+      const collection = new URL(String(input)).searchParams.get("collection");
+      return Response.json({
+        records: records
+          .filter((record) => record.collection === collection)
+          .map((record) => ({
+            uri: `at://${did}/${record.collection}/${record.rkey}`,
+            value: record.value,
+          })),
+      });
+    }) as typeof fetch,
+  });
+  const loaded = await pds.publicConfig(did);
+  const url = new URL(loaded.customModules![0].media![0].url!);
+  expect(url.origin).toBe("https://pds.example");
+  expect(url.pathname).toBe("/xrpc/com.atproto.sync.getBlob");
+  expect(url.searchParams.get("did")).toBe(did);
+  expect(url.searchParams.get("cid")).toBe(blob.ref.$link);
+});
+test("Custom Module roundtrips and older clients do not erase its source", () => {
+  const customModule = {
+    id: "one",
+    name: "Scoreboard",
+    enabled: true,
+    html: "<h1>My room</h1>",
+    css: "h1 { color: red }",
+  };
+  const records = serializeModuleRecords(
+    { ...config, customModules: [customModule] },
+    [],
+    timestamp,
+  );
+  const parsed = parseModuleRecords(did, records);
+  expect(parsed.customModules).toEqual([customModule]);
+  const { customModules: omitted, ...olderClient } = parsed;
+  expect(
+    parseModuleRecords(did, serializeModuleRecords(olderClient, records, timestamp)).customModules,
+  ).toEqual([customModule]);
+  expect(
+    parseModuleRecords(
+      did,
+      serializeModuleRecords(
+        { ...parsed, customModules: [{ ...customModule, enabled: false, html: "" }] },
+        records,
+        timestamp,
+      ),
+    ).customModules,
+  ).toEqual([{ ...customModule, enabled: false, html: "" }]);
+  expect(() =>
+    serializeModuleRecords(
+      { ...config, customModules: [{ ...customModule, css: "x".repeat(50001) }] },
+      [],
+      timestamp,
+    ),
+  ).toThrow();
+  const legacy = records.find((record) => record.collection === moduleCollections.customModule)!;
+  legacy.value.width = 1280;
+  legacy.value.height = 720;
+  expect(parseModuleRecords(did, records).customModules).toEqual([customModule]);
+  const updated = serializeModuleRecords(
+    { ...config, customModules: [customModule] },
+    records,
+    timestamp,
+  );
+  const saved = updated.find((record) => record.collection === moduleCollections.customModule)!;
+  expect(saved.value.width).toBeUndefined();
+  expect(saved.value.height).toBeUndefined();
+});
+test("custom modules have independent identities, rename, delete and migrate the retired singleton", () => {
+  const first = { id: "first", name: "Score", enabled: true, html: "<h1>Score</h1>", css: "" };
+  const second = { ...first, id: "second", name: "Banner", html: "<h1>Banner</h1>" };
+  const records = serializeModuleRecords(
+    { ...config, customModules: [first, second] },
+    [],
+    timestamp,
+  );
+  const edited = serializeModuleRecords(
+    { ...config, customModules: [{ ...second, name: "Renamed" }] },
+    records,
+    timestamp,
+  );
+  expect(parseModuleRecords(did, edited).customModules).toEqual([{ ...second, name: "Renamed" }]);
+  expect(
+    edited
+      .filter((record) => record.collection === moduleCollections.customModule)
+      .map((record) => record.rkey),
+  ).toEqual(["second"]);
+  const legacy = {
+    collection: moduleCollections.legacyCustomModule,
+    rkey: "self",
+    value: {
+      $type: moduleCollections.legacyCustomModule,
+      enabled: true,
+      html: first.html,
+      css: "",
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+  };
+  const migrated = parseModuleRecords(did, [legacy]);
+  expect(migrated.customModules).toEqual([{ ...first, id: "legacy-self", name: "My overlay" }]);
+  const saved = serializeModuleRecords(migrated, [legacy], timestamp);
+  expect(saved.some((record) => record.collection === moduleCollections.legacyCustomModule)).toBe(
+    false,
+  );
+  expect(parseModuleRecords(did, saved).customModules).toEqual(migrated.customModules);
+});
+test("more than 200 custom modules roundtrip and unchanged modules retain their timestamps", () => {
+  const customModules = Array.from({ length: 250 }, (_, id) => ({
+    id: `module-${id}`,
+    name: `Module ${id}`,
+    enabled: false,
+    html: "",
+    css: "",
+  }));
+  const records = serializeModuleRecords({ ...config, customModules }, [], timestamp);
+  const nextTime = "2026-10-10T12:00:00.000Z";
+  const next = serializeModuleRecords(
+    {
+      ...config,
+      customModules: customModules.map((module, index) =>
+        index === 0 ? { ...module, name: "Renamed" } : module,
+      ),
+    },
+    records,
+    nextTime,
+  );
+  expect(parseModuleRecords(did, next).customModules).toHaveLength(250);
+  const modules = next.filter((record) => record.collection === moduleCollections.customModule);
+  expect(modules[0].value.updatedAt).toBe(nextTime);
+  expect(modules[1].value.updatedAt).toBe(timestamp);
+});
 test("event mappings roundtrip, survive older clients and clear on command deletion", () => {
   const eventMappings = [
     { event: "teleport-arrival" as const, commandId: "stable-key", text: "Welcome!" },

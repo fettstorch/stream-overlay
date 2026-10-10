@@ -61,6 +61,7 @@ modules/streamplace-pets  Adapter for the upstream submodule
 modules/overlay-paint     Shared temporary canvas, served by the host
 modules/chat              Stream.place chat display, served by the host
 modules/emoticons         Clips/stickers, command validation and browser runtime
+modules/custom-module       Declarative HTML/CSS cloud overlay and storage validation
 modules/catalog.ts        Shared cloud module metadata, routes and build entries
 packages/overlay-sdk      Shared module contracts
 packages/stream-chat      Shared live/sample chat sources and stream measurements
@@ -297,13 +298,13 @@ cloud image until that release blocker is resolved with the upstream authors.
 
 Cloud OBS sources use your account DID in `?did=`:
 
-| Source | Path |
-| --- | --- |
-| Emote effects | `/emotes/` |
+| Source                | Path               |
+| --------------------- | ------------------ |
+| Emote effects         | `/emotes/`         |
 | Emote command listing | `/emote-listings/` |
-| Chat | `/chat/` |
-| Overlay Paint | `/paint/` |
-| Streamplace Pets | `/pets/` |
+| Chat                  | `/chat/`           |
+| Overlay Paint         | `/paint/`          |
+| Streamplace Pets      | `/pets/`           |
 
 The old `/effect/` and `/board/` paths remain working aliases for existing OBS
 sources. Published `live.streamface.emoticons.*` record IDs and existing storage
@@ -365,7 +366,7 @@ or **Save changes** after uploads. Commands and uploaded assets persist locally 
 folders together. These runtime files are ignored by version control. Deleting a
 command does not delete its uploaded files.
 
-Chat messages are trimmed and matched case-insensitively: ` !WOW ` invokes `wow`.
+Chat messages are trimmed and matched case-insensitively: `!WOW` invokes `wow`.
 Enter names with or without `!`; use letters, numbers, `_` or `-` (1–32 characters).
 Check **Sticker** when creating or editing a command for a silent, spammable visual.
 Each chat message immediately spawns a separate image, GIF, or muted looping video
@@ -431,6 +432,44 @@ effect broadcasts and completion. Overlay logs report connections, effect
 receipt/playback and image/audio failures. Effect IDs and client IDs correlate
 host events with each OBS source or muted Admin preview. Ordinary chat messages
 are not logged by this module.
+
+## Custom Modules (cloud)
+
+Create any number of named Custom Modules. Each appears alongside the built-in
+modules with a Custom Module label, separate HTML/CSS editors and a transparent draft preview.
+Each has a saved OBS source at `/custom-module/?did=<your DID>&module=<record key>`. Set the browser source
+dimensions as needed; the overlay fills the available viewport. Use percentages,
+flex/grid layouts and relative units for responsive content. Draft changes
+stay local until **Save overlay** (or Vim `:w`); connected sources receive saved updates through
+the existing configuration relay. Disabling the module hides the source.
+
+Rename a module using the pencil beside its title. Vim controls are an account-wide
+preference in General settings, persisted on the PDS.
+
+Drop images or videos onto the preview to upload them to your PDS (10 MB per file,
+up to 100 attachments per module). The HTML references them as `streamface-media:<id>`;
+the module record retains their blob references and playback URLs are resolved on delivery.
+Hover over any element to outline it, then drag to update its inline percentage positioning.
+The first drag makes the element absolutely positioned and preserves its visible size;
+moving a container also moves its children. OBS supports the same interactions, but
+changes made there are temporary and are not saved to the PDS.
+
+User JavaScript, embedded pages, navigation and arbitrary external resources remain blocked.
+Templates are sanitized on every render and isolated in an opaque-origin iframe with
+only `allow-scripts` for our nonce-authorized interaction script and a Streamface-owned
+restrictive Content Security Policy. User-authored scripts cannot run. CSS cannot escape
+into the configurator. Imported Quickstart setups pass through the same boundary.
+Each source field is limited to 50 KB. Legacy canvas dimensions are ignored and
+omitted from new saves; custom CSS is preserved.
+
+Modules are individual public PDS records in `live.streamface.custommodule`;
+never put secrets in your HTML or CSS. Restart the development server and sign in
+again to grant this new collection before saving Custom Module. Existing modules do
+not create a Custom Module record until configured. Renaming preserves record keys
+and OBS URLs. Quickstart copying adds modules with fresh IDs. The retired singleton
+is read as “My overlay” and migrated on the next save; its existing OBS URL remains valid.
+Lexicon publication and DNS
+delegation are separate deployment prerequisites; see the lexicons guide.
 
 Cloud diagnostics are emitted as one JSON object per line to stdout, so they appear
 in the `bun run dev` terminal, Compose logs, and Koyeb service logs. Upload and

@@ -1,0 +1,49 @@
+{
+  "lexicon": 1,
+  "id": "live.streamface.custommodule",
+  "description": "Declarative Custom Module overlay. Source is untrusted and must be sanitized and sandboxed.",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "any",
+      "record": {
+        "type": "object",
+        "required": ["name", "enabled", "html", "css", "createdAt", "updatedAt"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "enabled": { "type": "boolean" },
+          "html": { "type": "string", "maxLength": 50000 },
+          "css": { "type": "string", "maxLength": 50000 },
+          "media": {
+            "type": "array",
+            "maxLength": 100,
+            "items": { "type": "ref", "ref": "#media" }
+          },
+          "createdAt": { "type": "string", "format": "datetime" },
+          "updatedAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    },
+    "media": {
+      "type": "object",
+      "required": ["id", "blob"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "blob": {
+          "type": "blob",
+          "accept": [
+            "image/png",
+            "image/jpeg",
+            "image/gif",
+            "image/webp",
+            "image/avif",
+            "video/mp4",
+            "video/webm",
+            "video/quicktime"
+          ],
+          "maxSize": 10000000
+        }
+      }
+    }
+  }
+}

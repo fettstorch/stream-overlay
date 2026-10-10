@@ -1,0 +1,287 @@
+import { expect, test, vi, afterEach } from "vitest";
+import { mount, flushPromises } from "@vue/test-utils";
+import CustomModulePreview from "../src/CustomModulePreview.vue";
+import CloudCustomModuleControls from "../src/CloudCustomModuleControls.vue";
+import { customModuleDocument } from "../src/custom-module-document.ts";
+import {
+  moveCustomModuleElement,
+  customModuleInteractions,
+} from "../src/custom-module-interactions.ts";
+import { defaultCustomModuleSettings } from "../../../modules/custom-module/src/config.ts";
+
+afterEach(() => vi.unstubAllGlobals());
+const blob = {
+  $type: "blob" as const,
+  ref: { $link: "bafkreigh2akiscaildc6rnag6ni5nrd6tmjuj6aqn5mltlhdp4dt2o5x4i" },
+  mimeType: "image/png",
+  size: 4,
+};
+test("only attached resources resolve and CSP only grants their origins plus our trusted script", () => {
+  const output = customModuleDocument({
+    ...defaultCustomModuleSettings,
+    html: '<img src="streamface-media:one"><img src="https://evil.test/image"><video src="streamface-media:video" autoplay muted loop></video><img src="streamface-media:local">',
+    media: [
+      { id: "one", blob, url: "https://pds.example/xrpc/com.atproto.sync.getBlob?cid=abc" },
+      { id: "video", blob: { ...blob, mimeType: "video/mp4" }, url: "https://pds.example/video" },
+      { id: "local", blob, url: "blob:http://localhost/abc" },
+    ],
+  });
+  const doc = new DOMParser().parseFromString(output, "text/html");
+  expect(doc.querySelectorAll("img")[0].getAttribute("src")).toContain("https://pds.example/");
+  expect(doc.querySelectorAll("img")[1].hasAttribute("src")).toBe(false);
+  expect(doc.querySelectorAll("img")[2].getAttribute("src")).toBe("blob:http://localhost/abc");
+  expect(doc.querySelector("video")!.getAttribute("src")).toBe("https://pds.example/video");
+  const policy = doc.querySelector("meta[http-equiv]")!.getAttribute("content")!;
+  expect(policy).toContain("https://pds.example");
+  expect(policy).not.toContain("evil.test");
+  expect(policy).not.toContain("allow-same-origin");
+  expect(doc.querySelectorAll("script[nonce]")).toHaveLength(1);
+});
+test("local previews accept matching image and video data, never authored or mismatched data URLs", () => {
+  const output = customModuleDocument({
+    ...defaultCustomModuleSettings,
+    html: '<img src="streamface-media:image"><video src="streamface-media:video"></video><img src="streamface-media:wrong"><img src="data:image/png;base64,ZGF0YQ==">',
+    media: [
+      { id: "image", blob, url: "data:image/png;base64,ZGF0YQ==" },
+      { id: "video", blob: { ...blob, mimeType: "video/mp4" }, url: "data:video/mp4;base64,ZGF0YQ==" },
+      { id: "wrong", blob, url: "data:image/svg+xml;base64,ZGF0YQ==" },
+    ],
+  });
+  const doc = new DOMParser().parseFromString(output, "text/html");
+  expect(doc.querySelectorAll("img")[0].getAttribute("src")).toBe("data:image/png;base64,ZGF0YQ==");
+  expect(doc.querySelector("video")!.getAttribute("src")).toBe("data:video/mp4;base64,ZGF0YQ==");
+  expect(doc.querySelectorAll("img")[1].hasAttribute("src")).toBe(false);
+  expect(doc.querySelectorAll("img")[2].hasAttribute("src")).toBe(false);
+});
+test("moving nested elements keeps their parent and unrelated source, including existing styles", () => {
+  const html =
+    '<section class="card">\n  <h1 style="color: red; transform: rotate(10deg)">Title</h1>\n  <p>Other</p>\n</section>';
+  const next = moveCustomModuleElement(
+    html,
+    1,
+    "color: blue; transform: none !important; position: absolute !important; left: 25% !important; top: 30% !important; width: 40% !important; height: 10% !important;",
+  );
+  const doc = new DOMParser().parseFromString(next, "text/html");
+  expect(doc.querySelector("h1")!.style.color).toBe("red");
+  expect(doc.querySelector("h1")!.style.transform).toBe("rotate(10deg)");
+  expect(doc.querySelector("h1")!.style.left).toBe("25%");
+  expect(doc.querySelector("h1")!.parentElement!.tagName).toBe("SECTION");
+  expect(next).toContain("<p>Other</p>");
+  expect(() => moveCustomModuleElement(html, 100, "left: 1%")).toThrow();
+});
+test("preview accepts movement only from its own frame and current channel", () => {
+  const html = "<h1>Title</h1>";
+  const wrapper = mount(CustomModulePreview, {
+    attachTo: document.body,
+    props: { settings: { ...defaultCustomModuleSettings, html } },
+  });
+  const frame = wrapper.get("iframe").element as HTMLIFrameElement;
+  const channel = frame.srcdoc.match(/\)\(\.\.\.\["([a-z0-9-]+)"/)![1];
+  const data = {
+    type: "custom-module-move",
+    channel,
+    index: 0,
+    style: "left: 25%; top: 30%; position: absolute",
+  };
+  window.dispatchEvent(new MessageEvent("message", { source: window, data }));
+  window.dispatchEvent(
+    new MessageEvent("message", {
+      source: frame.contentWindow,
+      data: { ...data, channel: "foreign" },
+    }),
+  );
+  expect(wrapper.emitted("html")).toBeUndefined();
+  window.dispatchEvent(new MessageEvent("message", { source: frame.contentWindow, data }));
+  expect(wrapper.emitted("html")![0][0]).toContain("left: 25%");
+  wrapper.unmount();
+});
+test("media drops upload before adding percentage source, refresh on save, and retain blob references", async () => {
+  const fetch = vi.fn(async () => Response.json(blob));
+  vi.stubGlobal("fetch", fetch);
+  const save = vi.fn(async () => true);
+  const config = {
+    enabled: true,
+    streamerDid: "did:plc:alice",
+    revision: "new",
+    commands: [],
+    customModules: [{ ...defaultCustomModuleSettings, id: "one", name: "Test" }],
+  };
+  const wrapper = mount(CloudCustomModuleControls, { props: { config, moduleId: "one", save } });
+  await vi.dynamicImportSettled();
+  await flushPromises();
+  wrapper
+    .getComponent(CustomModulePreview)
+    .vm.$emit("mediaDrop", [new File(["data"], "picture.png", { type: "image/png" })], 25, 30);
+  await flushPromises();
+  expect(save).not.toHaveBeenCalled();
+  expect(fetch).toHaveBeenCalledTimes(1);
+  await vi.waitFor(() =>
+    expect(wrapper.get(".draft-overlay").attributes("srcdoc")).toContain("data:image/png;base64,ZGF0YQ=="),
+  );
+  const srcdoc = wrapper.get(".draft-overlay").attributes("srcdoc");
+  expect(srcdoc).toContain("left: 25%");
+  expect(srcdoc).toContain("data:image/png;base64,ZGF0YQ==");
+  await wrapper
+    .findAll("button")
+    .find((button) => button.text() === "Save overlay")!
+    .trigger("click");
+  await flushPromises();
+  expect(fetch).toHaveBeenCalledTimes(2);
+  const saved = save.mock.calls[0][0] as typeof config;
+  expect(saved.customModules[0].html).toContain("streamface-media:");
+  expect((saved.customModules[0] as any).media[0].blob).toEqual(blob);
+  expect((saved.customModules[0] as any).media[0].url).toBeUndefined();
+  wrapper.unmount();
+});
+test("failed uploads leave authored source untouched and show the request reference", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () =>
+      Response.json(
+        { message: "PDS rejected upload", requestId: "fixture-upload" },
+        { status: 400 },
+      ),
+    ),
+  );
+  const config = {
+    enabled: true,
+    streamerDid: "did:plc:alice",
+    revision: "new",
+    commands: [],
+    customModules: [{ ...defaultCustomModuleSettings, id: "one", name: "Test" }],
+  };
+  const wrapper = mount(CloudCustomModuleControls, {
+    props: { config, moduleId: "one", save: vi.fn() },
+  });
+  await vi.dynamicImportSettled();
+  await flushPromises();
+  wrapper
+    .getComponent(CustomModulePreview)
+    .vm.$emit("mediaDrop", [new File(["data"], "picture.png", { type: "image/png" })], 25, 30);
+  await flushPromises();
+  expect(wrapper.get('[role="status"]').text()).toContain("fixture-upload");
+  expect(wrapper.getComponent(CustomModulePreview).props("settings").html).toBe(
+    defaultCustomModuleSettings.html,
+  );
+  wrapper.unmount();
+});
+test("hover and drag use measured percentage coordinates and post only after a real move", () => {
+  const element = document.createElement("h1");
+  element.dataset.sfIndex = "0";
+  element.textContent = "Heading";
+  document.body.append(element);
+  vi.spyOn(element, "getBoundingClientRect").mockReturnValue({
+    left: 100,
+    top: 100,
+    width: 243.5,
+    height: 40,
+  } as DOMRect);
+  vi.spyOn(document.body, "getBoundingClientRect").mockReturnValue({ left: 0, top: 0 } as DOMRect);
+  Object.defineProperty(document.body, "clientWidth", { configurable: true, value: 1000 });
+  Object.defineProperty(document.body, "clientHeight", { configurable: true, value: 500 });
+  const post = vi.spyOn(window, "postMessage").mockImplementation(() => {});
+  const stop = customModuleInteractions("test-drag");
+  element.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: 110, clientY: 110 }));
+  expect(document.body.lastElementChild!.getAttribute("style")).toContain("display: flex");
+  element.dispatchEvent(
+    new MouseEvent("mousedown", { bubbles: true, button: 0, clientX: 110, clientY: 110 }),
+  );
+  element.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+  expect(post).not.toHaveBeenCalled();
+  element.dispatchEvent(
+    new MouseEvent("mousedown", { bubbles: true, button: 0, clientX: 110, clientY: 110 }),
+  );
+  document.dispatchEvent(new MouseEvent("mousemove", { clientX: 310, clientY: 160 }));
+  document.dispatchEvent(new MouseEvent("mouseup"));
+  expect(element.style.left).toBe("30%");
+  expect(element.style.top).toBe("30%");
+  expect(element.style.width).toBe("24.35%");
+  expect(post).toHaveBeenCalledWith(
+    expect.objectContaining({ type: "custom-module-move", channel: "test-drag", index: 0 }),
+    "*",
+  );
+  stop();
+  element.remove();
+  vi.restoreAllMocks();
+});
+test("resize handles preserve ratios by default and unlock without persisting lock state", () => {
+  const element = document.createElement("div");
+  element.dataset.sfIndex = "0";
+  document.body.append(element);
+  vi.spyOn(element, "getBoundingClientRect").mockReturnValue({ left: 100, top: 100, right: 300, bottom: 200, width: 200, height: 100 } as DOMRect);
+  vi.spyOn(document.body, "getBoundingClientRect").mockReturnValue({ left: 0, top: 0 } as DOMRect);
+  Object.defineProperty(document.body, "clientWidth", { configurable: true, value: 1000 });
+  Object.defineProperty(document.body, "clientHeight", { configurable: true, value: 500 });
+  const post = vi.spyOn(window, "postMessage").mockImplementation(() => {});
+  const stop = customModuleInteractions("resize-test");
+  element.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+  const resize = document.querySelector('[aria-label="Resize element"]')!;
+  const lock = document.querySelector('[aria-label="Lock aspect ratio"]')!;
+  const scale = (dx: number, dy: number) => {
+    resize.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0, clientX: 300, clientY: 200 }));
+    document.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: 300 + dx, clientY: 200 + dy }));
+    document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+  };
+  scale(100, 50);
+  expect(element.style.width).toBe("30%");
+  expect(element.style.height).toBe("30%");
+  expect(element.style.left).toBe("10%");
+  expect(lock.getAttribute("aria-pressed")).toBe("true");
+  lock.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  expect(lock.getAttribute("aria-pressed")).toBe("false");
+  scale(100, 0);
+  expect(element.style.width).toBe("30%");
+  expect(element.style.height).toBe("20%");
+  expect(post).toHaveBeenCalledWith(expect.objectContaining({ type: "custom-module-move", index: 0 }), "*");
+  expect(element.outerHTML).not.toContain("locked");
+  stop(); element.remove(); post.mockRestore();
+});
+test("renaming preserves unsaved source and resolved media URLs do not keep a saved draft dirty", async () => {
+  const module = {
+    ...defaultCustomModuleSettings,
+    id: "one",
+    name: "Before",
+    media: [{ id: "pic", blob, url: "blob:http://localhost/preview" }],
+  };
+  const config = {
+    enabled: true,
+    streamerDid: "did:plc:alice",
+    revision: "new",
+    commands: [],
+    customModules: [module],
+  };
+  const save = vi.fn(async () => true);
+  const wrapper = mount(CloudCustomModuleControls, { props: { config, moduleId: "one", save } });
+  await vi.dynamicImportSettled();
+  await flushPromises();
+  wrapper
+    .getComponent(CustomModulePreview)
+    .vm.$emit("html", '<img src="streamface-media:pic" style="left:25%">');
+  await wrapper.setProps({ config: { ...config, customModules: [{ ...module, name: "After" }] } });
+  await wrapper
+    .findAll("button")
+    .find((button) => button.text() === "Save overlay")!
+    .trigger("click");
+  await flushPromises();
+  const candidate = save.mock.calls[0][0] as typeof config;
+  expect(candidate.customModules[0].name).toBe("After");
+  expect(candidate.customModules[0].html).toContain("left:25%");
+  await wrapper.setProps({
+    config: {
+      ...candidate,
+      customModules: [
+        {
+          ...candidate.customModules[0],
+          media: [{ id: "pic", blob, url: "https://pds.example/blob" }],
+        },
+      ],
+    },
+  });
+  expect(
+    wrapper
+      .findAll("button")
+      .find((button) => button.text() === "✓ Saved")!
+      .attributes("disabled"),
+  ).toBeDefined();
+  wrapper.unmount();
+});

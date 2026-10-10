@@ -183,7 +183,12 @@ export class PdsService {
   ) {
     const groups = await Promise.all(
       Object.values(moduleCollections).map(async (collection) =>
-        (await listAllRecords((cursor) => load(collection, cursor))).map(
+        (
+          await listAllRecords(
+            (cursor) => load(collection, cursor),
+            collection === moduleCollections.customModule ? Infinity : 200,
+          )
+        ).map(
           (item) =>
             ({
               collection,
@@ -261,6 +266,7 @@ export class PdsService {
             })) as any,
         );
         if (!snapshot.config) throw new CloudConfigMissingError("Cloud configuration not found");
+        hydrateCustomModuleMedia(snapshot.config, service, did);
         for (const command of snapshot.config.commands)
           for (const media of [command.image, command.audio, command.video])
             if (media?.blob) media.url = blobUrl(service, did, media.blob);
@@ -509,14 +515,24 @@ export class PdsService {
       const identity = (record: StoredRecord) => `${record.collection}/${record.rkey}`;
       const existing = new Set(snapshot.records.map(identity)),
         wanted = new Set(records.map(identity));
-      const writes: ComAtprotoRepoApplyWrites.InputSchema["writes"] = records.map((record) => ({
-        $type: existing.has(identity(record))
-          ? "com.atproto.repo.applyWrites#update"
-          : "com.atproto.repo.applyWrites#create",
-        collection: record.collection,
-        rkey: record.rkey,
-        value: record.value,
-      }));
+      const writes: ComAtprotoRepoApplyWrites.InputSchema["writes"] = records
+        .filter(
+          (record) =>
+            record.collection !== moduleCollections.customModule ||
+            !snapshot.records.some(
+              (old) =>
+                identity(old) === identity(record) &&
+                old.value.updatedAt === record.value.updatedAt,
+            ),
+        )
+        .map((record) => ({
+          $type: existing.has(identity(record))
+            ? "com.atproto.repo.applyWrites#update"
+            : "com.atproto.repo.applyWrites#create",
+          collection: record.collection,
+          rkey: record.rkey,
+          value: record.value,
+        }));
       for (const record of snapshot.records)
         if (!wanted.has(identity(record)))
           writes.push({
@@ -533,6 +549,7 @@ export class PdsService {
         writes,
       });
       const saved = parseModuleRecords(did, records);
+      hydrateCustomModuleMedia(saved, service, did);
       for (const command of saved.commands)
         for (const media of [command.image, command.audio, command.video])
           if (media?.blob) media.url = blobUrl(service, did, media.blob);
@@ -543,9 +560,15 @@ export class PdsService {
         migrated: snapshot.migrated,
         preferencesChanged:
           config.preferences !== undefined &&
-          config.preferences.confirmDeletion !== snapshot.config?.preferences?.confirmDeletion,
+          JSON.stringify(config.preferences) !== JSON.stringify(snapshot.config?.preferences),
         moderationRules: saved.moderation?.length ?? 0,
         eventMappings: saved.eventMappings?.length ?? 0,
+        customModulesChanged:
+          JSON.stringify(saved.customModules) !== JSON.stringify(snapshot.config?.customModules),
+        customModuleCount: saved.customModules?.length ?? 0,
+        customModuleMediaCount:
+          saved.customModules?.reduce((count, module) => count + (module.media?.length ?? 0), 0) ??
+          0,
         moderationChanged:
           JSON.stringify(saved.moderation ?? []) !==
           JSON.stringify(snapshot.config?.moderation ?? []),
@@ -611,6 +634,10 @@ export class PdsService {
   }
 }
 const didResolver = createDidResolver({});
+function hydrateCustomModuleMedia(config: CloudConfig, service: string, did: string) {
+  for (const module of config.customModules ?? [])
+    for (const media of module.media ?? []) media.url = blobUrl(service, did, media.blob);
+}
 async function resolvePds(did: string) {
   const document = await didResolver.resolve(did as `did:${string}:${string}`);
   const endpoint = document.service?.find((item) => item.id === "#atproto_pds")?.serviceEndpoint;

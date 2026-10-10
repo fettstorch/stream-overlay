@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import BrandWordmark from "./BrandWordmark.vue";
 import ThemeToggle from "./ThemeToggle.vue";
+import pencilIcon from "./assets/custom-module-pencil.png";
 import { version } from "../../../package.json";
 import CollapseTransition from "./CollapseTransition.vue";
 import DrawnTabs from "./DrawnTabs.vue";
@@ -23,12 +24,15 @@ import EmoteEvents from "./EmoteEvents.vue";
 import SetupImport from "./SetupImport.vue";
 import CloudModuleControls from "./CloudModuleControls.vue";
 import CloudBotControls from "./CloudBotControls.vue";
+import CloudCustomModuleControls from "./CloudCustomModuleControls.vue";
 import CollapsibleSection from "./CollapsibleSection.vue";
 import ModuleHelp from "./ModuleHelp.vue";
 import { moduleSettings } from "../../../packages/protocol/src/cloud-settings.ts";
 import type { ChatConfiguration } from "../../../modules/chat/src/config.ts";
 import type { CloudCommand, CloudConfig } from "./cloud-admin-types.ts";
 import { useModuleCollection } from "./use-module-collection.ts";
+import { customModuleManifest } from "../../../modules/custom-module/src/manifest.ts";
+import { defaultCustomModuleSettings } from "../../../modules/custom-module/src/config.ts";
 
 const cloudModuleCatalog = getCloudModuleCatalog(import.meta.env.VITE_ENABLE_CLOUD_PETS === "true");
 
@@ -40,6 +44,39 @@ const loginMessage = ref("");
 const configurationMessage = ref("");
 const moduleMessages = ref<Record<string, string>>({});
 const saving = ref(false);
+const editingTitle = ref<string | null>(null);
+const titleDraft = ref("");
+const titleInput = ref<HTMLInputElement>();
+async function editTitle(module: CloudModule) {
+  editingTitle.value = module.id;
+  titleDraft.value = module.name;
+  await nextTick();
+  titleInput.value?.focus();
+  titleInput.value?.select();
+}
+async function saveTitle() {
+  if (!config.value || !editingTitle.value || saving.value) return;
+  const id = editingTitle.value;
+  const name = titleDraft.value.trim();
+  if (!name || new TextEncoder().encode(name).length > 200) {
+    moduleMessages.value[id] = "Module names must be between 1 and 200 bytes.";
+    titleInput.value?.focus();
+    return;
+  }
+  if (
+    await saveConfiguration(
+      {
+        ...config.value,
+        customModules: config.value.customModules?.map((module) =>
+          `custom:${module.id}` === id ? { ...module, name } : module,
+        ),
+      },
+      undefined,
+      id,
+    )
+  )
+    editingTitle.value = null;
+}
 const tutorialOpen = ref(false);
 const publicTutorialOpen = ref(true);
 const profile = ref<PublicActorProfile | null>(null);
@@ -50,6 +87,12 @@ const dimensionsDetected = ref(false);
 let dimensionsTimer: ReturnType<typeof setInterval> | undefined;
 let disposed = false;
 function obsInstructions(moduleId: string) {
+  if (moduleId.startsWith("custom:")) {
+    return [
+      "The overlay fills the OBS browser source at whatever dimensions you choose.",
+      "The source shows your saved HTML/CSS on a transparent canvas.",
+    ];
+  }
   if (moduleId === "bot")
     return [
       "Add the private Bot URL as a transparent OBS browser source. Any size works.",
@@ -128,14 +171,71 @@ const handleInput = ref<HTMLInputElement>();
 const loginStatus = ref<HTMLElement>();
 let autocomplete: ReturnType<typeof attachActorCombobox> | undefined;
 let copyTimer: ReturnType<typeof setTimeout> | undefined;
-const cloudModules = ref<CloudModule[]>([...cloudModuleCatalog]);
-const paths: Record<string, string> = Object.fromEntries(
-  cloudModuleCatalog.map((module) => [module.id, module.cloud.pages[0].path]),
+const cloudModules = computed<CloudModule[]>(() => [
+  ...cloudModuleCatalog.filter((module) => module.id !== "custom-module"),
+  ...(config.value?.customModules ?? []).map((module) => ({
+    ...customModuleManifest,
+    id: `custom:${module.id}`,
+    name: module.name,
+    cloud: {
+      ...customModuleManifest.cloud,
+      pages: [
+        {
+          path: `/custom-module/?module=${encodeURIComponent(module.id)}`,
+          entrypoint: "custom-module.html",
+        },
+      ],
+    },
+  })),
+]);
+const paths = computed<Record<string, string>>(() =>
+  Object.fromEntries(cloudModules.value.map((module) => [module.id, module.cloud.pages[0].path])),
 );
+async function createCustomModule() {
+  if (!config.value) return;
+  const module = {
+    ...defaultCustomModuleSettings,
+    id: crypto.randomUUID(),
+    name: "Untitled module",
+  };
+  if (
+    await saveConfiguration(
+      { ...config.value, customModules: [...(config.value.customModules ?? []), module] },
+      undefined,
+      "custom-modules",
+    )
+  ) {
+    moduleQuery.value = "";
+    const card = cloudModules.value.find((card) => card.id === `custom:${module.id}`)!;
+    toggleDetails(card);
+    await editTitle(card);
+  }
+}
+async function deleteCustomModule(id: string) {
+  if (!config.value) return;
+  if (
+    config.value.preferences?.confirmDeletion !== false &&
+    !window.confirm("Delete this custom module?")
+  )
+    return;
+  await saveConfiguration(
+    {
+      ...config.value,
+      customModules: config.value.customModules?.filter((module) => `custom:${module.id}` !== id),
+    },
+    undefined,
+    id,
+  );
+}
 function moduleEnabled(id: string) {
+  if (id.startsWith("custom:"))
+    return (
+      config.value?.customModules?.find((module) => `custom:${module.id}` === id)?.enabled ?? false
+    );
   const module = cloudModuleCatalog.find((module) => module.id === id);
   if (!config.value || !module) return false;
   if (id === "bot") return config.value.bot?.enabled ?? false;
+  if (module.cloud.enabledKey === "customModule") return false;
   const key = module.cloud.enabledKey;
   return key === "emoticons"
     ? config.value.enabled
@@ -144,7 +244,7 @@ function moduleEnabled(id: string) {
       : moduleSettings(config.value).modules[key];
 }
 function previewUrl(id: string) {
-  const url = new URL(cloudUrl(paths[id]));
+  const url = new URL(cloudUrl(paths.value[id]));
   url.searchParams.set("preview", "1");
   const module: CloudModule | undefined = cloudModuleCatalog.find((module) => module.id === id);
   if (module?.cloud.interactivePreview) url.searchParams.set("interactive", "1");
@@ -164,6 +264,9 @@ const {
   orderedModules,
   matchingCount,
 } = useModuleCollection(cloudModules);
+watchEffect(() => {
+  if (cloudModules.value.length < 10) moduleQuery.value = "";
+});
 const emotePreviewsStarted = ref(false);
 watchEffect(() => {
   const module = cloudModules.value.find((module) => module.id === "emoticons");
@@ -186,9 +289,13 @@ function hasFiles(event: DragEvent) {
   return Array.from(event.dataTransfer?.types ?? []).includes("Files");
 }
 function cardDragEnter(id: string, event: DragEvent) {
-  if (id !== "emoticons" || !hasFiles(event)) return;
+  if ((id !== "emoticons" && !id.startsWith("custom:")) || !hasFiles(event)) return;
   event.preventDefault();
   cardDragDepth.value[id] = (cardDragDepth.value[id] ?? 0) + 1;
+  if (id.startsWith("custom:")) {
+    const module = cloudModules.value.find((module) => module.id === id);
+    if (module && !isExpanded(module)) toggleDetails(module);
+  }
 }
 function cardDragOver(event: DragEvent) {
   if (!hasFiles(event)) return;
@@ -345,7 +452,11 @@ async function toggleEnabled(module: CloudModule, event: Event) {
   if (module.id === "emoticons") candidate.enabled = input.checked;
   else if (module.id === "bot")
     candidate.bot = { ...candidate.bot, enabled: input.checked, rules: candidate.bot?.rules ?? [] };
-  else
+  else if (module.id.startsWith("custom:")) {
+    candidate.customModules = candidate.customModules?.map((item) =>
+      `custom:${item.id}` === module.id ? { ...item, enabled: input.checked } : item,
+    );
+  } else
     candidate.modules[
       module.id === "overlay-paint" ? "paint" : module.id === "streamplace-pets" ? "pets" : "chat"
     ] = input.checked;
@@ -356,7 +467,7 @@ async function copyUrl(kind: string) {
   try {
     await navigator.clipboard.writeText(
       cloudUrl(
-        kind === "board" ? "/emote-listings/" : kind === "effect" ? "/emotes/" : paths[kind],
+        kind === "board" ? "/emote-listings/" : kind === "effect" ? "/emotes/" : paths.value[kind],
       ),
     );
     copied.value = kind;
@@ -469,7 +580,8 @@ onBeforeUnmount(() => {
           {{ loginMessage }}
         </p>
       </section>
-      <CollapsibleSection v-model:open="publicTutorialOpen" title="Tutorial">
+      <CollapsibleSection v-model:open="publicTutorialOpen" title="Tutorial" class="shadowed-section">
+        <p>This tutorial shows you how to create a browser source in OBS and use one of your streamface modules in it.</p>
         <video
           v-if="publicTutorialOpen"
           class="tutorial-video"
@@ -516,13 +628,37 @@ onBeforeUnmount(() => {
                   saveConfiguration(
                     {
                       ...config!,
-                      preferences: { confirmDeletion: ($event.target as HTMLInputElement).checked },
+                      preferences: {
+                        ...config!.preferences,
+                        confirmDeletion: ($event.target as HTMLInputElement).checked,
+                      },
                     },
                     undefined,
                     'preferences',
                   )
                 "
               />Ask for confirmation before deleting commands</label
+            >
+            <label class="account-preference"
+              ><input
+                type="checkbox"
+                :checked="config.preferences?.vimControls === true"
+                :disabled="saving"
+                @change="
+                  saveConfiguration(
+                    {
+                      ...config!,
+                      preferences: {
+                        confirmDeletion: true,
+                        ...config!.preferences,
+                        vimControls: ($event.target as HTMLInputElement).checked,
+                      },
+                    },
+                    undefined,
+                    'preferences',
+                  )
+                "
+              />Vim controls in code editors</label
             >
             <p v-if="moduleMessages.preferences" role="alert">{{ moduleMessages.preferences }}</p>
           </CollapsibleSection>
@@ -546,7 +682,7 @@ onBeforeUnmount(() => {
         </p>
       </section>
       <p v-if="configurationMessage" role="status">{{ configurationMessage }}</p>
-      <CollapsibleSection v-if="config" title="Quickstart">
+      <CollapsibleSection v-if="config" title="Quickstart" class="shadowed-section">
         <SetupImport
           :did="did"
           :config="config"
@@ -554,7 +690,8 @@ onBeforeUnmount(() => {
         />
         <p v-if="moduleMessages.preferences" role="alert">{{ moduleMessages.preferences }}</p>
       </CollapsibleSection>
-      <CollapsibleSection v-model:open="tutorialOpen" title="Tutorial">
+      <CollapsibleSection v-model:open="tutorialOpen" title="Tutorial" class="shadowed-section">
+        <p>This tutorial shows you how to create a browser source in OBS and use one of your streamface modules in it.</p>
         <video
           v-if="tutorialOpen"
           class="tutorial-video"
@@ -568,8 +705,16 @@ onBeforeUnmount(() => {
         </video>
       </CollapsibleSection>
       <section>
-        <h2>Modules</h2>
-        <label v-if="cloudModules.length >= 6" class="module-search"
+        <div class="modules-heading">
+          <h2>Modules</h2>
+          <button type="button" aria-label="Create custom module" :disabled="!config || saving" @click="createCustomModule">
+            New
+          </button>
+        </div>
+        <p v-if="moduleMessages['custom-modules']" role="status">
+          {{ moduleMessages["custom-modules"] }}
+        </p>
+        <label v-if="cloudModules.length >= 10" class="module-search"
           ><span class="sr-only">Search modules</span
           ><input
             v-model="moduleQuery"
@@ -597,12 +742,49 @@ onBeforeUnmount(() => {
             @dragleave="cardDragLeave(module.id, $event)"
             @drop="cardDrop(module, $event)"
           >
-            <div v-if="cardDragDepth[module.id] > 0" class="module-drop-overlay" role="status">
-              Drop media to create a command
+            <div
+              v-if="cardDragDepth[module.id] > 0 && module.id === 'emoticons'"
+              class="module-drop-overlay"
+              role="status"
+            >
+              {{
+                module.id.startsWith("custom:")
+                  ? "Drop media onto the overlay"
+                  : "Drop media to create a command"
+              }}
             </div>
             <div class="module-heading">
               <div>
-                <h3>{{ module.name }}</h3>
+                <div class="custom-module-title">
+                  <input
+                    v-if="editingTitle === module.id"
+                    :ref="
+                      (el) => {
+                        titleInput = el as HTMLInputElement;
+                      }
+                    "
+                    v-model="titleDraft"
+                    aria-label="Custom Module name"
+                    maxlength="200"
+                    @click.stop
+                    @keydown.enter.prevent="saveTitle"
+                    @keydown.esc.prevent="editingTitle = null"
+                    @blur="saveTitle"
+                  />
+                  <h3 v-else>{{ module.name }}</h3>
+                  <button
+                    v-if="module.id.startsWith('custom:') && editingTitle !== module.id"
+                    type="button"
+                    class="module-icon-button"
+                    :aria-label="`Rename ${module.name}`"
+                    @click.stop="editTitle(module)"
+                  >
+                    <img :src="pencilIcon" class="pencil-icon" alt="" />
+                  </button>
+                </div>
+                <span v-if="module.id.startsWith('custom:')" class="custom-module-badge"
+                  >Custom Module</span
+                >
                 <span
                   class="status"
                   :data-status="moduleEnabled(module.id) ? 'running' : 'stopped'"
@@ -661,7 +843,15 @@ onBeforeUnmount(() => {
                 class="module-body"
                 :inert="saving || !isExpanded(module) || undefined"
               >
-                <p>{{ module.description }}</p>
+                <p v-if="module.id.startsWith('custom:')">
+                  <span
+                    v-for="(text, index) in module.description.split(/(HTML|CSS)/g)"
+                    :key="index"
+                    :class="text === 'HTML' ? 'html-label' : text === 'CSS' ? 'css-label' : undefined"
+                    >{{ text }}</span
+                  >
+                </p>
+                <p v-else>{{ module.description }}</p>
                 <template v-if="module.id !== 'emoticons' && module.id !== 'bot'">
                   <section class="module-commands"><h4>OBS URL</h4></section>
                   <div class="overlay-url">
@@ -819,6 +1009,15 @@ onBeforeUnmount(() => {
                   :avatar="profile?.avatar"
                   :save="(candidate) => saveConfiguration(candidate, undefined, 'bot')"
                 />
+                <CloudCustomModuleControls
+                  v-else-if="module.id.startsWith('custom:')"
+                  :module-id="module.id.slice(7)"
+                  :ref="(el) => setModuleControls(module.id, el)"
+                  :config="config"
+                  :preview-aspect-ratio="dimensions.width / dimensions.height"
+                  :save="(candidate) => saveConfiguration(candidate, undefined, module.id)"
+                  @media-drop="cardDragDepth[module.id] = 0"
+                />
                 <CloudModuleControls
                   v-else
                   :module-id="module.id"
@@ -826,12 +1025,25 @@ onBeforeUnmount(() => {
                   :save="(candidate) => saveConfiguration(candidate, undefined, module.id)"
                   @chat-preview="updateChatPreview"
                 />
+                <button
+                  v-if="module.id.startsWith('custom:')"
+                  type="button"
+                  :disabled="saving"
+                  @click="deleteCustomModule(module.id)"
+                >
+                  Delete module
+                </button>
                 <p v-if="module.id === 'chat'" class="chat-preview-note">
                   Sample chat preview — these messages are generated here, not sent to your stream.
                   Your OBS source still shows live chat.
                 </p>
                 <div
-                  v-if="module.id !== 'emoticons' && module.id !== 'bot' && isExpanded(module)"
+                  v-if="
+                    module.id !== 'emoticons' &&
+                    module.id !== 'bot' &&
+                    !module.id.startsWith('custom:') &&
+                    isExpanded(module)
+                  "
                   class="cloud-preview"
                   :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }"
                 >
@@ -871,6 +1083,52 @@ onBeforeUnmount(() => {
   <BrandMascot />
 </template>
 <style scoped>
+.modules-heading {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.modules-heading h2 { margin: 0; }
+.html-label { color: #b77b00; }
+.css-label { color: #1769c2; }
+:global(html[data-theme="dark"] .html-label) { color: #f5c542; }
+:global(html[data-theme="dark"] .css-label) { color: #69b5ff; }
+.account-preference {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.account-preference + .account-preference {
+  margin-top: 12px;
+}
+.custom-module-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.custom-module-title input {
+  min-width: 0;
+  max-width: 100%;
+  font: inherit;
+  font-weight: 700;
+}
+.pencil-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+}
+:global(html[data-theme="dark"] .pencil-icon) {
+  filter: invert(1);
+  mix-blend-mode: screen;
+}
+.custom-module-badge {
+  display: block;
+  margin-block-end: 0.25em;
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
 .tutorial-video {
   display: block;
   width: 100%;

@@ -6,6 +6,7 @@ import type {
 
 /** Account configuration delivered to admins and overlays; not an ATProto record. */
 export type CloudConfig = CloudModuleSettings & {
+  customModules?: import("../../../modules/custom-module/src/config.ts").CustomModule[];
   bot?: import("../../../modules/bot/src/config.ts").BotSettings;
   enabled: boolean;
   streamerDid: string;
@@ -14,5 +15,5 @@ export type CloudConfig = CloudModuleSettings & {
   moderation?: EmoticonModerationRule[];
   roles?: import("../../../modules/emoticons/src/roles.ts").CommandRoles;
   revision: string;
-  preferences?: { confirmDeletion: boolean };
+  preferences?: { confirmDeletion: boolean; vimControls?: boolean };
 };

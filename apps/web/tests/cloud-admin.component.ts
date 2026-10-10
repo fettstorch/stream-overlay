@@ -21,6 +21,41 @@ function response(body: unknown, status = 200) { return new Response(JSON.string
 function mediaDrag(type: string, name = "drop.gif") { const event = new Event(type, { bubbles: true, cancelable: true }); Object.defineProperty(event, "dataTransfer", { value: { types: ["Files"], files: [new File(["GIF8"], name)], dropEffect: "none" } }); return event; }
 
 describe("Cloud Admin", () => {
+  test("creates independent custom cards, renames without changing their URL, and deletes only the selected module", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/api/session')) return response(session);
+      return response(init?.method === 'PUT' ? JSON.parse(String(init.body)) : { ...config, customModules: [] });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const wrapper = mount(CloudAdmin, { attachTo: document.body }); await flushPromises();
+    const create = () => wrapper.get('button[aria-label="Create custom module"]').trigger('click');
+    await create(); await flushPromises();
+    expect(wrapper.get('input[aria-label="Custom Module name"]').element).toBe(document.activeElement);
+    await create(); await flushPromises();
+    expect(wrapper.find('input[aria-label="Search modules"]').exists()).toBe(false);
+    for (let i = 0; i < 4; i++) { await create(); await flushPromises(); }
+    await wrapper.get('input[aria-label="Search modules"]').setValue('does not match a new module');
+    await create(); await flushPromises();
+    let cards = wrapper.findAll('[data-module^="custom:"]');
+    expect(cards).toHaveLength(7);
+    const id = cards[0].attributes('data-module');
+    const oldUrl = cards[0].get('.overlay-url code').text();
+    expect(oldUrl).toContain('module=');
+    expect(cards[0].text()).toContain('Custom Module');
+    await cards[0].get('button[aria-label="Rename Untitled module"]').trigger('click');
+    await cards[0].get('input[aria-label="Custom Module name"]').setValue('Scoreboard');
+    await cards[0].get('input[aria-label="Custom Module name"]').trigger('keydown', { key: 'Enter' });
+    await flushPromises();
+    cards = wrapper.findAll('[data-module^="custom:"]');
+    expect(cards[0].get('h3').text()).toBe('Scoreboard');
+    expect(cards[0].get('.overlay-url code').text()).toBe(oldUrl);
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await cards[0].findAll('button').find(button => button.text() === 'Delete module')!.trigger('click');
+    await flushPromises();
+    expect(wrapper.findAll('[data-module^="custom:"]')).toHaveLength(6);
+    expect(wrapper.find(`[data-module="${id}"]`).exists()).toBe(false);
+    confirm.mockRestore(); wrapper.unmount();
+  });
   test("shows the package version and creator in the page footer", () => {
     vi.stubGlobal("fetch", vi.fn(async () => response({}, 401)));
     const wrapper = mount(CloudAdmin);

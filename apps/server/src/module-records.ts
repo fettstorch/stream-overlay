@@ -1,6 +1,11 @@
 import { createHash } from "node:crypto";
 import { Lexicons, jsonToLex, type LexiconDoc } from "@atproto/lexicon";
 import chatSchema from "../../../lexicons/live.streamface.chat.settings.json";
+import customModuleSchema from "../../../lexicons/live.streamface.custommodule.json";
+import {
+  customModuleSettings,
+  validateCustomModules,
+} from "../../../modules/custom-module/src/config.ts";
 import botSchema from "../../../lexicons/live.streamface.bot.settings.json";
 import { defaultBotSettings, validateBotSettings } from "../../../modules/bot/src/config.ts";
 import emoticonsSchema from "../../../lexicons/live.streamface.emoticons.settings.json";
@@ -19,7 +24,15 @@ import { validateEventMappings } from "../../../modules/emoticons/src/events.ts"
 
 export const STREAMFACE_NAMESPACE = "live.streamface";
 export const LEGACY_NAMESPACE = "invalid.streamoverlay.dev";
+// Read the retired singleton until the next save migrates it to an individual record.
+const legacyCustomModuleSchema = structuredClone(customModuleSchema) as any;
+legacyCustomModuleSchema.id = "live.streamface.livingroom.settings";
+legacyCustomModuleSchema.defs.main.key = "literal:self";
+legacyCustomModuleSchema.defs.main.record.required =
+  legacyCustomModuleSchema.defs.main.record.required.filter((key: string) => key !== "name");
 export const moduleCollections = {
+  customModule: customModuleSchema.id,
+  legacyCustomModule: legacyCustomModuleSchema.id as string,
   bot: botSchema.id,
   preferences: preferencesSchema.id,
   chat: chatSchema.id,
@@ -29,6 +42,8 @@ export const moduleCollections = {
   command: commandSchema.id,
 };
 export const lexicons = new Lexicons([
+  customModuleSchema,
+  legacyCustomModuleSchema,
   botSchema,
   chatSchema,
   emoticonsSchema,
@@ -43,7 +58,10 @@ export function validateRecord(record: StoredRecord) {
   if (record.value.$type !== record.collection) throw new Error("Record collection mismatch");
   if (!/^[A-Za-z0-9._:~-]{1,128}$/.test(record.rkey) || [".", ".."].includes(record.rkey))
     throw new Error("Invalid record key");
-  if (record.collection !== moduleCollections.command && record.rkey !== "self")
+  if (
+    ![moduleCollections.command, moduleCollections.customModule].includes(record.collection) &&
+    record.rkey !== "self"
+  )
     throw new Error("Settings must use the self record key");
   lexicons.assertValidRecord(record.collection, jsonToLex(record.value));
 }
@@ -158,7 +176,23 @@ export function parseModuleRecords(did: string, records: StoredRecord[]): CloudC
       }
     : structuredClone(defaultBotSettings);
   validateBotSettings(bot);
+  const customModules = records
+    .filter((record) => record.collection === moduleCollections.customModule)
+    .map((record) => ({
+      id: record.rkey,
+      name: record.value.name,
+      ...customModuleSettings(record.value as any),
+    }));
+  const legacyModule = get(moduleCollections.legacyCustomModule);
+  if (legacyModule && !customModules.some((module) => module.id === "legacy-self"))
+    customModules.push({
+      id: "legacy-self",
+      name: "My overlay",
+      ...customModuleSettings(legacyModule as any),
+    });
+  validateCustomModules(customModules);
   return {
+    customModules,
     bot,
     ...moduleSettings({
       modules: {
@@ -191,7 +225,14 @@ export function parseModuleRecords(did: string, records: StoredRecord[]): CloudC
     ...(roles !== undefined ? { roles } : {}),
     revision: recordRevision(records),
     ...(get(moduleCollections.preferences)
-      ? { preferences: { confirmDeletion: get(moduleCollections.preferences)!.confirmDeletion } }
+      ? {
+          preferences: {
+            confirmDeletion: get(moduleCollections.preferences)!.confirmDeletion,
+            ...(get(moduleCollections.preferences)!.vimControls !== undefined
+              ? { vimControls: get(moduleCollections.preferences)!.vimControls }
+              : {}),
+          },
+        }
       : {}),
   };
 }
@@ -304,13 +345,38 @@ export function serializeModuleRecords(
           : {}),
       }),
     );
-  const preferences =
-    config.preferences ??
-    previous.find((item) => item.collection === moduleCollections.preferences)?.value;
+  const customModules =
+    config.customModules ?? parseModuleRecords(config.streamerDid, previous).customModules ?? [];
+  validateCustomModules(customModules);
+  for (const module of customModules) {
+    const next = record(moduleCollections.customModule, module.id, {
+      name: module.name,
+      ...customModuleSettings(module),
+      ...(module.media ? { media: module.media.map(({ id, blob }) => ({ id, blob })) } : {}),
+    });
+    const old = previous.find(
+      (item) => item.collection === next.collection && item.rkey === next.rkey,
+    );
+    if (
+      old &&
+      ["name", "enabled", "html", "css", "media"].every(
+        (key) => JSON.stringify(old.value[key]) === JSON.stringify(next.value[key]),
+      )
+    )
+      next.value.updatedAt = old.value.updatedAt;
+    records.push(next);
+  }
+  const previousPreferences = previous.find(
+    (item) => item.collection === moduleCollections.preferences,
+  )?.value;
+  const preferences = config.preferences
+    ? { ...previousPreferences, ...config.preferences }
+    : previousPreferences;
   if (preferences !== undefined) {
     records.push(
       record(moduleCollections.preferences, "self", {
         confirmDeletion: preferences.confirmDeletion,
+        ...(preferences.vimControls !== undefined ? { vimControls: preferences.vimControls } : {}),
       }),
     );
   }
