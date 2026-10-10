@@ -10,6 +10,7 @@
         "required": ["enabled", "rules", "createdAt", "updatedAt"],
         "properties": {
           "enabled": { "type": "boolean" },
+          "roles": { "type": "ref", "ref": "#roles" },
           "moderation": {
             "type": "array",
             "maxLength": 200,
@@ -19,6 +20,24 @@
           "createdAt": { "type": "string", "format": "datetime" },
           "updatedAt": { "type": "string", "format": "datetime" }
         }
+      }
+    },
+    "roles": {
+      "type": "object",
+      "required": ["followers", "mutuals", "moderators", "users"],
+      "properties": {
+        "followers": { "type": "boolean" },
+        "mutuals": { "type": "boolean" },
+        "moderators": { "type": "boolean" },
+        "users": { "type": "array", "maxLength": 200, "items": { "type": "ref", "ref": "#allowedUser" } }
+      }
+    },
+    "allowedUser": {
+      "type": "object",
+      "required": ["did"],
+      "properties": {
+        "did": { "type": "string", "format": "did", "maxLength": 2048 },
+        "handle": { "type": "string", "maxLength": 253 }
       }
     },
     "moderationRule": {

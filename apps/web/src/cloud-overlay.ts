@@ -1,6 +1,7 @@
 import { RelayClient } from "@streamface/browser-runtime";
 import { DirectStreamChatService } from "@streamface/stream-chat";
 import { EmoticonRuntime } from "@streamface/emoticons/src/runtime.ts";
+import { createRoleAuthorizer } from "../../../modules/emoticons/src/roles.ts";
 import type { EmoticonCommand, EmoticonEvent, EmoticonState } from "@streamface/emoticons/src/contracts.ts";
 import type { RelaySnapshot, EffectDiagnostic } from "@streamface/protocol";
 import { createCloudBoard } from "./cloud-board.ts";
@@ -130,10 +131,11 @@ async function play(event: Extract<EmoticonEvent, { type: "effect" }>) {
   setTimeout(() => { for (const element of wrapper.querySelectorAll("audio,video")) { (element as HTMLMediaElement).pause(); activeMedia.delete(element as HTMLMediaElement); } wrapper.remove(); activeWrappers.delete(wrapper); }, event.durationSeconds * 1000);
 }
 function nextRevision() { revision = Math.max(revision + 1, Date.now()); return revision; }
-const runtime = boardMode ? undefined : new EmoticonRuntime({ effect: play, log: (event, details) => {
+const authorize = createRoleAuthorizer();
+const runtime = boardMode ? undefined : new EmoticonRuntime({ effect: play, authorize: (author, roles) => authorize(did, author, roles), log: (event, details) => {
   if (event === "emoticons.command-rejected") {
     rejectionReason = String(details?.reason ?? "unknown");
-    if (rejectionReason === "user-blocked" || rejectionReason === "user-cooldown")
+    if (["user-blocked", "user-cooldown", "role-not-allowed", "role-lookup-failed"].includes(rejectionReason))
       moderationDiagnostic("moderation-rejected", { commandId: String(details?.commandId), reason: rejectionReason });
   }
   if (event === "emoticons.moderation-accepted") moderationDiagnostic("moderation-accepted", { commandId: String(details?.commandId) });
@@ -176,7 +178,7 @@ async function refresh(force = false) {
       }
       preloadedSources = new Set([...preloadedSources].filter(source => sources.has(source)));
     }
-    config = { enabled: cloud.enabled, commands, assets: [], cooldowns, moderation: cloud.moderation };
+    config = { enabled: cloud.enabled, commands, assets: [], cooldowns, moderation: cloud.moderation, roles: cloud.roles };
     runtime?.configure(config);
     configLoaded = true; markPreviewReady();
     if (!cloud.enabled) clearPlayback();

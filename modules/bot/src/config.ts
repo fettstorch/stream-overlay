@@ -1,10 +1,12 @@
 export type BotRule = { command: string; response: string; cooldownSeconds: number };
 import { validateModeration } from "../../emoticons/src/moderation.ts";
+import { validateCommandRoles, type CommandRoles } from "../../emoticons/src/roles.ts";
 import type { EmoticonModerationRule } from "../../emoticons/src/cloud-contracts.ts";
 export type BotSettings = {
   enabled: boolean;
   rules: BotRule[];
   moderation?: EmoticonModerationRule[];
+  roles?: CommandRoles;
 };
 export const defaultBotSettings: BotSettings = { enabled: false, rules: [] };
 export function validateBotSettings(value: BotSettings) {
@@ -17,6 +19,7 @@ export function validateBotSettings(value: BotSettings) {
     throw new Error("Invalid bot settings");
   const names = new Set<string>();
   validateModeration(value.moderation ?? []);
+  if (value.roles !== undefined) validateCommandRoles(value.roles);
   for (const rule of value.rules) {
     if (
       !rule ||

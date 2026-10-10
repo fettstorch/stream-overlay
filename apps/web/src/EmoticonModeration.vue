@@ -5,8 +5,12 @@ import { searchPublicActors, resolvePublicActor, loadPublicActorProfile, type Pu
 import type { CloudConfig } from "./cloud-admin-types.ts";
 import type { EmoticonModerationRule } from "../../../modules/emoticons/src/cloud-contracts.ts";
 import { validateModeration } from "../../../modules/emoticons/src/moderation.ts";
+import DrawnTabs from "./DrawnTabs.vue";
+import CommandRoles from "./CommandRoles.vue";
 
 const props = defineProps<{ config: CloudConfig; save: (config: CloudConfig) => Promise<boolean>; description?: string; hint?: string }>();
+const tab = ref("roles");
+const tabs = [{ id: "roles", label: "Roles" }, { id: "restrictions", label: "Restrictions" }];
 const input = ref<HTMLInputElement>(), searchStatus = ref<HTMLElement>();
 const query = ref(""), selected = ref<ActorSuggestion>(), blocked = ref(false), cooldown = ref(30);
 const busy = ref(false), message = ref("");
@@ -58,13 +62,16 @@ async function remove(rule: EmoticonModerationRule) {
   try {
     if (await props.save({ ...props.config, moderation: (props.config.moderation ?? []).filter(item => item.did !== rule.did) })) {
       if (selected.value?.did === rule.did) reset();
-      message.value = "Moderation rule removed. This user can use commands normally again.";
+      message.value = "Moderation rule removed. Role requirements still apply.";
     }
   } finally { busy.value = false; }
 }
 </script>
 <template>
   <div class="emoticon-moderation">
+    <DrawnTabs v-model="tab" :tabs="tabs" label="Command moderation">
+    <CommandRoles v-show="tab === 'roles'" :inert="tab !== 'roles' || undefined" :config="config" :save="save" />
+    <div v-show="tab === 'restrictions'" :inert="tab !== 'restrictions' || undefined">
     <p>{{ description ?? 'Block a chat user from all commands, or give them one shared cooldown across clips and stickers. Admin tests are unaffected.' }}</p>
     <p class="settings-hint">{{ hint ?? 'These rules are stored on your PDS and are public, like your other overlay settings.' }}</p>
     <ul v-if="config.moderation?.length" class="module-section command-list striped-list moderation-list">
@@ -97,6 +104,8 @@ async function remove(rule: EmoticonModerationRule) {
       </div>
     </form>
     <p v-if="message" role="status">{{ message }}</p>
+    </div>
+    </DrawnTabs>
   </div>
 </template>
 <style scoped>

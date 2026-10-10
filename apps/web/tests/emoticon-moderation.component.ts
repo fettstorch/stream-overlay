@@ -8,6 +8,26 @@ const actors = vi.hoisted(() => ({ resolvePublicActor: vi.fn(), searchPublicActo
 vi.mock("../src/actor-search.ts", () => actors);
 afterEach(() => vi.clearAllMocks());
 const config = { enabled: true, commands: [], streamerDid: "did:plc:owner", revision: "1" } as unknown as CloudConfig;
+test("nested roles and restrictions tabs save an inclusive allowlist without dropping restrictions", async () => {
+  actors.resolvePublicActor.mockResolvedValue({ did: "did:plc:friend", handle: "friend.example" });
+  const moderation = [{ did: "did:plc:blocked", blocked: true, cooldownSeconds: 0 }];
+  const save = vi.fn(async () => true);
+  const wrapper = mount(EmoticonModeration, { props: { config: { ...config, moderation }, save } });
+  expect(wrapper.findAll('[role="tab"]').map(tab => tab.text())).toEqual(["Roles", "Restrictions"]);
+  expect(wrapper.text()).toContain("No roles selected: everyone");
+  await wrapper.findAll('.role-choice input')[0]!.setValue(true);
+  await wrapper.findAll('.role-choice input')[2]!.setValue(true);
+  await wrapper.get('input[placeholder="Add @handle"]').setValue('friend.example');
+  await wrapper.findAll('button').find(button => button.text() === 'Add user')!.trigger('click');
+  await flushPromises();
+  await wrapper.findAll('button').find(button => button.text() === 'Save roles')!.trigger('click');
+  await flushPromises();
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({ moderation,
+    roles: { followers: true, mutuals: false, moderators: true, users: [{ did: 'did:plc:friend', handle: 'friend.example' }] } }));
+  await wrapper.findAll('[role="tab"]')[1]!.trigger('click');
+  expect(wrapper.findAll('[role="tab"]')[1]!.attributes('aria-selected')).toBe('true');
+  wrapper.unmount();
+});
 test("resolves identity, saves a shared cooldown and clears only after success", async () => {
   actors.resolvePublicActor.mockResolvedValue({ did: "did:plc:viewer", handle: "viewer.example" });
   const save = vi.fn(async () => false);

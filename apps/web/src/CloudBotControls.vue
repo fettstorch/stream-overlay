@@ -26,6 +26,7 @@ const tabs = [
 const moderationConfig = computed(() => ({
   ...props.config,
   moderation: props.config.bot?.moderation ?? [],
+  roles: props.config.bot?.roles,
 }));
 async function saveModeration(candidate: CloudConfig) {
   return props.save({
@@ -34,6 +35,7 @@ async function saveModeration(candidate: CloudConfig) {
       enabled: props.config.bot?.enabled ?? false,
       rules: props.config.bot?.rules ?? [],
       moderation: candidate.moderation ?? [],
+      ...(candidate.roles !== undefined ? { roles: candidate.roles } : {}),
     },
   });
 }

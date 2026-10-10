@@ -5,6 +5,7 @@ interface MessageView {
   $type?: unknown;
   uri?: unknown;
   deleted?: unknown;
+  badges?: { badgeType?: unknown; recipient?: unknown }[];
   author?: { did?: unknown; handle?: unknown; displayName?: unknown; avatar?: unknown };
   record?: { streamer?: unknown; text?: unknown; createdAt?: unknown };
 }
@@ -28,6 +29,9 @@ export function parseDirectChatEvent(value: unknown, streamerDid: string): Strea
     createdAt: record.createdAt,
     author: {
       did: author.did,
+      // Only the first slot is controlled by the trusted Streamplace chat server.
+      ...(Array.isArray(view.badges) && view.badges[0]?.badgeType === "place.stream.badge.defs#mod"
+        && view.badges[0]?.recipient === author.did ? { isModerator: true } : {}),
       ...(typeof author.handle === "string" ? { handle: author.handle } : {}),
       ...(typeof author.displayName === "string" ? { displayName: author.displayName } : {}),
       ...(typeof author.avatar === "string" ? { avatar: author.avatar } : {}),

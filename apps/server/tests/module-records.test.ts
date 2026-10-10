@@ -18,6 +18,19 @@ import { jsonToLex, lexToJson } from "@atproto/lexicon";
 
 const did = "did:plc:alice",
   timestamp = "2026-10-09T12:00:00.000Z";
+test("roles round trip separately for Bot and Emoticons and survive older clients", () => {
+  const roles = { followers: true, mutuals: false, moderators: true, users: [{ did: "did:plc:viewer", handle: "viewer.example" }] };
+  const botRoles = { ...roles, followers: false, mutuals: true };
+  const candidate = { ...config, roles, bot: { enabled: true, rules: [], roles: botRoles } };
+  const records = serializeModuleRecords(candidate, [], timestamp);
+  const parsed = parseModuleRecords(did, records);
+  expect(parsed.roles).toEqual(roles);
+  expect(parsed.bot?.roles).toEqual(botRoles);
+  const { roles: omitted, ...legacy } = parsed;
+  const updated = parseModuleRecords(did, serializeModuleRecords({ ...legacy, bot: { enabled: true, rules: [] } }, records, timestamp));
+  expect(updated.roles).toEqual(roles);
+  expect(updated.bot?.roles).toEqual(botRoles);
+});
 const config: CloudConfig = {
   enabled: true,
   streamerDid: did,

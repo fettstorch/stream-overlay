@@ -3,6 +3,7 @@ export interface StreamChatAuthor {
   handle?: string;
   displayName?: string;
   avatar?: string;
+  isModerator?: boolean;
 }
 
 export interface StreamChatMessage {

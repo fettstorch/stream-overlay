@@ -8,6 +8,7 @@ export type CloudConfig = CloudModuleSettings & {
   streamerDid: string;
   commands: CloudCommand[];
   moderation?: EmoticonModerationRule[];
+  roles?: import("../../../modules/emoticons/src/roles.ts").CommandRoles;
   revision: string;
   preferences?: { confirmDeletion: boolean };
 };

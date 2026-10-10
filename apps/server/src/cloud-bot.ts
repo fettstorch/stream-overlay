@@ -5,6 +5,7 @@ import type { CloudConfig } from "./pds.ts";
 import { safeError, type StructuredLogger } from "./logger.ts";
 import { parseDirectChatEvent } from "../../../packages/stream-chat/src/direct-service.ts";
 import { validateBotSettings } from "../../../modules/bot/src/config.ts";
+import { createRoleAuthorizer } from "../../../modules/emoticons/src/roles.ts";
 
 export function botSourceToken(did: string, secret: string) {
   return createHmac("sha256", secret).update(`streamface.bot.source:${did}`).digest("hex");
@@ -23,12 +24,13 @@ export class CloudBot {
   private lastAttempts = new Map<string, number>();
   private inFlight = 0;
   private nextReplyAt = 0;
+  private authorize: ReturnType<typeof createRoleAuthorizer>;
   constructor(
     private auth: BotAuth | undefined,
     private logger: StructuredLogger,
     private fetcher: typeof fetch = fetch,
     private now = Date.now,
-  ) {}
+  ) { this.authorize = createRoleAuthorizer(fetcher, now); }
   async trigger(config: CloudConfig, uri: unknown, requestId: string) {
     const reject = (reason: string) => {
       this.logger.log("info", "cloud.bot.command-rejected", { requestId, reason });
@@ -102,6 +104,8 @@ export class CloudBot {
       const command = /^!([a-z0-9_-]+)(?:\s|$)/i.exec(message.text)?.[1].toLowerCase();
       const rule = config.bot.rules.find((item) => item.command === command);
       if (!rule) return reject("unknown-command");
+      stage = "roles";
+      if (!await this.authorize(config.streamerDid, message.author, config.bot.roles)) return reject("role-not-allowed");
       const cooldownKey = `${config.streamerDid}:${rule.command}`;
       if (this.cooldowns.has(cooldownKey)) return reject("cooldown");
       if (this.now() < this.nextReplyAt) return reject("service-rate-limit");

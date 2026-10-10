@@ -30,9 +30,10 @@ export interface EmoticonState {
   commands: EmoticonCommand[];
   assets: EmoticonAsset[];
   moderation?: EmoticonModerationRule[];
+  roles?: import("./roles.ts").CommandRoles;
   cooldowns?: Record<string, { endsAt: number; durationSeconds: number }>;
 }
-export interface EmoticonAuthor { did?: string; avatar?: string; displayName?: string; handle?: string }
+export interface EmoticonAuthor { did?: string; avatar?: string; displayName?: string; handle?: string; isModerator?: boolean }
 export type EmoticonEvent = { type: "state"; state: EmoticonState }
   | { type: "effect"; id: string; command: EmoticonCommand; durationSeconds: number; author?: EmoticonAuthor }
   | { type: "preview"; commandId: string }

@@ -69,6 +69,21 @@ function harness(overrides: Record<string, unknown> = {}) {
     requests: () => requests,
   };
 }
+test("Bot role gates use verified Streamplace badges and explicit identities, with blocks taking priority", async () => {
+  const roles = { followers: false, mutuals: false, moderators: true, users: [] };
+  const candidate = { ...config, bot: { ...config.bot!, roles } };
+  const denied = harness();
+  expect(await denied.service.trigger(candidate, uri, "roles-denied")).toEqual({ sent: false, reason: "role-not-allowed" });
+  const mod = harness({ badges: [{ badgeType: "place.stream.badge.defs#mod", recipient: author }] });
+  expect(await mod.service.trigger(candidate, uri, "roles-mod")).toEqual({ sent: true });
+  const forgedSlot = harness({ badges: [{ badgeType: "place.stream.badge.defs#bot", recipient: author }, { badgeType: "place.stream.badge.defs#mod", recipient: author }] });
+  expect(await forgedSlot.service.trigger(candidate, uri, "roles-slot")).toEqual({ sent: false, reason: "role-not-allowed" });
+  const allowed = harness();
+  const explicit = { ...candidate, bot: { ...candidate.bot, roles: { ...roles, users: [{ did: author }] } } };
+  expect(await allowed.service.trigger(explicit, uri, "roles-explicit")).toEqual({ sent: true });
+  const blocked = harness();
+  expect(await blocked.service.trigger({ ...explicit, bot: { ...explicit.bot, moderation: [{ did: author, blocked: true, cooldownSeconds: 0 }] } }, uri, "roles-blocked")).toEqual({ sent: false, reason: "user-blocked" });
+});
 test("verified commands send only server-configured replies, with valid stable TID keys and duplicate protection", async () => {
   const h = harness();
   expect(await h.service.trigger(config, uri, "test-1")).toEqual({ sent: true });

@@ -14,6 +14,7 @@ import type { CloudConfig } from "../../../packages/protocol/src/cloud-config.ts
 import type { CloudCommand, CloudMedia } from "../../../modules/emoticons/src/cloud-contracts.ts";
 import { validateCloudCommand } from "../../../modules/emoticons/src/validation.ts";
 import { validateModeration } from "../../../modules/emoticons/src/moderation.ts";
+import { validateCommandRoles } from "../../../modules/emoticons/src/roles.ts";
 
 export const STREAMFACE_NAMESPACE = "live.streamface";
 export const LEGACY_NAMESPACE = "invalid.streamoverlay.dev";
@@ -111,13 +112,15 @@ export function parseModuleRecords(did: string, records: StoredRecord[]): CloudC
     ...(rule.handle !== undefined ? { handle: rule.handle } : {}),
   }));
   validateModeration(moderation);
+  const roles = get(moduleCollections.emoticons)?.roles;
+  if (roles !== undefined) validateCommandRoles(roles);
   const storedBot = get(moduleCollections.bot);
   const bot = storedBot ? { enabled: storedBot.enabled, rules: storedBot.rules.map((rule: any) => ({
     command: rule.command, response: rule.response, cooldownSeconds: rule.cooldownMilliseconds / 1000,
   })), ...(storedBot.moderation ? { moderation: storedBot.moderation.map((rule: any) => ({
     did: rule.did, blocked: rule.blocked, cooldownSeconds: rule.cooldownMilliseconds / 1000,
     ...(rule.handle !== undefined ? { handle: rule.handle } : {}),
-  })) } : {}) } : structuredClone(defaultBotSettings);
+  })) } : {}), ...(storedBot.roles ? { roles: storedBot.roles } : {}) } : structuredClone(defaultBotSettings);
   validateBotSettings(bot);
   return {
     bot,
@@ -148,6 +151,7 @@ export function parseModuleRecords(did: string, records: StoredRecord[]): CloudC
     streamerDid: did,
     commands,
     moderation,
+    ...(roles !== undefined ? { roles } : {}),
     revision: recordRevision(records),
     ...(get(moduleCollections.preferences)
       ? { preferences: { confirmDeletion: get(moduleCollections.preferences)!.confirmDeletion } }
@@ -180,6 +184,8 @@ export function serializeModuleRecords(
   // Older clients must not erase moderation rules they do not understand.
   const moderation = config.moderation ?? parseModuleRecords(config.streamerDid, previous).moderation ?? [];
   validateModeration(moderation);
+  const roles = config.roles ?? parseModuleRecords(config.streamerDid, previous).roles;
+  if (roles !== undefined) validateCommandRoles(roles);
   const records = [
     record(moduleCollections.chat, "self", {
       ...chat,
@@ -188,6 +194,7 @@ export function serializeModuleRecords(
     }),
     record(moduleCollections.emoticons, "self", {
       enabled: config.enabled,
+      ...(roles !== undefined ? { roles } : {}),
       moderation: moderation.map(rule => ({
         did: rule.did, blocked: rule.blocked,
         cooldownMilliseconds: Math.round(rule.cooldownSeconds * 1000),
@@ -205,10 +212,12 @@ export function serializeModuleRecords(
   // unused collection until the user configures this module.
   const bot = config.bot ?? parseModuleRecords(config.streamerDid, previous).bot!;
   const botModeration = bot.moderation ?? parseModuleRecords(config.streamerDid, previous).bot?.moderation;
+  const botRoles = bot.roles ?? parseModuleRecords(config.streamerDid, previous).bot?.roles;
+  if (botRoles !== undefined) validateCommandRoles(botRoles);
   validateModeration(botModeration ?? []);
   validateBotSettings(bot);
-  if (bot.enabled || bot.rules.length || botModeration?.length || previous.some(item => item.collection === moduleCollections.bot))
-    records.push(record(moduleCollections.bot, "self", { enabled: bot.enabled, rules: bot.rules.map(rule => ({
+  if (bot.enabled || bot.rules.length || botModeration?.length || botRoles || previous.some(item => item.collection === moduleCollections.bot))
+    records.push(record(moduleCollections.bot, "self", { enabled: bot.enabled, ...(botRoles ? { roles: botRoles } : {}), rules: bot.rules.map(rule => ({
       command: rule.command, response: rule.response, cooldownMilliseconds: Math.round(rule.cooldownSeconds * 1000),
     })), ...(botModeration ? { moderation: botModeration.map(rule => ({
       did: rule.did, blocked: rule.blocked, cooldownMilliseconds: Math.round(rule.cooldownSeconds * 1000),

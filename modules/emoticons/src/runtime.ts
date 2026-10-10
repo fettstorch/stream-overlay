@@ -1,16 +1,20 @@
 import type { EmoticonAuthor, EmoticonCommand, EmoticonEvent, EmoticonState } from "./contracts.ts";
 import type { EmoticonModerationRule } from "./cloud-contracts.ts";
+import { rolesRestricted, type CommandRoles } from "./roles.ts";
 
 export interface EmoticonRuntimeOptions {
   effect: (event: Extract<EmoticonEvent, { type: "effect" }>) => void | Promise<void>;
   cooldowns?: (cooldowns: NonNullable<EmoticonState["cooldowns"]>) => void;
   log?: (event: string, details?: Record<string, unknown>) => void;
+  authorize?: (author: EmoticonAuthor | undefined, roles: CommandRoles) => Promise<boolean>;
 }
 
 /** Browser-owned command matching, deduplication, cooldowns, and effect queue. */
 export class EmoticonRuntime {
   private commands: EmoticonCommand[] = [];
   private enabled = false;
+  private roles?: CommandRoles;
+  private accessVersion = 0;
   private readonly seen = new Set<string>();
   private readonly cooldownEnds = new Map<string, number>();
   private moderation = new Map<string, EmoticonModerationRule>();
@@ -26,6 +30,12 @@ export class EmoticonRuntime {
   }
 
   configure(state: EmoticonState) {
+    if (JSON.stringify(this.roles) !== JSON.stringify(state.roles)) {
+      this.accessVersion++;
+      for (const timer of this.stickerTimers) clearTimeout(timer);
+      this.stickerTimers.clear();
+    }
+    this.roles = state.roles ? structuredClone(state.roles) : undefined;
     this.commands = structuredClone(state.commands);
     this.moderation = new Map((state.moderation ?? []).map(rule => [rule.did, { ...rule }]));
     for (const did of this.userLastAccepted.keys()) if (!this.moderation.has(did)) this.userLastAccepted.delete(did);
@@ -35,7 +45,7 @@ export class EmoticonRuntime {
     }
   }
 
-  message(id: string, text: string, author?: EmoticonAuthor) {
+  async message(id: string, text: string, author?: EmoticonAuthor) {
     const normalized = text.trim().toLowerCase();
     if (!normalized.startsWith("!")) return;
     if (this.seen.has(id)) {
@@ -53,24 +63,43 @@ export class EmoticonRuntime {
       this.log("emoticons.command-rejected", { messageId: id, reason: "unknown-command" });
       return;
     }
+    const accessVersion = this.accessVersion;
+    if (author?.did && this.moderation.get(author.did)?.blocked) {
+      this.log("emoticons.command-rejected", { commandId: command.id, messageId: id, reason: "user-blocked" });
+      return;
+    }
+    if (rolesRestricted(this.roles)) {
+      try {
+        if (!this.options.authorize || !await this.options.authorize(author, this.roles!)) {
+          this.log("emoticons.command-rejected", { commandId: command.id, messageId: id, reason: "role-not-allowed" });
+          return;
+        }
+      } catch {
+        this.log("emoticons.command-rejected", { commandId: command.id, messageId: id, reason: "role-lookup-failed" });
+        return;
+      }
+      if (accessVersion !== this.accessVersion) return;
+      this.log("emoticons.moderation-accepted", { commandId: command.id, messageId: id, reason: "role-allowed" });
+    }
     if (multiplied) this.log("emoticons.sticker-multiplier", { messageId: id, command: command.command, requested: multiplied[2], count });
-    if (!this.trigger(command.id, "chat", id, author)) return;
+    if (!this.trigger(command.id, "chat", id, author, true)) return;
     for (let index = 1; index < count; index++) {
       const timer = setTimeout(() => {
         this.stickerTimers.delete(timer);
-        if (this.commands.some(item => item.id === command.id && item.mode === "sticker")) this.trigger(command.id, "chat-repeat", id, author);
+        if (accessVersion === this.accessVersion && this.commands.some(item => item.id === command.id && item.mode === "sticker")) this.trigger(command.id, "chat-repeat", id, author, true);
       }, index * 3000 / (count - 1));
       this.stickerTimers.add(timer);
     }
   }
 
-  trigger(id: string, source = "preview", messageId?: string, author?: EmoticonAuthor) {
+  trigger(id: string, source = "preview", messageId?: string, author?: EmoticonAuthor, roleAllowed = false) {
     const command = this.commands.find(item => item.id === id);
     const rule = source.startsWith("chat") && author?.did ? this.moderation.get(author.did) : undefined;
     const userRemaining = rule && this.userLastAccepted.has(rule.did)
       ? Math.max(0, this.userLastAccepted.get(rule.did)! + rule.cooldownSeconds * 1000 - Date.now()) : 0;
     const reason = !this.enabled ? "module-disabled" : !command ? "unknown-command"
       : rule?.blocked ? "user-blocked"
+      : source.startsWith("chat") && rolesRestricted(this.roles) && !roleAllowed ? "role-not-allowed"
       : source === "chat" && userRemaining > 0 ? "user-cooldown"
       : command.mode === "sticker" ? null : this.active?.id === id ? "already-playing"
       : this.queue.some(item => item.command.id === id) ? "already-queued"
@@ -102,6 +131,7 @@ export class EmoticonRuntime {
   }
 
   clear() {
+    this.accessVersion++;
     clearTimeout(this.activeTimer);
     for (const timer of this.stickerTimers) clearTimeout(timer);
     this.stickerTimers.clear();

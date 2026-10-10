@@ -1,5 +1,21 @@
 # Streamface records
 
+## Command access roles
+
+Both Emoticons and Bot settings support optional `roles`: `followers`, `mutuals`,
+`moderators`, and up to 200 explicit user DIDs (with optional display handles).
+These are module-wide allowlists: matching any selected role allows access; no
+selected role or account leaves commands open to everyone. User restrictions
+still win. Each module stores and enforces its roles independently, and older
+clients preserve omitted roles. Emoticons admin tests bypass moderation.
+
+Follower/mutual checks use the public Bluesky graph relationships endpoint, with
+bounded one-minute caching and fail-closed lookup errors. Streamplace moderators
+are recognized only from the server-controlled first badge slot of the trusted
+chat feed, with a matching recipient DID; Bot uses its server-verified message,
+never client-supplied role claims. OBS/browser instances enforce Emoticons roles;
+the server enforces Bot roles. Publish updated settings schemas before rollout.
+
 ## Bot
 
 `live.streamface.bot.settings` is a singleton `self` record containing `enabled`
