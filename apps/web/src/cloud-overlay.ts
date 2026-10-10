@@ -141,6 +141,18 @@ const runtime = boardMode ? undefined : new EmoticonRuntime({ effect: play, auth
   if (event === "emoticons.moderation-accepted") moderationDiagnostic("moderation-accepted", { commandId: String(details?.commandId) });
 }, cooldowns: state => { cooldowns = state; relay.send({ type: "cooldowns", revision: nextRevision(), cooldowns: state, requestId: cooldownRequestId }); } });
 const chat = boardMode ? undefined : new DirectStreamChatService(); chat?.messages.subscribe(message => runtime?.message(message.id, message.text, message.author));
+let eventMappings: import("../../../modules/emoticons/src/events.ts").EmoteEventMapping[] = [];
+chat?.events.subscribe(event => {
+  // Admin previews must not become a second automatic event actor.
+  if (channel !== "live" || !runtime) return;
+  const mapping = eventMappings.find(mapping => mapping.event === event.type);
+  if (!mapping) return;
+  rejectionReason = undefined;
+  const accepted = runtime.trigger(mapping.commandId, "stream-event", event.id, event.author);
+  diagnostic(accepted ? "event-accepted" : "event-rejected", {
+    commandId: mapping.commandId, reason: `event-${event.type}-${accepted ? 'accepted' : rejectionReason ?? 'rejected'}`,
+  });
+});
 async function refresh(force = false) {
   try {
     const response = await fetch(`/api/accounts/${encodeURIComponent(did)}/config${force ? "?refresh=1" : ""}`, { cache: "no-store" });
@@ -179,6 +191,7 @@ async function refresh(force = false) {
       preloadedSources = new Set([...preloadedSources].filter(source => sources.has(source)));
     }
     config = { enabled: cloud.enabled, commands, assets: [], cooldowns, moderation: cloud.moderation, roles: cloud.roles };
+    eventMappings = cloud.eventMappings ?? [];
     runtime?.configure(config);
     configLoaded = true; markPreviewReady();
     if (!cloud.enabled) clearPlayback();

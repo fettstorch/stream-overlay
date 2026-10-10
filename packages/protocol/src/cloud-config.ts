@@ -7,6 +7,7 @@ export type CloudConfig = CloudModuleSettings & {
   enabled: boolean;
   streamerDid: string;
   commands: CloudCommand[];
+  eventMappings?: import("../../../modules/emoticons/src/events.ts").EmoteEventMapping[];
   moderation?: EmoticonModerationRule[];
   roles?: import("../../../modules/emoticons/src/roles.ts").CommandRoles;
   revision: string;

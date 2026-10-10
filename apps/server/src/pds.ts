@@ -529,6 +529,7 @@ export class PdsService {
           config.preferences !== undefined &&
           config.preferences.confirmDeletion !== snapshot.config?.preferences?.confirmDeletion,
         moderationRules: saved.moderation?.length ?? 0,
+        eventMappings: saved.eventMappings?.length ?? 0,
         moderationChanged: JSON.stringify(saved.moderation ?? []) !== JSON.stringify(snapshot.config?.moderation ?? []),
       });
       return saved;

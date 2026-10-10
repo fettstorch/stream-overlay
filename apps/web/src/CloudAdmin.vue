@@ -17,6 +17,7 @@ import {
 } from "./actor-search.ts";
 import CloudEmoticonControls from "./CloudEmoticonControls.vue";
 import EmoticonModeration from "./EmoticonModeration.vue";
+import EmoteEvents from "./EmoteEvents.vue";
 import CloudModuleControls from "./CloudModuleControls.vue";
 import CloudBotControls from "./CloudBotControls.vue";
 import CollapsibleSection from "./CollapsibleSection.vue";
@@ -79,8 +80,9 @@ const effectPreviewFrame = ref<HTMLIFrameElement>();
 const listingPreviewFrame = ref<HTMLIFrameElement>();
 const emoticonTab = ref("commands");
 const emoticonTabs = computed(() => [
-  { id: "commands", label: "Commands" },
-  { id: "create", label: "Create new" },
+  { id: "commands", label: "Testing" },
+  { id: "create", label: "Commands" },
+  { id: "events", label: "Events" },
   { id: "moderation", label: "Moderation" },
 ]);
 async function prepareEmoticonTest(command: CloudCommand) {
@@ -677,9 +679,10 @@ onBeforeUnmount(() => {
                 </section>
               </div>
                   <EmoticonModeration v-show="emoticonTab === 'moderation'" :config="config" :save="saveConfiguration" />
+                  <EmoteEvents v-if="emoticonTab === 'events'" :config="config" :save="saveConfiguration" />
                 <CloudEmoticonControls
-                    v-show="emoticonTab !== 'moderation'"
-                    :inert="emoticonTab === 'moderation' || undefined"
+                    v-show="emoticonTab === 'commands' || emoticonTab === 'create'"
+                    :inert="!['commands', 'create'].includes(emoticonTab) || undefined"
                   :ref="(value) => setModuleControls(module.id, value)"
                   :did="did"
                   :config="config"

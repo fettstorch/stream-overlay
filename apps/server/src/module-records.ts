@@ -15,6 +15,7 @@ import type { CloudCommand, CloudMedia } from "../../../modules/emoticons/src/cl
 import { validateCloudCommand } from "../../../modules/emoticons/src/validation.ts";
 import { validateModeration } from "../../../modules/emoticons/src/moderation.ts";
 import { validateCommandRoles } from "../../../modules/emoticons/src/roles.ts";
+import { validateEventMappings } from "../../../modules/emoticons/src/events.ts";
 
 export const STREAMFACE_NAMESPACE = "live.streamface";
 export const LEGACY_NAMESPACE = "invalid.streamoverlay.dev";
@@ -113,6 +114,8 @@ export function parseModuleRecords(did: string, records: StoredRecord[]): CloudC
   }));
   validateModeration(moderation);
   const roles = get(moduleCollections.emoticons)?.roles;
+  const eventMappings = get(moduleCollections.emoticons)?.eventMappings ?? [];
+  validateEventMappings(eventMappings);
   if (roles !== undefined) validateCommandRoles(roles);
   const storedBot = get(moduleCollections.bot);
   const bot = storedBot ? { enabled: storedBot.enabled, rules: storedBot.rules.map((rule: any) => ({
@@ -153,6 +156,7 @@ export function parseModuleRecords(did: string, records: StoredRecord[]): CloudC
     enabled: get(moduleCollections.emoticons)?.enabled ?? true,
     streamerDid: did,
     commands,
+    eventMappings,
     moderation,
     ...(roles !== undefined ? { roles } : {}),
     revision: recordRevision(records),
@@ -188,6 +192,8 @@ export function serializeModuleRecords(
   const moderation = config.moderation ?? parseModuleRecords(config.streamerDid, previous).moderation ?? [];
   validateModeration(moderation);
   const roles = config.roles ?? parseModuleRecords(config.streamerDid, previous).roles;
+  const eventMappings = config.eventMappings ?? parseModuleRecords(config.streamerDid, previous).eventMappings ?? [];
+  validateEventMappings(eventMappings);
   if (roles !== undefined) validateCommandRoles(roles);
   const records = [
     record(moduleCollections.chat, "self", {
@@ -197,6 +203,7 @@ export function serializeModuleRecords(
     }),
     record(moduleCollections.emoticons, "self", {
       enabled: config.enabled,
+      eventMappings: eventMappings.filter(mapping => config.commands.some(command => command.id === mapping.commandId)),
       ...(roles !== undefined ? { roles } : {}),
       moderation: moderation.map(rule => ({
         did: rule.did, blocked: rule.blocked,

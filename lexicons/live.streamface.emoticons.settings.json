@@ -11,6 +11,7 @@
         "properties": {
           "enabled": { "type": "boolean" },
           "roles": { "type": "ref", "ref": "#roles" },
+          "eventMappings": { "type": "array", "maxLength": 4, "items": { "type": "ref", "ref": "#eventMapping" } },
           "moderation": {
             "type": "array", "maxLength": 200,
             "items": { "type": "ref", "ref": "#moderationRule" }
@@ -18,6 +19,13 @@
           "createdAt": { "type": "string", "format": "datetime" },
           "updatedAt": { "type": "string", "format": "datetime" }
         }
+      }
+    },
+    "eventMapping": {
+      "type": "object", "required": ["event", "commandId"],
+      "properties": {
+        "event": { "type": "string", "enum": ["teleport-arrival", "teleport-canceled", "stream-started", "stream-ended"] },
+        "commandId": { "type": "string", "maxLength": 512 }
       }
     },
     "roles": {

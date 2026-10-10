@@ -455,7 +455,7 @@ defineExpose({ acceptCardDrop });
       @cancel="deleting = null"
       @confirm="deleteConfirmed(deleting!, $event)"
     />
-    <div v-show="!panel || panel === 'commands'" :inert="panel === 'create' || undefined">
+    <div v-show="!panel || panel === 'commands' || panel === 'create'">
     <h4 v-if="!panel">Emote commands</h4>
     <CollapsibleSection
       v-for="group in groups"

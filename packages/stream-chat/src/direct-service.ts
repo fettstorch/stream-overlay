@@ -9,6 +9,55 @@ interface MessageView {
   author?: { did?: unknown; handle?: unknown; displayName?: unknown; avatar?: unknown };
   record?: { streamer?: unknown; text?: unknown; createdAt?: unknown };
 }
+export type StreamLiveEvent = {
+  type: "teleport-arrival" | "teleport-canceled" | "stream-started" | "stream-ended";
+  id: string;
+  author?: StreamChatMessage["author"];
+};
+
+/** Stateful because connection snapshots must not be mistaken for new events. */
+export class LiveEventParser {
+  private seen = new Set<string>();
+  parse(value: unknown, connectedAfter: number): StreamLiveEvent | null {
+    if (!value || typeof value !== "object") return null;
+    const data = value as Record<string, any>;
+    let event: StreamLiveEvent;
+    if (data.$type === "place.stream.livestream#teleportArrival") {
+      if (typeof data.teleportUri !== "string" || !data.teleportUri.startsWith("at://")
+        || typeof data.source?.did !== "string" || typeof data.startsAt !== "string"
+        || !Number.isFinite(Date.parse(data.startsAt))) return null;
+      const id = `arrival:${data.teleportUri}`;
+      // The initial burst can replay a recent arrival, including after reload.
+      if (Date.parse(data.startsAt) < connectedAfter) { this.remember(id); return null; }
+      event = { type: "teleport-arrival", id, author: {
+        did: data.source.did,
+        ...(typeof data.source.handle === "string" ? { handle: data.source.handle } : {}),
+        ...(typeof data.source.displayName === "string" ? { displayName: data.source.displayName } : {}),
+        ...(typeof data.source.avatar === "string" ? { avatar: data.source.avatar } : {}),
+      } };
+    } else if (data.$type === "place.stream.livestream#teleportCanceled") {
+      if (typeof data.teleportUri !== "string" || !data.teleportUri.startsWith("at://")
+        || !["deleted", "denied", "expired"].includes(data.reason)) return null;
+      event = { type: "teleport-canceled", id: `canceled:${data.teleportUri}` };
+    } else if (data.$type === "place.stream.livestream#livestreamView") {
+      const record = data.record;
+      if (typeof data.uri !== "string" || !record || typeof record.createdAt !== "string"
+        || !Number.isFinite(Date.parse(record.createdAt))) return null;
+      const ended = typeof record.endedAt === "string" && Number.isFinite(Date.parse(record.endedAt));
+      const timestamp = Date.parse(ended ? record.endedAt : record.createdAt);
+      const id = `${ended ? 'ended' : 'started'}:${data.uri}`;
+      if (timestamp < connectedAfter) { this.remember(id); return null; }
+      event = { type: ended ? "stream-ended" : "stream-started", id };
+    } else return null;
+    if (this.seen.has(event.id)) return null;
+    this.remember(event.id);
+    return event;
+  }
+  private remember(id: string) {
+    this.seen.add(id);
+    if (this.seen.size > 2000) this.seen.delete(this.seen.values().next().value!);
+  }
+}
 
 export function parseDirectChatEvent(value: unknown, streamerDid: string): StreamChatMessage | null {
   if (!value || typeof value !== "object") return null;
@@ -42,6 +91,8 @@ export function parseDirectChatEvent(value: unknown, streamerDid: string): Strea
 /** Stream.place's hydrated live feed, independent of the AT Protocol Jetstream listener. */
 export class DirectStreamChatService {
   readonly messages = new Observable<StreamChatMessage>();
+  readonly events = new Observable<StreamLiveEvent>();
+  private eventParser = new LiveEventParser();
   private streamerDid = "";
   private socket: WebSocket | undefined;
   private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
@@ -56,6 +107,7 @@ export class DirectStreamChatService {
     this.disconnect();
     this.streamerDid = streamerDid;
     this.seen.clear();
+    this.eventParser = new LiveEventParser();
     this.reconnectDelay = 1000;
     if (streamerDid.startsWith("did:")) this.connect();
   }
@@ -64,6 +116,7 @@ export class DirectStreamChatService {
     this.streamerDid = "";
     this.disconnect();
     this.seen.clear();
+    this.eventParser = new LiveEventParser();
   }
 
   private disconnect() {
@@ -106,7 +159,13 @@ export class DirectStreamChatService {
       if (!alive()) return;
       armWatchdog();
       try {
-        const message = parseDirectChatEvent(JSON.parse(String(event.data)), streamerDid);
+        const data = JSON.parse(String(event.data));
+        const liveEvent = this.eventParser.parse(data, connectedAfter);
+        if (liveEvent) {
+          this.log("chat.direct-live-event", { streamerDid, event: liveEvent.type, id: liveEvent.id });
+          this.events.emit(liveEvent);
+        }
+        const message = parseDirectChatEvent(data, streamerDid);
         if (!message) return;
         if (Date.parse(message.createdAt) < connectedAfter || this.seen.has(message.id)) return;
         this.seen.add(message.id);

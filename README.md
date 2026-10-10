@@ -309,6 +309,15 @@ The old `/effect/` and `/board/` paths remain working aliases for existing OBS
 sources. Published `live.streamface.emoticons.*` record IDs and existing storage
 paths remain unchanged; “Emotes” is the user-facing module name.
 
+Emotes has Testing, Commands, Events and Moderation tabs. Events maps teleport
+arrivals/cancellations and stream starts/ends to existing commands. Mappings
+persist in the Emotes settings record. The live browser source uses its existing
+Streamplace connection to trigger them, without another server listener. Clip
+cooldowns apply; automatic events bypass chat roles and user restrictions.
+Reconnect history does not replay effects, and admin previews do not trigger
+automatic events. Publish the updated `live.streamface.emoticons.settings`
+lexicon before deploying this feature; its existing DNS delegation is unchanged.
+
 All modules share the stream selected in the admin. Stream dimensions
 are detected from Stream.place, with a 1920 × 1080 fallback and OBS setup
 instructions. Each module supports pinning, collapsing, search and an inline

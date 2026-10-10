@@ -13,9 +13,11 @@ vi.mock("@streamface/browser-runtime", () => ({ RelayClient: class {
 } }));
 vi.mock("@streamface/stream-chat", () => ({ DirectStreamChatService: class {
   messages = { subscribe: vi.fn() };
+  events = { subscribe: vi.fn((callback) => { liveEvents.receive = callback; }) };
   setStreamerDid = vi.fn();
   stop = vi.fn();
 } }));
+const liveEvents = vi.hoisted(() => ({ receive: undefined as undefined | ((event: any) => void) }));
 
 afterEach(() => {
   window.dispatchEvent(new Event("pagehide"));
@@ -23,6 +25,25 @@ afterEach(() => {
   document.body.replaceChildren(); relay.send.mockClear(); relay.hello.mockClear();
   assets.load.mockClear(); assets.retain.mockClear(); assets.clear.mockClear();
   giphy.load.mockClear(); giphy.retain.mockClear(); giphy.clear.mockClear();
+  liveEvents.receive = undefined;
+});
+test.each([false, true])("stream events trigger mapped commands only in the live overlay (preview=%s)", async preview => {
+  HTMLElement.prototype.getAnimations = vi.fn(() => []);
+  history.replaceState({}, "", `/emotes/?did=did:plc:alice${preview ? '&preview=1' : ''}`);
+  document.body.innerHTML = '<main class="effect"></main>';
+  let eventMappings = [{ event: "teleport-arrival", commandId: "wave" }];
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ enabled: true, streamerDid: "did:plc:alice", eventMappings,
+    commands: [{ id: "wave", command: "wave", mode: "sticker", durationSeconds: 8, cooldownSeconds: 0, volume: 1,
+      width: "", height: "", mirrored: false, image: { url: "https://example.test/wave.gif" } }] })));
+  await import("../src/cloud-overlay.ts"); await flushPromises();
+  liveEvents.receive!({ type: "teleport-arrival", id: "arrival:one", author: { did: "did:plc:source", handle: "source.example" } });
+  await flushPromises();
+  expect(document.querySelectorAll('.sticker').length).toBe(preview ? 0 : 1);
+  if (!preview) expect(relay.send).toHaveBeenCalledWith(expect.objectContaining({ event: "event-accepted", commandId: "wave" }));
+  eventMappings = [];
+  relay.receive!({ type: "config-changed" }); await flushPromises();
+  liveEvents.receive!({ type: "teleport-arrival", id: "arrival:two" }); await flushPromises();
+  expect(document.querySelectorAll('.sticker').length).toBe(preview ? 0 : 1);
 });
 test.each(["/emote-listings/", "/board/"])("%s initializes the listing runtime, not effect playback", async path => {
   history.replaceState({}, "", `${path}?did=did:plc:alice`);
