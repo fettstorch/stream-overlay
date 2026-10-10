@@ -63,7 +63,7 @@ async function navigate(event: KeyboardEvent, index: number) {
 
 <style scoped>
 .drawn-tabs {
-  --tab-frame-top: 10px;
+  --tab-frame-top: 5px;
   position: relative;
   isolation: isolate;
   margin-top: 28px;
