@@ -125,6 +125,7 @@ async function navigate(event: KeyboardEvent, index: number) {
   margin-left: calc(-1 * (var(--cap-start) + 26px));
 }
 #app .drawn-tab.tab-left {
+  top: 1px;
   --cap-start: calc(52px * 55 / 117);
   --cap-end: calc(52px * 85 / 117);
   --start-image: url("./assets/branding/controls/tab-left-start.png");
