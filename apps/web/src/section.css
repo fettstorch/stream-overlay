@@ -8,6 +8,9 @@
   box-shadow: none;
   color: #171717;
 }
+/* Suggestions cannot escape the card's isolated stacking context. Raise the
+   whole login card above the following tutorial, rather than only the list. */
+#app .auth-card { z-index: 1; }
 #app .settings::before {
   content: "";
   position: absolute;
