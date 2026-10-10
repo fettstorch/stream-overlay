@@ -2,7 +2,7 @@ import type { ModuleManifest } from "../../../packages/overlay-sdk/src/manifest.
 export const emoticonsManifest = {
   id: "emoticons",
   name: "Emoticons",
-  description: "Trigger clips and stickers from stream chat.",
+  description: "Let users in chat trigger clips/gifs & stickers using !<command>. Create and live test those commands here.",
   cloud: {
     enabledKey: "emoticons",
     pages: [

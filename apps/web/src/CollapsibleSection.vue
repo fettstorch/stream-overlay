@@ -2,7 +2,7 @@
 import { computed, useId } from "vue";
 import CollapseTransition from "./CollapseTransition.vue";
 import "./module-section.css";
-const props = defineProps<{ title: string; count?: number; initiallyOpen?: boolean }>();
+const props = defineProps<{ title: string; controlLabel?: string; count?: number; initiallyOpen?: boolean }>();
 const open = defineModel<boolean | undefined>("open", { default: undefined });
 const expanded = computed({ get: () => open.value ?? props.initiallyOpen ?? false, set: value => { open.value = value; } });
 const bodyId = `section-${useId()}`;
@@ -12,7 +12,7 @@ const bodyId = `section-${useId()}`;
   <div class="module-section collapsible-section" :class="{ 'section-expanded': expanded }">
     <div class="section-heading" @click="expanded = !expanded">
       <h4>{{ title }} <span v-if="count !== undefined">({{ count }})</span></h4>
-      <button type="button" class="module-icon-button" :aria-label="`${expanded ? 'Hide' : 'Show'} ${title}`" :aria-expanded="expanded" :aria-controls="bodyId" @click.stop="expanded = !expanded">
+      <button type="button" class="module-icon-button" :aria-label="`${expanded ? 'Hide' : 'Show'} ${controlLabel ?? title}`" :aria-expanded="expanded" :aria-controls="bodyId" @click.stop="expanded = !expanded">
         <span class="fold-icon" aria-hidden="true" :class="{ expanded }" />
       </button>
     </div>

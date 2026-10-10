@@ -9,6 +9,7 @@
 .obs-guidance p { margin:0; color:#a8b3cc; line-height:1.6; }
 /* Wrap intrinsic card widths, rather than locking modules into equal columns. */
 .module-grid { display:flex; flex-wrap:wrap; align-items:flex-start; gap:16px; }
+.overlay-url-heading { display:flex; align-items:center; gap:10px; }
 .module-card { flex:1 1 auto; width:max-content; min-width:min(320px, 100%); max-width:100%; margin:0; }
 .module-card.collapsed { flex:0 1 auto; }
 .overlay-url { min-width:0; }
