@@ -1,5 +1,6 @@
 {
   "name": "streamface",
+  "version": "0.1.0",
   "private": true,
   "engines": {
     "bun": ">=1.4.2"

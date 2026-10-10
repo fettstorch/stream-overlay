@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import BrandWordmark from "./BrandWordmark.vue";
+import { version } from "../../../package.json";
 import CollapseTransition from "./CollapseTransition.vue";
 import DrawnTabs from "./DrawnTabs.vue";
 import { vModuleWidth } from "./module-width-motion.ts";
@@ -748,5 +749,9 @@ onBeforeUnmount(() => {
       </section>
     </template>
   </main>
+  <footer class="site-footer">v{{ version }} · created by @fettstorch.dev</footer>
   <BrandMascot />
 </template>
+<style scoped>
+.site-footer { position: relative; z-index: 1; margin: 32px 20px 16px; text-align: left; font-size: 1rem; color: #000; }
+</style>

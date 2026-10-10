@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import CloudAdmin from "../src/CloudAdmin.vue";
+import { version } from "../../../package.json";
 import CloudEmoticonControls from "../src/CloudEmoticonControls.vue";
 import CloudModuleControls from "../src/CloudModuleControls.vue";
 
@@ -20,6 +21,12 @@ function response(body: unknown, status = 200) { return new Response(JSON.string
 function mediaDrag(type: string, name = "drop.gif") { const event = new Event(type, { bubbles: true, cancelable: true }); Object.defineProperty(event, "dataTransfer", { value: { types: ["Files"], files: [new File(["GIF8"], name)], dropEffect: "none" } }); return event; }
 
 describe("Cloud Admin", () => {
+  test("shows the package version and creator in the page footer", () => {
+    vi.stubGlobal("fetch", vi.fn(async () => response({}, 401)));
+    const wrapper = mount(CloudAdmin);
+    expect(wrapper.get('footer').text()).toBe(`v${version} · created by @fettstorch.dev`);
+    wrapper.unmount();
+  });
   test("Testing offers simulations only for mapped clips and sends the event identity", async () => {
     const fetch = vi.fn(async () => response({ message: "Test sent" }));
     vi.stubGlobal("fetch", fetch);
