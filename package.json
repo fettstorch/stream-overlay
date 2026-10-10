@@ -22,9 +22,9 @@
     "admin:dev": "bun run --filter @streamface/web dev -- --host 127.0.0.1 --port 3003",
     "server": "bun --no-orphans apps/server/src/server.ts",
     "cloud": "docker compose --env-file .env -f infra/koyeb/compose.local.yml up --build",
-    "deploy": "bunx bun@1.4.2 scripts/deploy-cloud.ts --execute",
-    "deploy:preview": "bunx bun@1.4.2 scripts/deploy-cloud.ts",
-    "cloud:dev": "bunx bun@1.4.2 run --filter @streamface/web build && PORT=${PORT:-3010} bunx bun@1.4.2 --no-orphans apps/server/src/server.ts",
+    "deploy": "npm exec --yes --package=bun@1.4.2 -- bun scripts/deploy-cloud.ts --execute",
+    "deploy:preview": "npm exec --yes --package=bun@1.4.2 -- bun scripts/deploy-cloud.ts",
+    "cloud:dev": "npm exec --yes --package=bun@1.4.2 -- bun run --filter @streamface/web build && PORT=${PORT:-3010} npm exec --yes --package=bun@1.4.2 -- bun --no-orphans apps/server/src/server.ts",
     "test": "bun test && bun run --filter @streamface/web test && bun run --filter @streamface/pokemon-ui test && bun run --filter @streamface/overlay-paint test && bun run --filter @streamface/pokemon-blue test && bun run --filter @streamface/chat test",
     "typecheck": "bun run --filter @streamface/local typecheck && bun run --filter @streamface/web typecheck && bun run --filter @streamface/server typecheck && bun run --filter @streamface/pokemon-ui typecheck && bun run --filter @streamface/pokemon-blue typecheck && bun run --filter @streamface/pokemon-crystal typecheck && bun run --filter @streamface/overlay-paint typecheck && bun run --filter @streamface/chat typecheck && bun run --filter @streamface/emoticons typecheck",
     "build": "bun run --filter @streamface/web build && bun run --filter @streamface/pokemon-blue build && bun run --filter @streamface/pokemon-crystal build && bun run --filter @streamface/chat build && bun build apps/local/src/server.ts --target bun --outdir dist/local && bun build apps/server/src/server.ts --target bun --outdir dist/server"

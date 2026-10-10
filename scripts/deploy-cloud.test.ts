@@ -16,7 +16,12 @@ test("deployment defaults to our hosted origin with explicit execution and optio
 test("package deploy executes by default while preview never uploads", async () => {
   const { scripts } = await Bun.file(new URL("../package.json", import.meta.url)).json();
   expect(scripts.deploy).toBe(`${scripts["deploy:preview"]} --execute`);
-  expect(scripts["deploy:preview"]).toBe("bunx bun@1.4.2 scripts/deploy-cloud.ts");
+  expect(scripts["deploy:preview"]).toBe("npm exec --yes --package=bun@1.4.2 -- bun scripts/deploy-cloud.ts");
+});
+test("cloud development uses the pinned explicit executable for build and server", async () => {
+  const { scripts } = await Bun.file(new URL("../package.json", import.meta.url)).json();
+  const launcher = "npm exec --yes --package=bun@1.4.2 -- bun";
+  expect(scripts["cloud:dev"]).toBe(`${launcher} run --filter @streamface/web build && PORT=\${PORT:-3010} ${launcher} --no-orphans apps/server/src/server.ts`);
 });
 
 test("deployment uses the hosted target, one eNano in Frankfurt and a secret reference", () => {
