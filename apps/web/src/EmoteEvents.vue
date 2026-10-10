@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
+import CollapsibleSection from "./CollapsibleSection.vue";
 import { emoteEvents, type EmoteEventMapping, type EmoteEventType } from "../../../modules/emoticons/src/events.ts";
 import type { CloudConfig } from "./cloud-admin-types.ts";
 const props = defineProps<{ config: CloudConfig; save: (config: CloudConfig) => Promise<boolean> }>();
@@ -23,9 +24,11 @@ async function save() {
 <template>
   <form class="editor-fields emote-events" @submit.prevent="save">
     <p>Choose a clip command to play when Streamplace sends an event. The Emotes browser source must be connected. Clip cooldowns still apply; chat roles and user restrictions do not apply to these automatic events.</p>
-    <div v-for="event in emoteEvents" :key="event.id" class="event-reaction">
+    <CollapsibleSection v-for="event in emoteEvents" :key="event.id" class="event-reaction" :title="event.name">
+      <div class="event-fields">
+      <p>{{ event.description }}</p>
       <label>
-      <strong>{{ event.name }}</strong><small>{{ event.description }}</small>
+      Clip command
       <span class="drawn-select">
         <select v-model="choices[event.id]" :aria-label="event.name" :disabled="busy">
           <option value="">No action</option>
@@ -36,13 +39,17 @@ async function save() {
       <label>Text beneath the clip (optional)
         <input v-model="texts[event.id]" :aria-label="`${event.name} text`" maxlength="500" :disabled="busy" placeholder="Your event message">
       </label>
-    </div>
+      </div>
+    </CollapsibleSection>
     <button type="submit" :disabled="busy">{{ busy ? 'Saving…' : 'Save events' }}</button>
     <p v-if="message" role="status">{{ message }}</p>
   </form>
 </template>
 <style scoped>
-.emote-events { display: grid; gap: 18px; }
+.emote-events { display: grid; gap: 28px; }
 .emote-events > button { justify-self: start; }
-.event-reaction { display: grid; gap: 12px; }
+.event-reaction { margin-block: 0; }
+.event-fields { display: grid; gap: 18px; padding-top: 6px; }
+.event-fields > p { margin: 0; }
+:global(#app) .emote-events :deep(.event-reaction .section-heading h4) { font-size: 1.5rem; font-weight: 800; line-height: 1.2; }
 </style>

@@ -6,6 +6,10 @@ test("lists event choices and saves command mappings without changing other conf
   const config = { enabled: true, commands: [{ id: "wave", command: "wave", mode: "effect" }, { id: "sticker", command: "sticker", mode: "sticker" }], eventMappings: [] } as unknown as CloudConfig;
   const save = vi.fn(async () => true);
   const wrapper = mount(EmoteEvents, { props: { config, save } });
+  const show = wrapper.get('button[aria-label="Show Teleport arrival"]');
+  expect(show.attributes('aria-expanded')).toBe('false');
+  await show.trigger('click');
+  expect(wrapper.get('button[aria-label="Hide Teleport arrival"]').attributes('aria-expanded')).toBe('true');
   expect(wrapper.findAll('select')).toHaveLength(2);
   expect(wrapper.text()).not.toContain('Teleport canceled');
   expect(wrapper.text()).not.toContain('Stream ended');
@@ -16,6 +20,9 @@ test("lists event choices and saves command mappings without changing other conf
   await wrapper.get('input[aria-label="Teleport arrival text"]').setValue(' Welcome! ');
   await wrapper.get('form').trigger('submit'); await flushPromises();
   expect(save).toHaveBeenLastCalledWith({ ...config, eventMappings: [{ event: "teleport-arrival", commandId: "wave", text: "Welcome!" }] });
+  await wrapper.get('button[aria-label="Hide Teleport arrival"]').trigger('click');
+  await wrapper.get('button[aria-label="Show Teleport arrival"]').trigger('click');
+  expect((wrapper.get('input[aria-label="Teleport arrival text"]').element as HTMLInputElement).value).toBe(' Welcome! ');
   await wrapper.get('select[aria-label="Teleport arrival"]').setValue('');
   await wrapper.get('form').trigger('submit'); await flushPromises();
   expect(save).toHaveBeenLastCalledWith(config);
