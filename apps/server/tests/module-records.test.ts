@@ -28,6 +28,9 @@ test("event mappings roundtrip, survive older clients and clear on command delet
   expect(parseModuleRecords(did, serializeModuleRecords({ ...parsed, commands: [] }, records, timestamp)).eventMappings).toEqual([]);
   expect(parseModuleRecords(did, serializeModuleRecords({ ...parsed, eventMappings: [] }, records, timestamp)).eventMappings).toEqual([]);
   expect(() => serializeModuleRecords({ ...config, eventMappings: [{ event: "unsupported" as any, commandId: "stable-key" }] }, [], timestamp)).toThrow();
+  const settings = records.find(record => record.collection === moduleCollections.emoticons)!;
+  settings.value.eventMappings = [...eventMappings, { event: "teleport-canceled", commandId: "stable-key" }];
+  expect(parseModuleRecords(did, records).eventMappings).toEqual(eventMappings);
 });
 test("roles round trip separately for Bot and Emotes and survive older clients", () => {
   const roles = { followers: true, mutuals: false, moderators: true, users: [{ did: "did:plc:viewer", handle: "viewer.example" }] };

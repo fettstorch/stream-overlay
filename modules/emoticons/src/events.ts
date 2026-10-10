@@ -1,6 +1,5 @@
 export const emoteEvents = [
   { id: "teleport-arrival", name: "Teleport arrival", description: "Another streamer teleports their viewers to your stream." },
-  { id: "teleport-canceled", name: "Teleport canceled", description: "An incoming teleport is deleted, denied or expires." },
   { id: "stream-started", name: "Stream started", description: "Your stream becomes live while this browser source is connected." },
   { id: "stream-ended", name: "Stream ended", description: "Your live stream ends while this browser source is connected." },
 ] as const;

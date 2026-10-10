@@ -114,7 +114,9 @@ export function parseModuleRecords(did: string, records: StoredRecord[]): CloudC
   }));
   validateModeration(moderation);
   const roles = get(moduleCollections.emoticons)?.roles;
-  const eventMappings = get(moduleCollections.emoticons)?.eventMappings ?? [];
+  // Retain schema readability for previously saved mappings, but retire this trigger.
+  const eventMappings = (get(moduleCollections.emoticons)?.eventMappings ?? [])
+    .filter((mapping: any) => mapping.event !== "teleport-canceled");
   validateEventMappings(eventMappings);
   if (roles !== undefined) validateCommandRoles(roles);
   const storedBot = get(moduleCollections.bot);

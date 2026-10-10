@@ -10,7 +10,7 @@ interface MessageView {
   record?: { streamer?: unknown; text?: unknown; createdAt?: unknown };
 }
 export type StreamLiveEvent = {
-  type: "teleport-arrival" | "teleport-canceled" | "stream-started" | "stream-ended";
+  type: "teleport-arrival" | "stream-started" | "stream-ended";
   id: string;
   author?: StreamChatMessage["author"];
 };
@@ -35,10 +35,6 @@ export class LiveEventParser {
         ...(typeof data.source.displayName === "string" ? { displayName: data.source.displayName } : {}),
         ...(typeof data.source.avatar === "string" ? { avatar: data.source.avatar } : {}),
       } };
-    } else if (data.$type === "place.stream.livestream#teleportCanceled") {
-      if (typeof data.teleportUri !== "string" || !data.teleportUri.startsWith("at://")
-        || !["deleted", "denied", "expired"].includes(data.reason)) return null;
-      event = { type: "teleport-canceled", id: `canceled:${data.teleportUri}` };
     } else if (data.$type === "place.stream.livestream#livestreamView") {
       const record = data.record;
       if (typeof data.uri !== "string" || !record || typeof record.createdAt !== "string"

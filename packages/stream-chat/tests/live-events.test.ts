@@ -10,10 +10,9 @@ test("arrivals include the source and dedupe; startup history never triggers", (
   expect(new LiveEventParser().parse(arrival, 3000)).toBeNull();
   expect(parser.parse({ ...arrival, startsAt: "bad" }, 1000)).toBeNull();
 });
-test("cancellations dedupe independently of arrivals; viewer updates are not triggers", () => {
+test("cancellations and viewer updates are not triggers", () => {
   const parser = new LiveEventParser();
   const canceled = { $type: "place.stream.livestream#teleportCanceled", teleportUri: arrival.teleportUri, reason: "denied" };
-  expect(parser.parse(canceled, 1000)?.type).toBe("teleport-canceled");
   expect(parser.parse(canceled, 1000)).toBeNull();
   expect(parser.parse({ $type: "place.stream.livestream#viewerCount", count: 20 }, 1000)).toBeNull();
 });
