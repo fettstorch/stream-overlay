@@ -38,7 +38,7 @@ const giphyDebouncer = getDebouncer();
 watch(mediaUrlInput, () => {
   giphyDebouncer.clear();
   giphyGeneration++; giphyResults.value = []; giphySearching.value = false;
-  if (giphySearchMode.value) giphyDebouncer.debounce(() => void submitMediaInput(), 800);
+  if (giphySearchMode.value) giphyDebouncer.debounce(() => void submitMediaInput(), 400);
 });
 function giphyLog(event: "started" | "completed" | "failed" | "selected", operationId: string, count?: number) {
   void adminFetch(`/api/accounts/${encodeURIComponent(props.did)}/giphy-diagnostics`, {

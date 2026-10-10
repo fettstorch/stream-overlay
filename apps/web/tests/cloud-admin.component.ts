@@ -20,24 +20,24 @@ function response(body: unknown, status = 200) { return new Response(JSON.string
 function mediaDrag(type: string, name = "drop.gif") { const event = new Event(type, { bubbles: true, cancelable: true }); Object.defineProperty(event, "dataTransfer", { value: { types: ["Files"], files: [new File(["GIF8"], name)], dropEffect: "none" } }); return event; }
 
 describe("Cloud Admin", () => {
-  test("Giphy searches after 800ms of idle typing and cancels pending searches for URLs or unmount", async () => {
+  test("Giphy searches after 400ms of idle typing and cancels pending searches for URLs or unmount", async () => {
     vi.useFakeTimers(); giphyMocks.searchGiphy.mockClear(); giphyMocks.searchGiphy.mockResolvedValue([]);
     vi.stubGlobal("fetch", vi.fn(async () => response({ ok: true })));
     const wrapper = mount(CloudEmoticonControls, { props: { did: session.did, config, save: vi.fn() } });
     try {
       await wrapper.get('.primary-button').trigger('click');
       const input = wrapper.get('input[placeholder="https://…/media.gif or a GIF search"]');
-      await input.setValue("cat"); await vi.advanceTimersByTimeAsync(700);
-      await input.setValue("cats"); await vi.advanceTimersByTimeAsync(799);
+      await input.setValue("cat"); await vi.advanceTimersByTimeAsync(300);
+      await input.setValue("cats"); await vi.advanceTimersByTimeAsync(399);
       expect(giphyMocks.searchGiphy).not.toHaveBeenCalled();
       expect(wrapper.findAll('button').some(button => button.text() === 'Search')).toBe(false);
       await vi.advanceTimersByTimeAsync(1);
       expect(giphyMocks.searchGiphy).toHaveBeenCalledExactlyOnceWith("cats");
       await input.setValue("dogs"); await vi.advanceTimersByTimeAsync(200);
-      await input.setValue("https://example.com/gif"); await vi.advanceTimersByTimeAsync(800);
+      await input.setValue("https://example.com/gif"); await vi.advanceTimersByTimeAsync(400);
       expect(giphyMocks.searchGiphy).toHaveBeenCalledTimes(1);
       expect(wrapper.findAll('button').some(button => button.text() === 'Add URL')).toBe(true);
-      await input.setValue("birds"); wrapper.unmount(); await vi.advanceTimersByTimeAsync(800);
+      await input.setValue("birds"); wrapper.unmount(); await vi.advanceTimersByTimeAsync(400);
       expect(giphyMocks.searchGiphy).toHaveBeenCalledTimes(1);
     } finally { wrapper.unmount(); vi.useRealTimers(); }
   });
