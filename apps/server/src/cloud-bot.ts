@@ -6,6 +6,7 @@ import { safeError, type StructuredLogger } from "./logger.ts";
 import { parseDirectChatEvent } from "../../../packages/stream-chat/src/direct-service.ts";
 import { validateBotSettings } from "../../../modules/bot/src/config.ts";
 import { createRoleAuthorizer } from "../../../modules/emoticons/src/roles.ts";
+import { BotSourceLeases } from "./bot-source-lease.ts";
 
 type ChatSocket = Pick<WebSocket, "addEventListener" | "removeEventListener" | "close">;
 type ChatSocketFactory = (url: string) => ChatSocket;
@@ -59,6 +60,7 @@ export function validBotSourceToken(did: string, token: unknown, secret: string)
 }
 /** No persistent chat listener. Only verified, freshly indexed messages can send. */
 export class CloudBot {
+  readonly sources: BotSourceLeases;
   private seen = new Map<string, number>();
   private cooldowns = new Map<string, number>();
   private lastAttempts = new Map<string, number>();
@@ -72,8 +74,8 @@ export class CloudBot {
     private now = Date.now,
     private connect: ChatSocketFactory = url => new WebSocket(url),
     private verificationTimeoutMs = 5000,
-  ) { this.authorize = createRoleAuthorizer(fetcher, now); }
-  async routine(config: CloudConfig, id: unknown, requestId: string) {
+  ) { this.authorize = createRoleAuthorizer(fetcher, now); this.sources = new BotSourceLeases(now); }
+  async routine(config: CloudConfig, id: unknown, requestId: string, ownsSource = () => true) {
     const reject = (reason: string) => {
       this.logger.log("info", "cloud.bot.routine-rejected", { requestId, reason });
       return { sent: false, reason };
@@ -95,6 +97,7 @@ export class CloudBot {
     this.logger.log("info", "cloud.bot.routine-started", { requestId, routineId: routine.id });
     try {
       const agent = await this.auth.getAgent();
+      if (!ownsSource()) return reject("inactive-source");
       // Stable per interval window: parallel sources and restarts cannot create two records in that window.
       const window = Math.floor(now / (routine.intervalSeconds * 1000));
       const alphabet = "234567abcdefghijklmnopqrstuvwxyz";
@@ -111,7 +114,7 @@ export class CloudBot {
       return { sent: false, reason: "send-failed" };
     } finally { this.inFlight--; }
   }
-  async trigger(config: CloudConfig, uri: unknown, requestId: string) {
+  async trigger(config: CloudConfig, uri: unknown, requestId: string, ownsSource = () => true) {
     const reject = (reason: string) => {
       this.logger.log("info", "cloud.bot.command-rejected", { requestId, reason });
       return { sent: false, reason };
@@ -202,6 +205,7 @@ export class CloudBot {
         bits >>= 5n;
       }
       stage = "send";
+      if (!ownsSource()) return reject("inactive-source");
       this.logger.log("info", "cloud.bot.reply-started", { requestId, command: rule.command });
       await agent.com.atproto.repo.createRecord({
         repo: agent.did!,

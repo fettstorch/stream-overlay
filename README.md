@@ -262,7 +262,15 @@ Existing logins need to authorize the added chat-write permission using the
 "Authorize chat posting" link. Normal bot roles, restrictions and cooldowns apply;
 this is not an admin-test bypass. Failed sends retain the draft and are never
 automatically retried. The private listener runs while the Bot module is open and
-enabled, across all its tabs; OBS can run alongside it using duplicate protection.
+enabled, across all its tabs. Each source has a fresh random ID; only one source
+per streamer holds the server lease. The first source wins, renews every 20 seconds,
+and loses ownership after 60 seconds without renewal. Others stay idle and retry
+acquisition; only the owner reads chat and schedules routines. Takeover starts a
+fresh routine interval. The server rejects non-owner command/routine requests and
+checks ownership again before posting. Leases use Jule's cache with explicit
+renewable expiry, in memory on our single server instance. Multiple server
+instances would require shared, atomic lease storage. Existing private OBS URLs
+remain unchanged; reload sources after upgrading to the lease protocol.
 
 The Bot's Routines tab stores recurring message text, an enabled toggle, and an
 interval in minutes (0.5–1440) in your existing Bot PDS settings. Timers live in

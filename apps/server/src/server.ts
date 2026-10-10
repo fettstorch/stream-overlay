@@ -265,7 +265,7 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
       return json({ error: "chat-send-failed", message: "Could not confirm sending your message. Check the chat before retrying.", requestId }, 502);
     }
   }
-  const botDid = didFromPath(path, "bot/(source|trigger|routine)");
+  const botDid = didFromPath(path, "bot/(source|trigger|routine|lease)");
   if (botDid && path.endsWith("/source") && request.method === "GET") {
     if (await readSessionCookie(request, deps.secret) !== botDid) return json({ error: "unauthorized" }, 401);
     const source = new URL("/bot/", deps.origin);
@@ -273,7 +273,7 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
     source.searchParams.set("token", botSourceToken(botDid, deps.secret));
     return json({ url: source.toString(), configured: Boolean(deps.bot) });
   }
-  if (botDid && (path.endsWith("/trigger") || path.endsWith("/routine")) && request.method === "POST") {
+  if (botDid && !path.endsWith("/source") && request.method === "POST") {
     if (!sameOrigin(request, deps.origin)) return json({ error: "invalid-origin" }, 403);
     try {
       const data = JSON.parse(new TextDecoder().decode(await boundedBody(request, 1024)));
@@ -281,11 +281,24 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
         deps.logger.log("warn", "cloud.bot.command-rejected", { requestId, reason: "unauthorized" });
         return json({ error: "unauthorized" }, 403);
       }
-      const config = await deps.pds.publicConfig(botDid);
       if (!deps.botCommands) return json({ sent: false, reason: "not-configured" }, 503);
+      if (path.endsWith("/lease")) {
+        const result = deps.botCommands.sources.renew(botDid, data.sourceId);
+        if (result.active && result.acquired)
+          deps.logger.log("info", "cloud.bot.source-acquired", { requestId, streamerDid: botDid });
+        else if (result.reason === "invalid-source-id" || result.reason === "capacity")
+          deps.logger.log("warn", "cloud.bot.source-rejected", { requestId, reason: result.reason });
+        return json(result);
+      }
+      if (!deps.botCommands.sources.owns(botDid, data.sourceId))
+        return json({ sent: false, reason: "inactive-source" }, 409);
+      const config = await deps.pds.publicConfig(botDid);
+      // Config loading can outlive a lease: fence again before initiating a send.
+      if (!deps.botCommands.sources.owns(botDid, data.sourceId))
+        return json({ sent: false, reason: "inactive-source" }, 409);
       return json(path.endsWith("/routine")
-        ? await deps.botCommands.routine(config, data.routineId, requestId)
-        : await deps.botCommands.trigger(config, data.uri, requestId));
+        ? await deps.botCommands.routine(config, data.routineId, requestId, () => deps.botCommands!.sources.owns(botDid, data.sourceId))
+        : await deps.botCommands.trigger(config, data.uri, requestId, () => deps.botCommands!.sources.owns(botDid, data.sourceId)));
     } catch {
       deps.logger.log("warn", "cloud.bot.trigger-failed", { requestId });
       return json({ error: "bot-unavailable", requestId }, 503);

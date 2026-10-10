@@ -57,3 +57,18 @@ test("server posts only configured routines and suppresses duplicate sources and
   expect(logs.join()).toContain("cloud.bot.routine-completed");
   expect(logs.join()).not.toContain(routine.response);
 });
+test("a source losing ownership during authentication cannot post", async () => {
+  let owns = true, writes = 0;
+  const auth = { getAgent: async () => {
+    owns = false;
+    return { did: "did:plc:bot", com: { atproto: { repo: {
+      createRecord: async () => { writes++; },
+    } } } };
+  } } as unknown as BotAuth;
+  const logs: string[] = [];
+  const service = new CloudBot(auth, new StructuredLogger(undefined, line => logs.push(line)));
+  expect(await service.routine(config, routine.id, "lost-lease", () => owns)).toMatchObject({ reason: "inactive-source" });
+  expect(writes).toBe(0);
+  expect(logs.join()).toContain("cloud.bot.routine-rejected");
+  expect(logs.join()).toContain("inactive-source");
+});

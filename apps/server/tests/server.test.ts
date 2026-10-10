@@ -63,10 +63,19 @@ describe("cloud server boundary", () => {
     expect((await handleRequest(new Request(`${root}/trigger`, { method: "POST", headers: { Origin: "https://other.example" }, body: JSON.stringify({ token: url.searchParams.get("token") }) }), deps)).status).toBe(403);
     expect((await handleRequest(new Request(`${root}/routine`, { method: "POST", headers: { Origin: deps.origin }, body: JSON.stringify({ token: "forged", routineId: "routine-1" }) }), deps)).status).toBe(403);
     const calls: unknown[] = [];
+    const sourceId = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+    const post = (action: string, data: object) => handleRequest(new Request(`${root}/${action}`, {
+      method: "POST", headers: { Origin: deps.origin }, body: JSON.stringify({ token: url.searchParams.get("token"), ...data }),
+    }), deps);
+    expect((await post("routine", { sourceId, routineId: "routine-1" })).status).toBe(409);
+    expect((await (await post("lease", { sourceId })).json()).active).toBe(true);
+    const standbyId = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+    expect((await (await post("lease", { sourceId: standbyId })).json()).active).toBe(false);
+    expect((await post("trigger", { sourceId: standbyId, uri: "at://fake" })).status).toBe(409);
     deps.pds.publicConfig = async () => ({ streamerDid: "did:plc:alice", enabled: true, commands: [], revision: "1" });
     deps.botCommands!.routine = async (...args) => { calls.push(args); return { sent: true }; };
     const result = await handleRequest(new Request(`${root}/routine`, { method: "POST", headers: { Origin: deps.origin },
-      body: JSON.stringify({ token: url.searchParams.get("token"), routineId: "routine-1", text: "untrusted browser text" }),
+      body: JSON.stringify({ token: url.searchParams.get("token"), sourceId, routineId: "routine-1", text: "untrusted browser text" }),
     }), deps);
     expect(result.status).toBe(200);
     expect((calls[0] as unknown[])[1]).toBe("routine-1");
