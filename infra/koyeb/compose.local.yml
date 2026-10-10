@@ -5,6 +5,7 @@ services:
     build:
       context: ../..
       dockerfile: infra/koyeb/Dockerfile
+      target: pets
     image: streamface-cloud-local
     init: true
     environment:

@@ -124,6 +124,8 @@ by the local Compose/direct-development workflows; do not reuse that configurati
 in Koyeb. `compose.local.yml` builds this exact Dockerfile, but intentionally differs
 from hosting in its loopback HTTP origin, development credentials, local
 Docker network/resource limits, and named OrbStack volume. Both use `live.streamface`.
+`npm run cloud` selects the `pets` Docker target for the author demo too. After a
+target change, restart that command so its existing `--build` rebuilds the image.
 
 The service accepts only direct HTTPS media URLs in records and PDS blob references.
 Provider page URLs such as normal Giphy pages are not playable media URLs; use a direct
@@ -136,4 +138,4 @@ volume and remains the recommended container configuration.
 
 No Koyeb resource is created by this repository. After providing an account, owned
 domain/namespace, and secrets, build locally with
-`docker build -f infra/koyeb/Dockerfile .` before deploying.
+`docker build --target pets -f infra/koyeb/Dockerfile .` before deploying the demo.

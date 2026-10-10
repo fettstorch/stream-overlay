@@ -18,6 +18,13 @@ test("package deploy executes by default while preview never uploads", async () 
   expect(scripts.deploy).toBe(`${scripts["deploy:preview"]} --execute`);
   expect(scripts["deploy:preview"]).toBe("npm exec --yes --package=bun@1.4.2 -- bun scripts/deploy-cloud.ts");
 });
+test("local cloud Docker testing uses the same Pets-enabled target as deployment", async () => {
+  const compose = Bun.YAML.parse(await Bun.file(new URL("../infra/koyeb/compose.local.yml", import.meta.url)).text()) as {
+    services: { cloud: { build: { target: string }; environment: Record<string, unknown> } };
+  };
+  expect(compose.services.cloud.build.target).toBe("pets");
+  expect(compose.services.cloud.environment.ENABLE_CLOUD_PETS).not.toBe("false");
+});
 test("cloud development uses the pinned explicit executable for build and server", async () => {
   const { scripts } = await Bun.file(new URL("../package.json", import.meta.url)).json();
   const launcher = "npm exec --yes --package=bun@1.4.2 -- bun";
