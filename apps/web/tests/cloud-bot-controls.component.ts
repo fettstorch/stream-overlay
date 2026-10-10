@@ -19,6 +19,22 @@ const config = {
   revision: "1",
   bot: { enabled: false, rules: [] },
 };
+test("Commands embeds the streamer's chat and runs the private listener only while enabled and open", async () => {
+  const wrapper = mount(CloudBotControls, { props: { config, save: vi.fn() } });
+  await flushPromises();
+  expect(wrapper.get('iframe[title="Your Streamplace chat"]').attributes('src'))
+    .toBe('https://stream.place/chat-popout/did%3Aplc%3Aowner');
+  expect(wrapper.find('iframe[title="Bot chat listener"]').exists()).toBe(false);
+  await wrapper.setProps({ config: { ...config, bot: { enabled: true, rules: [] } } });
+  expect(wrapper.get('iframe[title="Bot chat listener"]').attributes('src'))
+    .toBe('https://example.test/bot/?did=did:plc:owner&token=test');
+  expect(wrapper.get('iframe[title="Bot chat listener"]').attributes('hidden')).toBeDefined();
+  await wrapper.findAll('[role="tab"]')[1]!.trigger('click');
+  expect(wrapper.findAll('iframe')).toHaveLength(0);
+  await wrapper.findAll('[role="tab"]')[0]!.trigger('click');
+  expect(wrapper.findAll('iframe')).toHaveLength(2);
+  wrapper.unmount();
+});
 test("Moderation reuses the editor but stores restrictions only in Bot settings", async () => {
   const save = vi.fn(async () => true);
   const emoticonRule = { did: "did:plc:other", blocked: true, cooldownSeconds: 0 };

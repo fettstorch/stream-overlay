@@ -18,6 +18,7 @@ const command = ref(""),
   cooldown = ref(30),
   editing = ref<string>();
 const tab = ref("commands");
+const chatUrl = computed(() => `https://stream.place/chat-popout/${encodeURIComponent(props.config.streamerDid)}`);
 const tabs = [
   { id: "commands", label: "Commands" },
   { id: "create", label: "Create new" },
@@ -117,6 +118,15 @@ async function copy() {
   </section>
   <DrawnTabs v-model="tab" :tabs="tabs" label="Bot commands">
     <section v-show="tab === 'commands'" class="module-section bot-tab-content">
+      <div class="bot-commands-layout">
+      <div class="bot-chat">
+        <iframe v-if="tab === 'commands'" :src="chatUrl" title="Your Streamplace chat" referrerpolicy="no-referrer" />
+        <p class="settings-hint">Type commands in your chat to test real bot replies. Normal roles, restrictions and cooldowns apply.</p>
+        <p v-if="!config.bot?.enabled" class="settings-hint">Enable the Bot module to respond to commands here.</p>
+        <iframe v-if="tab === 'commands' && sourceUrl && configured && config.bot?.enabled"
+          :src="sourceUrl" title="Bot chat listener" hidden aria-hidden="true" tabindex="-1" referrerpolicy="no-referrer" />
+      </div>
+      <div>
       <ul class="command-list striped-list">
         <li v-for="rule in config.bot?.rules ?? []" :key="rule.command" class="bot-rule">
           <div>
@@ -136,6 +146,8 @@ async function copy() {
         </li>
       </ul>
       <p v-if="!config.bot?.rules.length">No bot commands yet.</p>
+      </div>
+      </div>
     </section>
     <form v-show="tab === 'create'" class="module-section bot-tab-content editor-fields" @submit.prevent="add">
       <h4 v-if="editing">Edit command</h4>
@@ -185,6 +197,14 @@ async function copy() {
 .bot-tab-content {
   margin: 0;
   padding: 0;
+}
+.bot-commands-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
+.bot-chat { min-width: 0; }
+.bot-chat > iframe:not([hidden]) { width: 100%; height: 480px; border: 0; background: white; }
+.bot-chat > iframe[hidden] { display: none; }
+.bot-chat .settings-hint { margin-top: 12px; }
+@media (min-width: 900px) {
+  .bot-commands-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 }
 #app .bot-tab-content::before {
   display: none;
