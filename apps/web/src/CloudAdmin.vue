@@ -505,7 +505,7 @@ onBeforeUnmount(() => {
         </p>
       </section>
       <p v-if="configurationMessage" role="status">{{ configurationMessage }}</p>
-      <CollapsibleSection v-if="config" title="Copy a setup">
+      <CollapsibleSection v-if="config" title="Quickstart">
         <SetupImport :did="did" :config="config" :save="candidate => saveConfiguration(candidate, undefined, 'preferences')" />
         <p v-if="moduleMessages.preferences" role="alert">{{ moduleMessages.preferences }}</p>
       </CollapsibleSection>
