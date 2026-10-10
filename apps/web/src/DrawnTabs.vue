@@ -63,6 +63,7 @@ async function navigate(event: KeyboardEvent, index: number) {
 
 <style scoped>
 .drawn-tabs {
+  --tab-frame-top: 10px;
   position: relative;
   isolation: isolate;
   margin-top: 28px;
@@ -71,7 +72,7 @@ async function navigate(event: KeyboardEvent, index: number) {
 .drawn-tab-list {
   display: flex;
   align-items: end;
-  padding: 0;
+  padding: 0 0 0 4px;
 }
 #app .drawn-tab {
   position: relative;
@@ -162,7 +163,7 @@ async function navigate(event: KeyboardEvent, index: number) {
   position: relative;
   z-index: 1;
   isolation: isolate;
-  margin-top: -14px;
+  margin-top: calc(-1 * var(--tab-frame-top));
   padding: 26px;
   min-width: 0;
 }
@@ -172,12 +173,15 @@ async function navigate(event: KeyboardEvent, index: number) {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  border: 22px solid transparent;
-  border-image: url("./assets/branding/module-frame.png") 350 fill / 22px / 0 stretch;
+  /* Nine slices: flatten only the top corners/edge, leaving the other
+     six pieces at the regular frame size. */
+  border: solid transparent;
+  border-width: var(--tab-frame-top) 22px 22px;
+  border-image: url("./assets/branding/module-frame.png") 350 fill / var(--tab-frame-top) 22px 22px / 0 stretch;
 }
 @media (max-width: 600px) {
   .drawn-tab-list {
-    padding-inline: 0;
+    padding-inline: 4px 0;
   }
   #app .drawn-tab {
     font-size: 0.9em;
