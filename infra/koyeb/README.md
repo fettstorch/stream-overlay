@@ -112,7 +112,7 @@ Required secrets/settings:
   an integration. Create these secrets once before deploying.
   This is a **public browser API key**, not a server secret: GIPHY requires direct
   browser API/media requests. It is never logged or stored in PDS records.
-  Locally, set it in a gitignored `.env` and restart `bun run cloud:dev`; in Koyeb,
+  Locally, set it in a gitignored `.env` and restart `bun run dev`; in Koyeb,
   configure the environment variable yourself. No deployment is performed automatically.
   Publish the updated Emotes `defs` and `command` lexicons before saving Giphy commands.
   Only GIF IDs are persisted; overlays resolve them during preload and load images
@@ -124,7 +124,7 @@ by the local Compose/direct-development workflows; do not reuse that configurati
 in Koyeb. `compose.local.yml` builds this exact Dockerfile, but intentionally differs
 from hosting in its loopback HTTP origin, development credentials, local
 Docker network/resource limits, and named OrbStack volume. Both use `live.streamface`.
-`npm run cloud` selects the `pets` Docker target for the author demo too. After a
+`npm run docker` selects the `pets` Docker target for the author demo too. After a
 target change, restart that command so its existing `--build` rebuilds the image.
 
 The service accepts only direct HTTPS media URLs in records and PDS blob references.

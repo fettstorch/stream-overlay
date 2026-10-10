@@ -219,7 +219,7 @@ AUTH_DATA_DIR=runtime/cloud-auth \
 bun run server
 ```
 
-For local cloud parity, `bun run cloud` builds and starts the same
+For local cloud parity, `bun run docker` builds and starts the same
 `infra/koyeb/Dockerfile` through Docker Compose, explicitly loading the project's
 root `.env` for configured variables such as `BOT_APP_PASSWORD` and `GIPHY_API_KEY`.
 Create this gitignored file before starting (it can be empty if no integrations
@@ -236,10 +236,10 @@ Docker without host Bun uses the equivalent command:
 docker compose --env-file .env -f infra/koyeb/compose.local.yml up --build
 ```
 
-For faster source development without a container, `bun run cloud:dev` uses a
+For faster source development without a container, `bun run dev` uses a
 task-local Bun 1.4.2 (downloaded by `npm exec` without changing the global Bun install),
 builds the web app, and starts the server on the same port. Set
-`PORT=4567 bun run cloud:dev` to choose another port; when `PUBLIC_ORIGIN` is
+`PORT=4567 bun run dev` to choose another port; when `PUBLIC_ORIGIN` is
 omitted, OAuth metadata derives its loopback origin from `PORT`.
 
 The cloud runtime is pinned to Bun 1.4.2 and the official AT Protocol packages
@@ -433,7 +433,7 @@ host events with each OBS source or muted Admin preview. Ordinary chat messages
 are not logged by this module.
 
 Cloud diagnostics are emitted as one JSON object per line to stdout, so they appear
-in the `bun run cloud:dev` terminal, Compose logs, and Koyeb service logs. Upload and
+in the `bun run dev` terminal, Compose logs, and Koyeb service logs. Upload and
 save failures show a `Reference` request ID in Admin; filter logs for that ID to
 follow body reading, OAuth session restore, and the upstream PDS operation without
 exposing credentials or media contents. Set `CLOUD_LOG_FILE` to additionally append

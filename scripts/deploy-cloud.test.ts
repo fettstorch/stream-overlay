@@ -28,7 +28,10 @@ test("local cloud Docker testing uses the same Pets-enabled target as deployment
 test("cloud development uses the pinned explicit executable for build and server", async () => {
   const { scripts } = await Bun.file(new URL("../package.json", import.meta.url)).json();
   const launcher = "npm exec --yes --package=bun@1.4.2 -- bun";
-  expect(scripts["cloud:dev"]).toBe(`${launcher} run --filter @streamface/web build && PORT=\${PORT:-3010} ${launcher} --no-orphans apps/server/src/server.ts`);
+  expect(scripts.dev).toBe(`${launcher} run --filter @streamface/web build && PORT=\${PORT:-3010} ${launcher} --no-orphans apps/server/src/server.ts`);
+  expect(scripts.docker).toBe("docker compose --env-file .env -f infra/koyeb/compose.local.yml up --build");
+  expect(scripts["cloud:dev"]).toBeUndefined();
+  expect(scripts.cloud).toBeUndefined();
 });
 
 test("deployment includes Pets for the author demo, one eNano in Frankfurt and a secret reference", () => {
