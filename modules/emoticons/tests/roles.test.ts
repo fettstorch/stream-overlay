@@ -2,6 +2,16 @@ import { expect, test } from "bun:test";
 import { createRoleAuthorizer, openCommandRoles, validateCommandRoles } from "../src/roles.ts";
 import { EmoticonRuntime } from "../src/runtime.ts";
 const owner = "did:plc:owner", viewer = "did:plc:viewer";
+test("following allows accounts the streamer follows, not accounts that only follow the streamer", async () => {
+  for (const [following, followedBy] of [[false, true], [true, false], [true, true], [false, false]]) {
+    const authorize = createRoleAuthorizer(Object.assign(async () => Response.json({ actor: owner,
+      relationships: [{ did: viewer, ...(followedBy ? { followedBy: "at://follow" } : {}), ...(following ? { following: "at://other" } : {}) }] }),
+      { preconnect: fetch.preconnect }));
+    expect(await authorize(owner, { did: viewer }, { ...openCommandRoles, following: true })).toBe(following);
+  }
+  expect(() => validateCommandRoles({ followers: false, mutuals: false, moderators: false, users: [] })).not.toThrow();
+  expect(() => validateCommandRoles({ ...openCommandRoles, following: "yes" })).toThrow();
+});
 test("roles are opt-in and combine with OR; explicit users and moderators need no graph request", async () => {
   const authorize = createRoleAuthorizer(Object.assign(async () => { throw new Error("No request expected"); }, { preconnect: fetch.preconnect }));
   expect(await authorize(owner, undefined)).toBe(true);

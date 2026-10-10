@@ -16,16 +16,17 @@ test("nested roles and restrictions tabs save an inclusive allowlist without dro
   expect(wrapper.findAll('[role="tab"]').map(tab => tab.text())).toEqual(["Roles", "Restrictions"]);
   expect(wrapper.text()).toContain("No roles selected: everyone");
   expect(wrapper.findAll('.role-choice .switch input[role="switch"]').map(input => input.attributes('aria-label')))
-    .toEqual(['Followers', 'Mutuals', 'Streamplace moderators']);
+    .toEqual(['Following', 'Followers', 'Mutuals', 'Streamplace moderators']);
   await wrapper.findAll('.role-choice input')[0]!.setValue(true);
-  await wrapper.findAll('.role-choice input')[2]!.setValue(true);
+  await wrapper.get('input[aria-label="Followers"]').setValue(true);
+  await wrapper.get('input[aria-label="Streamplace moderators"]').setValue(true);
   await wrapper.get('input[placeholder="Add @handle"]').setValue('friend.example');
   await wrapper.findAll('button').find(button => button.text() === 'Add user')!.trigger('click');
   await flushPromises();
   await wrapper.findAll('button').find(button => button.text() === 'Save roles')!.trigger('click');
   await flushPromises();
   expect(save).toHaveBeenCalledWith(expect.objectContaining({ moderation,
-    roles: { followers: true, mutuals: false, moderators: true, users: [{ did: 'did:plc:friend', handle: 'friend.example' }] } }));
+    roles: { following: true, followers: true, mutuals: false, moderators: true, users: [{ did: 'did:plc:friend', handle: 'friend.example' }] } }));
   await wrapper.findAll('[role="tab"]')[1]!.trigger('click');
   expect(wrapper.findAll('[role="tab"]')[1]!.attributes('aria-selected')).toBe('true');
   wrapper.unmount();

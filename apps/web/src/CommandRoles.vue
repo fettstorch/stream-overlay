@@ -7,7 +7,7 @@ import type { CloudConfig } from "./cloud-admin-types.ts";
 const props = defineProps<{ config: CloudConfig; save: (config: CloudConfig) => Promise<boolean> }>();
 function copyRoles(value?: CommandRoles): CommandRoles {
   const source = value ?? openCommandRoles;
-  return { ...source, users: source.users.map(user => ({ ...user })) };
+  return { ...source, following: source.following ?? false, users: source.users.map(user => ({ ...user })) };
 }
 const roles = ref<CommandRoles>(copyRoles(props.config.roles));
 const query = ref(""), selected = ref<ActorSuggestion>(), input = ref<HTMLInputElement>(), searchStatus = ref<HTMLElement>();
@@ -54,6 +54,9 @@ async function saveRoles() {
 <template>
   <div class="command-roles editor-fields">
     <p>Allow users who match any selected role or account. These roles apply to all commands in this module. Restrictions still take priority.</p>
+    <div class="role-choice"><div><strong>Following</strong><small>People you follow.</small></div><label class="switch">
+      <input v-model="roles.following" type="checkbox" role="switch" aria-label="Following" :disabled="busy" /><span aria-hidden="true" />
+    </label></div>
     <div class="role-choice"><div><strong>Followers</strong><small>People who follow you.</small></div><label class="switch">
       <input v-model="roles.followers" type="checkbox" role="switch" aria-label="Followers" :disabled="busy" /><span aria-hidden="true" />
     </label></div>

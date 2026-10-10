@@ -1,16 +1,18 @@
 export type CommandRoles = {
+  following?: boolean;
   followers: boolean;
   mutuals: boolean;
   moderators: boolean;
   users: { did: string; handle?: string }[];
 };
-export const openCommandRoles: CommandRoles = { followers: false, mutuals: false, moderators: false, users: [] };
+export const openCommandRoles: CommandRoles = { following: false, followers: false, mutuals: false, moderators: false, users: [] };
 export function rolesRestricted(roles?: CommandRoles) {
-  return Boolean(roles && (roles.followers || roles.mutuals || roles.moderators || roles.users.length));
+  return Boolean(roles && (roles.following || roles.followers || roles.mutuals || roles.moderators || roles.users.length));
 }
 export function validateCommandRoles(value: unknown): asserts value is CommandRoles {
   const roles = value as CommandRoles;
   if (!roles || typeof roles.followers !== "boolean" || typeof roles.mutuals !== "boolean"
+    || (roles.following !== undefined && typeof roles.following !== "boolean")
     || typeof roles.moderators !== "boolean" || !Array.isArray(roles.users) || roles.users.length > 200)
     throw new Error("Invalid command roles.");
   const seen = new Set<string>();
@@ -30,7 +32,7 @@ export function createRoleAuthorizer(fetcher: typeof fetch = fetch, now = Date.n
     if (!rolesRestricted(roles)) return true;
     if (!roles || !author?.did) return false;
     if (roles.users.some(user => user.did === author.did) || (roles.moderators && author.isModerator)) return true;
-    if (!roles.followers && !roles.mutuals) return false;
+    if (!roles.following && !roles.followers && !roles.mutuals) return false;
     const key = `${streamerDid}:${author.did}`;
     for (const [id, item] of cache) if (item.expires <= now()) cache.delete(id);
     let item = cache.get(key);
@@ -52,6 +54,7 @@ export function createRoleAuthorizer(fetcher: typeof fetch = fetch, now = Date.n
       void pending.catch(() => { if (cache.get(key)?.pending === pending) cache.delete(key); });
     }
     const relationship = await item.pending;
-    return (roles.followers && relationship.followedBy) || (roles.mutuals && relationship.following && relationship.followedBy);
+    return Boolean((roles.following && relationship.following) || (roles.followers && relationship.followedBy)
+      || (roles.mutuals && relationship.following && relationship.followedBy));
   };
 }
