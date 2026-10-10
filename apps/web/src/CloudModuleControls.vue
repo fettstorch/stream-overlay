@@ -31,7 +31,6 @@ async function save() { await props.save({ ...props.config, chat: { ...chat.valu
     <label>Fade delay (seconds)<input v-model.number="paint.decaySeconds" type="number" min="0.1" max="60" step="0.1" @change="save"></label>
   </section>
   <section v-else class="module-section appearance-controls">
-    <p>Pets listen to your account’s stream directly. Their characters and settings remain on AT Protocol.</p>
     <a href="https://rpg.actor/streampets" target="_blank" rel="noopener noreferrer">Configure Streamplace Pets</a>
     <aside class="upstream-info" aria-label="Streamplace Pets attribution">
       <p>Streamplace Pets is an upstream project by <a href="https://github.com/iameli" target="_blank" rel="noopener noreferrer">Eli Mallon (iameli)</a>, with contributions from <a href="https://github.com/QuietImCoding" target="_blank" rel="noopener noreferrer">QuietImCoding</a> and <a href="https://github.com/flo-bit" target="_blank" rel="noopener noreferrer">flo-bit</a>. <a href="https://github.com/streamplace/streamplace-pets" target="_blank" rel="noopener noreferrer">Original project</a>.</p>
