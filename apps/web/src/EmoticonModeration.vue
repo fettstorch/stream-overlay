@@ -95,7 +95,7 @@ async function remove(rule: EmoticonModerationRule) {
       </label>
       <p v-if="!blocked" class="settings-hint">After an accepted command, this user must wait before triggering any other command. Rejected attempts don't restart the timer.</p>
       <div class="form-actions"><button type="submit" :disabled="busy || !query.trim()">{{ busy ? 'Saving…' : 'Save rule' }}</button>
-        <button type="button" :disabled="busy" @click="reset">Reset</button></div>
+      </div>
     </form>
     <p v-if="message" role="status">{{ message }}</p>
   </div>
