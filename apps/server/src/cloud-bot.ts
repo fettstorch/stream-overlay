@@ -7,6 +7,46 @@ import { parseDirectChatEvent } from "../../../packages/stream-chat/src/direct-s
 import { validateBotSettings } from "../../../modules/bot/src/config.ts";
 import { createRoleAuthorizer } from "../../../modules/emoticons/src/roles.ts";
 
+type ChatSocket = Pick<WebSocket, "addEventListener" | "removeEventListener" | "close">;
+type ChatSocketFactory = (url: string) => ChatSocket;
+/** Read trusted recent history, then disconnect. Never trust browser-supplied records. */
+export function readBotChatMessage(streamerDid: string, uri: string,
+  connect: ChatSocketFactory = url => new WebSocket(url), timeoutMs = 5000,
+): Promise<{ view: any; feedCount: number }> {
+  return new Promise((resolve, reject) => {
+    const socket = connect(`wss://stream.place/api/websocket/${encodeURIComponent(streamerDid)}`);
+    let settled = false, bytes = 0, feedCount = 0;
+    const finish = (view?: unknown, error?: Error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      socket.removeEventListener("message", onMessage);
+      socket.removeEventListener("error", onError);
+      socket.removeEventListener("close", onClose);
+      socket.close();
+      if (error) reject(error);
+      else resolve({ view, feedCount });
+    };
+    const onMessage = (event: MessageEvent) => {
+      if (settled) return;
+      if (typeof event.data !== "string") return finish(undefined, new Error("Unexpected chat frame"));
+      bytes += Buffer.byteLength(event.data);
+      if (bytes > 2_000_000) return finish(undefined, new Error("Chat response too large"));
+      let view;
+      try { view = JSON.parse(event.data); }
+      catch { return finish(undefined, new Error("Invalid chat frame")); }
+      if (view?.$type === "place.stream.chat.defs#messageView") feedCount++;
+      if (view?.uri === uri) finish(view);
+    };
+    const onError = () => finish(undefined, new Error("Chat verification unavailable"));
+    const onClose = () => finish(undefined, new Error("Chat verification disconnected"));
+    const timer = setTimeout(() => finish(), timeoutMs);
+    socket.addEventListener("message", onMessage);
+    socket.addEventListener("error", onError);
+    socket.addEventListener("close", onClose);
+  });
+}
+
 export function botSourceToken(did: string, secret: string) {
   return createHmac("sha256", secret).update(`streamface.bot.source:${did}`).digest("hex");
 }
@@ -28,8 +68,10 @@ export class CloudBot {
   constructor(
     private auth: BotAuth | undefined,
     private logger: StructuredLogger,
-    private fetcher: typeof fetch = fetch,
+    fetcher: typeof fetch = fetch,
     private now = Date.now,
+    private connect: ChatSocketFactory = url => new WebSocket(url),
+    private verificationTimeoutMs = 5000,
   ) { this.authorize = createRoleAuthorizer(fetcher, now); }
   async trigger(config: CloudConfig, uri: unknown, requestId: string) {
     const reject = (reason: string) => {
@@ -64,39 +106,13 @@ export class CloudBot {
     this.logger.log("info", "cloud.bot.verification-started", { requestId });
     let stage = "verification";
     try {
-      // Fixed trusted host: never fetch a URL or PDS supplied by the browser.
-      const response = await this.fetcher(
-        `https://stream.place/api/chat/${encodeURIComponent(config.streamerDid)}`,
-        { signal: AbortSignal.timeout(10000) },
+      const { view, feedCount } = await readBotChatMessage(
+        config.streamerDid, uri, this.connect, this.verificationTimeoutMs,
       );
-      if (!response.ok || !response.body)
-        throw Object.assign(new Error("Chat verification unavailable"), {
-          status: response.status,
-        });
-      const reader = response.body.getReader();
-      const chunks: Uint8Array[] = [];
-      let bytes = 0;
-      try {
-        while (true) {
-          const item = await reader.read();
-          if (item.done) break;
-          bytes += item.value.length;
-          if (bytes > 2_000_000) {
-            await reader.cancel();
-            throw new Error("Chat response too large");
-          }
-          chunks.push(item.value);
-        }
-      } finally {
-        reader.releaseLock();
-      }
-      const data = JSON.parse(Buffer.concat(chunks).toString());
-      if (!Array.isArray(data)) throw new Error("Unexpected chat response");
-      const view = data.find((item) => item?.uri === uri);
       const message = parseDirectChatEvent(view, config.streamerDid);
       this.logger.log("info", "cloud.bot.verification-result", {
         requestId,
-        feedCount: data.length,
+        feedCount,
         matched: Boolean(view),
         parsed: Boolean(message),
         failure: !view ? "message-not-in-feed" : !message ? "invalid-message-view"

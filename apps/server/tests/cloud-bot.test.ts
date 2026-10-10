@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { CloudBot, botSourceToken, validBotSourceToken } from "../src/cloud-bot.ts";
+import { CloudBot, botSourceToken, validBotSourceToken, readBotChatMessage } from "../src/cloud-bot.ts";
 import {
   serializeModuleRecords,
   parseModuleRecords,
@@ -23,7 +23,7 @@ function harness(overrides: Record<string, unknown> = {}) {
   const sent: any[] = [],
     logs: string[] = [];
   let time = now,
-    requests = 0;
+    requests = 0, closed = 0;
   const view = {
     $type: "place.stream.chat.defs#messageView",
     uri,
@@ -45,20 +45,24 @@ function harness(overrides: Record<string, unknown> = {}) {
       },
     }),
   } as unknown as BotAuth;
-  const transport = Object.assign(
-    async (input: any) => {
-      expect(String(input)).toBe(`https://stream.place/api/chat/${encodeURIComponent(did)}`);
-      requests++;
-      return Response.json([view]);
-    },
-    { preconnect: fetch.preconnect },
-  );
+  const connect = (url: string) => {
+    expect(url).toBe(`wss://stream.place/api/websocket/${encodeURIComponent(did)}`);
+    requests++;
+    const socket = new EventTarget();
+    queueMicrotask(() => {
+      socket.dispatchEvent(new MessageEvent("message", { data: JSON.stringify({ $type: "place.stream.live.viewerCount", count: 1 }) }));
+      socket.dispatchEvent(new MessageEvent("message", { data: JSON.stringify(view) }));
+    });
+    return Object.assign(socket, { close: () => { closed++; } });
+  };
   return {
     service: new CloudBot(
       auth,
       new StructuredLogger(undefined, (line) => logs.push(line)),
-      transport,
+      fetch,
       () => time,
+      connect,
+      10,
     ),
     sent,
     logs,
@@ -67,6 +71,7 @@ function harness(overrides: Record<string, unknown> = {}) {
       time += amount;
     },
     requests: () => requests,
+    closed: () => closed,
   };
 }
 test("Bot role gates use verified Streamplace badges and explicit identities, with blocks taking priority", async () => {
@@ -97,6 +102,53 @@ test("verified commands send only server-configured replies, with valid stable T
   expect(h.sent).toHaveLength(1);
   expect(h.logs.join()).toContain("cloud.bot.reply-completed");
   expect(h.logs.join()).not.toContain("Hello chat!");
+  expect(h.closed()).toBe(1);
+});
+test("verification closes its bounded connection on timeout, error and malformed frames", async () => {
+  for (const mode of ["timeout", "error", "close", "malformed", "oversized"]) {
+    let closed = 0;
+    const result = readBotChatMessage(did, uri, () => {
+      const socket = new EventTarget();
+      queueMicrotask(() => {
+        if (mode === "error" || mode === "close") socket.dispatchEvent(new Event(mode));
+        if (mode === "malformed" || mode === "oversized") socket.dispatchEvent(new MessageEvent("message", {
+          data: mode === "malformed" ? "{" : "x".repeat(2_000_001),
+        }));
+      });
+      return Object.assign(socket, { close: () => { closed++; } });
+    }, 10);
+    if (mode === "timeout") expect(await result).toMatchObject({ view: undefined, feedCount: 0 });
+    else await expect(result).rejects.toThrow();
+    expect(closed).toBe(1);
+  }
+});
+test("verification reads recent history over a real websocket and disconnects", async () => {
+  const view = {
+    $type: "place.stream.chat.defs#messageView", uri, author: { did: author },
+    record: { streamer: did, text: "!hi", createdAt: new Date(now).toISOString() },
+  };
+  let signalClosed!: () => void;
+  const closed = new Promise<void>(resolve => { signalClosed = resolve; });
+  const server = Bun.serve({
+    port: 0,
+    fetch(request, server) { if (server.upgrade(request)) return; return new Response(null, { status: 400 }); },
+    websocket: {
+      open(socket) {
+        socket.send(JSON.stringify({ $type: "place.stream.live.viewerCount", count: 1 }));
+        socket.send(JSON.stringify(view));
+      },
+      message() {},
+      close() { signalClosed(); },
+    },
+  });
+  try {
+    const result = await readBotChatMessage(did, uri, url => {
+      expect(url).toBe(`wss://stream.place/api/websocket/${encodeURIComponent(did)}`);
+      return new WebSocket(`ws://127.0.0.1:${server.port}`);
+    });
+    expect(result).toEqual({ view, feedCount: 1 });
+    await closed;
+  } finally { server.stop(true); }
 });
 test("verification diagnostics distinguish missing and malformed feed messages without logging text", async () => {
   const missing = harness({ uri: `${uri}other` });
