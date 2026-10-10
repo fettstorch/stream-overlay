@@ -53,7 +53,7 @@ import mask from "./assets/branding/mask.png";
 }
 .wordmark-mask {
   position: absolute;
-  left: 35%;
+  left: 0%;
   top: 33%;
   width: 14%;
   height: auto;
