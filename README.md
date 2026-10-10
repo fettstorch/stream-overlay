@@ -310,7 +310,9 @@ sources. Published `live.streamface.emoticons.*` record IDs and existing storage
 paths remain unchanged; “Emotes” is the user-facing module name.
 
 Emotes has Testing, Commands, Events and Moderation tabs. Events maps teleport
-arrivals and stream starts to existing commands. Mappings
+arrivals and stream starts to existing clip commands (not stickers). Each mapping
+can include optional overlay text displayed beneath its clip in white with a
+black outline, for the same duration as the clip. Mappings
 persist in the Emotes settings record. The live browser source uses its existing
 Streamplace connection to trigger them, without another server listener. Clip
 cooldowns apply; automatic events bypass chat roles and user restrictions.

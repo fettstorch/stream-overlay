@@ -7,6 +7,18 @@ const command = (id: string, overrides: Partial<EmoticonCommand> = {}): Emoticon
   videoAssetId: null, durationSeconds: 0.01, cooldownSeconds: 1, volume: 1, width: "", height: "", ...overrides,
 });
 const runtimes: EmoticonRuntime[] = [];
+test("event reactions reject stickers and keep text attached to its queued clip", () => {
+  const effects: Extract<EmoticonEvent, { type: "effect" }>[] = [];
+  const log = mock(() => {});
+  const runtime = new EmoticonRuntime({ effect: event => { effects.push(event); }, log });
+  runtimes.push(runtime);
+  runtime.configure({ enabled: true, commands: [command("clip"), command("sticker", { mode: "sticker" })], assets: [] });
+  expect(runtime.trigger("sticker", "stream-event")).toBe(false);
+  expect(log).toHaveBeenCalledWith("emoticons.command-rejected", expect.objectContaining({ reason: "event-requires-clip" }));
+  expect(runtime.trigger("clip", "stream-event", "event-id", undefined, false, "Welcome!")).toBe(true);
+  expect(effects[0].eventText).toBe("Welcome!");
+  expect(runtime.trigger("clip", "stream-event")).toBe(false);
+});
 test("clip queue waits for media readiness before consuming display duration", async () => {
   let ready!: () => void;
   const effects: string[] = [];

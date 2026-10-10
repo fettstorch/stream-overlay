@@ -116,7 +116,8 @@ export function parseModuleRecords(did: string, records: StoredRecord[]): CloudC
   const roles = get(moduleCollections.emoticons)?.roles;
   // Retain schema readability for previously saved mappings, but retire these triggers.
   const eventMappings = (get(moduleCollections.emoticons)?.eventMappings ?? [])
-    .filter((mapping: any) => !["teleport-canceled", "stream-ended"].includes(mapping.event));
+    .filter((mapping: any) => !["teleport-canceled", "stream-ended"].includes(mapping.event)
+      && commands.some(command => command.id === mapping.commandId && command.mode === "effect"));
   validateEventMappings(eventMappings);
   if (roles !== undefined) validateCommandRoles(roles);
   const storedBot = get(moduleCollections.bot);
@@ -205,7 +206,7 @@ export function serializeModuleRecords(
     }),
     record(moduleCollections.emoticons, "self", {
       enabled: config.enabled,
-      eventMappings: eventMappings.filter(mapping => config.commands.some(command => command.id === mapping.commandId)),
+      eventMappings: eventMappings.filter(mapping => config.commands.some(command => command.id === mapping.commandId && command.mode === "effect")),
       ...(roles !== undefined ? { roles } : {}),
       moderation: moderation.map(rule => ({
         did: rule.did, blocked: rule.blocked,

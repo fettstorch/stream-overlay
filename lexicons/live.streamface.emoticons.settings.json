@@ -25,7 +25,8 @@
       "type": "object", "required": ["event", "commandId"],
       "properties": {
         "event": { "type": "string", "enum": ["teleport-arrival", "teleport-canceled", "stream-started", "stream-ended"] },
-        "commandId": { "type": "string", "maxLength": 512 }
+        "commandId": { "type": "string", "maxLength": 512 },
+        "text": { "type": "string", "maxLength": 2000, "maxGraphemes": 500, "description": "Optional overlay text beneath the event clip." }
       }
     },
     "roles": {

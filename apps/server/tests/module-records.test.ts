@@ -19,8 +19,8 @@ import { jsonToLex, lexToJson } from "@atproto/lexicon";
 const did = "did:plc:alice",
   timestamp = "2026-10-09T12:00:00.000Z";
 test("event mappings roundtrip, survive older clients and clear on command deletion", () => {
-  const eventMappings = [{ event: "teleport-arrival" as const, commandId: "stable-key" }];
-  const records = serializeModuleRecords({ ...config, eventMappings }, [], timestamp);
+  const eventMappings = [{ event: "teleport-arrival" as const, commandId: "stable-key", text: "Welcome!" }];
+  const records = serializeModuleRecords({ ...config, commands: config.commands.map(command => ({ ...command, mode: "effect" })), eventMappings }, [], timestamp);
   const parsed = parseModuleRecords(did, records);
   expect(parsed.eventMappings).toEqual(eventMappings);
   const { eventMappings: omitted, ...legacy } = parsed;
@@ -33,6 +33,8 @@ test("event mappings roundtrip, survive older clients and clear on command delet
     { event: "teleport-canceled", commandId: "stable-key" },
     { event: "stream-ended", commandId: "stable-key" }];
   expect(parseModuleRecords(did, records).eventMappings).toEqual(eventMappings);
+  expect(parseModuleRecords(did, serializeModuleRecords({ ...config, eventMappings }, [], timestamp)).eventMappings).toEqual([]);
+  expect(() => serializeModuleRecords({ ...parsed, eventMappings: [{ ...eventMappings[0], text: 'x'.repeat(501) }] }, records, timestamp)).toThrow();
 });
 test("roles round trip separately for Bot and Emotes and survive older clients", () => {
   const roles = { followers: true, mutuals: false, moderators: true, users: [{ did: "did:plc:viewer", handle: "viewer.example" }] };

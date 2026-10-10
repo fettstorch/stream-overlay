@@ -106,7 +106,14 @@ async function play(event: Extract<EmoticonEvent, { type: "effect" }>) {
     }
     container.append(wrapper);
   }
-  else { wrapper.className = "clip"; wrapper.style.top = effectTop(command.height); container.append(wrapper); }
+  else {
+    wrapper.className = "clip"; wrapper.style.top = effectTop(command.height);
+    if (event.eventText) {
+      const text = document.createElement("p"); text.className = "event-text";
+      text.textContent = event.eventText; wrapper.append(text);
+    }
+    container.append(wrapper);
+  }
   activeWrappers.add(wrapper);
   for (const element of [visual, audio]) if (element instanceof HTMLMediaElement) {
     element.autoplay = false; element.preload = "auto"; activeMedia.add(element);
@@ -148,7 +155,7 @@ chat?.events.subscribe(event => {
   const mapping = eventMappings.find(mapping => mapping.event === event.type);
   if (!mapping) return;
   rejectionReason = undefined;
-  const accepted = runtime.trigger(mapping.commandId, "stream-event", event.id, event.author);
+  const accepted = runtime.trigger(mapping.commandId, "stream-event", event.id, event.author, false, mapping.text);
   diagnostic(accepted ? "event-accepted" : "event-rejected", {
     commandId: mapping.commandId, reason: `event-${event.type}-${accepted ? 'accepted' : rejectionReason ?? 'rejected'}`,
   });

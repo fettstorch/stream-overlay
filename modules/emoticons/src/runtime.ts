@@ -19,7 +19,7 @@ export class EmoticonRuntime {
   private readonly cooldownEnds = new Map<string, number>();
   private moderation = new Map<string, EmoticonModerationRule>();
   private readonly userLastAccepted = new Map<string, number>();
-  private readonly queue: { command: EmoticonCommand; author?: EmoticonAuthor }[] = [];
+  private readonly queue: { command: EmoticonCommand; author?: EmoticonAuthor; eventText?: string }[] = [];
   private readonly stickerTimers = new Set<ReturnType<typeof setTimeout>>();
   private active: EmoticonCommand | null = null;
   private activeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -92,12 +92,13 @@ export class EmoticonRuntime {
     }
   }
 
-  trigger(id: string, source = "preview", messageId?: string, author?: EmoticonAuthor, roleAllowed = false) {
+  trigger(id: string, source = "preview", messageId?: string, author?: EmoticonAuthor, roleAllowed = false, eventText?: string) {
     const command = this.commands.find(item => item.id === id);
     const rule = source.startsWith("chat") && author?.did ? this.moderation.get(author.did) : undefined;
     const userRemaining = rule && this.userLastAccepted.has(rule.did)
       ? Math.max(0, this.userLastAccepted.get(rule.did)! + rule.cooldownSeconds * 1000 - Date.now()) : 0;
     const reason = !this.enabled ? "module-disabled" : !command ? "unknown-command"
+      : source === "stream-event" && command.mode === "sticker" ? "event-requires-clip"
       : rule?.blocked ? "user-blocked"
       : source.startsWith("chat") && rolesRestricted(this.roles) && !roleAllowed ? "role-not-allowed"
       : source === "chat" && userRemaining > 0 ? "user-cooldown"
@@ -124,7 +125,7 @@ export class EmoticonRuntime {
     }
     this.cooldownEnds.set(id, Date.now() + command.cooldownSeconds * 1000);
     this.publishCooldowns();
-    this.queue.push(structuredClone({ command, author }));
+    this.queue.push(structuredClone({ command, author, ...(source === "stream-event" && eventText?.trim() ? { eventText: eventText.trim().slice(0, 500) } : {}) }));
     this.log("emoticons.command-queued", { command: command.command, commandId: id, source, messageId, queueLength: this.queue.length });
     this.next();
     return true;
@@ -151,9 +152,9 @@ export class EmoticonRuntime {
     this.options.cooldowns?.(cooldowns);
   }
 
-  private emit(command: EmoticonCommand, author?: EmoticonAuthor) {
+  private emit(command: EmoticonCommand, author?: EmoticonAuthor, eventText?: string) {
     const event: Extract<EmoticonEvent, { type: "effect" }> = {
-      type: "effect", id: crypto.randomUUID(), command: structuredClone(command), durationSeconds: command.durationSeconds, author,
+      type: "effect", id: crypto.randomUUID(), command: structuredClone(command), durationSeconds: command.durationSeconds, author, ...(eventText ? { eventText } : {}),
     };
     return this.options.effect(event);
   }
@@ -170,7 +171,7 @@ export class EmoticonRuntime {
         this.next();
       }, queued.command.durationSeconds * 1000);
     };
-    const ready = this.emit(queued.command, queued.author);
+    const ready = this.emit(queued.command, queued.author, queued.eventText);
     if (ready instanceof Promise) void ready.then(startDuration, () => {
       if (this.active !== queued.command) return;
       this.log("emoticons.playback-failed", { commandId: queued.command.id });

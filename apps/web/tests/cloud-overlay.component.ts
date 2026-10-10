@@ -31,19 +31,21 @@ test.each([false, true])("stream events trigger mapped commands only in the live
   HTMLElement.prototype.getAnimations = vi.fn(() => []);
   history.replaceState({}, "", `/emotes/?did=did:plc:alice${preview ? '&preview=1' : ''}`);
   document.body.innerHTML = '<main class="effect"></main>';
-  let eventMappings = [{ event: "teleport-arrival", commandId: "wave" }];
+  let eventMappings = [{ event: "teleport-arrival", commandId: "wave", text: "Welcome <friends>!" }];
   vi.stubGlobal("fetch", vi.fn(async () => Response.json({ enabled: true, streamerDid: "did:plc:alice", eventMappings,
-    commands: [{ id: "wave", command: "wave", mode: "sticker", durationSeconds: 8, cooldownSeconds: 0, volume: 1,
+    commands: [{ id: "wave", command: "wave", mode: "effect", durationSeconds: 8, cooldownSeconds: 0, volume: 1,
       width: "", height: "", mirrored: false, image: { url: "https://example.test/wave.gif" } }] })));
   await import("../src/cloud-overlay.ts"); await flushPromises();
   liveEvents.receive!({ type: "teleport-arrival", id: "arrival:one", author: { did: "did:plc:source", handle: "source.example" } });
   await flushPromises();
-  expect(document.querySelectorAll('.sticker').length).toBe(preview ? 0 : 1);
+  expect(document.querySelectorAll('.clip').length).toBe(preview ? 0 : 1);
+  expect(document.querySelector('.event-text')?.textContent).toBe(preview ? undefined : 'Welcome <friends>!');
+  expect(document.querySelector('.event-text friends')).toBeNull();
   if (!preview) expect(relay.send).toHaveBeenCalledWith(expect.objectContaining({ event: "event-accepted", commandId: "wave" }));
   eventMappings = [];
   relay.receive!({ type: "config-changed" }); await flushPromises();
   liveEvents.receive!({ type: "teleport-arrival", id: "arrival:two" }); await flushPromises();
-  expect(document.querySelectorAll('.sticker').length).toBe(preview ? 0 : 1);
+  expect(document.querySelectorAll('.clip').length).toBe(preview ? 0 : 1);
 });
 test.each(["/emote-listings/", "/board/"])("%s initializes the listing runtime, not effect playback", async path => {
   history.replaceState({}, "", `${path}?did=did:plc:alice`);
