@@ -78,7 +78,7 @@ function removeMedia(kind: MediaKind) {
   delete pending.value[kind];
   delete draftFiles[kind];
 }
-function reset() {
+function clearDraft() {
   formOpen.value = false;
   editing.value = null;
   form.value = defaults();
@@ -88,7 +88,16 @@ function reset() {
   mediaUrlInput.value = "";
   unresolvedUrl.value = "";
   for (const kind of kinds) clearPreview(kind);
+}
+function reset() {
+  clearDraft();
   emit('panel-change', 'commands');
+}
+function cancel() {
+  if (props.panel !== 'create') return reset();
+  clearDraft();
+  formOpen.value = true;
+  message.value = "";
 }
 function create() {
   reset();
@@ -571,7 +580,7 @@ defineExpose({ acceptCardDrop });
       <div class="form-actions">
         <button class="primary-button" type="submit" :disabled="busy">
           {{ editing ? "Save changes" : "Create new command" }}</button
-        ><button type="button" class="secondary-button" :disabled="busy" @click="reset">
+        ><button type="button" class="secondary-button" :disabled="busy" @click="cancel">
           Cancel
         </button>
       </div>

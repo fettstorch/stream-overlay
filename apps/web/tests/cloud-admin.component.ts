@@ -235,6 +235,13 @@ describe("Cloud Admin", () => {
       expect(wrapper.get('.command-editor').isVisible()).toBe(true);
       expect(wrapper.get('.board-url').isVisible()).toBe(false);
       expect(wrapper.find('iframe[title="Emoticons preview"]').exists()).toBe(false);
+      await wrapper.get('.command-editor input[placeholder="!wow"]').setValue('draft');
+      await wrapper.get('.command-editor input[type="range"]').setValue('0.4');
+      await wrapper.findAll('.form-actions button').find(button => button.text() === 'Cancel')!.trigger('click');
+      expect(createButton.attributes('aria-selected')).toBe('true');
+      expect(wrapper.get('.command-editor').isVisible()).toBe(true);
+      expect((wrapper.get('.command-editor input[placeholder="!wow"]').element as HTMLInputElement).value).toBe('');
+      expect((wrapper.get('.command-editor input[type="range"]').element as HTMLInputElement).value).toBe('1');
     } finally { wrapper.unmount(); vi.useRealTimers(); }
   });
   test("tests a saved command through its authenticated account endpoint and preserves editing controls", async () => {
