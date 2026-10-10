@@ -44,7 +44,7 @@ async function sendChat() {
 const chatUrl = computed(() => `https://stream.place/chat-popout/${encodeURIComponent(props.config.streamerDid)}`);
 const tabs = [
   { id: "commands", label: "Testing" },
-  { id: "create", label: "Create new" },
+  { id: "create", label: "Commands" },
   { id: "moderation", label: "Moderation" },
   { id: "routines", label: "Routines" },
 ];

@@ -88,7 +88,7 @@ test("saves rules through existing configuration flow and preserves input on fai
   await flushPromises();
   expect(wrapper.findAll('[role="tab"]').map((item) => item.text())).toEqual([
     "Testing",
-    "Create new",
+    "Commands",
     "Moderation",
     "Routines",
   ]);
