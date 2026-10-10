@@ -126,7 +126,7 @@ async function navigate(event: KeyboardEvent, index: number) {
 }
 #app .drawn-tab.tab-left {
   top: 1px;
-  transform: rotate(-1deg);
+  transform: rotate(-0.5deg);
   --cap-start: calc(52px * 55 / 117);
   --cap-end: calc(52px * 85 / 117);
   --start-image: url("./assets/branding/controls/tab-left-start.png");
