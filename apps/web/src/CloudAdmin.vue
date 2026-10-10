@@ -39,6 +39,7 @@ const loginMessage = ref("");
 const configurationMessage = ref("");
 const moduleMessages = ref<Record<string, string>>({});
 const saving = ref(false);
+const tutorialOpen = ref(false);
 const profile = ref<PublicActorProfile | null>(null);
 const profileState = ref<"loading" | "ready" | "unavailable">("loading");
 const copied = ref<string | null>(null);
@@ -516,6 +517,12 @@ onBeforeUnmount(() => {
         <SetupImport :did="did" :config="config" :save="candidate => saveConfiguration(candidate, undefined, 'preferences')" />
         <p v-if="moduleMessages.preferences" role="alert">{{ moduleMessages.preferences }}</p>
       </CollapsibleSection>
+      <CollapsibleSection v-model:open="tutorialOpen" title="Tutorial">
+        <video v-if="tutorialOpen" class="tutorial-video" controls preload="none" playsinline aria-label="Emotes tutorial">
+          <source src="/emotes-tutorial.mp4" type="video/mp4">
+          Your browser does not support video playback.
+        </video>
+      </CollapsibleSection>
       <section>
         <h2>Modules</h2>
         <label v-if="cloudModules.length >= 6" class="module-search"
@@ -759,6 +766,7 @@ onBeforeUnmount(() => {
   <BrandMascot />
 </template>
 <style scoped>
+.tutorial-video { display: block; width: 100%; height: auto; }
 main { position: relative; z-index: 2; }
 .site-footer { position: fixed; left: 20px; bottom: 16px; z-index: 1; margin: 0; text-align: left; font-size: 1rem; color: #000; }
 .site-footer a { color: inherit; }
