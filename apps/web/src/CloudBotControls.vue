@@ -244,8 +244,7 @@ async function copy() {
 .bot-chat-input-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .chat-avatar { width: 40px; height: 40px; flex: 0 0 40px; border-radius: 50%; object-fit: cover; }
 .bot-chat-input-row > input { flex: 1; min-width: 0; }
-#app .chat-send { flex: 0 0 44px; width: 44px; height: 44px; padding: 0; border: 0; background: transparent; box-shadow: none; }
-#app .chat-send::before { display: none; }
+#app .chat-send { flex: 0 0 44px; width: 44px; height: 44px; padding: 9px; }
 .chat-send img { display: block; width: 100%; height: 100%; object-fit: contain; }
 @media (min-width: 900px) {
   .bot-commands-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
