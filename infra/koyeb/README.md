@@ -98,6 +98,14 @@ Required secrets/settings:
 - `LEXICON_NAMESPACE=live.streamface` (the default): the module schemas in `lexicons/`.
   Follow `lexicons/README.md` for publication and migration details.
 - `AUTH_DATA_DIR=/data/auth` and `PORT=8000`.
+- Optional `GIPHY_API_KEY`: enables GIF search in Create new and ID resolution in OBS.
+  This is a **public browser API key**, not a server secret: GIPHY requires direct
+  browser API/media requests. It is never logged or stored in PDS records.
+  Locally, set it in a gitignored `.env` and restart `bun run cloud:dev`; in Koyeb,
+  configure the environment variable yourself. No deployment is performed automatically.
+  Publish the updated Emoticons `defs` and `command` lexicons before saving Giphy commands.
+  Only GIF IDs are persisted; overlays resolve them during preload and load images
+  directly from GIPHY, without our Blob/object-URL cache. Existing URLs/blobs are unchanged.
 
 The server refuses a non-HTTPS external origin, the checked-in development
 namespace, or the development session secret. Local loopback HTTP is accepted only

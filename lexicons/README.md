@@ -3,7 +3,13 @@
 `live.streamface` is backed by the owned `streamface.live` domain. Each module owns
 its collection. Chat, Emoticons, Paint and Pets settings use a singleton `self`
 record. Each Emoticons command has a stable record key independent of its invocation
-name; media explicitly chooses an external HTTPS URL or an uploaded PDS blob.
+name; media explicitly chooses an external HTTPS URL, an uploaded PDS blob, or
+(for images only) a Giphy GIF ID.
+
+Giphy references use `live.streamface.emoticons.defs#giphyMedia` with an `id`.
+Resolved media URLs and the browser API key are never persisted in the repository.
+Publish the updated `defs` and `command` schemas before using these references;
+this extends the existing image union without a new collection or DNS record.
 
 `live.streamface.preferences` stores account-wide UI preferences at `self`, including
 `confirmDeletion`. Absence means confirmations are enabled. The opt-out is saved

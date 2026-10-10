@@ -17,6 +17,7 @@ import { STREAMFACE_NAMESPACE, moduleCollections } from "./module-records.ts";
 
 const defaultWebRoot = resolve(import.meta.dir, "../../web/dist");
 type Dependencies = {
+  giphyApiKey?: string;
   enablePets?: boolean;
   origin: string;
   webRoot: string;
@@ -235,6 +236,27 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
     }
   }
   if (path === "/health") return json({ status: "ok" });
+  // Browser API key by design: GIPHY forbids proxying API/media requests.
+  if (path === "/api/giphy" && request.method === "GET") {
+    deps.logger.log("info", "cloud.giphy.configuration", { requestId, configured: Boolean(deps.giphyApiKey) });
+    return json({ apiKey: deps.giphyApiKey ?? "" });
+  }
+  const giphyDid = didFromPath(path, "giphy-diagnostics");
+  if (giphyDid && request.method === "POST") {
+    if (!sameOrigin(request, deps.origin)) return json({ error: "invalid-origin" }, 403);
+    if (await readSessionCookie(request, deps.secret) !== giphyDid) return json({ error: "unauthorized" }, 401);
+    try {
+      const data = JSON.parse(new TextDecoder().decode(await boundedBody(request, 1024)));
+      if (!["started", "completed", "failed", "selected"].includes(data.event) ||
+          typeof data.operationId !== "string" || !/^[a-f0-9-]{36}$/.test(data.operationId))
+        return json({ error: "invalid-diagnostic" }, 400);
+      deps.logger.log(data.event === "failed" ? "warn" : "info", `cloud.giphy.search-${data.event}`, {
+        requestId, operationId: data.operationId,
+        count: Number.isSafeInteger(data.count) ? Math.max(0, Math.min(50, data.count)) : undefined,
+      });
+      return json({ ok: true });
+    } catch { return json({ error: "invalid-diagnostic" }, 400); }
+  }
   if (path === "/oauth/client-metadata.json") return json(deps.oauth.clientMetadata);
   if (path === "/oauth/login") {
     const handle = url.searchParams.get("handle")?.trim();
@@ -609,6 +631,7 @@ export function createDependencies(env = process.env): Dependencies {
   );
   const oauth = createOAuth(origin, dataDir, scope);
   return {
+    giphyApiKey: env.GIPHY_API_KEY?.trim(),
     enablePets: env.ENABLE_CLOUD_PETS === "true",
     origin,
     webRoot: env.WEB_DIST ?? resolve(process.cwd(), "apps/web/dist"),

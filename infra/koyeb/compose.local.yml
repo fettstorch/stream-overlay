@@ -13,6 +13,7 @@ services:
       SESSION_SECRET: local-development-only-secret-000000000000
       LEXICON_NAMESPACE: live.streamface
       AUTH_DATA_DIR: /data/auth
+      GIPHY_API_KEY: ${GIPHY_API_KEY:-}
     ports:
       - 127.0.0.1:${CLOUD_PORT:-3010}:8000
     volumes:

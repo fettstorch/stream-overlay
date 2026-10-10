@@ -5,6 +5,8 @@ import DeleteConfirmation from "./DeleteConfirmation.vue";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import type { CloudCommand, CloudConfig, CloudMedia } from "./cloud-admin-types.ts";
 import { validateCloudCommand } from "../../../modules/emoticons/src/validation.ts";
+import { searchGiphy, resolveGiphy, type GiphyChoice } from "./giphy.ts";
+import giphyAttribution from "./assets/branding/PoweredBy_200px-White_HorizLogo.png";
 
 const props = defineProps<{
   did: string;
@@ -28,6 +30,46 @@ const draftFiles: Partial<Record<MediaKind, File>> = {};
 const previewUrls = ref<Partial<Record<MediaKind, string>>>({});
 const mediaUrlInput = ref(""),
   unresolvedUrl = ref("");
+const giphyResults = ref<GiphyChoice[]>([]), giphySearching = ref(false);
+const giphySearchMode = computed(() => Boolean(mediaUrlInput.value.trim()) && !/^[a-z][a-z0-9+.-]*:/i.test(mediaUrlInput.value.trim()));
+let giphyGeneration = 0, giphyOperationId = "";
+watch(mediaUrlInput, () => { giphyGeneration++; giphyResults.value = []; giphySearching.value = false; });
+function giphyLog(event: "started" | "completed" | "failed" | "selected", operationId: string, count?: number) {
+  void adminFetch(`/api/accounts/${encodeURIComponent(props.did)}/giphy-diagnostics`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ event, operationId, count }), signal: AbortSignal.timeout(5000),
+  }).catch(() => {});
+}
+async function submitMediaInput() {
+  if (!giphySearchMode.value) return addMediaUrl();
+  const generation = ++giphyGeneration, operationId = crypto.randomUUID();
+  giphyOperationId = operationId; giphySearching.value = true; giphyResults.value = [];
+  message.value = "Searching GIPHY…"; giphyLog("started", operationId);
+  try {
+    const results = await searchGiphy(mediaUrlInput.value.trim());
+    if (generation !== giphyGeneration) return;
+    giphyResults.value = results;
+    message.value = results.length ? "Choose a GIF to attach it." : "No GIFs found. Try another search.";
+    giphyLog("completed", operationId, results.length);
+  } catch (error) {
+    if (generation !== giphyGeneration) return;
+    message.value = error instanceof Error ? error.message : "Giphy search failed. Try again.";
+    giphyLog("failed", operationId);
+  } finally { if (generation === giphyGeneration) giphySearching.value = false; }
+}
+function selectGiphy(gif: GiphyChoice) {
+  giphyLog("selected", giphyOperationId);
+  removeMedia("image"); removeMedia("video");
+  pending.value.image = { giphyId: gif.id };
+  previewUrls.value.image = gif.url;
+  mediaUrlInput.value = ""; unresolvedUrl.value = "";
+  message.value = "GIF attached — only its Giphy ID will be stored on your PDS.";
+}
+watch(() => pending.value.image?.giphyId, async id => {
+  if (!id || previewUrls.value.image) return;
+  try { const url = await resolveGiphy(id); if (pending.value.image?.giphyId === id) previewUrls.value.image = url; }
+  catch { if (pending.value.image?.giphyId === id) message.value = "The saved Giphy GIF could not be previewed."; }
+});
 const defaults = (): CloudCommand => ({
   id: "",
   command: "",
@@ -390,6 +432,7 @@ async function deleteConfirmed(command: CloudCommand, dontShowAgain = false) {
   if (saved && editing.value === command.id) reset();
 }
 onBeforeUnmount(() => {
+  giphyGeneration++;
   for (const kind of kinds) clearPreview(kind);
 });
 defineExpose({ acceptCardDrop });
@@ -475,15 +518,24 @@ defineExpose({ acceptCardDrop });
         /></label>
         <div class="media-url-row">
           <label
-            >Or add a direct HTTPS media URL<input
+            >Or paste a media URL / search GIPHY<input
               v-model="mediaUrlInput"
-              type="url"
-              placeholder="https://…/media.gif"
+              type="text"
+              placeholder="https://…/media.gif or a GIF search"
               :disabled="busy"
-              @keydown.enter.prevent="addMediaUrl" /></label
-          ><button type="button" :disabled="busy || !mediaUrlInput.trim()" @click="addMediaUrl">
-            Add URL
+              @keydown.enter.prevent="submitMediaInput" /></label
+          ><button type="button" :disabled="busy || giphySearching || !mediaUrlInput.trim()" @click="submitMediaInput">
+            {{ giphySearching ? 'Searching…' : giphySearchMode ? 'Search' : 'Add URL' }}
           </button>
+        </div>
+        <div v-if="giphySearchMode || giphyResults.length" class="giphy-picker">
+          <img :src="giphyAttribution" alt="Powered by GIPHY" width="200" />
+          <div v-if="giphyResults.length" class="giphy-results" aria-label="Giphy search results">
+            <button v-for="gif in giphyResults" :key="gif.id" type="button" :aria-label="`Choose ${gif.title}`"
+              :disabled="busy" @click="selectGiphy(gif)">
+              <img :src="gif.preview" :alt="gif.title" loading="lazy" />
+            </button>
+          </div>
         </div>
         <small
           >{{

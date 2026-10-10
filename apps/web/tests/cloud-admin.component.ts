@@ -9,6 +9,8 @@ const actorMocks = vi.hoisted(() => ({
   searchPublicActors: vi.fn(async () => []),
 }));
 vi.mock("../src/actor-search.ts", () => actorMocks);
+const giphyMocks = vi.hoisted(() => ({ searchGiphy: vi.fn(), resolveGiphy: vi.fn() }));
+vi.mock("../src/giphy.ts", () => giphyMocks);
 
 afterEach(() => { localStorage.clear(); vi.unstubAllGlobals(); actorMocks.loadPublicActorProfile.mockReset(); actorMocks.loadPublicActorProfile.mockResolvedValue({ did: "did:plc:alice", handle: "alice.bsky.social", displayName: "Alice", avatar: "https://cdn.example/alice.jpg" }); });
 const session = { did: "did:plc:alice" };
@@ -18,6 +20,21 @@ function response(body: unknown, status = 200) { return new Response(JSON.string
 function mediaDrag(type: string, name = "drop.gif") { const event = new Event(type, { bubbles: true, cancelable: true }); Object.defineProperty(event, "dataTransfer", { value: { types: ["Files"], files: [new File(["GIF8"], name)], dropEffect: "none" } }); return event; }
 
 describe("Cloud Admin", () => {
+  test("searches the media field and saves the selected Giphy ID, not its URL", async () => {
+    giphyMocks.searchGiphy.mockResolvedValue([{ id: "abc", title: "Happy", preview: "https://media.giphy.com/abc/small.gif", url: "https://media.giphy.com/abc/giphy.gif" }]);
+    vi.stubGlobal("fetch", vi.fn(async () => response({ ok: true })));
+    const save = vi.fn(async () => true);
+    const wrapper = mount(CloudEmoticonControls, { props: { did: session.did, config, save } });
+    await wrapper.get('.primary-button').trigger('click');
+    const input = wrapper.get('input[placeholder="https://…/media.gif or a GIF search"]');
+    await input.setValue("happy"); await input.trigger("keydown", { key: "Enter" }); await flushPromises();
+    expect(giphyMocks.searchGiphy).toHaveBeenCalledWith("happy");
+    await wrapper.get('button[aria-label="Choose Happy"]').trigger("click");
+    await wrapper.get('input[placeholder="!wow"]').setValue("happy");
+    await wrapper.get('.command-editor').trigger("submit"); await flushPromises();
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ commands: expect.arrayContaining([expect.objectContaining({ command: "happy", image: { giphyId: "abc" } })]) }), expect.any(String));
+    wrapper.unmount();
+  });
   test("retains upstream attribution in the optional Pets controls", () => {
     const wrapper = mount(CloudModuleControls, { props: { moduleId: "streamplace-pets", config, save: vi.fn(async () => true) } });
     const attribution = wrapper.get('aside[aria-label="Streamplace Pets attribution"]');
@@ -299,7 +316,7 @@ describe("Cloud Admin", () => {
     await wrapper.get('button[aria-label="Show Emoticons details"]').trigger("click");
     await wrapper.findAll('[role="tab"]').find(tab => tab.text() === 'Create new')!.trigger("click");
     expect(wrapper.text()).toContain("Create new command"); expect(wrapper.text()).toContain("Media — drop files or choose");
-    expect(wrapper.findAll('.drop-zone input[type="url"]')).toHaveLength(1); expect(wrapper.text()).not.toContain("Image/GIF URL"); expect(wrapper.text()).toContain("one visual and separate audio");
+    expect(wrapper.findAll('.drop-zone input[placeholder="https://…/media.gif or a GIF search"]')).toHaveLength(1); expect(wrapper.text()).not.toContain("Image/GIF URL"); expect(wrapper.text()).toContain("one visual and separate audio");
     wrapper.unmount();
   });
 

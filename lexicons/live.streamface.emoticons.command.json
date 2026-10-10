@@ -30,6 +30,7 @@
           "image": {
             "type": "union",
             "refs": [
+              "live.streamface.emoticons.defs#giphyMedia",
               "live.streamface.emoticons.defs#externalMedia",
               "live.streamface.emoticons.defs#uploadedMedia"
             ],

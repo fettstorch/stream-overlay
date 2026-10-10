@@ -1,3 +1,12 @@
+# GIPHY
+
+GIF search and ID resolution use the official `@giphy/js-fetch-api` SDK.
+The Powered by GIPHY mark is the unmodified official light-background asset.
+GIPHY content is loaded directly from its service, not redistributed with this app.
+Only GIF IDs are persisted; resolved URLs and files are not stored in a custom
+persistent cache. Loaded browser images are retained while the page is open.
+API access and content usage remain subject to GIPHY's developer terms.
+
 # Streamplace Pets
 
 Upstream: https://github.com/streamplace/streamplace-pets

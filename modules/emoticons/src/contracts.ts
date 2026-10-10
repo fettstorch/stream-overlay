@@ -13,6 +13,7 @@ export interface EmoticonCommand {
   width: string;
   height: string;
   imageUrl?: string;
+  imageGiphyId?: string;
   audioUrl?: string;
   videoUrl?: string;
 }

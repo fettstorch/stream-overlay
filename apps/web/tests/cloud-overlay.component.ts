@@ -2,6 +2,8 @@ import { afterEach, expect, test, vi } from "vitest";
 import { flushPromises } from "@vue/test-utils";
 const assets = vi.hoisted(() => ({ load: vi.fn(async (source: string) => source), retain: vi.fn(), clear: vi.fn() }));
 vi.mock("../../../modules/emoticons/src/asset-cache.ts", () => ({ createStickerAssetCache: () => assets }));
+const giphy = vi.hoisted(() => ({ load: vi.fn(async (id: string) => `https://media.giphy.com/${id}/giphy.gif`), retain: vi.fn(), clear: vi.fn() }));
+vi.mock("../src/giphy.ts", () => ({ createGiphyPreloader: () => giphy }));
 
 const relay = vi.hoisted(() => ({ receive: undefined as undefined | ((message: any) => void), send: vi.fn(), close: vi.fn() }));
 vi.mock("@streamface/browser-runtime", () => ({ RelayClient: class {
@@ -20,6 +22,26 @@ afterEach(() => {
   vi.useRealTimers(); vi.unstubAllGlobals(); vi.resetModules();
   document.body.replaceChildren(); relay.send.mockClear();
   assets.load.mockClear(); assets.retain.mockClear(); assets.clear.mockClear();
+  giphy.load.mockClear(); giphy.retain.mockClear(); giphy.clear.mockClear();
+});
+
+test("Giphy IDs preload on startup and updates without entering the blob cache", async () => {
+  history.replaceState({}, "", "/effect/?did=did:plc:alice");
+  document.body.innerHTML = '<main class="effect"></main>';
+  const command = { id: "gif", command: "gif", mode: "sticker", durationSeconds: 5, cooldownSeconds: 0, volume: 1, width: "", height: "", mirrored: false };
+  let commands = [{ ...command, image: { giphyId: "abc" } }];
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ enabled: true, streamerDid: "did:plc:alice", commands })));
+  await import("../src/cloud-overlay.ts"); await flushPromises();
+  expect(giphy.load).toHaveBeenCalledWith("abc");
+  expect(assets.load).not.toHaveBeenCalled();
+  expect(relay.send).toHaveBeenCalledWith(expect.objectContaining({ event: "media-loaded", reason: "giphy-preload-ready" }));
+  commands = [{ ...command, image: { giphyId: "def" } }];
+  relay.receive!({ type: "config-changed" }); await flushPromises();
+  expect(giphy.load).toHaveBeenCalledWith("def");
+  expect(giphy.retain).toHaveBeenLastCalledWith(new Set(["def"]));
+  expect(assets.load).not.toHaveBeenCalled();
+  relay.receive!({ type: "test-command", commandId: "gif", requestId: "giphy-test" }); await flushPromises();
+  expect(document.querySelector<HTMLImageElement>(".sticker-media img")?.src).toBe("https://media.giphy.com/def/giphy.gif");
 });
 
 test("Test playback starts a keyframe sticker animation rather than a first-frame transition", async () => {

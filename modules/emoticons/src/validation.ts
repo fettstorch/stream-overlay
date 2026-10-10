@@ -17,6 +17,11 @@ export function validateMediaUrl(value: unknown) {
 }
 function validateMedia(value: CloudMedia | undefined) {
   if (!value) return;
+  if (value.giphyId !== undefined) {
+    if (typeof value.giphyId !== "string" || !/^[A-Za-z0-9]{1,128}$/.test(value.giphyId) || value.url || value.blob)
+      throw new Error("Invalid Giphy media ID");
+    return;
+  }
   if (value.url && !value.blob) {
     if (!validateMediaUrl(value.url)) throw new Error("Media URLs must use HTTPS");
     return;
@@ -62,6 +67,7 @@ export function validateCloudCommand(value: CloudCommand, requireMedia = true) {
   )
     throw new Error("Use CSS sizes such as 300px, 40vw, 25vh, 50%, or auto");
   for (const media of [value.image, value.audio, value.video]) validateMedia(media);
+  if (value.audio?.giphyId || value.video?.giphyId) throw new Error("Giphy GIF IDs belong in image media");
   if (value.mode === "sticker" && value.audio) throw new Error("Stickers cannot include audio");
   if (value.image && value.video) throw new Error("Choose an image or video for the visual");
   if (requireMedia && !value.image && !value.video && !value.audio)

@@ -40,6 +40,12 @@ const config: CloudConfig = {
     },
   ],
 };
+test("Giphy records persist only IDs and roundtrip independently of media URLs", () => {
+  const records = serializeModuleRecords({ ...config, commands: [{ ...config.commands[0]!, image: { giphyId: "abc123" } }] }, [], timestamp);
+  const record = records.find(item => item.collection === moduleCollections.command)!;
+  expect(record.value.image).toEqual({ $type: "live.streamface.emoticons.defs#giphyMedia", id: "abc123" });
+  expect(parseModuleRecords(did, records).commands[0]!.image).toEqual({ giphyId: "abc123" });
+});
 test("moderation rules roundtrip, retain fractional seconds and survive older clients", () => {
   const moderation = [{ did: "did:plc:viewer", handle: "viewer.example", blocked: false, cooldownSeconds: 30.5 }];
   const records = serializeModuleRecords({ ...config, moderation }, [], timestamp);

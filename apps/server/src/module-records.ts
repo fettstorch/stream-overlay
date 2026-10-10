@@ -80,6 +80,7 @@ export function parseModuleRecords(did: string, records: StoredRecord[]): CloudC
         value
           ? value.$type.endsWith("#uploadedMedia")
             ? { blob: value.blob }
+            : value.$type.endsWith("#giphyMedia") ? { giphyId: value.id }
             : { url: value.url }
           : undefined;
       const command: CloudCommand = {
@@ -200,7 +201,9 @@ export function serializeModuleRecords(
   for (const command of config.commands) {
     validateCloudCommand(command);
     const media = (value: CloudMedia) =>
-      value.blob
+      value.giphyId
+        ? { $type: `${mediaSchema.id}#giphyMedia`, id: value.giphyId }
+        : value.blob
         ? { $type: `${mediaSchema.id}#uploadedMedia`, blob: value.blob }
         : { $type: `${mediaSchema.id}#externalMedia`, url: value.url };
     records.push(

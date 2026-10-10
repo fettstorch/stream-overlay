@@ -8,6 +8,7 @@ import { effectTop, mediaObjectFit } from "../../../modules/emoticons/src/media-
 import { loadPublicActorProfile } from "./actor-search.ts";
 import tailUrl from "../../../modules/emoticons/assets/speech-bubble-tail.png";
 import { createStickerAssetCache } from "../../../modules/emoticons/src/asset-cache.ts";
+import { createGiphyPreloader } from "./giphy.ts";
 
 const boardMode = location.pathname.startsWith("/board"); const did = new URLSearchParams(location.search).get("did") ?? ""; const channel = new URLSearchParams(location.search).get("preview") === "1" ? "preview" : "live";
 if (!did.startsWith("did:")) document.body.textContent = "Missing ?did= account identifier";
@@ -20,6 +21,8 @@ const board = boardMode ? createCloudBoard(container) : undefined;
 const muted = new URLSearchParams(location.search).get("muted") === "1";
 const activeMedia = new Set<HTMLMediaElement>(), activeWrappers = new Set<HTMLElement>();
 const effectAssets = createStickerAssetCache();
+const giphyAssets = createGiphyPreloader();
+let preloadedGiphyIds = new Set<string>();
 let preloadedSources = new Set<string>();
 let playbackGeneration = 0;
 let soundButton: HTMLButtonElement | undefined;
@@ -49,7 +52,9 @@ async function play(event: Extract<EmoticonEvent, { type: "effect" }>) {
   const context = { requestId, commandId: command.id };
   const generation = playbackGeneration;
   try {
+    if (command.imageGiphyId) command.imageUrl = await giphyAssets.load(command.imageGiphyId);
     await Promise.all((["imageUrl", "videoUrl", "audioUrl"] as const).map(async key => {
+      if (key === "imageUrl" && command.imageGiphyId) return;
       if (command[key]) command[key] = await effectAssets.load(command[key]!);
     }));
   } catch {
@@ -139,9 +144,25 @@ async function refresh(force = false) {
     const response = await fetch(`/api/accounts/${encodeURIComponent(did)}/config${force ? "?refresh=1" : ""}`, { cache: "no-store" });
     if (!response.ok) { if (!boardMode) diagnostic("config-failed", { requestId: response.headers.get("x-request-id") ?? undefined, reason: `http-${response.status}` }); return; }
     const cloud = await response.json() as import("./cloud-admin-types.ts").CloudConfig;
-    const commands: EmoticonCommand[] = cloud.commands.map(command => ({ ...command, imageAssetId: null, audioAssetId: null, videoAssetId: null, imageUrl: command.image?.url, audioUrl: command.audio?.url, videoUrl: command.video?.url }));
+    const commands: EmoticonCommand[] = cloud.commands.map(command => ({ ...command, imageAssetId: null, audioAssetId: null, videoAssetId: null, imageUrl: command.image?.url, imageGiphyId: command.image?.giphyId, audioUrl: command.audio?.url, videoUrl: command.video?.url }));
+    const giphyIds = new Set(commands.flatMap(command => command.imageGiphyId ? [command.imageGiphyId] : []));
+    giphyAssets.retain(giphyIds);
+    preloadedGiphyIds = new Set([...preloadedGiphyIds].filter(id => giphyIds.has(id)));
+    for (const command of commands) if (command.imageGiphyId) {
+      const id = command.imageGiphyId;
+      void giphyAssets.load(command.imageGiphyId).then(url => {
+        command.imageUrl = url;
+        if (!boardMode && !preloadedGiphyIds.has(id)) {
+          preloadedGiphyIds.add(id);
+          diagnostic("media-loaded", { commandId: command.id, reason: "giphy-preload-ready" });
+        }
+        if (config.commands === commands) renderBoard();
+      }).catch(() => {
+        if (!boardMode) diagnostic("media-failed", { commandId: command.id, reason: "giphy-preload-failed" });
+      });
+    }
     if (!boardMode) {
-      const sources = new Set(commands.flatMap(command => [command.imageUrl, command.videoUrl, command.audioUrl].filter((source): source is string => Boolean(source))));
+      const sources = new Set(commands.flatMap(command => [command.imageGiphyId ? undefined : command.imageUrl, command.videoUrl, command.audioUrl].filter((source): source is string => Boolean(source))));
       effectAssets.retain(sources);
       for (const source of sources) if (!preloadedSources.has(source)) {
         preloadedSources.add(source);
@@ -178,4 +199,4 @@ const relay = new RelayClient(`${location.protocol === "https:" ? "wss" : "ws"}:
     if (!accepted) testRequests.delete(message.commandId);
   }
 }, () => { if (!boardMode) relay.send({ type: "cooldowns", revision: nextRevision(), cooldowns }); });
-void refresh(); const poll = setInterval(() => void refresh(true), 60_000); addEventListener("pagehide", () => { clearInterval(poll); relay.close(); chat?.stop(); runtime?.clear(); clearPlayback(); effectAssets.clear(); board?.close(); });
+void refresh(); const poll = setInterval(() => void refresh(true), 60_000); addEventListener("pagehide", () => { clearInterval(poll); relay.close(); chat?.stop(); runtime?.clear(); clearPlayback(); effectAssets.clear(); giphyAssets.clear(); board?.close(); });

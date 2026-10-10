@@ -6,6 +6,7 @@ export type EmoticonModerationRule = {
   cooldownSeconds: number;
 };
 export type CloudMedia = {
+  giphyId?: string;
   url?: string;
   blob?: {
     $type: "blob";

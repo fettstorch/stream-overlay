@@ -29,6 +29,14 @@ function webRoot() {
 }
 
 describe("cloud server boundary", () => {
+  test("Giphy browser configuration exposes only the configured key without logging it", async () => {
+    const logged: unknown[] = [];
+    const deps = { ...dependencies(webRoot()), giphyApiKey: "test-browser-key", logger: new StructuredLogger(undefined, entry => logged.push(entry)) };
+    const response = await handleRequest(new Request("https://overlay.example/api/giphy"), deps);
+    expect(await response.json()).toEqual({ apiKey: "test-browser-key" });
+    expect(JSON.stringify(logged)).not.toContain("test-browser-key");
+    expect(JSON.stringify(logged)).toContain("cloud.giphy.configuration");
+  });
   test("blocks stale Pets files and encoded aliases unless explicitly enabled", async () => {
     const root = webRoot();
     mkdirSync(join(root, "pets/upstream"), { recursive: true });
