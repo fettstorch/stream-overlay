@@ -72,7 +72,7 @@ async function navigate(event: KeyboardEvent, index: number) {
 }
 .drawn-tab-list {
   position: relative;
-  top: 0;
+  top: -1px;
   display: flex;
   align-items: end;
   padding: 0 0 0 19px;
