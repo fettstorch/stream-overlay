@@ -40,6 +40,7 @@ const configurationMessage = ref("");
 const moduleMessages = ref<Record<string, string>>({});
 const saving = ref(false);
 const tutorialOpen = ref(false);
+const publicTutorialOpen = ref(true);
 const profile = ref<PublicActorProfile | null>(null);
 const profileState = ref<"loading" | "ready" | "unavailable">("loading");
 const copied = ref<string | null>(null);
@@ -431,7 +432,8 @@ onBeforeUnmount(() => {
     <section v-if="sessionState === 'loading'" class="settings loading-card" aria-live="polite">
       Connecting to Streamface…
     </section>
-    <section v-else-if="sessionState === 'anonymous'" class="settings auth-card">
+    <template v-else-if="sessionState === 'anonymous'">
+    <section class="settings auth-card">
       <div>
         <p class="section-kicker">AT PROTOCOL</p>
         <h2>Connect your account</h2>
@@ -451,6 +453,13 @@ onBeforeUnmount(() => {
         {{ loginMessage }}
       </p>
     </section>
+    <CollapsibleSection v-model:open="publicTutorialOpen" title="Tutorial">
+      <video v-if="publicTutorialOpen" class="tutorial-video" controls autoplay muted playsinline aria-label="Emotes tutorial">
+        <source src="/emotes-tutorial.mp4" type="video/mp4">
+        Your browser does not support video playback.
+      </video>
+    </CollapsibleSection>
+    </template>
     <template v-else>
       <section class="settings account-card">
         <div class="account-summary">
