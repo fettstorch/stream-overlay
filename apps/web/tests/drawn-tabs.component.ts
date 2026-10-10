@@ -24,6 +24,7 @@ test("hand-drawn tabs select accessible panels with pointer and keyboard control
     expect(tabs[1]!.classes()).not.toContain("tab-right");
     expect(tabs[2]!.classes()).toContain("tab-right");
     expect(tabs.map(tab => (tab.element as HTMLElement).style.zIndex)).toEqual(['5', '2', '1']);
+    expect((wrapper.get('[role="tabpanel"]').element as HTMLElement).style.zIndex).toBe('4');
     await tabs[0]!.trigger("keydown", { key: "ArrowRight" });
     expect(active.value).toBe("middle");
     expect(tabs.map(tab => (tab.element as HTMLElement).style.zIndex)).toEqual(['3', '5', '1']);

@@ -53,6 +53,7 @@ async function navigate(event: KeyboardEvent, index: number) {
     </div>
     <div
       class="drawn-tab-panel"
+      :style="{ zIndex: tabs.length + 1 }"
       role="tabpanel"
       :id="`${id}-panel`"
       :aria-labelledby="`${id}-tab-${active}`"
