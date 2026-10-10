@@ -39,6 +39,8 @@ test("Commands embeds the streamer's chat and runs the private listener only whi
   await flushPromises();
   expect(wrapper.get('iframe[title="Your Streamplace chat"]').attributes('src'))
     .toBe('https://stream.place/chat-popout/did%3Aplc%3Aowner');
+  expect(wrapper.get('.bot-chat-viewport').find('iframe[title="Your Streamplace chat"]').exists()).toBe(true);
+  expect(wrapper.get('.bot-chat-composer').element.closest('.bot-chat-viewport')).toBeNull();
   expect(wrapper.find('iframe[title="Bot chat listener"]').exists()).toBe(false);
   await wrapper.setProps({ config: { ...config, bot: { enabled: true, rules: [] } } });
   expect(wrapper.get('iframe[title="Bot chat listener"]').attributes('src'))

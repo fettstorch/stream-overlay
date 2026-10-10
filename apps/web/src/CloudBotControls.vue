@@ -138,7 +138,9 @@ async function copy() {
     <section v-show="tab === 'commands'" class="module-section bot-tab-content">
       <div class="bot-commands-layout">
       <div class="bot-chat">
-        <iframe v-if="tab === 'commands'" :src="chatUrl" title="Your Streamplace chat" referrerpolicy="no-referrer" />
+        <div v-if="tab === 'commands'" class="bot-chat-viewport">
+          <iframe :src="chatUrl" title="Your Streamplace chat" referrerpolicy="no-referrer" />
+        </div>
         <form class="bot-chat-composer editor-fields" @submit.prevent="sendChat">
           <label>Send as your logged-in account<input v-model="chatText" placeholder="Type a chat message or !command" maxlength="3000" required :disabled="chatSending" /></label>
           <button type="submit" :disabled="chatSending || !chatText.trim()">{{ chatSending ? 'Sending…' : 'Send message' }}</button>
@@ -224,7 +226,9 @@ async function copy() {
 }
 .bot-commands-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
 .bot-chat { min-width: 0; }
-.bot-chat > iframe:not([hidden]) { width: 100%; height: 480px; border: 0; background: white; }
+.bot-chat-viewport { height: 480px; overflow: hidden; }
+/* Keep Streamplace's bottom sign-in/composer area outside our visible viewport. */
+.bot-chat-viewport > iframe { display: block; width: 100%; height: calc(100% + 64px); border: 0; background: white; }
 .bot-chat > iframe[hidden] { display: none; }
 .bot-chat .settings-hint { margin-top: 12px; }
 .bot-chat-composer { display: grid; gap: 10px; margin-top: 12px; }
