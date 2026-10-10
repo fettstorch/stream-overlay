@@ -27,11 +27,11 @@ async function add() {
 }
 </script>
 <template>
-  <section class="routines">
+  <section class="module-section routines">
     <p>Post recurring messages while your Bot browser source is running. The first post happens after one full interval; missed posts are not replayed.</p>
     <ul class="command-list striped-list">
       <li v-for="item in config.bot?.routines ?? []" :key="item.id" class="routine-row">
-        <div class="routine-copy"><strong>Every {{ item.intervalSeconds / 60 }} minutes</strong><p>{{ item.response }}</p></div>
+        <div class="routine-copy"><strong>Every {{ item.intervalSeconds / 60 }} {{ item.intervalSeconds === 60 ? 'minute' : 'minutes' }}</strong><p>{{ item.response }}</p></div>
         <label class="switch">
           <input type="checkbox" role="switch" :aria-label="`Enable routine: ${item.response}`" :checked="item.enabled" :disabled="busy"
             @change="persist((config.bot?.routines ?? []).map(rule => rule.id === item.id ? { ...rule, enabled: ($event.target as HTMLInputElement).checked } : rule))" />
@@ -52,8 +52,13 @@ async function add() {
   </section>
 </template>
 <style scoped>
+#app .routines { margin: 0; padding: 0; }
+#app .routines::before { display: none; }
 .routine-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .routine-copy { flex: 1; min-width: 160px; }
-.routine-copy p { overflow-wrap: anywhere; }
+.routine-copy p { margin: 0.3rem 0; overflow-wrap: anywhere; }
+.routine-row .switch { flex: 0 0 auto; }
 .routine-editor { display: grid; gap: 12px; margin-top: 24px; }
+.routine-editor textarea { width: 100%; min-height: 90px; padding: 11px 12px; border: 1px solid #777; border-radius: 8px; color: #171717; background: #fff; font: inherit; resize: vertical; }
+.routine-editor textarea:focus-visible { outline: 2px solid #526baf; outline-offset: 2px; }
 </style>
