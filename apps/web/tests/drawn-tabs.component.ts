@@ -15,6 +15,10 @@ test("hand-drawn tabs select accessible panels with pointer and keyboard control
   const wrapper = mount(Host, { attachTo: document.body });
   try {
     const tabs = wrapper.findAll('[role="tab"]');
+    for (const tab of tabs) {
+      expect(tab.findAll('.tab-ink > span')).toHaveLength(3);
+      expect(tab.get('.tab-ink').attributes('aria-hidden')).toBe('true');
+    }
     expect(tabs[0]!.classes()).toContain("tab-left");
     expect(tabs[1]!.classes()).not.toContain("tab-left");
     expect(tabs[1]!.classes()).not.toContain("tab-right");

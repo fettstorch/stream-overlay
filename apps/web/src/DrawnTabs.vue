@@ -44,6 +44,9 @@ async function navigate(event: KeyboardEvent, index: number) {
         @click="active = tab.id"
         @keydown="navigate($event, index)"
       >
+        <span class="tab-ink" aria-hidden="true"
+          ><span class="tab-start" /><span class="tab-center" /><span class="tab-end"
+        /></span>
         {{ tab.label }}
       </button>
     </div>
@@ -68,15 +71,20 @@ async function navigate(event: KeyboardEvent, index: number) {
 .drawn-tab-list {
   display: flex;
   align-items: end;
-  padding: 0 18px;
+  padding: 0 6px;
 }
 #app .drawn-tab {
   position: relative;
   z-index: 0;
-  flex: 0 1 200px;
+  --cap-start: calc(52px * 70 / 120);
+  --cap-end: calc(52px * 70 / 120);
+  --start-image: url("./assets/branding/controls/tab-middle-start.png");
+  --center-image: url("./assets/branding/controls/tab-middle-center.png");
+  --end-image: url("./assets/branding/controls/tab-middle-end.png");
+  flex: 0 0 auto;
   min-width: 0;
-  min-height: 52px;
-  padding: 10px 35px 8px;
+  height: 52px;
+  padding: 10px calc(var(--cap-end) + 16px) 8px calc(var(--cap-start) + 16px);
   border: 0;
   background: transparent;
   color: #555;
@@ -86,35 +94,50 @@ async function navigate(event: KeyboardEvent, index: number) {
   cursor: pointer;
   white-space: nowrap;
 }
-#app .drawn-tab::before {
-  content: "";
+.tab-ink {
   position: absolute;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  border: solid transparent;
-  border-width: 0 35px;
-  border-image: url("./assets/branding/controls/tab-middle.png") 0 70 0 70 fill / 0 35px / 0 stretch;
+  display: grid;
+  grid-template-columns: var(--cap-start) minmax(0, 1fr) var(--cap-end);
 }
-#app .drawn-tab.tab-left::before {
-  border-image-source: url("./assets/branding/controls/tab-left.png");
+.tab-ink > span {
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
 }
-#app .drawn-tab.tab-right::before {
-  border-image-source: url("./assets/branding/controls/tab-right.png");
+.tab-start {
+  background-image: var(--start-image);
+}
+.tab-center {
+  background-image: var(--center-image);
+  margin-inline: -1px;
+}
+.tab-end {
+  background-image: var(--end-image);
+}
+#app .drawn-tab + .drawn-tab {
+  margin-left: -22px;
 }
 #app .drawn-tab.tab-left {
-  padding-right: 60px;
-  padding-left: 20px;
+  --cap-start: calc(52px * 45 / 120);
+  --cap-end: calc(52px * 115 / 120);
+  --start-image: url("./assets/branding/controls/tab-left-start.png");
+  --center-image: url("./assets/branding/controls/tab-left-center.png");
+  --end-image: url("./assets/branding/controls/tab-left-end.png");
 }
 #app .drawn-tab.tab-right {
-  padding-left: 60px;
-  padding-right: 20px;
+  --cap-start: calc(52px * 90 / 120);
+  --cap-end: calc(52px * 35 / 120);
+  --start-image: url("./assets/branding/controls/tab-right-start.png");
+  --center-image: url("./assets/branding/controls/tab-right-center.png");
+  --end-image: url("./assets/branding/controls/tab-right-end.png");
 }
 #app .drawn-tab::after {
   content: "";
   position: absolute;
   z-index: -2;
-  inset: 7px 25px 0;
+  inset: 10px var(--cap-end) 0 var(--cap-start);
   background: #fff;
   border-radius: 12px 12px 0 0;
   pointer-events: none;
@@ -125,7 +148,7 @@ async function navigate(event: KeyboardEvent, index: number) {
   -webkit-text-stroke: 0.3px currentColor;
 }
 #app .drawn-tab.selected::after {
-  bottom: -4px;
+  bottom: -8px;
 }
 #app .drawn-tab:focus-visible {
   outline: 2px solid #526baf;
@@ -135,7 +158,7 @@ async function navigate(event: KeyboardEvent, index: number) {
   position: relative;
   z-index: 1;
   isolation: isolate;
-  margin-top: -5px;
+  margin-top: -8px;
   padding: 26px;
   min-width: 0;
 }
@@ -150,13 +173,14 @@ async function navigate(event: KeyboardEvent, index: number) {
 }
 @media (max-width: 600px) {
   .drawn-tab-list {
-    padding-inline: 8px;
+    padding-inline: 6px;
   }
   #app .drawn-tab {
-    font-size: .9em;
+    font-size: 0.9em;
   }
-  #app .drawn-tab.tab-left { padding-inline:10px 25px; }
-  #app .drawn-tab.tab-right { padding-inline:25px 10px; }
+  #app .drawn-tab {
+    padding-inline: calc(var(--cap-start) + 4px) calc(var(--cap-end) + 4px);
+  }
   .drawn-tab-panel {
     padding: 20px 16px;
   }
