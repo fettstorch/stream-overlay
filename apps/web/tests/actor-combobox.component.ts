@@ -11,6 +11,24 @@ function setup(searcher: (query: string, signal: AbortSignal) => Promise<Suggest
 }
 
 describe("Cloud Admin actor combobox", () => {
+  test.each(["sign-in", "moderation"] as const)("debounces %s typing and cancels pending work on short input or disposal", async purpose => {
+    vi.useFakeTimers();
+    const input = document.createElement("input"), status = document.createElement("p"), parent = document.createElement("div");
+    parent.append(input, status); document.body.append(parent);
+    const searcher = vi.fn(async () => []);
+    const combobox = attachActorCombobox({ input, status, searcher, purpose });
+    function type(value: string) { input.value = value; input.dispatchEvent(new Event("input")); }
+    type("al"); await vi.advanceTimersByTimeAsync(200);
+    type("alice"); await vi.advanceTimersByTimeAsync(299);
+    expect(searcher).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(searcher).toHaveBeenCalledExactlyOnceWith("alice", expect.any(AbortSignal));
+    type("bob"); type("b"); await vi.advanceTimersByTimeAsync(300);
+    expect(searcher).toHaveBeenCalledTimes(1);
+    type("carol"); combobox.dispose(); await vi.advanceTimersByTimeAsync(300);
+    expect(searcher).toHaveBeenCalledTimes(1);
+    expect(parent.querySelector('[role="listbox"]')).toBeNull();
+  });
   test("renders safe bounded results and supports keyboard selection", async () => {
     const searcher = vi.fn(async (): Promise<Suggestion[]> => [{ did: "did:plc:alice", handle: "alice.test", displayName: "Alice <script>", avatar: "https://cdn.example/alice.jpg" }]);
     const { input, status } = setup(searcher); input.value = "ali"; input.dispatchEvent(new Event("input")); await new Promise(resolve => setTimeout(resolve)); await new Promise(resolve => setTimeout(resolve));

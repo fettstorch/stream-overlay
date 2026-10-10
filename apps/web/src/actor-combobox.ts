@@ -1,3 +1,5 @@
+import { getDebouncer } from "@fettstorch/jule";
+
 export type ActorSuggestion = { did: string; handle: string; displayName: string; avatar: string };
 
 type Options = {
@@ -23,7 +25,7 @@ export function attachActorCombobox({ input, status, searcher, delayMs = 300, on
 
   let results: ActorSuggestion[] = [];
   let active = -1;
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  const searchDebouncer = getDebouncer();
   let controller: AbortController | undefined;
   let sequence = 0;
 
@@ -91,11 +93,11 @@ export function attachActorCombobox({ input, status, searcher, delayMs = 300, on
   }
 
   function queueSearch() {
-    clearTimeout(timer); controller?.abort(); const requestSequence = ++sequence;
+    searchDebouncer.clear(); controller?.abort(); const requestSequence = ++sequence;
     const query = input.value.trim().replace(/^@/, "");
     if (query.length < 2) { results = []; list.replaceChildren(); close(); status.textContent = ""; return; }
     status.textContent = "Waiting to search…";
-    timer = setTimeout(() => void search(query, requestSequence), delayMs);
+    searchDebouncer.debounce(() => void search(query, requestSequence), delayMs);
   }
 
   input.addEventListener("input", queueSearch);
@@ -108,5 +110,5 @@ export function attachActorCombobox({ input, status, searcher, delayMs = 300, on
     else if (event.key === "Escape") { event.preventDefault(); close(); }
   });
 
-  return { close, dispose() { clearTimeout(timer); controller?.abort(); list.remove(); } };
+  return { close, dispose() { searchDebouncer.clear(); sequence++; controller?.abort(); list.remove(); } };
 }
