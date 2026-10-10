@@ -759,6 +759,6 @@ onBeforeUnmount(() => {
   <BrandMascot />
 </template>
 <style scoped>
-.site-footer { position: relative; z-index: 1; margin: 32px 20px 16px; text-align: left; font-size: 1rem; color: #000; }
+.site-footer { position: fixed; left: 20px; bottom: 16px; z-index: 1; margin: 0; text-align: left; font-size: 1rem; color: #000; }
 .site-footer a { color: inherit; }
 </style>
