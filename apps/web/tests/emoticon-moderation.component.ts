@@ -15,6 +15,8 @@ test("nested roles and restrictions tabs save an inclusive allowlist without dro
   const wrapper = mount(EmoticonModeration, { props: { config: { ...config, moderation }, save } });
   expect(wrapper.findAll('[role="tab"]').map(tab => tab.text())).toEqual(["Roles", "Restrictions"]);
   expect(wrapper.text()).toContain("No roles selected: everyone");
+  expect(wrapper.findAll('.role-choice .switch input[role="switch"]').map(input => input.attributes('aria-label')))
+    .toEqual(['Followers', 'Mutuals', 'Streamplace moderators']);
   await wrapper.findAll('.role-choice input')[0]!.setValue(true);
   await wrapper.findAll('.role-choice input')[2]!.setValue(true);
   await wrapper.get('input[placeholder="Add @handle"]').setValue('friend.example');
@@ -54,7 +56,7 @@ test("edits and removes rules without dropping other restrictions or command con
   expect(wrapper.get('img.moderation-avatar').attributes('src')).toBe('https://cdn.example/viewer.png');
   expect(wrapper.get('form').classes()).toContain('editor-fields');
   await wrapper.get('.moderation-list button').trigger('click');
-  await wrapper.get('input[role="switch"]').setValue(true);
+  await wrapper.get('input[role="switch"][aria-label="Block all commands"]').setValue(true);
   await wrapper.get('form').trigger('submit'); await flushPromises();
   expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ ...config,
     moderation: [moderation[1], { ...moderation[0], blocked: true }] }));

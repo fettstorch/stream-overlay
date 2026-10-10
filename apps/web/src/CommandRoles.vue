@@ -54,9 +54,15 @@ async function saveRoles() {
 <template>
   <div class="command-roles editor-fields">
     <p>Allow users who match any selected role or account. These roles apply to all commands in this module. Restrictions still take priority.</p>
-    <label class="role-choice"><input v-model="roles.followers" type="checkbox" :disabled="busy" />Followers <small>People who follow you.</small></label>
-    <label class="role-choice"><input v-model="roles.mutuals" type="checkbox" :disabled="busy" />Mutuals <small>You follow each other.</small></label>
-    <label class="role-choice"><input v-model="roles.moderators" type="checkbox" :disabled="busy" />Streamplace moderators <small>Recognized by Streamplace's server-controlled chat badge.</small></label>
+    <div class="role-choice"><div><strong>Followers</strong><small>People who follow you.</small></div><label class="switch">
+      <input v-model="roles.followers" type="checkbox" role="switch" aria-label="Followers" :disabled="busy" /><span aria-hidden="true" />
+    </label></div>
+    <div class="role-choice"><div><strong>Mutuals</strong><small>You follow each other.</small></div><label class="switch">
+      <input v-model="roles.mutuals" type="checkbox" role="switch" aria-label="Mutuals" :disabled="busy" /><span aria-hidden="true" />
+    </label></div>
+    <div class="role-choice"><div><strong>Streamplace moderators</strong><small>Recognized by Streamplace's server-controlled chat badge.</small></div><label class="switch">
+      <input v-model="roles.moderators" type="checkbox" role="switch" aria-label="Streamplace moderators" :disabled="busy" /><span aria-hidden="true" />
+    </label></div>
     <ul v-if="roles.users.length" class="module-section command-list striped-list allowed-users">
       <li v-for="user in roles.users" :key="user.did">
         <img v-if="profiles[user.did]?.avatar" :src="profiles[user.did]!.avatar" alt="" @error="profiles[user.did]!.avatar = ''" />
@@ -77,7 +83,8 @@ async function saveRoles() {
 </template>
 <style scoped>
 .command-roles { display: grid; gap: 12px; min-width: 0; }
-#app .role-choice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+#app .role-choice { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.role-choice > div { display: grid; gap: 2px; }
 .role-choice small { font-weight: 400; }
 .role-search { position: relative; }
 .allowed-users strong { overflow-wrap: anywhere; min-width: 0; }
