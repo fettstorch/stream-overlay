@@ -656,7 +656,8 @@ onBeforeUnmount(() => {
                   </button>
                 </div>
               <DrawnTabs v-model="emoticonTab" :tabs="emoticonTabs" label="Emoticon tools">
-              <div v-show="emoticonTab === 'commands'" :inert="emoticonTab !== 'commands' || undefined">
+              <div class="emoticon-tab-content" :class="{ 'commands-columns': emoticonTab === 'commands' }">
+              <div class="command-previews" v-show="emoticonTab === 'commands'" :inert="emoticonTab !== 'commands' || undefined">
                 <CollapsibleSection class="overlay-live-preview" v-model:open="effectPreviewOpen" title="Emoticon overlay preview" control-label="Emoticon overlay live preview">
                   <div v-if="effectPreviewOpen && isExpanded(module) && emoticonTab === 'commands'" class="cloud-preview"
                     :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }">
@@ -679,6 +680,7 @@ onBeforeUnmount(() => {
                   :panel="emoticonTab"
                   @panel-change="emoticonTab = $event"
                 />
+              </div>
               </DrawnTabs>
               </template>
               <CloudModuleControls

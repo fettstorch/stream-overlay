@@ -416,7 +416,6 @@ defineExpose({ acceptCardDrop });
       <ul class="command-list striped-list">
         <li v-for="command in group.commands" :key="command.id">
           <strong>!{{ command.command }}</strong
-          ><span v-if="command.mode !== 'sticker'">{{ command.durationSeconds }}s clip</span
           ><button type="button" :disabled="busy" @click="test(command)">Test</button
           ><button type="button" @click="edit(command)">Edit</button
           ><button type="button" class="danger-button" @click="remove(command)">Delete</button>

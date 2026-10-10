@@ -108,6 +108,9 @@ describe("Cloud Admin", () => {
     expect(listingUrl.closest('.drawn-tabs')).toBeNull();
     expect(moduleBody.get('.drawn-tabs').text()).toContain('Emoticon overlay preview');
     expect(moduleBody.get('.drawn-tabs').text()).toContain('Listing overlay preview');
+    expect(moduleBody.get('.commands-columns > .command-previews').findAll('.overlay-live-preview')).toHaveLength(2);
+    expect(moduleBody.get('.commands-columns > .emoticon-controls').text()).toContain('Emoticon commands');
+    expect(moduleBody.get('.command-list').text()).not.toContain('5s clip');
     expect(wrapper.get('.account-preference').element.closest('.section-content')?.getAttribute('style')).toContain('display: none');
     await wrapper.get('button[aria-label="Show General settings"]').trigger('click');
     expect(wrapper.get('button[aria-label="Hide General settings"]').attributes('aria-expanded')).toBe('true');
@@ -242,6 +245,7 @@ describe("Cloud Admin", () => {
       expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('/test/'))).toHaveLength(1);
       await createButton.trigger('click');
       expect(wrapper.get('.command-editor').isVisible()).toBe(true);
+      expect(wrapper.find('.commands-columns').exists()).toBe(false);
       expect(wrapper.get('.board-url').isVisible()).toBe(true);
       expect(wrapper.get('.overlay-url').isVisible()).toBe(true);
       expect(wrapper.find('iframe[title="Emoticons preview"]').exists()).toBe(false);

@@ -15,6 +15,13 @@
 .overlay-live-preview + .emoticon-controls { margin-top:36px; }
 .drawn-tab-panel .emoticon-controls { margin-top:28px; }
 .drawn-tab-panel .create-panel.emoticon-controls { margin-top:0; padding-top:0; border-top:0; }
+.commands-columns { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr)); gap:24px; align-items:start; }
+.commands-columns > * { min-width:0; }
+.drawn-tab-panel .commands-columns > .emoticon-controls { margin-top:0; }
+.command-previews > .overlay-live-preview:first-child { margin-top:0; }
+.commands-columns .command-list > li { display:grid; grid-template-columns:minmax(0,1fr) repeat(3,auto); gap:6px; }
+.commands-columns .command-list > li > strong { min-width:0; overflow-wrap:anywhere; }
+#app .commands-columns .command-list > li > button { min-width:0; padding:5px 9px; font-size:.9em; }
 .drawn-tab-panel .create-panel .command-editor { padding:0; margin-top:0; }
 .drawn-tab-panel .create-panel .command-editor::before { display:none; }
 .module-card { flex:1 1 auto; width:max-content; min-width:min(320px, 100%); max-width:100%; margin:0; }
