@@ -77,8 +77,9 @@ async function navigate(event: KeyboardEvent, index: number) {
 #app .drawn-tab {
   position: relative;
   z-index: 0;
-  --cap-start: calc(52px * 75 / 120);
-  --cap-end: calc(52px * 85 / 120);
+  /* Caps retain their source aspect ratios; only the level middle stretches. */
+  --cap-start: calc(52px * 70 / 111);
+  --cap-end: calc(52px * 70 / 111);
   --start-image: url("./assets/branding/controls/tab-middle-start.png");
   --center-image: url("./assets/branding/controls/tab-middle-center.png");
   --end-image: url("./assets/branding/controls/tab-middle-end.png");
@@ -121,15 +122,15 @@ async function navigate(event: KeyboardEvent, index: number) {
   margin-left: calc(-1 * (var(--cap-start) + 26px));
 }
 #app .drawn-tab.tab-left {
-  --cap-start: calc(52px * 30 / 120);
-  --cap-end: calc(52px * 75 / 120);
+  --cap-start: calc(52px * 55 / 117);
+  --cap-end: calc(52px * 85 / 117);
   --start-image: url("./assets/branding/controls/tab-left-start.png");
   --center-image: url("./assets/branding/controls/tab-left-center.png");
   --end-image: url("./assets/branding/controls/tab-left-end.png");
 }
 #app .drawn-tab.tab-right {
-  --cap-start: calc(52px * 75 / 120);
-  --cap-end: calc(52px * 30 / 120);
+  --cap-start: calc(52px * 70 / 109);
+  --cap-end: calc(52px * 40 / 109);
   --start-image: url("./assets/branding/controls/tab-right-start.png");
   --center-image: url("./assets/branding/controls/tab-right-center.png");
   --end-image: url("./assets/branding/controls/tab-right-end.png");
