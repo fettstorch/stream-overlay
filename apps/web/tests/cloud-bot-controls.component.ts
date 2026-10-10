@@ -87,7 +87,7 @@ test("saves rules through existing configuration flow and preserves input on fai
   const wrapper = mount(CloudBotControls, { props: { config, save } });
   await flushPromises();
   expect(wrapper.findAll('[role="tab"]').map((item) => item.text())).toEqual([
-    "Commands",
+    "Testing",
     "Create new",
     "Moderation",
     "Routines",
