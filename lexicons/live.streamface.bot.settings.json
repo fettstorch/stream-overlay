@@ -10,6 +10,7 @@
         "required": ["enabled", "rules", "createdAt", "updatedAt"],
         "properties": {
           "enabled": { "type": "boolean" },
+          "routines": { "type": "array", "maxLength": 50, "items": { "type": "ref", "ref": "#routine" } },
           "roles": { "type": "ref", "ref": "#roles" },
           "moderation": {
             "type": "array",
@@ -20,6 +21,16 @@
           "createdAt": { "type": "string", "format": "datetime" },
           "updatedAt": { "type": "string", "format": "datetime" }
         }
+      }
+    },
+    "routine": {
+      "type": "object",
+      "required": ["id", "enabled", "response", "intervalMilliseconds"],
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "enabled": { "type": "boolean" },
+        "response": { "type": "string", "maxLength": 250 },
+        "intervalMilliseconds": { "type": "integer", "minimum": 30000, "maximum": 86400000 }
       }
     },
     "roles": {

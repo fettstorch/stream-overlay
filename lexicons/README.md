@@ -19,22 +19,26 @@ the server enforces Bot roles. Publish updated settings schemas before rollout.
 ## Bot
 
 `live.streamface.bot.settings` is a singleton `self` record containing `enabled`
-and up to 50 command/response rules with integer-millisecond cooldowns. Rules are
+and up to 50 command/response rules with integer-millisecond cooldowns. Optional
+`routines` hold up to 50 recurring texts, stable IDs, enabled flags, and intervals
+of 30 seconds to 24 hours in integer milliseconds. Publish this additive schema
+update before rolling out Routines; older clients preserve omitted routines.
+Rules and routines are
 public; source authorization tokens and the bot's App Password are never stored
 in the PDS. Publish this schema separately and add `_lexicon.bot.streamface.live`
 TXT `did=did:plc:j66wyknizjxecbnrenjzj7l3`. Sign in again to grant the new collection.
 
-Bot's Commands, Create new and Moderation tabs reuse the existing drawn tab and
+Bot's Commands, Create new, Moderation and Routines tabs reuse the existing drawn tab and
 user-moderation editor. Its optional `moderation` rules are independent of
 Emoticons: user DID blocks or one shared per-user cooldown across all bot commands,
 enforced on the server. Older clients retain stored restrictions when omitted.
 
 The transparent `/bot/` OBS browser source reads Streamplace's live chat and
 reports only message URIs. The server verifies recent messages through the fixed
-Streamplace chat endpoint, chooses the stored response, ignores its own account,
+Streamplace websocket history using a short-lived bounded connection, chooses the stored response, ignores its own account,
 and enforces shared command cooldowns, bounded concurrency and deduplication.
 Deterministic TID record keys also prevent duplicate replies after a restart.
-There is no server-side chat subscription. Only messages received while the source
+There is no persistent server-side chat subscription. Only messages received while the source
 is running trigger replies; history is not replayed. If verification fails, no
 reply is sent. The private source URL is available only to its signed-in owner;
 changing SESSION_SECRET invalidates all source keys. Stop the source or disable

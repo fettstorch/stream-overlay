@@ -44,7 +44,7 @@ test("chat composer preserves failed messages and offers reauthorization before 
   expect(wrapper.get('.chat-avatar').attributes('aria-label')).toBe('Profile picture unavailable');
   wrapper.unmount();
 });
-test("Commands embeds the streamer's chat and runs the private listener only while enabled and open", async () => {
+test("Commands embeds chat and the private listener stays running across tabs while enabled", async () => {
   const wrapper = mount(CloudBotControls, { props: { config, save: vi.fn() } });
   await flushPromises();
   expect(wrapper.get('iframe[title="Your Streamplace chat"]').attributes('src'))
@@ -57,7 +57,7 @@ test("Commands embeds the streamer's chat and runs the private listener only whi
     .toBe('https://example.test/bot/?did=did:plc:owner&token=test');
   expect(wrapper.get('iframe[title="Bot chat listener"]').attributes('hidden')).toBeDefined();
   await wrapper.findAll('[role="tab"]')[1]!.trigger('click');
-  expect(wrapper.findAll('iframe')).toHaveLength(0);
+  expect(wrapper.findAll('iframe')).toHaveLength(1);
   await wrapper.findAll('[role="tab"]')[0]!.trigger('click');
   expect(wrapper.findAll('iframe')).toHaveLength(2);
   wrapper.unmount();
@@ -90,6 +90,7 @@ test("saves rules through existing configuration flow and preserves input on fai
     "Commands",
     "Create new",
     "Moderation",
+    "Routines",
   ]);
   expect((wrapper.get("form.bot-tab-content").element as HTMLFormElement).style.display).toBe("none");
   await wrapper.findAll('[role="tab"]')[1]!.trigger("click");

@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from "vue";
 import sendIcon from "./assets/branding/controls/send.png";
 import DrawnTabs from "./DrawnTabs.vue";
+import BotRoutines from "./BotRoutines.vue";
 import EmoticonModeration from "./EmoticonModeration.vue";
 import { adminFetch } from "./cloud-admin-fetch.ts";
 import type { CloudConfig } from "./cloud-admin-types.ts";
@@ -45,6 +46,7 @@ const tabs = [
   { id: "commands", label: "Commands" },
   { id: "create", label: "Create new" },
   { id: "moderation", label: "Moderation" },
+  { id: "routines", label: "Routines" },
 ];
 const moderationConfig = computed(() => ({
   ...props.config,
@@ -55,6 +57,7 @@ async function saveModeration(candidate: CloudConfig) {
   return props.save({
     ...props.config,
     bot: {
+      ...props.config.bot,
       enabled: props.config.bot?.enabled ?? false,
       rules: props.config.bot?.rules ?? [],
       moderation: candidate.moderation ?? [],
@@ -158,8 +161,6 @@ async function copy() {
           <a v-if="chatPermissionRequired" :href="`/oauth/login?handle=${encodeURIComponent(config.streamerDid)}`">Authorize chat posting</a>
         </form>
         <p v-if="!config.bot?.enabled" class="settings-hint">Enable the Bot module to respond to commands here.</p>
-        <iframe v-if="tab === 'commands' && sourceUrl && configured && config.bot?.enabled"
-          :src="sourceUrl" title="Bot chat listener" hidden aria-hidden="true" tabindex="-1" referrerpolicy="no-referrer" />
       </div>
       <div>
       <ul class="command-list striped-list">
@@ -225,7 +226,10 @@ async function copy() {
       description="Block a chat user from all bot commands, or set one shared per-user cooldown across bot commands."
       hint="Bot moderation rules are public PDS data and are separate from Emoticons moderation. The server enforces them."
     />
+    <BotRoutines v-if="tab === 'routines'" :config="config" :save="save" />
   </DrawnTabs>
+  <iframe v-if="sourceUrl && configured && config.bot?.enabled"
+    :src="sourceUrl" title="Bot chat listener" hidden aria-hidden="true" tabindex="-1" referrerpolicy="no-referrer" />
   <p v-if="message" role="status">{{ message }}</p>
 </template>
 <style scoped>

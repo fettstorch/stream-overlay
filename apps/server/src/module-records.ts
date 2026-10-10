@@ -120,7 +120,10 @@ export function parseModuleRecords(did: string, records: StoredRecord[]): CloudC
   })), ...(storedBot.moderation ? { moderation: storedBot.moderation.map((rule: any) => ({
     did: rule.did, blocked: rule.blocked, cooldownSeconds: rule.cooldownMilliseconds / 1000,
     ...(rule.handle !== undefined ? { handle: rule.handle } : {}),
-  })) } : {}), ...(storedBot.roles ? { roles: storedBot.roles } : {}) } : structuredClone(defaultBotSettings);
+  })) } : {}), ...(storedBot.roles ? { roles: storedBot.roles } : {}),
+    ...(storedBot.routines ? { routines: storedBot.routines.map((item: any) => ({
+      id: item.id, enabled: item.enabled, response: item.response, intervalSeconds: item.intervalMilliseconds / 1000,
+    })) } : {}) } : structuredClone(defaultBotSettings);
   validateBotSettings(bot);
   return {
     bot,
@@ -213,13 +216,16 @@ export function serializeModuleRecords(
   const bot = config.bot ?? parseModuleRecords(config.streamerDid, previous).bot!;
   const botModeration = bot.moderation ?? parseModuleRecords(config.streamerDid, previous).bot?.moderation;
   const botRoles = bot.roles ?? parseModuleRecords(config.streamerDid, previous).bot?.roles;
+  const routines = bot.routines ?? parseModuleRecords(config.streamerDid, previous).bot?.routines;
   if (botRoles !== undefined) validateCommandRoles(botRoles);
   validateModeration(botModeration ?? []);
-  validateBotSettings(bot);
-  if (bot.enabled || bot.rules.length || botModeration?.length || botRoles || previous.some(item => item.collection === moduleCollections.bot))
+  validateBotSettings({ ...bot, routines });
+  if (bot.enabled || bot.rules.length || routines?.length || botModeration?.length || botRoles || previous.some(item => item.collection === moduleCollections.bot))
     records.push(record(moduleCollections.bot, "self", { enabled: bot.enabled, ...(botRoles ? { roles: botRoles } : {}), rules: bot.rules.map(rule => ({
       command: rule.command, response: rule.response, cooldownMilliseconds: Math.round(rule.cooldownSeconds * 1000),
-    })), ...(botModeration ? { moderation: botModeration.map(rule => ({
+    })), ...(routines ? { routines: routines.map(item => ({
+      id: item.id, enabled: item.enabled, response: item.response, intervalMilliseconds: Math.round(item.intervalSeconds * 1000),
+    })) } : {}), ...(botModeration ? { moderation: botModeration.map(rule => ({
       did: rule.did, blocked: rule.blocked, cooldownMilliseconds: Math.round(rule.cooldownSeconds * 1000),
       ...(rule.handle !== undefined ? { handle: rule.handle } : {}),
     })) } : {}) }));

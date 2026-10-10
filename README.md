@@ -261,8 +261,19 @@ input using your Streamface login. Sending publishes a real, public
 Existing logins need to authorize the added chat-write permission using the
 "Authorize chat posting" link. Normal bot roles, restrictions and cooldowns apply;
 this is not an admin-test bypass. Failed sends retain the draft and are never
-automatically retried. The chat listener runs only while Commands is open and the
-Bot is enabled; OBS can run alongside it using the existing duplicate protection.
+automatically retried. The private listener runs while the Bot module is open and
+enabled, across all its tabs; OBS can run alongside it using duplicate protection.
+
+The Bot's Routines tab stores recurring message text, an enabled toggle, and an
+interval in minutes (0.5–1440) in your existing Bot PDS settings. Timers live in
+the browser source, not on the server. The first post waits a full interval;
+closing the source stops timers, reopening starts fresh, and browser suspension
+does not cause catch-up bursts. The server accepts only saved enabled routine IDs
+through the private source token, enforces intervals across concurrent sources,
+and writes messages as Streamface. Failed or uncertain sends are not retried.
+Runtime interval counters use ephemeral server memory; stable per-window PDS
+record keys provide additional duplicate protection across server restarts.
+Publish the updated Bot settings lexicon before rolling out routines to PDSs.
 
 The Streamface admin includes Emoticons, Chat and Overlay Paint. Streamplace
 Pets is temporarily excluded from cloud builds pending upstream permission;

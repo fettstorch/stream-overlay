@@ -73,6 +73,44 @@ export class CloudBot {
     private connect: ChatSocketFactory = url => new WebSocket(url),
     private verificationTimeoutMs = 5000,
   ) { this.authorize = createRoleAuthorizer(fetcher, now); }
+  async routine(config: CloudConfig, id: unknown, requestId: string) {
+    const reject = (reason: string) => {
+      this.logger.log("info", "cloud.bot.routine-rejected", { requestId, reason });
+      return { sent: false, reason };
+    };
+    if (!this.auth) return reject("not-configured");
+    if (!config.bot?.enabled) return reject("disabled");
+    validateBotSettings(config.bot);
+    const routine = config.bot.routines?.find(item => item.id === id);
+    if (!routine?.enabled) return reject("unknown-or-disabled-routine");
+    const now = this.now();
+    for (const [key, until] of this.cooldowns) if (until <= now) this.cooldowns.delete(key);
+    const key = `${config.streamerDid}:routine:${routine.id}`;
+    if (this.cooldowns.has(key)) return reject("interval");
+    if (this.inFlight >= 4 || this.cooldowns.size >= 10000) return reject("capacity");
+    if (now < this.nextReplyAt) return reject("service-rate-limit");
+    this.cooldowns.set(key, now + routine.intervalSeconds * 1000);
+    this.nextReplyAt = now + 2000;
+    this.inFlight++;
+    this.logger.log("info", "cloud.bot.routine-started", { requestId, routineId: routine.id });
+    try {
+      const agent = await this.auth.getAgent();
+      // Stable per interval window: parallel sources and restarts cannot create two records in that window.
+      const window = Math.floor(now / (routine.intervalSeconds * 1000));
+      const alphabet = "234567abcdefghijklmnopqrstuvwxyz";
+      let bits = BigInt(`0x${createHash("sha256").update(`${key}:${window}`).digest("hex").slice(0, 16)}`) & ((1n << 63n) - 1n);
+      let rkey = "";
+      for (let index = 0; index < 13; index++) { rkey = alphabet[Number(bits & 31n)] + rkey; bits >>= 5n; }
+      await agent.com.atproto.repo.createRecord({ repo: agent.did!, collection: "place.stream.chat.message", rkey,
+        record: { $type: "place.stream.chat.message", text: routine.response, streamer: config.streamerDid, createdAt: new Date(now).toISOString() },
+      });
+      this.logger.log("info", "cloud.bot.routine-completed", { requestId, routineId: routine.id });
+      return { sent: true };
+    } catch (error) {
+      this.logger.log("warn", "cloud.bot.routine-failed", { requestId, routineId: routine.id, ...safeError(error) });
+      return { sent: false, reason: "send-failed" };
+    } finally { this.inFlight--; }
+  }
   async trigger(config: CloudConfig, uri: unknown, requestId: string) {
     const reject = (reason: string) => {
       this.logger.log("info", "cloud.bot.command-rejected", { requestId, reason });

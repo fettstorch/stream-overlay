@@ -265,7 +265,7 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
       return json({ error: "chat-send-failed", message: "Could not confirm sending your message. Check the chat before retrying.", requestId }, 502);
     }
   }
-  const botDid = didFromPath(path, "bot/(source|trigger)");
+  const botDid = didFromPath(path, "bot/(source|trigger|routine)");
   if (botDid && path.endsWith("/source") && request.method === "GET") {
     if (await readSessionCookie(request, deps.secret) !== botDid) return json({ error: "unauthorized" }, 401);
     const source = new URL("/bot/", deps.origin);
@@ -273,7 +273,7 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
     source.searchParams.set("token", botSourceToken(botDid, deps.secret));
     return json({ url: source.toString(), configured: Boolean(deps.bot) });
   }
-  if (botDid && path.endsWith("/trigger") && request.method === "POST") {
+  if (botDid && (path.endsWith("/trigger") || path.endsWith("/routine")) && request.method === "POST") {
     if (!sameOrigin(request, deps.origin)) return json({ error: "invalid-origin" }, 403);
     try {
       const data = JSON.parse(new TextDecoder().decode(await boundedBody(request, 1024)));
@@ -283,7 +283,9 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
       }
       const config = await deps.pds.publicConfig(botDid);
       if (!deps.botCommands) return json({ sent: false, reason: "not-configured" }, 503);
-      return json(await deps.botCommands.trigger(config, data.uri, requestId));
+      return json(path.endsWith("/routine")
+        ? await deps.botCommands.routine(config, data.routineId, requestId)
+        : await deps.botCommands.trigger(config, data.uri, requestId));
     } catch {
       deps.logger.log("warn", "cloud.bot.trigger-failed", { requestId });
       return json({ error: "bot-unavailable", requestId }, 503);

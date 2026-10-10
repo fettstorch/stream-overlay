@@ -61,6 +61,16 @@ describe("cloud server boundary", () => {
     expect(url.searchParams.get("token")).toHaveLength(64);
     expect((await handleRequest(new Request(`${root}/trigger`, { method: "POST", headers: { Origin: "https://overlay.example" }, body: JSON.stringify({ token: "forged", uri: "at://fake" }) }), deps)).status).toBe(403);
     expect((await handleRequest(new Request(`${root}/trigger`, { method: "POST", headers: { Origin: "https://other.example" }, body: JSON.stringify({ token: url.searchParams.get("token") }) }), deps)).status).toBe(403);
+    expect((await handleRequest(new Request(`${root}/routine`, { method: "POST", headers: { Origin: deps.origin }, body: JSON.stringify({ token: "forged", routineId: "routine-1" }) }), deps)).status).toBe(403);
+    const calls: unknown[] = [];
+    deps.pds.publicConfig = async () => ({ streamerDid: "did:plc:alice", enabled: true, commands: [], revision: "1" });
+    deps.botCommands!.routine = async (...args) => { calls.push(args); return { sent: true }; };
+    const result = await handleRequest(new Request(`${root}/routine`, { method: "POST", headers: { Origin: deps.origin },
+      body: JSON.stringify({ token: url.searchParams.get("token"), routineId: "routine-1", text: "untrusted browser text" }),
+    }), deps);
+    expect(result.status).toBe(200);
+    expect((calls[0] as unknown[])[1]).toBe("routine-1");
+    expect(JSON.stringify(calls)).not.toContain("untrusted browser text");
   });
   test("Giphy browser configuration exposes only the configured key without logging it", async () => {
     const logged: unknown[] = [];
