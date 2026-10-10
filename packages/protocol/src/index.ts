@@ -10,7 +10,7 @@ export type RelayClientMessage =
   | { type: "cooldowns"; revision: number; cooldowns: Record<string, Cooldown>; requestId?: string }
   | EffectDiagnostic
   | { type: "ping" };
-export type RelayServerMessage = RelaySnapshot | { type: "config-changed"; revision: string } | { type: "test-command"; commandId: string; requestId: string } | { type: "pong" } | { type: "error"; code: string };
+export type RelayServerMessage = RelaySnapshot | { type: "config-changed"; revision: string } | { type: "test-command"; commandId: string; requestId: string; eventId?: string; eventText?: string } | { type: "pong" } | { type: "error"; code: string };
 
 export function parseClientMessage(raw: string, now = Date.now()): RelayClientMessage | null {
   if (new TextEncoder().encode(raw).byteLength > MAX_MESSAGE_BYTES) return null;

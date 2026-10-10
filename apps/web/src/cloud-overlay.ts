@@ -215,7 +215,9 @@ const relay = new RelayClient(`${location.protocol === "https:" ? "wss" : "ws"}:
     diagnostic("test-received", { requestId: message.requestId, commandId: message.commandId });
     testRequests.set(message.commandId, message.requestId); rejectionReason = undefined;
     cooldownRequestId = message.requestId;
-    const accepted = runtime.trigger(message.commandId);
+    const accepted = message.eventId
+      ? runtime.trigger(message.commandId, "stream-event", message.requestId, undefined, false, message.eventText)
+      : runtime.trigger(message.commandId);
     cooldownRequestId = undefined;
     diagnostic(accepted ? "test-accepted" : "test-rejected", { requestId: message.requestId, commandId: message.commandId, reason: accepted ? undefined : rejectionReason });
     if (!accepted) testRequests.delete(message.commandId);

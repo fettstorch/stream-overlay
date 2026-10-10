@@ -47,6 +47,21 @@ test.each([false, true])("stream events trigger mapped commands only in the live
   liveEvents.receive!({ type: "teleport-arrival", id: "arrival:two" }); await flushPromises();
   expect(document.querySelectorAll('.clip').length).toBe(preview ? 0 : 1);
 });
+test("simulated events play the mapped clip and caption in the preview", async () => {
+  HTMLElement.prototype.getAnimations = vi.fn(() => []);
+  history.replaceState({}, "", "/emotes/?did=did:plc:alice&preview=1");
+  document.body.innerHTML = '<main class="effect"></main>';
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ enabled: true, streamerDid: "did:plc:alice",
+    commands: [{ id: "wave", command: "wave", mode: "effect", durationSeconds: 8, cooldownSeconds: 0, volume: 1,
+      width: "", height: "", mirrored: false, image: { url: "https://example.test/wave.gif" } }] })));
+  await import("../src/cloud-overlay.ts"); await flushPromises();
+  relay.receive!({ type: "test-command", commandId: "wave", requestId: "event-test", eventId: "teleport-arrival", eventText: "Welcome <friends>!" });
+  await flushPromises();
+  expect(document.querySelectorAll('.clip')).toHaveLength(1);
+  expect(document.querySelector('.event-text')?.textContent).toBe("Welcome <friends>!");
+  expect(document.querySelector('.event-text friends')).toBeNull();
+  expect(relay.send).toHaveBeenCalledWith(expect.objectContaining({ event: "test-accepted", requestId: "event-test" }));
+});
 test.each(["/emote-listings/", "/board/"])("%s initializes the listing runtime, not effect playback", async path => {
   history.replaceState({}, "", `${path}?did=did:plc:alice`);
   document.body.innerHTML = '<main class="board"></main>';

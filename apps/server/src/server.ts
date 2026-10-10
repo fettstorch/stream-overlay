@@ -466,8 +466,15 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
         );
       if (!config.enabled)
         return json({ message: "Enable Emotes before testing commands.", requestId }, 409);
-      const delivered = deps.relay.testCommand(testDid, commandId, requestId);
-      const previewDelivered = deps.relay.testCommand(testDid, commandId, requestId, "preview");
+      const eventId = url.searchParams.get("event");
+      const mapping = config.eventMappings?.find(mapping => mapping.event === eventId && mapping.commandId === commandId);
+      if (eventId !== null && (!mapping || !config.commands.some(command => command.id === commandId && command.mode === "effect"))) {
+        deps.logger.log("warn", "cloud.command.test-rejected", { requestId, commandId, reason: "event-mapping-unavailable" });
+        return json({ message: "This event no longer maps to this clip. Reload the configuration.", requestId }, 409);
+      }
+      const event = mapping ? { eventId: mapping.event, eventText: mapping.text } : undefined;
+      const delivered = deps.relay.testCommand(testDid, commandId, requestId, "live", event);
+      const previewDelivered = deps.relay.testCommand(testDid, commandId, requestId, "preview", event);
       return json({
         delivered,
         previewDelivered,

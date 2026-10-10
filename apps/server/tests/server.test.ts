@@ -327,7 +327,7 @@ describe("cloud server boundary", () => {
     (deps as any).pds = {
       publicConfig: async () => {
         reads++;
-        return { enabled, commands: [{ id: "wave" }] };
+        return { enabled, commands: [{ id: "wave", mode: "effect" }], eventMappings: [{ event: "teleport-arrival", commandId: "wave", text: "Welcome!" }] };
       },
     };
     const url = `${deps.origin}/api/accounts/${encodeURIComponent(did)}/test/wave`;
@@ -390,6 +390,12 @@ describe("cloud server boundary", () => {
       409,
     );
     expect(sent).toHaveLength(2);
+    enabled = true;
+    const eventTest = await handleRequest(new Request(`${url}?event=teleport-arrival`, { method: "POST", headers }), deps);
+    expect(eventTest.status).toBe(200);
+    expect(JSON.parse(sent.at(-1)!)).toMatchObject({ type: "test-command", commandId: "wave", eventId: "teleport-arrival", eventText: "Welcome!" });
+    expect((await handleRequest(new Request(`${url}?event=stream-started`, { method: "POST", headers }), deps)).status).toBe(409);
+    expect(sent).toHaveLength(3);
   });
 
   test("serves the user application at root with root assets and legacy asset aliases", async () => {

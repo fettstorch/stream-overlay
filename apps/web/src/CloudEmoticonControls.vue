@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { adminFetch } from "./cloud-admin-fetch.ts";
 import CollapsibleSection from "./CollapsibleSection.vue";
+import { emoteEvents, type EmoteEventType } from "../../../modules/emoticons/src/events.ts";
 import DeleteConfirmation from "./DeleteConfirmation.vue";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import type { CloudCommand, CloudConfig, CloudMedia } from "./cloud-admin-types.ts";
@@ -155,12 +156,17 @@ function create() {
   emit('panel-change', 'create');
 }
 watch(() => props.panel, panel => { if (panel === 'create' && !formOpen.value) create(); });
-async function test(command: CloudCommand) {
+const mappedEvents = computed(() => emoteEvents.flatMap(event => {
+  const mapping = props.config.eventMappings?.find(mapping => mapping.event === event.id);
+  const command = props.config.commands.find(command => command.id === mapping?.commandId && command.mode === "effect");
+  return command ? [{ ...event, command }] : [];
+}));
+async function test(command: CloudCommand, event?: EmoteEventType) {
   busy.value = true;
   try {
     await props.beforeTest?.(command);
     const response = await adminFetch(
-      `/api/accounts/${encodeURIComponent(props.did)}/test/${encodeURIComponent(command.id)}`,
+      `/api/accounts/${encodeURIComponent(props.did)}/test/${encodeURIComponent(command.id)}${event ? `?event=${encodeURIComponent(event)}` : ""}`,
       { method: "POST" },
     );
     const detail = (await response.json()) as { message?: string; requestId?: string };
@@ -473,6 +479,14 @@ defineExpose({ acceptCardDrop });
         </li>
       </ul></CollapsibleSection
     >
+    <CollapsibleSection v-if="panel === 'commands' && mappedEvents.length" class="command-group" title="Events" :count="mappedEvents.length">
+      <ul class="command-list striped-list">
+        <li v-for="event in mappedEvents" :key="event.id">
+          <strong>{{ event.name }} · !{{ event.command.command }}</strong>
+          <button type="button" :disabled="busy" :aria-label="`Simulate ${event.name}`" @click="test(event.command, event.id)">Simulate</button>
+        </li>
+      </ul>
+    </CollapsibleSection>
     <slot name="previews" />
     </div>
     <div v-if="!formOpen && !panel">

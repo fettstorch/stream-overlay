@@ -44,15 +44,15 @@ export class Relay {
   close(peer: Peer) { if (!peer.did) return; const account = this.accounts.get(peer.did); if (!account) return; account.peers.delete(peer); this.logger?.log("info", "cloud.relay.connection-closed", { page: peer.page, channel: peer.channel }); if (!account.peers.size) account.disconnectedAt = this.now(); }
   cleanup() { const now = this.now(); for (const [did, account] of this.accounts) if (!account.peers.size && account.disconnectedAt && now - Math.max(account.lastMeaningfulAt, account.disconnectedAt) >= this.inactivityMs) this.accounts.delete(did); }
   configChanged(did: string, revision: string) { const account = this.accounts.get(did); if (!account) return; account.lastMeaningfulAt = this.now(); this.logger?.log("info", "cloud.relay.config-changed", { connectedPeers: account.peers.size }); this.broadcast(account, "live", { type: "config-changed", revision }); this.broadcast(account, "preview", { type: "config-changed", revision }); }
-  testCommand(did: string, commandId: string, requestId: string, channel: "live" | "preview" = "live") {
+  testCommand(did: string, commandId: string, requestId: string, channel: "live" | "preview" = "live", event?: { eventId: string; eventText?: string }) {
     const account = this.accounts.get(did);
     let delivered = 0;
     for (const peer of account?.peers ?? []) {
       if (peer.page !== "effect" || peer.channel !== channel) continue;
-      if (peer.socket.send(JSON.stringify({ type: "test-command", commandId, requestId } satisfies RelayServerMessage)) !== 0) delivered++;
+      if (peer.socket.send(JSON.stringify({ type: "test-command", commandId, requestId, ...event } satisfies RelayServerMessage)) !== 0) delivered++;
     }
     if (account && delivered) account.lastMeaningfulAt = this.now();
-    this.logger?.log("info", "cloud.relay.test-command-sent", { requestId, commandId, delivered, channel });
+    this.logger?.log("info", "cloud.relay.test-command-sent", { requestId, commandId, delivered, channel, eventId: event?.eventId });
     return delivered;
   }
   private broadcast(account: Account, channel: string, message: RelayServerMessage) { const encoded = JSON.stringify(message); for (const peer of account.peers) if (peer.channel === channel) peer.socket.send(encoded); }

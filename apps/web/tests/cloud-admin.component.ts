@@ -20,6 +20,21 @@ function response(body: unknown, status = 200) { return new Response(JSON.string
 function mediaDrag(type: string, name = "drop.gif") { const event = new Event(type, { bubbles: true, cancelable: true }); Object.defineProperty(event, "dataTransfer", { value: { types: ["Files"], files: [new File(["GIF8"], name)], dropEffect: "none" } }); return event; }
 
 describe("Cloud Admin", () => {
+  test("Testing offers simulations only for mapped clips and sends the event identity", async () => {
+    const fetch = vi.fn(async () => response({ message: "Test sent" }));
+    vi.stubGlobal("fetch", fetch);
+    const beforeTest = vi.fn(async () => {});
+    const wrapper = mount(CloudEmoticonControls, { props: { did: session.did, config: { ...config,
+      eventMappings: [{ event: "teleport-arrival", commandId: "wave", text: "Welcome!" }, { event: "stream-started", commandId: "missing" }] }, save: vi.fn(), beforeTest, panel: "commands" } });
+    expect(wrapper.findAll('button[aria-label^="Simulate"]')).toHaveLength(1);
+    await wrapper.get('button[aria-label="Simulate Teleport arrival"]').trigger('click');
+    await flushPromises();
+    expect(beforeTest).toHaveBeenCalledWith(config.commands[0]);
+    expect(fetch).toHaveBeenCalledWith(`/api/accounts/${encodeURIComponent(session.did)}/test/wave?event=teleport-arrival`, { method: "POST" });
+    await wrapper.setProps({ panel: "create" });
+    expect(wrapper.find('button[aria-label^="Simulate"]').exists()).toBe(false);
+    wrapper.unmount();
+  });
   test("new commands default to Sticker with a neutral choice switch and reset to Sticker", async () => {
     const save = vi.fn(async () => true);
     const wrapper = mount(CloudEmoticonControls, { props: { did: session.did, config, save, panel: "commands" } });
