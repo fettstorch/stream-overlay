@@ -6,5 +6,6 @@ import "./hand-drawn-controls.css";
 import "./section.css";
 import "./slider.css";
 import "./typography.css";
+import "./motion.css";
 
 createApp(App).mount("#app");

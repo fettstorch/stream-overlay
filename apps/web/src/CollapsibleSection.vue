@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, useId } from "vue";
+import CollapseTransition from "./CollapseTransition.vue";
 import "./module-section.css";
 const props = defineProps<{ title: string; count?: number; initiallyOpen?: boolean }>();
 const open = defineModel<boolean | undefined>("open", { default: undefined });
@@ -15,7 +16,9 @@ const bodyId = `section-${useId()}`;
         <span class="fold-icon" aria-hidden="true" :class="{ expanded }" />
       </button>
     </div>
-    <div v-show="expanded" :id="bodyId" class="section-content"><slot /></div>
+    <CollapseTransition>
+      <div v-show="expanded" :id="bodyId" class="section-content" :inert="!expanded || undefined"><slot /></div>
+    </CollapseTransition>
   </div>
 </template>
 

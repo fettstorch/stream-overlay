@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import BrandWordmark from "./BrandWordmark.vue";
+import CollapseTransition from "./CollapseTransition.vue";
 import { adminFetch } from "./cloud-admin-fetch.ts";
 import BrandMascot from "./BrandMascot.vue";
 import StreamplaceBrand from "./StreamplaceBrand.vue";
@@ -489,7 +490,7 @@ onBeforeUnmount(() => {
             aria-label="Search modules"
         /></label>
         <p v-if="!matchingCount" class="no-modules" role="status">No modules match your search.</p>
-        <div class="module-grid">
+        <TransitionGroup name="module-layout" tag="div" class="module-grid">
           <article
             v-for="module in orderedModules"
             v-show="matchesSearch(module)"
@@ -563,12 +564,13 @@ onBeforeUnmount(() => {
             <div v-else-if="loadState === 'loading'" class="state-panel">
               Loading your configuration…
             </div>
+            <CollapseTransition>
             <div
-              v-else-if="config"
+              v-if="config && loadState === 'ready'"
               v-show="isExpanded(module)"
               :id="`module-body-${module.id}`"
               class="module-body"
-              :inert="saving || undefined"
+              :inert="saving || !isExpanded(module) || undefined"
             >
               <p>{{ module.description }}</p>
               <section class="module-commands">
@@ -695,6 +697,7 @@ onBeforeUnmount(() => {
                 />
               </div>
             </div>
+            </CollapseTransition>
             <p
               v-if="moduleMessages[module.id]"
               class="module-message"
@@ -704,7 +707,7 @@ onBeforeUnmount(() => {
               {{ moduleMessages[module.id] }}
             </p>
           </article>
-        </div>
+        </TransitionGroup>
       </section>
     </template>
   </main>

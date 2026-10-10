@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import BrandWordmark from "./BrandWordmark.vue";
+import CollapseTransition from "./CollapseTransition.vue";
 import BrandMascot from "./BrandMascot.vue";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { mutePreview } from "./mute-preview.ts";
@@ -446,7 +447,7 @@ onBeforeUnmount(() => {
         <input v-model="moduleQuery" type="search" placeholder="Search modules…" aria-label="Search modules">
       </label>
       <p v-if="modules.length && !matchingModuleCount" class="no-modules" role="status">No modules match your search.</p>
-      <div class="module-grid">
+      <TransitionGroup name="module-layout" tag="div" class="module-grid">
         <article v-for="module in orderedModules" v-show="matchesSearch(module)" :key="module.id" class="module-card" :class="{ pinned: isPinned(module.id), collapsed: !isExpanded(module) }" @click="expandCard(module, $event)">
           <div class="module-heading">
             <div>
@@ -490,7 +491,8 @@ onBeforeUnmount(() => {
               </label>
             </div>
           </div>
-          <div v-show="isExpanded(module)" :id="`module-body-${module.id}`" class="module-body">
+          <CollapseTransition>
+          <div v-show="isExpanded(module)" :id="`module-body-${module.id}`" class="module-body" :inert="!isExpanded(module) || undefined">
           <div class="overlay-url">
             <code>{{ overlayUrl(module) }}</code>
             <a class="open-url-button" :href="overlayUrl(module)" target="_blank" rel="noopener noreferrer"
@@ -627,9 +629,10 @@ onBeforeUnmount(() => {
             </div>
           </div>
           </div>
+          </CollapseTransition>
           <p v-if="module.error" class="error">{{ module.error }}</p>
         </article>
-      </div>
+      </TransitionGroup>
     </section>
   </main>
   <BrandMascot />

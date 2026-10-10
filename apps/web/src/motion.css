@@ -1,0 +1,17 @@
+/* Vue's FLIP transforms preserve real, content-driven card layout. */
+.module-card {
+  transition: padding 500ms cubic-bezier(.22, 1, .36, 1),
+    flex-grow 500ms cubic-bezier(.22, 1, .36, 1);
+}
+#app .module-layout-move {
+  transition: transform 500ms cubic-bezier(.22, 1, .36, 1),
+    padding 500ms cubic-bezier(.22, 1, .36, 1),
+    flex-grow 500ms cubic-bezier(.22, 1, .36, 1);
+}
+#app .module-heading h3 { transition: font-size 500ms ease; }
+#app .fold-icon { transition: transform 250ms ease; }
+@media (prefers-reduced-motion: reduce) {
+  #app .module-layout-move, .module-card, #app .module-heading h3, #app .fold-icon {
+    transition: none;
+  }
+}
