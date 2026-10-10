@@ -20,10 +20,17 @@ const config = {
   bot: { enabled: false, rules: [] },
 };
 test("chat composer preserves failed messages and offers reauthorization before successful posting", async () => {
-  const wrapper = mount(CloudBotControls, { props: { config, save: vi.fn() } });
+  const wrapper = mount(CloudBotControls, { props: { config, save: vi.fn(), avatar: 'https://cdn.example/avatar.png' } });
   await flushPromises();
+  expect(wrapper.get('.chat-avatar').attributes('src')).toBe('https://cdn.example/avatar.png');
+  expect(wrapper.find('.chat-send').exists()).toBe(false);
+  expect(wrapper.text()).not.toContain('Send as your logged-in account');
   const input = wrapper.get('input[placeholder="Type a chat message or !command"]');
+  await input.setValue('   ');
+  expect(wrapper.find('.chat-send').exists()).toBe(false);
   await input.setValue('!hi');
+  expect(wrapper.get('.chat-send').attributes('aria-label')).toBe('Send message');
+  expect(wrapper.get('.chat-send img').attributes('src')).toContain('send.png');
   request.mockResolvedValueOnce(Response.json({ error: 'chat-permission-required', message: 'Sign in again to allow chat posting.' }, { status: 403 }));
   await wrapper.get('.bot-chat-composer').trigger('submit'); await flushPromises();
   expect((input.element as HTMLInputElement).value).toBe('!hi');
@@ -32,6 +39,9 @@ test("chat composer preserves failed messages and offers reauthorization before 
   await wrapper.get('.bot-chat-composer').trigger('submit'); await flushPromises();
   expect(request).toHaveBeenLastCalledWith('/api/accounts/did%3Aplc%3Aowner/chat/message', expect.objectContaining({ method: 'POST', body: JSON.stringify({ text: '!hi' }) }));
   expect((input.element as HTMLInputElement).value).toBe('');
+  expect(wrapper.find('.chat-send').exists()).toBe(false);
+  await wrapper.get('.chat-avatar').trigger('error');
+  expect(wrapper.get('.chat-avatar').attributes('aria-label')).toBe('Profile picture unavailable');
   wrapper.unmount();
 });
 test("Commands embeds the streamer's chat and runs the private listener only while enabled and open", async () => {

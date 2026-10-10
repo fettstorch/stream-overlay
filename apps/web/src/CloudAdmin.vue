@@ -692,6 +692,7 @@ onBeforeUnmount(() => {
               </DrawnTabs>
               </template>
               <CloudBotControls v-else-if="module.id === 'bot'" :config="config"
+                :avatar="profile?.avatar"
                 :save="(candidate) => saveConfiguration(candidate, undefined, 'bot')" />
               <CloudModuleControls
                 v-else

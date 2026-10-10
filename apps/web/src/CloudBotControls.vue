@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
+import sendIcon from "./assets/branding/controls/send.png";
 import DrawnTabs from "./DrawnTabs.vue";
 import EmoticonModeration from "./EmoticonModeration.vue";
 import { adminFetch } from "./cloud-admin-fetch.ts";
@@ -8,7 +9,10 @@ import { validateBotSettings, type BotRule } from "../../../modules/bot/src/conf
 const props = defineProps<{
   config: CloudConfig;
   save: (config: CloudConfig) => Promise<boolean>;
+  avatar?: string;
 }>();
+const avatarFailed = ref(false);
+watch(() => props.avatar, () => { avatarFailed.value = false; });
 const sourceUrl = ref(""),
   configured = ref(false),
   busy = ref(false),
@@ -142,8 +146,14 @@ async function copy() {
           <iframe :src="chatUrl" title="Your Streamplace chat" referrerpolicy="no-referrer" />
         </div>
         <form class="bot-chat-composer editor-fields" @submit.prevent="sendChat">
-          <label>Send as your logged-in account<input v-model="chatText" placeholder="Type a chat message or !command" maxlength="3000" required :disabled="chatSending" /></label>
-          <button type="submit" :disabled="chatSending || !chatText.trim()">{{ chatSending ? 'Sending…' : 'Send message' }}</button>
+          <div class="bot-chat-input-row">
+            <img v-if="avatar && !avatarFailed" class="chat-avatar" :src="avatar" alt="Your profile picture" @error="avatarFailed = true" />
+            <span v-else class="chat-avatar avatar-placeholder" role="img" aria-label="Profile picture unavailable" />
+            <input v-model="chatText" aria-label="Chat message" placeholder="Type a chat message or !command" maxlength="3000" required :disabled="chatSending" />
+            <button v-if="chatText.trim()" class="chat-send" type="submit" :disabled="chatSending" :aria-label="chatSending ? 'Sending message' : 'Send message'">
+              <img :src="sendIcon" alt="" />
+            </button>
+          </div>
           <p v-if="chatStatus" role="status">{{ chatStatus }}</p>
           <a v-if="chatPermissionRequired" :href="`/oauth/login?handle=${encodeURIComponent(config.streamerDid)}`">Authorize chat posting</a>
         </form>
@@ -232,7 +242,12 @@ async function copy() {
 .bot-chat > iframe[hidden] { display: none; }
 .bot-chat .settings-hint { margin-top: 12px; }
 .bot-chat-composer { display: grid; gap: 10px; margin-top: 12px; }
-.bot-chat-composer button { justify-self: start; }
+.bot-chat-input-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.chat-avatar { width: 40px; height: 40px; flex: 0 0 40px; border-radius: 50%; object-fit: cover; }
+.bot-chat-input-row > input { flex: 1; min-width: 0; }
+#app .chat-send { flex: 0 0 44px; width: 44px; height: 44px; padding: 0; border: 0; background: transparent; box-shadow: none; }
+#app .chat-send::before { display: none; }
+.chat-send img { display: block; width: 100%; height: 100%; object-fit: contain; }
 @media (min-width: 900px) {
   .bot-commands-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 }
