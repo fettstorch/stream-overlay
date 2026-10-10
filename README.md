@@ -238,7 +238,7 @@ docker compose --env-file .env -f infra/koyeb/compose.local.yml up --build
 
 For faster source development without a container, `bun run dev` uses a
 task-local Bun 1.4.2 (downloaded by `npm exec` without changing the global Bun install),
-builds the web app, and starts the server on the same port. Set
+builds the web app with Pets enabled, and starts the Pets-enabled server on the same port. Set
 `PORT=4567 bun run dev` to choose another port; when `PUBLIC_ORIGIN` is
 omitted, OAuth metadata derives its loopback origin from `PORT`.
 

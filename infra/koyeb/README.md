@@ -93,6 +93,7 @@ docker build --target pets -f infra/koyeb/Dockerfile -t streamface:pets .
 This target includes the upstream assets, enables its admin card, and sets
 `ENABLE_CLOUD_PETS=true` for the server. For direct development instead, build
 with `VITE_ENABLE_CLOUD_PETS=true` and run the server with `ENABLE_CLOUD_PETS=true`.
+`npm run dev` sets both of these flags automatically for the author demo.
 Both switches deliberately default to false. The opt-in keeps the original
 author attribution and project links. Use `--without-pets` to disable it again
 if the author declines; broader release permission remains unresolved.
