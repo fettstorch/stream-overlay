@@ -80,7 +80,8 @@ export function deploymentArgs(
   if (!/^[a-z0-9-]+\/[a-z0-9-]+$/.test(target)) throw new Error("Use an app/service target");
   if (!/^[a-z0-9-]+$/.test(secretName)) throw new Error("Invalid Koyeb secret name");
   if (botSecret && !/^[a-z0-9-]+$/.test(botSecret)) throw new Error("Invalid bot secret name");
-  if (giphySecret && !/^[a-zA-Z0-9_-]+$/.test(giphySecret)) throw new Error("Invalid Giphy secret name");
+  if (giphySecret && !/^[a-zA-Z0-9_-]+$/.test(giphySecret))
+    throw new Error("Invalid Giphy secret name");
   const url = new URL(origin);
   if (url.protocol !== "https:" || url.origin !== origin)
     throw new Error("Use an HTTPS origin without a trailing slash, credentials or path");
@@ -135,8 +136,14 @@ export function deploymentOptions(args: string[]) {
       origin: { type: "string", default: "https://streamface.live" },
       target: { type: "string", default: "streamface/web" },
       secret: { type: "string", default: "streamface-session-secret" },
-      "bot-secret": { type: "string", default: process.env.KOYEB_BOT_SECRET || "streamface-bot-app-password" },
-      "giphy-secret": { type: "string", default: process.env.KOYEB_GIPHY_SECRET || "GIPHY_API_KEY" },
+      "bot-secret": {
+        type: "string",
+        default: process.env.KOYEB_BOT_SECRET || "streamface-bot-app-password",
+      },
+      "giphy-secret": {
+        type: "string",
+        default: process.env.KOYEB_GIPHY_SECRET || "GIPHY_API_KEY",
+      },
       execute: { type: "boolean", default: false },
       "without-pets": { type: "boolean", default: false },
       help: { type: "boolean", default: false },
@@ -158,7 +165,15 @@ if (import.meta.main) {
       );
     } else {
       const includePets = !values["without-pets"];
-      deploymentArgs("preview", values.origin, values.target, values.secret, values["bot-secret"], values["giphy-secret"], includePets);
+      deploymentArgs(
+        "preview",
+        values.origin,
+        values.target,
+        values.secret,
+        values["bot-secret"],
+        values["giphy-secret"],
+        includePets,
+      );
       stage = "source-staging";
       staged = await stageCloudSource(resolve(import.meta.dirname, ".."), includePets);
       logger.log("info", "cloud.deploy.source-staged", {
@@ -166,7 +181,15 @@ if (import.meta.main) {
         ...staged,
         petsIncluded: includePets,
       });
-      const args = deploymentArgs(staged.directory, values.origin, values.target, values.secret, values["bot-secret"], values["giphy-secret"], includePets);
+      const args = deploymentArgs(
+        staged.directory,
+        values.origin,
+        values.target,
+        values.secret,
+        values["bot-secret"],
+        values["giphy-secret"],
+        includePets,
+      );
       console.log(["koyeb", ...args].map((arg) => `'${arg.replaceAll("'", "'\\''")}'`).join(" "));
       if (!values.execute)
         console.log(

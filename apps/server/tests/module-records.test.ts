@@ -19,25 +19,67 @@ import { jsonToLex, lexToJson } from "@atproto/lexicon";
 const did = "did:plc:alice",
   timestamp = "2026-10-09T12:00:00.000Z";
 test("event mappings roundtrip, survive older clients and clear on command deletion", () => {
-  const eventMappings = [{ event: "teleport-arrival" as const, commandId: "stable-key", text: "Welcome!" }];
-  const records = serializeModuleRecords({ ...config, commands: config.commands.map(command => ({ ...command, mode: "effect" })), eventMappings }, [], timestamp);
+  const eventMappings = [
+    { event: "teleport-arrival" as const, commandId: "stable-key", text: "Welcome!" },
+  ];
+  const records = serializeModuleRecords(
+    {
+      ...config,
+      commands: config.commands.map((command) => ({ ...command, mode: "effect" })),
+      eventMappings,
+    },
+    [],
+    timestamp,
+  );
   const parsed = parseModuleRecords(did, records);
   expect(parsed.eventMappings).toEqual(eventMappings);
   const { eventMappings: omitted, ...legacy } = parsed;
-  expect(parseModuleRecords(did, serializeModuleRecords(legacy, records, timestamp)).eventMappings).toEqual(eventMappings);
-  expect(parseModuleRecords(did, serializeModuleRecords({ ...parsed, commands: [] }, records, timestamp)).eventMappings).toEqual([]);
-  expect(parseModuleRecords(did, serializeModuleRecords({ ...parsed, eventMappings: [] }, records, timestamp)).eventMappings).toEqual([]);
-  expect(() => serializeModuleRecords({ ...config, eventMappings: [{ event: "unsupported" as any, commandId: "stable-key" }] }, [], timestamp)).toThrow();
-  const settings = records.find(record => record.collection === moduleCollections.emoticons)!;
-  settings.value.eventMappings = [...eventMappings,
+  expect(
+    parseModuleRecords(did, serializeModuleRecords(legacy, records, timestamp)).eventMappings,
+  ).toEqual(eventMappings);
+  expect(
+    parseModuleRecords(did, serializeModuleRecords({ ...parsed, commands: [] }, records, timestamp))
+      .eventMappings,
+  ).toEqual([]);
+  expect(
+    parseModuleRecords(
+      did,
+      serializeModuleRecords({ ...parsed, eventMappings: [] }, records, timestamp),
+    ).eventMappings,
+  ).toEqual([]);
+  expect(() =>
+    serializeModuleRecords(
+      { ...config, eventMappings: [{ event: "unsupported" as any, commandId: "stable-key" }] },
+      [],
+      timestamp,
+    ),
+  ).toThrow();
+  const settings = records.find((record) => record.collection === moduleCollections.emoticons)!;
+  settings.value.eventMappings = [
+    ...eventMappings,
     { event: "teleport-canceled", commandId: "stable-key" },
-    { event: "stream-ended", commandId: "stable-key" }];
+    { event: "stream-ended", commandId: "stable-key" },
+  ];
   expect(parseModuleRecords(did, records).eventMappings).toEqual(eventMappings);
-  expect(parseModuleRecords(did, serializeModuleRecords({ ...config, eventMappings }, [], timestamp)).eventMappings).toEqual([]);
-  expect(() => serializeModuleRecords({ ...parsed, eventMappings: [{ ...eventMappings[0], text: 'x'.repeat(501) }] }, records, timestamp)).toThrow();
+  expect(
+    parseModuleRecords(did, serializeModuleRecords({ ...config, eventMappings }, [], timestamp))
+      .eventMappings,
+  ).toEqual([]);
+  expect(() =>
+    serializeModuleRecords(
+      { ...parsed, eventMappings: [{ ...eventMappings[0], text: "x".repeat(501) }] },
+      records,
+      timestamp,
+    ),
+  ).toThrow();
 });
 test("roles round trip separately for Bot and Emotes and survive older clients", () => {
-  const roles = { followers: true, mutuals: false, moderators: true, users: [{ did: "did:plc:viewer", handle: "viewer.example" }] };
+  const roles = {
+    followers: true,
+    mutuals: false,
+    moderators: true,
+    users: [{ did: "did:plc:viewer", handle: "viewer.example" }],
+  };
   const botRoles = { ...roles, followers: false, mutuals: true };
   const candidate = { ...config, roles, bot: { enabled: true, rules: [], roles: botRoles } };
   const records = serializeModuleRecords(candidate, [], timestamp);
@@ -45,7 +87,10 @@ test("roles round trip separately for Bot and Emotes and survive older clients",
   expect(parsed.roles).toEqual(roles);
   expect(parsed.bot?.roles).toEqual(botRoles);
   const { roles: omitted, ...legacy } = parsed;
-  const updated = parseModuleRecords(did, serializeModuleRecords({ ...legacy, bot: { enabled: true, rules: [] } }, records, timestamp));
+  const updated = parseModuleRecords(
+    did,
+    serializeModuleRecords({ ...legacy, bot: { enabled: true, rules: [] } }, records, timestamp),
+  );
   expect(updated.roles).toEqual(roles);
   expect(updated.bot?.roles).toEqual(botRoles);
 });
@@ -72,34 +117,66 @@ const config: CloudConfig = {
   ],
 };
 test("Giphy records persist only IDs and roundtrip independently of media URLs", () => {
-  const records = serializeModuleRecords({ ...config, commands: [{ ...config.commands[0]!, image: { giphyId: "abc123" } }] }, [], timestamp);
-  const record = records.find(item => item.collection === moduleCollections.command)!;
-  expect(record.value.image).toEqual({ $type: "live.streamface.emoticons.defs#giphyMedia", id: "abc123" });
+  const records = serializeModuleRecords(
+    { ...config, commands: [{ ...config.commands[0]!, image: { giphyId: "abc123" } }] },
+    [],
+    timestamp,
+  );
+  const record = records.find((item) => item.collection === moduleCollections.command)!;
+  expect(record.value.image).toEqual({
+    $type: "live.streamface.emoticons.defs#giphyMedia",
+    id: "abc123",
+  });
   expect(parseModuleRecords(did, records).commands[0]!.image).toEqual({ giphyId: "abc123" });
 });
 test("moderation rules roundtrip, retain fractional seconds and survive older clients", () => {
-  const moderation = [{ did: "did:plc:viewer", handle: "viewer.example", blocked: false, cooldownSeconds: 30.5 }];
+  const moderation = [
+    { did: "did:plc:viewer", handle: "viewer.example", blocked: false, cooldownSeconds: 30.5 },
+  ];
   const records = serializeModuleRecords({ ...config, moderation }, [], timestamp);
   expect(records[1].value.moderation[0].cooldownMilliseconds).toBe(30500);
   expect(parseModuleRecords(did, records).moderation).toEqual(moderation);
-  expect(parseModuleRecords(did, serializeModuleRecords(config, records, timestamp)).moderation).toEqual(moderation);
-  expect(parseModuleRecords(did, serializeModuleRecords({ ...config, moderation: [] }, records, timestamp)).moderation).toEqual([]);
+  expect(
+    parseModuleRecords(did, serializeModuleRecords(config, records, timestamp)).moderation,
+  ).toEqual(moderation);
+  expect(
+    parseModuleRecords(
+      did,
+      serializeModuleRecords({ ...config, moderation: [] }, records, timestamp),
+    ).moderation,
+  ).toEqual([]);
   for (const invalid of [
     [...moderation, ...moderation],
     [{ ...moderation[0], did: "not-a-did" }],
     [{ ...moderation[0], cooldownSeconds: -1 }],
     [{ ...moderation[0], cooldownSeconds: 86401 }],
     [{ ...moderation[0], blocked: "yes" }],
-  ]) expect(() => serializeModuleRecords({ ...config, moderation: invalid as any }, [], timestamp)).toThrow();
+  ])
+    expect(() =>
+      serializeModuleRecords({ ...config, moderation: invalid as any }, [], timestamp),
+    ).toThrow();
 });
 test("account-wide preferences roundtrip, default to confirmation and survive older clients", () => {
   const initial = serializeModuleRecords(config, [], timestamp);
   expect(parseModuleRecords(did, initial).preferences).toBeUndefined();
-  const optedOut = serializeModuleRecords({ ...config, preferences: { confirmDeletion: false } }, initial, timestamp);
+  const optedOut = serializeModuleRecords(
+    { ...config, preferences: { confirmDeletion: false } },
+    initial,
+    timestamp,
+  );
   expect(parseModuleRecords(did, optedOut).preferences).toEqual({ confirmDeletion: false });
-  expect(optedOut.find(r => r.collection === "live.streamface.preferences")?.rkey).toBe("self");
-  expect(parseModuleRecords(did, serializeModuleRecords(config, optedOut, timestamp)).preferences?.confirmDeletion).toBe(false);
-  expect(() => serializeModuleRecords({ ...config, preferences: { confirmDeletion: "no" as any } }, [], timestamp)).toThrow();
+  expect(optedOut.find((r) => r.collection === "live.streamface.preferences")?.rkey).toBe("self");
+  expect(
+    parseModuleRecords(did, serializeModuleRecords(config, optedOut, timestamp)).preferences
+      ?.confirmDeletion,
+  ).toBe(false);
+  expect(() =>
+    serializeModuleRecords(
+      { ...config, preferences: { confirmDeletion: "no" as any } },
+      [],
+      timestamp,
+    ),
+  ).toThrow();
 });
 test("fresh accounts save without legacy records and a failed transaction does not populate the cache", async () => {
   let writes = 0;

@@ -16,10 +16,14 @@ test("deployment defaults to our hosted origin with explicit execution and optio
 test("package deploy executes by default while preview never uploads", async () => {
   const { scripts } = await Bun.file(new URL("../package.json", import.meta.url)).json();
   expect(scripts.deploy).toBe(`${scripts["deploy:preview"]} --execute`);
-  expect(scripts["deploy:preview"]).toBe("npm exec --yes --package=bun@1.4.2 -- bun scripts/deploy-cloud.ts");
+  expect(scripts["deploy:preview"]).toBe(
+    "npm exec --yes --package=bun@1.4.2 -- bun scripts/deploy-cloud.ts",
+  );
 });
 test("local cloud Docker testing uses the same Pets-enabled target as deployment", async () => {
-  const compose = Bun.YAML.parse(await Bun.file(new URL("../infra/koyeb/compose.local.yml", import.meta.url)).text()) as {
+  const compose = Bun.YAML.parse(
+    await Bun.file(new URL("../infra/koyeb/compose.local.yml", import.meta.url)).text(),
+  ) as {
     services: { cloud: { build: { target: string }; environment: Record<string, unknown> } };
   };
   expect(compose.services.cloud.build.target).toBe("pets");
@@ -28,8 +32,12 @@ test("local cloud Docker testing uses the same Pets-enabled target as deployment
 test("development enables Pets in both the build and server using pinned Bun", async () => {
   const { scripts } = await Bun.file(new URL("../package.json", import.meta.url)).json();
   const launcher = "npm exec --yes --package=bun@1.4.2 -- bun";
-  expect(scripts.dev).toBe(`VITE_ENABLE_CLOUD_PETS=true ${launcher} run --filter @streamface/web build && ENABLE_CLOUD_PETS=true PORT=\${PORT:-3010} ${launcher} --no-orphans apps/server/src/server.ts`);
-  expect(scripts.docker).toBe("docker compose --env-file .env -f infra/koyeb/compose.local.yml up --build");
+  expect(scripts.dev).toBe(
+    `VITE_ENABLE_CLOUD_PETS=true ${launcher} run --filter @streamface/web build && ENABLE_CLOUD_PETS=true PORT=\${PORT:-3010} ${launcher} --no-orphans apps/server/src/server.ts`,
+  );
+  expect(scripts.docker).toBe(
+    "docker compose --env-file .env -f infra/koyeb/compose.local.yml up --build",
+  );
   expect(scripts["cloud:dev"]).toBeUndefined();
   expect(scripts.cloud).toBeUndefined();
 });
@@ -64,7 +72,15 @@ test("deployment includes Pets for the author demo, one eNano in Frankfurt and a
 test("Pets can be excluded again with a single deployment flag", () => {
   expect(deploymentOptions([])["without-pets"]).toBe(false);
   expect(deploymentOptions(["--without-pets"])["without-pets"]).toBe(true);
-  const args = deploymentArgs("/tmp/source", "https://streamface.live", "streamface/web", "streamface-session-secret", "", "", false);
+  const args = deploymentArgs(
+    "/tmp/source",
+    "https://streamface.live",
+    "streamface/web",
+    "streamface-session-secret",
+    "",
+    "",
+    false,
+  );
   expect(args).toContain("hosted");
   expect(args).toContain("ENABLE_CLOUD_PETS=false");
 });
@@ -73,15 +89,58 @@ test("deployment references bot and Giphy secrets by default with overrides and 
   const defaults = deploymentArgs("/tmp/source", "https://streamface.live");
   expect(defaults).toContain("BOT_APP_PASSWORD={{secret.streamface-bot-app-password}}");
   expect(defaults).toContain("GIPHY_API_KEY={{secret.GIPHY_API_KEY}}");
-  const disabled = deploymentArgs("/tmp/source", "https://streamface.live", "streamface/web", "streamface-session-secret", "", "");
-  expect(disabled.some(value => /BOT_APP_PASSWORD|GIPHY_API_KEY/.test(value))).toBe(false);
-  const args = deploymentArgs("/tmp/source", "https://streamface.live", "streamface/web", "streamface-session-secret", "streamface-bot-app-password");
+  const disabled = deploymentArgs(
+    "/tmp/source",
+    "https://streamface.live",
+    "streamface/web",
+    "streamface-session-secret",
+    "",
+    "",
+  );
+  expect(disabled.some((value) => /BOT_APP_PASSWORD|GIPHY_API_KEY/.test(value))).toBe(false);
+  const args = deploymentArgs(
+    "/tmp/source",
+    "https://streamface.live",
+    "streamface/web",
+    "streamface-session-secret",
+    "streamface-bot-app-password",
+  );
   expect(args).toContain("BOT_APP_PASSWORD={{secret.streamface-bot-app-password}}");
-  expect(deploymentOptions(["--bot-secret", "streamface-bot-app-password"])["bot-secret"]).toBe("streamface-bot-app-password");
-  expect(() => deploymentArgs("/tmp/source", "https://streamface.live", "streamface/web", "streamface-session-secret", "bad=value")).toThrow("bot secret");
-  expect(deploymentOptions(["--giphy-secret", "custom-giphy"])["giphy-secret"]).toBe("custom-giphy");
-  expect(deploymentArgs("/tmp/source", "https://streamface.live", "streamface/web", "streamface-session-secret", "", "custom-giphy")).toContain("GIPHY_API_KEY={{secret.custom-giphy}}");
-  expect(() => deploymentArgs("/tmp/source", "https://streamface.live", "streamface/web", "streamface-session-secret", "", "bad=value")).toThrow("Giphy secret");
+  expect(deploymentOptions(["--bot-secret", "streamface-bot-app-password"])["bot-secret"]).toBe(
+    "streamface-bot-app-password",
+  );
+  expect(() =>
+    deploymentArgs(
+      "/tmp/source",
+      "https://streamface.live",
+      "streamface/web",
+      "streamface-session-secret",
+      "bad=value",
+    ),
+  ).toThrow("bot secret");
+  expect(deploymentOptions(["--giphy-secret", "custom-giphy"])["giphy-secret"]).toBe(
+    "custom-giphy",
+  );
+  expect(
+    deploymentArgs(
+      "/tmp/source",
+      "https://streamface.live",
+      "streamface/web",
+      "streamface-session-secret",
+      "",
+      "custom-giphy",
+    ),
+  ).toContain("GIPHY_API_KEY={{secret.custom-giphy}}");
+  expect(() =>
+    deploymentArgs(
+      "/tmp/source",
+      "https://streamface.live",
+      "streamface/web",
+      "streamface-session-secret",
+      "",
+      "bad=value",
+    ),
+  ).toThrow("Giphy secret");
 });
 
 test("staging includes Pets unless disabled, excludes runtime data and secrets; symlinks fail closed", async () => {
@@ -114,15 +173,13 @@ test("staging includes Pets unless disabled, excludes runtime data and secrets; 
     staged = await stageCloudSource(root);
     expect(await Bun.file(join(staged.directory, "apps/source.ts")).exists()).toBe(true);
     expect(await Bun.file(join(staged.directory, "streamplace-pets/pets.js")).exists()).toBe(true);
-    for (const path of [
-      "apps/.env",
-      "apps/production.json",
-      "runtime/oauth.json",
-    ])
+    for (const path of ["apps/.env", "apps/production.json", "runtime/oauth.json"])
       expect(await Bun.file(join(staged.directory, path)).exists()).toBe(false);
     const withoutPets = await stageCloudSource(root, false);
     try {
-      expect(await Bun.file(join(withoutPets.directory, "streamplace-pets/pets.js")).exists()).toBe(false);
+      expect(await Bun.file(join(withoutPets.directory, "streamplace-pets/pets.js")).exists()).toBe(
+        false,
+      );
     } finally {
       await rm(withoutPets.directory, { recursive: true, force: true });
     }

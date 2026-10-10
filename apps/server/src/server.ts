@@ -245,29 +245,65 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
   const chatDid = didFromPath(path, "chat/message");
   if (chatDid && request.method === "POST") {
     if (!sameOrigin(request, deps.origin)) return json({ error: "invalid-origin" }, 403);
-    if (await readSessionCookie(request, deps.secret) !== chatDid) return json({ error: "unauthorized" }, 401);
+    if ((await readSessionCookie(request, deps.secret)) !== chatDid)
+      return json({ error: "unauthorized" }, 401);
     let text: string;
     try {
       const data = JSON.parse(new TextDecoder().decode(await boundedBody(request, 16384)));
       if (typeof data.text !== "string") throw new Error();
       text = data.text.trim();
-      const graphemes = [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text)].length;
+      const graphemes = [
+        ...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text),
+      ].length;
       if (!text || Buffer.byteLength(text) > 3000 || graphemes > 300) throw new Error();
-    } catch { return json({ error: "invalid-message", message: "Enter a message of up to 300 characters." }, 400); }
+    } catch {
+      return json(
+        { error: "invalid-message", message: "Enter a message of up to 300 characters." },
+        400,
+      );
+    }
     try {
       const uri = await deps.pds.sendChat(chatDid, text, { logger: deps.logger, requestId });
       return json({ sent: true, uri });
     } catch (error) {
       const permission = error instanceof ChatPermissionRequiredError;
-      deps.logger.log("warn", "cloud.chat.send-failed", { requestId, reason: permission ? "permission-required" : error instanceof ChatRateLimitError ? "rate-limit" : "pds-failed", ...safeError(error) });
-      if (permission) return json({ error: "chat-permission-required", message: "Sign in again to allow Streamface to send chat messages as you.", requestId }, 403);
-      if (error instanceof ChatRateLimitError) return json({ error: "rate-limit", message: "Wait a moment before sending again.", requestId }, 429);
-      return json({ error: "chat-send-failed", message: "Could not confirm sending your message. Check the chat before retrying.", requestId }, 502);
+      deps.logger.log("warn", "cloud.chat.send-failed", {
+        requestId,
+        reason: permission
+          ? "permission-required"
+          : error instanceof ChatRateLimitError
+            ? "rate-limit"
+            : "pds-failed",
+        ...safeError(error),
+      });
+      if (permission)
+        return json(
+          {
+            error: "chat-permission-required",
+            message: "Sign in again to allow Streamface to send chat messages as you.",
+            requestId,
+          },
+          403,
+        );
+      if (error instanceof ChatRateLimitError)
+        return json(
+          { error: "rate-limit", message: "Wait a moment before sending again.", requestId },
+          429,
+        );
+      return json(
+        {
+          error: "chat-send-failed",
+          message: "Could not confirm sending your message. Check the chat before retrying.",
+          requestId,
+        },
+        502,
+      );
     }
   }
   const botDid = didFromPath(path, "bot/(source|trigger|routine|lease)");
   if (botDid && path.endsWith("/source") && request.method === "GET") {
-    if (await readSessionCookie(request, deps.secret) !== botDid) return json({ error: "unauthorized" }, 401);
+    if ((await readSessionCookie(request, deps.secret)) !== botDid)
+      return json({ error: "unauthorized" }, 401);
     const source = new URL("/bot/", deps.origin);
     source.searchParams.set("did", botDid);
     source.searchParams.set("token", botSourceToken(botDid, deps.secret));
@@ -278,7 +314,10 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
     try {
       const data = JSON.parse(new TextDecoder().decode(await boundedBody(request, 1024)));
       if (!validBotSourceToken(botDid, data.token, deps.secret)) {
-        deps.logger.log("warn", "cloud.bot.command-rejected", { requestId, reason: "unauthorized" });
+        deps.logger.log("warn", "cloud.bot.command-rejected", {
+          requestId,
+          reason: "unauthorized",
+        });
         return json({ error: "unauthorized" }, 403);
       }
       if (!deps.botCommands) return json({ sent: false, reason: "not-configured" }, 503);
@@ -287,7 +326,10 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
         if (result.active && result.acquired)
           deps.logger.log("info", "cloud.bot.source-acquired", { requestId, streamerDid: botDid });
         else if (result.reason === "invalid-source-id" || result.reason === "capacity")
-          deps.logger.log("warn", "cloud.bot.source-rejected", { requestId, reason: result.reason });
+          deps.logger.log("warn", "cloud.bot.source-rejected", {
+            requestId,
+            reason: result.reason,
+          });
         return json(result);
       }
       if (!deps.botCommands.sources.owns(botDid, data.sourceId))
@@ -296,9 +338,15 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
       // Config loading can outlive a lease: fence again before initiating a send.
       if (!deps.botCommands.sources.owns(botDid, data.sourceId))
         return json({ sent: false, reason: "inactive-source" }, 409);
-      return json(path.endsWith("/routine")
-        ? await deps.botCommands.routine(config, data.routineId, requestId, () => deps.botCommands!.sources.owns(botDid, data.sourceId))
-        : await deps.botCommands.trigger(config, data.uri, requestId, () => deps.botCommands!.sources.owns(botDid, data.sourceId)));
+      return json(
+        path.endsWith("/routine")
+          ? await deps.botCommands.routine(config, data.routineId, requestId, () =>
+              deps.botCommands!.sources.owns(botDid, data.sourceId),
+            )
+          : await deps.botCommands.trigger(config, data.uri, requestId, () =>
+              deps.botCommands!.sources.owns(botDid, data.sourceId),
+            ),
+      );
     } catch {
       deps.logger.log("warn", "cloud.bot.trigger-failed", { requestId });
       return json({ error: "bot-unavailable", requestId }, 503);
@@ -306,24 +354,40 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
   }
   // Browser API key by design: GIPHY forbids proxying API/media requests.
   if (path === "/api/giphy" && request.method === "GET") {
-    deps.logger.log("info", "cloud.giphy.configuration", { requestId, configured: Boolean(deps.giphyApiKey) });
+    deps.logger.log("info", "cloud.giphy.configuration", {
+      requestId,
+      configured: Boolean(deps.giphyApiKey),
+    });
     return json({ apiKey: deps.giphyApiKey ?? "" });
   }
   const giphyDid = didFromPath(path, "giphy-diagnostics");
   if (giphyDid && request.method === "POST") {
     if (!sameOrigin(request, deps.origin)) return json({ error: "invalid-origin" }, 403);
-    if (await readSessionCookie(request, deps.secret) !== giphyDid) return json({ error: "unauthorized" }, 401);
+    if ((await readSessionCookie(request, deps.secret)) !== giphyDid)
+      return json({ error: "unauthorized" }, 401);
     try {
       const data = JSON.parse(new TextDecoder().decode(await boundedBody(request, 1024)));
-      if (!["started", "completed", "failed", "selected"].includes(data.event) ||
-          typeof data.operationId !== "string" || !/^[a-f0-9-]{36}$/.test(data.operationId))
+      if (
+        !["started", "completed", "failed", "selected"].includes(data.event) ||
+        typeof data.operationId !== "string" ||
+        !/^[a-f0-9-]{36}$/.test(data.operationId)
+      )
         return json({ error: "invalid-diagnostic" }, 400);
-      deps.logger.log(data.event === "failed" ? "warn" : "info", `cloud.giphy.search-${data.event}`, {
-        requestId, operationId: data.operationId,
-        count: Number.isSafeInteger(data.count) ? Math.max(0, Math.min(50, data.count)) : undefined,
-      });
+      deps.logger.log(
+        data.event === "failed" ? "warn" : "info",
+        `cloud.giphy.search-${data.event}`,
+        {
+          requestId,
+          operationId: data.operationId,
+          count: Number.isSafeInteger(data.count)
+            ? Math.max(0, Math.min(50, data.count))
+            : undefined,
+        },
+      );
       return json({ ok: true });
-    } catch { return json({ error: "invalid-diagnostic" }, 400); }
+    } catch {
+      return json({ error: "invalid-diagnostic" }, 400);
+    }
   }
   if (path === "/oauth/client-metadata.json") return json(deps.oauth.clientMetadata);
   if (path === "/oauth/login") {
@@ -467,14 +531,36 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
       if (!config.enabled)
         return json({ message: "Enable Emotes before testing commands.", requestId }, 409);
       const eventId = url.searchParams.get("event");
-      const mapping = config.eventMappings?.find(mapping => mapping.event === eventId && mapping.commandId === commandId);
-      if (eventId !== null && (!mapping || !config.commands.some(command => command.id === commandId && command.mode === "effect"))) {
-        deps.logger.log("warn", "cloud.command.test-rejected", { requestId, commandId, reason: "event-mapping-unavailable" });
-        return json({ message: "This event no longer maps to this clip. Reload the configuration.", requestId }, 409);
+      const mapping = config.eventMappings?.find(
+        (mapping) => mapping.event === eventId && mapping.commandId === commandId,
+      );
+      if (
+        eventId !== null &&
+        (!mapping ||
+          !config.commands.some((command) => command.id === commandId && command.mode === "effect"))
+      ) {
+        deps.logger.log("warn", "cloud.command.test-rejected", {
+          requestId,
+          commandId,
+          reason: "event-mapping-unavailable",
+        });
+        return json(
+          {
+            message: "This event no longer maps to this clip. Reload the configuration.",
+            requestId,
+          },
+          409,
+        );
       }
       const event = mapping ? { eventId: mapping.event, eventText: mapping.text } : undefined;
       const delivered = deps.relay.testCommand(testDid, commandId, requestId, "live", event);
-      const previewDelivered = deps.relay.testCommand(testDid, commandId, requestId, "preview", event);
+      const previewDelivered = deps.relay.testCommand(
+        testDid,
+        commandId,
+        requestId,
+        "preview",
+        event,
+      );
       return json({
         delivered,
         previewDelivered,

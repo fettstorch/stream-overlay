@@ -15,19 +15,52 @@ import { StructuredLogger } from "../src/logger.ts";
 const secret = "a-secret-longer-than-thirty-two-characters";
 describe("cloud auth and PDS records", () => {
   test("chat posts as the session owner, requires permission and rate limits without logging text", async () => {
-    let scope = "atproto", writes: any[] = [], logs: unknown[] = [];
-    const service = new PdsService({ restore: async () => ({ getTokenInfo: async () => ({ scope }) }) } as any,
-      "live.streamface", 0, 0, { agent: () => ({ com: { atproto: { repo: { createRecord: async (record: any) => {
-        writes.push(record); return { data: { uri: "at://sent" } };
-      } } } } }) as any });
-    const diagnostics = { logger: new StructuredLogger(undefined, entry => logs.push(entry)), requestId: "chat-test" };
-    await expect(service.sendChat("did:plc:alice", "private text", diagnostics)).rejects.toBeInstanceOf(ChatPermissionRequiredError);
+    let scope = "atproto",
+      writes: any[] = [],
+      logs: unknown[] = [];
+    const service = new PdsService(
+      { restore: async () => ({ getTokenInfo: async () => ({ scope }) }) } as any,
+      "live.streamface",
+      0,
+      0,
+      {
+        agent: () =>
+          ({
+            com: {
+              atproto: {
+                repo: {
+                  createRecord: async (record: any) => {
+                    writes.push(record);
+                    return { data: { uri: "at://sent" } };
+                  },
+                },
+              },
+            },
+          }) as any,
+      },
+    );
+    const diagnostics = {
+      logger: new StructuredLogger(undefined, (entry) => logs.push(entry)),
+      requestId: "chat-test",
+    };
+    await expect(
+      service.sendChat("did:plc:alice", "private text", diagnostics),
+    ).rejects.toBeInstanceOf(ChatPermissionRequiredError);
     expect(writes).toHaveLength(0);
     scope = "atproto repo:place.stream.chat.message";
     expect(await service.sendChat("did:plc:alice", "private text", diagnostics)).toBe("at://sent");
-    expect(writes[0]).toMatchObject({ repo: "did:plc:alice", collection: "place.stream.chat.message",
-      record: { streamer: "did:plc:alice", text: "private text", $type: "place.stream.chat.message" } });
-    await expect(service.sendChat("did:plc:alice", "second", diagnostics)).rejects.toBeInstanceOf(ChatRateLimitError);
+    expect(writes[0]).toMatchObject({
+      repo: "did:plc:alice",
+      collection: "place.stream.chat.message",
+      record: {
+        streamer: "did:plc:alice",
+        text: "private text",
+        $type: "place.stream.chat.message",
+      },
+    });
+    await expect(service.sendChat("did:plc:alice", "second", diagnostics)).rejects.toBeInstanceOf(
+      ChatRateLimitError,
+    );
     expect(writes).toHaveLength(1);
     expect(JSON.stringify(logs)).not.toContain("private text");
     expect(JSON.stringify(logs)).toContain("cloud.chat.send-completed");

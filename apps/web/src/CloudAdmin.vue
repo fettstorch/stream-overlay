@@ -50,7 +50,11 @@ const dimensionsDetected = ref(false);
 let dimensionsTimer: ReturnType<typeof setInterval> | undefined;
 let disposed = false;
 function obsInstructions(moduleId: string) {
-  if (moduleId === "bot") return ["Add the private Bot URL as a transparent OBS browser source. Any size works.", "The bot reads chat only while that source is running. Keep its URL private."];
+  if (moduleId === "bot")
+    return [
+      "Add the private Bot URL as a transparent OBS browser source. Any size works.",
+      "The bot reads chat only while that source is running. Keep its URL private.",
+    ];
   const { width, height } = dimensions.value;
   const size =
     moduleId === "chat"
@@ -105,12 +109,14 @@ async function prepareEmoticonTest(command: CloudCommand) {
         animations.push(...(element.getAnimations?.() ?? []));
       }
       // Center the final preview size, not its partially expanded position.
-      await Promise.allSettled(animations.map(animation => animation.finished));
+      await Promise.allSettled(animations.map((animation) => animation.finished));
       if (disposed || !frame.isConnected) return;
       frame.scrollIntoView?.({
         block: "center",
         inline: "nearest",
-        behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+        behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+          ? "instant"
+          : "smooth",
       });
       return;
     }
@@ -131,7 +137,11 @@ function moduleEnabled(id: string) {
   if (!config.value || !module) return false;
   if (id === "bot") return config.value.bot?.enabled ?? false;
   const key = module.cloud.enabledKey;
-  return key === "emoticons" ? config.value.enabled : key === "bot" ? config.value.bot?.enabled ?? false : moduleSettings(config.value).modules[key];
+  return key === "emoticons"
+    ? config.value.enabled
+    : key === "bot"
+      ? (config.value.bot?.enabled ?? false)
+      : moduleSettings(config.value).modules[key];
 }
 function previewUrl(id: string) {
   const url = new URL(cloudUrl(paths[id]));
@@ -156,9 +166,10 @@ const {
 } = useModuleCollection(cloudModules);
 const emotePreviewsStarted = ref(false);
 watchEffect(() => {
-  const module = cloudModules.value.find(module => module.id === "emoticons");
+  const module = cloudModules.value.find((module) => module.id === "emoticons");
   // Start lazily, then keep the iframe and its asset cache alive while hidden.
-  if (module && isExpanded(module) && emoticonTab.value === "commands") emotePreviewsStarted.value = true;
+  if (module && isExpanded(module) && emoticonTab.value === "commands")
+    emotePreviewsStarted.value = true;
 });
 type ModuleDropControls = {
   acceptCardDrop: (
@@ -332,7 +343,8 @@ async function toggleEnabled(module: CloudModule, event: Event) {
   const input = event.target as HTMLInputElement;
   const candidate = { ...config.value, ...moduleSettings(config.value) };
   if (module.id === "emoticons") candidate.enabled = input.checked;
-  else if (module.id === "bot") candidate.bot = { ...candidate.bot, enabled: input.checked, rules: candidate.bot?.rules ?? [] };
+  else if (module.id === "bot")
+    candidate.bot = { ...candidate.bot, enabled: input.checked, rules: candidate.bot?.rules ?? [] };
   else
     candidate.modules[
       module.id === "overlay-paint" ? "paint" : module.id === "streamplace-pets" ? "pets" : "chat"
@@ -343,7 +355,9 @@ async function toggleEnabled(module: CloudModule, event: Event) {
 async function copyUrl(kind: string) {
   try {
     await navigator.clipboard.writeText(
-      cloudUrl(kind === "board" ? "/emote-listings/" : kind === "effect" ? "/emotes/" : paths[kind]),
+      cloudUrl(
+        kind === "board" ? "/emote-listings/" : kind === "effect" ? "/emotes/" : paths[kind],
+      ),
     );
     copied.value = kind;
     clearTimeout(copyTimer);
@@ -435,32 +449,40 @@ onBeforeUnmount(() => {
       Connecting to Streamface…
     </section>
     <template v-else-if="sessionState === 'anonymous'">
-    <section class="settings auth-card">
-      <div>
-        <p class="section-kicker">AT PROTOCOL</p>
-        <h2>Connect your account</h2>
-        <p>Your overlay settings, commands and media stay in your own PDS.</p>
-      </div>
-      <form class="login-form" @submit.prevent="login">
-        <label
-          >ATProto handle<input
-            ref="handleInput"
-            name="handle"
-            autocomplete="username"
-            placeholder="Search name or handle"
-            required /></label
-        ><button class="primary-button" type="submit">Continue with AT Protocol</button>
-      </form>
-      <p ref="loginStatus" class="save-status login-status" aria-live="polite">
-        {{ loginMessage }}
-      </p>
-    </section>
-    <CollapsibleSection v-model:open="publicTutorialOpen" title="Tutorial">
-      <video v-if="publicTutorialOpen" class="tutorial-video" controls autoplay muted playsinline aria-label="Emotes tutorial">
-        <source src="/emotes-tutorial.mp4" type="video/mp4">
-        Your browser does not support video playback.
-      </video>
-    </CollapsibleSection>
+      <section class="settings auth-card">
+        <div>
+          <p class="section-kicker">AT PROTOCOL</p>
+          <h2>Connect your account</h2>
+          <p>Your overlay settings, commands and media stay in your own PDS.</p>
+        </div>
+        <form class="login-form" @submit.prevent="login">
+          <label
+            >ATProto handle<input
+              ref="handleInput"
+              name="handle"
+              autocomplete="username"
+              placeholder="Search name or handle"
+              required /></label
+          ><button class="primary-button" type="submit">Continue with AT Protocol</button>
+        </form>
+        <p ref="loginStatus" class="save-status login-status" aria-live="polite">
+          {{ loginMessage }}
+        </p>
+      </section>
+      <CollapsibleSection v-model:open="publicTutorialOpen" title="Tutorial">
+        <video
+          v-if="publicTutorialOpen"
+          class="tutorial-video"
+          controls
+          autoplay
+          muted
+          playsinline
+          aria-label="Emotes tutorial"
+        >
+          <source src="/emotes-tutorial.mp4" type="video/mp4" />
+          Your browser does not support video playback.
+        </video>
+      </CollapsibleSection>
     </template>
     <template v-else>
       <section class="settings account-card">
@@ -525,12 +547,23 @@ onBeforeUnmount(() => {
       </section>
       <p v-if="configurationMessage" role="status">{{ configurationMessage }}</p>
       <CollapsibleSection v-if="config" title="Quickstart">
-        <SetupImport :did="did" :config="config" :save="candidate => saveConfiguration(candidate, undefined, 'preferences')" />
+        <SetupImport
+          :did="did"
+          :config="config"
+          :save="(candidate) => saveConfiguration(candidate, undefined, 'preferences')"
+        />
         <p v-if="moduleMessages.preferences" role="alert">{{ moduleMessages.preferences }}</p>
       </CollapsibleSection>
       <CollapsibleSection v-model:open="tutorialOpen" title="Tutorial">
-        <video v-if="tutorialOpen" class="tutorial-video" controls preload="none" playsinline aria-label="Emotes tutorial">
-          <source src="/emotes-tutorial.mp4" type="video/mp4">
+        <video
+          v-if="tutorialOpen"
+          class="tutorial-video"
+          controls
+          preload="none"
+          playsinline
+          aria-label="Emotes tutorial"
+        >
+          <source src="/emotes-tutorial.mp4" type="video/mp4" />
           Your browser does not support video playback.
         </video>
       </CollapsibleSection>
@@ -621,144 +654,203 @@ onBeforeUnmount(() => {
               Loading your configuration…
             </div>
             <CollapseTransition>
-            <div
-              v-if="config && loadState === 'ready'"
-              v-show="isExpanded(module)"
-              :id="`module-body-${module.id}`"
-              class="module-body"
-              :inert="saving || !isExpanded(module) || undefined"
-            >
-              <p>{{ module.description }}</p>
-              <template v-if="module.id !== 'emoticons' && module.id !== 'bot'">
-                <section class="module-commands"><h4>OBS URL</h4></section>
-                <div class="overlay-url">
-                  <code>{{ cloudUrl(paths[module.id]) }}</code>
-                  <a class="open-url-button" :href="cloudUrl(paths[module.id])" target="_blank" rel="noopener noreferrer"
-                    :aria-label="`Open ${module.name} OBS URL`"><span class="external-link-icon" aria-hidden="true" /></a>
-                  <button type="button" class="copy-button" :class="{ copied: copied === module.id }"
-                    :aria-label="`Copy ${module.name} OBS URL`" @click="copyUrl(module.id)"><span class="copy-icon" aria-hidden="true" /></button>
-                </div>
-              </template>
-              <template v-if="module.id === 'emoticons'">
-              <section class="module-commands overlay-url-heading">
-                <h4>{{ module.id === "emoticons" ? "Emotes OBS URL" : "OBS URL" }}</h4>
-                <ModuleHelp v-if="module.id === 'emoticons'" id="emoticons-effects-url" name="Emotes OBS URL" align="start"
-                  description="This is the overlay for the actual clips/gifs & stickers. Ideally put this in a browser source that spans your whole stream." />
-              </section>
-              <div class="overlay-url">
-                <code>{{ cloudUrl(paths[module.id]) }}</code
-                ><a
-                  class="open-url-button"
-                  :href="cloudUrl(paths[module.id])"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  :aria-label="`Open ${module.name} OBS URL`"
-                  ><span class="external-link-icon" aria-hidden="true" /></a
-                ><button
-                  type="button"
-                  class="copy-button"
-                  :class="{
-                    copied:
-                      copied === module.id || (module.id === 'emoticons' && copied === 'effect'),
-                  }"
-                  :aria-label="`Copy ${module.name} OBS URL`"
-                  @click="copyUrl(module.id === 'emoticons' ? 'effect' : module.id)"
-                >
-                  <span class="copy-icon" aria-hidden="true" />
-                </button>
-              </div>
-                <section class="module-commands overlay-url-heading listing-url-heading"><h4>Command listing OBS URL</h4>
-                  <ModuleHelp id="emoticons-listing-url" name="Command listing OBS URL" align="start"
-                    description="This is a listing of your commands for your audience including cooldowns for your clips." />
-                </section>
-                <div class="overlay-url board-url">
-                  <code>{{ boardUrl }}</code
-                  ><a
-                    class="open-url-button"
-                    :href="boardUrl"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="Open Emotes command listing OBS URL"
-                    ><span class="external-link-icon" aria-hidden="true" /></a
-                  ><button
-                    type="button"
-                    class="copy-button"
-                    :class="{ copied: copied === 'board' }"
-                    aria-label="Copy Emotes command listing OBS URL"
-                    @click="copyUrl('board')"
-                  >
-                    <span class="copy-icon" aria-hidden="true" />
-                  </button>
-                </div>
-              <DrawnTabs v-model="emoticonTab" :tabs="emoticonTabs" label="Emote tools">
-              <div class="emoticon-tab-content" :class="{ 'commands-columns': emoticonTab === 'commands' }">
-              <div class="command-previews" v-show="emoticonTab === 'commands'" :inert="emoticonTab !== 'commands' || undefined">
-                <section class="module-section overlay-live-preview">
-                  <h4>Emote overlay preview</h4>
-                  <div v-if="emotePreviewsStarted" class="cloud-preview"
-                    :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }">
-                    <iframe :ref="(value) => (effectPreviewFrame = value as HTMLIFrameElement | undefined)"
-                      :src="previewUrl(module.id)" title="Emotes preview" allow="autoplay" />
-                  </div>
-                </section>
-                <section class="module-section overlay-live-preview">
-                  <h4>Listing overlay preview</h4>
-                  <iframe v-if="emotePreviewsStarted"
-                    :ref="(value) => (listingPreviewFrame = value as HTMLIFrameElement | undefined)"
-                    :src="listingPreviewUrl" title="Emotes command listing preview" class="listing-preview" />
-                </section>
-              </div>
-                  <EmoticonModeration v-show="emoticonTab === 'moderation'" :config="config" :save="saveConfiguration" />
-                  <EmoteEvents v-if="emoticonTab === 'events'" :config="config" :save="saveConfiguration" />
-                <CloudEmoticonControls
-                    v-show="emoticonTab === 'commands' || emoticonTab === 'create'"
-                    :inert="!['commands', 'create'].includes(emoticonTab) || undefined"
-                  :ref="(value) => setModuleControls(module.id, value)"
-                  :did="did"
-                  :config="config"
-                  :save="saveConfiguration"
-                  :before-test="prepareEmoticonTest"
-                  :panel="emoticonTab"
-                  @panel-change="emoticonTab = $event"
-                />
-              </div>
-              </DrawnTabs>
-              </template>
-              <CloudBotControls v-else-if="module.id === 'bot'" :config="config"
-                :avatar="profile?.avatar"
-                :save="(candidate) => saveConfiguration(candidate, undefined, 'bot')" />
-              <CloudModuleControls
-                v-else
-                :module-id="module.id"
-                :config="config"
-                :save="(candidate) => saveConfiguration(candidate, undefined, module.id)"
-                @chat-preview="updateChatPreview"
-              />
-              <p v-if="module.id === 'chat'" class="chat-preview-note">
-                Sample chat preview — these messages are generated here, not sent to your stream.
-                Your OBS source still shows live chat.
-              </p>
               <div
-                v-if="module.id !== 'emoticons' && module.id !== 'bot' && isExpanded(module)"
-                class="cloud-preview"
-                :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }"
+                v-if="config && loadState === 'ready'"
+                v-show="isExpanded(module)"
+                :id="`module-body-${module.id}`"
+                class="module-body"
+                :inert="saving || !isExpanded(module) || undefined"
               >
-                <iframe
-                  v-if="module.id === 'overlay-paint'"
-                  :src="streamUrl"
-                  title="Stream background"
-                  tabindex="-1"
-                  class="preview-background"
-                  allow="autoplay"
+                <p>{{ module.description }}</p>
+                <template v-if="module.id !== 'emoticons' && module.id !== 'bot'">
+                  <section class="module-commands"><h4>OBS URL</h4></section>
+                  <div class="overlay-url">
+                    <code>{{ cloudUrl(paths[module.id]) }}</code>
+                    <a
+                      class="open-url-button"
+                      :href="cloudUrl(paths[module.id])"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      :aria-label="`Open ${module.name} OBS URL`"
+                      ><span class="external-link-icon" aria-hidden="true"
+                    /></a>
+                    <button
+                      type="button"
+                      class="copy-button"
+                      :class="{ copied: copied === module.id }"
+                      :aria-label="`Copy ${module.name} OBS URL`"
+                      @click="copyUrl(module.id)"
+                    >
+                      <span class="copy-icon" aria-hidden="true" />
+                    </button>
+                  </div>
+                </template>
+                <template v-if="module.id === 'emoticons'">
+                  <section class="module-commands overlay-url-heading">
+                    <h4>{{ module.id === "emoticons" ? "Emotes OBS URL" : "OBS URL" }}</h4>
+                    <ModuleHelp
+                      v-if="module.id === 'emoticons'"
+                      id="emoticons-effects-url"
+                      name="Emotes OBS URL"
+                      align="start"
+                      description="This is the overlay for the actual clips/gifs & stickers. Ideally put this in a browser source that spans your whole stream."
+                    />
+                  </section>
+                  <div class="overlay-url">
+                    <code>{{ cloudUrl(paths[module.id]) }}</code
+                    ><a
+                      class="open-url-button"
+                      :href="cloudUrl(paths[module.id])"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      :aria-label="`Open ${module.name} OBS URL`"
+                      ><span class="external-link-icon" aria-hidden="true" /></a
+                    ><button
+                      type="button"
+                      class="copy-button"
+                      :class="{
+                        copied:
+                          copied === module.id ||
+                          (module.id === 'emoticons' && copied === 'effect'),
+                      }"
+                      :aria-label="`Copy ${module.name} OBS URL`"
+                      @click="copyUrl(module.id === 'emoticons' ? 'effect' : module.id)"
+                    >
+                      <span class="copy-icon" aria-hidden="true" />
+                    </button>
+                  </div>
+                  <section class="module-commands overlay-url-heading listing-url-heading">
+                    <h4>Command listing OBS URL</h4>
+                    <ModuleHelp
+                      id="emoticons-listing-url"
+                      name="Command listing OBS URL"
+                      align="start"
+                      description="This is a listing of your commands for your audience including cooldowns for your clips."
+                    />
+                  </section>
+                  <div class="overlay-url board-url">
+                    <code>{{ boardUrl }}</code
+                    ><a
+                      class="open-url-button"
+                      :href="boardUrl"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label="Open Emotes command listing OBS URL"
+                      ><span class="external-link-icon" aria-hidden="true" /></a
+                    ><button
+                      type="button"
+                      class="copy-button"
+                      :class="{ copied: copied === 'board' }"
+                      aria-label="Copy Emotes command listing OBS URL"
+                      @click="copyUrl('board')"
+                    >
+                      <span class="copy-icon" aria-hidden="true" />
+                    </button>
+                  </div>
+                  <DrawnTabs v-model="emoticonTab" :tabs="emoticonTabs" label="Emote tools">
+                    <div
+                      class="emoticon-tab-content"
+                      :class="{ 'commands-columns': emoticonTab === 'commands' }"
+                    >
+                      <div
+                        class="command-previews"
+                        v-show="emoticonTab === 'commands'"
+                        :inert="emoticonTab !== 'commands' || undefined"
+                      >
+                        <section class="module-section overlay-live-preview">
+                          <h4>Emote overlay preview</h4>
+                          <div
+                            v-if="emotePreviewsStarted"
+                            class="cloud-preview"
+                            :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }"
+                          >
+                            <iframe
+                              :ref="
+                                (value) =>
+                                  (effectPreviewFrame = value as HTMLIFrameElement | undefined)
+                              "
+                              :src="previewUrl(module.id)"
+                              title="Emotes preview"
+                              allow="autoplay"
+                            />
+                          </div>
+                        </section>
+                        <section class="module-section overlay-live-preview">
+                          <h4>Listing overlay preview</h4>
+                          <iframe
+                            v-if="emotePreviewsStarted"
+                            :ref="
+                              (value) =>
+                                (listingPreviewFrame = value as HTMLIFrameElement | undefined)
+                            "
+                            :src="listingPreviewUrl"
+                            title="Emotes command listing preview"
+                            class="listing-preview"
+                          />
+                        </section>
+                      </div>
+                      <EmoticonModeration
+                        v-show="emoticonTab === 'moderation'"
+                        :config="config"
+                        :save="saveConfiguration"
+                      />
+                      <EmoteEvents
+                        v-if="emoticonTab === 'events'"
+                        :config="config"
+                        :save="saveConfiguration"
+                      />
+                      <CloudEmoticonControls
+                        v-show="emoticonTab === 'commands' || emoticonTab === 'create'"
+                        :inert="!['commands', 'create'].includes(emoticonTab) || undefined"
+                        :ref="(value) => setModuleControls(module.id, value)"
+                        :did="did"
+                        :config="config"
+                        :save="saveConfiguration"
+                        :before-test="prepareEmoticonTest"
+                        :panel="emoticonTab"
+                        @panel-change="emoticonTab = $event"
+                      />
+                    </div>
+                  </DrawnTabs>
+                </template>
+                <CloudBotControls
+                  v-else-if="module.id === 'bot'"
+                  :config="config"
+                  :avatar="profile?.avatar"
+                  :save="(candidate) => saveConfiguration(candidate, undefined, 'bot')"
                 />
-                <iframe
-                  :src="previewUrl(module.id)"
-                  :title="`${module.name} preview`"
-                  allow="autoplay"
-                  @load="module.id === 'chat' && chatPreviewLoaded($event)"
+                <CloudModuleControls
+                  v-else
+                  :module-id="module.id"
+                  :config="config"
+                  :save="(candidate) => saveConfiguration(candidate, undefined, module.id)"
+                  @chat-preview="updateChatPreview"
                 />
+                <p v-if="module.id === 'chat'" class="chat-preview-note">
+                  Sample chat preview — these messages are generated here, not sent to your stream.
+                  Your OBS source still shows live chat.
+                </p>
+                <div
+                  v-if="module.id !== 'emoticons' && module.id !== 'bot' && isExpanded(module)"
+                  class="cloud-preview"
+                  :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }"
+                >
+                  <iframe
+                    v-if="module.id === 'overlay-paint'"
+                    :src="streamUrl"
+                    title="Stream background"
+                    tabindex="-1"
+                    class="preview-background"
+                    allow="autoplay"
+                  />
+                  <iframe
+                    :src="previewUrl(module.id)"
+                    :title="`${module.name} preview`"
+                    allow="autoplay"
+                    @load="module.id === 'chat' && chatPreviewLoaded($event)"
+                  />
+                </div>
               </div>
-            </div>
             </CollapseTransition>
             <p
               v-if="moduleMessages[module.id]"
@@ -773,12 +865,32 @@ onBeforeUnmount(() => {
       </section>
     </template>
   </main>
-  <footer class="site-footer">v{{ version }} · created by <a href="https://fettstorch.dev">@fettstorch.dev</a></footer>
+  <footer class="site-footer">
+    v{{ version }} · created by <a href="https://fettstorch.dev">@fettstorch.dev</a>
+  </footer>
   <BrandMascot />
 </template>
 <style scoped>
-.tutorial-video { display: block; width: 100%; height: auto; }
-main { position: relative; z-index: 2; }
-.site-footer { position: fixed; left: 20px; bottom: 16px; z-index: 1; margin: 0; text-align: left; font-size: 1rem; color: #000; }
-.site-footer a { color: inherit; }
+.tutorial-video {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+main {
+  position: relative;
+  z-index: 2;
+}
+.site-footer {
+  position: fixed;
+  left: 20px;
+  bottom: 16px;
+  z-index: 1;
+  margin: 0;
+  text-align: left;
+  font-size: 1rem;
+  color: #000;
+}
+.site-footer a {
+  color: inherit;
+}
 </style>

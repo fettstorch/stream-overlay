@@ -136,18 +136,34 @@ export class PdsService {
   async sendChat(did: string, text: string, diagnostics: Diagnostics) {
     const session = await this.oauth.restore(did);
     const { scope } = await session.getTokenInfo();
-    if (!scope.split(" ").some(value => value === "repo:place.stream.chat.message" || value === "transition:generic"))
+    if (
+      !scope
+        .split(" ")
+        .some(
+          (value) => value === "repo:place.stream.chat.message" || value === "transition:generic",
+        )
+    )
       throw new ChatPermissionRequiredError("Authorize chat posting first.");
     const now = Date.now();
-    for (const [account, until] of this.chatAttempts) if (until <= now) this.chatAttempts.delete(account);
-    if (this.chatAttempts.has(did) || this.chatAttempts.size >= 1000) throw new ChatRateLimitError();
+    for (const [account, until] of this.chatAttempts)
+      if (until <= now) this.chatAttempts.delete(account);
+    if (this.chatAttempts.has(did) || this.chatAttempts.size >= 1000)
+      throw new ChatRateLimitError();
     this.chatAttempts.set(did, now + 2000);
     diagnostics.logger.log("info", "cloud.chat.send-started", { requestId: diagnostics.requestId });
     const result = await this.agentFactory(session).com.atproto.repo.createRecord({
-      repo: did, collection: "place.stream.chat.message",
-      record: { $type: "place.stream.chat.message", text, streamer: did, createdAt: new Date(now).toISOString() },
+      repo: did,
+      collection: "place.stream.chat.message",
+      record: {
+        $type: "place.stream.chat.message",
+        text,
+        streamer: did,
+        createdAt: new Date(now).toISOString(),
+      },
     });
-    diagnostics.logger.log("info", "cloud.chat.send-completed", { requestId: diagnostics.requestId });
+    diagnostics.logger.log("info", "cloud.chat.send-completed", {
+      requestId: diagnostics.requestId,
+    });
     return result.data.uri;
   }
   constructor(
@@ -530,7 +546,9 @@ export class PdsService {
           config.preferences.confirmDeletion !== snapshot.config?.preferences?.confirmDeletion,
         moderationRules: saved.moderation?.length ?? 0,
         eventMappings: saved.eventMappings?.length ?? 0,
-        moderationChanged: JSON.stringify(saved.moderation ?? []) !== JSON.stringify(snapshot.config?.moderation ?? []),
+        moderationChanged:
+          JSON.stringify(saved.moderation ?? []) !==
+          JSON.stringify(snapshot.config?.moderation ?? []),
       });
       return saved;
     } catch (error) {

@@ -25,8 +25,12 @@ test("Giphy IDs are a third image source, never mixed with URLs or blobs", () =>
   expect(() => validateCloudCommand({ ...command, image: { giphyId: "abc123" } })).not.toThrow();
   for (const giphyId of ["", "https://giphy.com/x", "bad/id", "a".repeat(129)])
     expect(() => validateCloudCommand({ ...command, image: { giphyId } })).toThrow("Giphy");
-  expect(() => validateCloudCommand({ ...command, image: { giphyId: "abc", url: "https://example.com/x" } })).toThrow();
-  expect(() => validateCloudCommand({ ...command, image: undefined, video: { giphyId: "abc" } })).toThrow();
+  expect(() =>
+    validateCloudCommand({ ...command, image: { giphyId: "abc", url: "https://example.com/x" } }),
+  ).toThrow();
+  expect(() =>
+    validateCloudCommand({ ...command, image: undefined, video: { giphyId: "abc" } }),
+  ).toThrow();
 });
 test("cloud writes require playable media and one visual; legacy reads can omit media", () => {
   expect(() =>

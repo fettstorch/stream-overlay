@@ -86,8 +86,9 @@ export function parseModuleRecords(did: string, records: StoredRecord[]): CloudC
         value
           ? value.$type.endsWith("#uploadedMedia")
             ? { blob: value.blob }
-            : value.$type.endsWith("#giphyMedia") ? { giphyId: value.id }
-            : { url: value.url }
+            : value.$type.endsWith("#giphyMedia")
+              ? { giphyId: value.id }
+              : { url: value.url }
           : undefined;
       const command: CloudCommand = {
         id: record.rkey,
@@ -109,27 +110,53 @@ export function parseModuleRecords(did: string, records: StoredRecord[]): CloudC
   if (new Set(commands.map((command) => command.command)).size !== commands.length)
     throw new Error("Duplicate commands");
   const moderation = (get(moduleCollections.emoticons)?.moderation ?? []).map((rule: any) => ({
-    did: rule.did, blocked: rule.blocked, cooldownSeconds: rule.cooldownMilliseconds / 1000,
+    did: rule.did,
+    blocked: rule.blocked,
+    cooldownSeconds: rule.cooldownMilliseconds / 1000,
     ...(rule.handle !== undefined ? { handle: rule.handle } : {}),
   }));
   validateModeration(moderation);
   const roles = get(moduleCollections.emoticons)?.roles;
   // Retain schema readability for previously saved mappings, but retire these triggers.
-  const eventMappings = (get(moduleCollections.emoticons)?.eventMappings ?? [])
-    .filter((mapping: any) => !["teleport-canceled", "stream-ended"].includes(mapping.event)
-      && commands.some(command => command.id === mapping.commandId && command.mode === "effect"));
+  const eventMappings = (get(moduleCollections.emoticons)?.eventMappings ?? []).filter(
+    (mapping: any) =>
+      !["teleport-canceled", "stream-ended"].includes(mapping.event) &&
+      commands.some((command) => command.id === mapping.commandId && command.mode === "effect"),
+  );
   validateEventMappings(eventMappings);
   if (roles !== undefined) validateCommandRoles(roles);
   const storedBot = get(moduleCollections.bot);
-  const bot = storedBot ? { enabled: storedBot.enabled, rules: storedBot.rules.map((rule: any) => ({
-    command: rule.command, response: rule.response, cooldownSeconds: rule.cooldownMilliseconds / 1000,
-  })), ...(storedBot.moderation ? { moderation: storedBot.moderation.map((rule: any) => ({
-    did: rule.did, blocked: rule.blocked, cooldownSeconds: rule.cooldownMilliseconds / 1000,
-    ...(rule.handle !== undefined ? { handle: rule.handle } : {}),
-  })) } : {}), ...(storedBot.roles ? { roles: storedBot.roles } : {}),
-    ...(storedBot.routines ? { routines: storedBot.routines.map((item: any) => ({
-      id: item.id, enabled: item.enabled, response: item.response, intervalSeconds: item.intervalMilliseconds / 1000,
-    })) } : {}) } : structuredClone(defaultBotSettings);
+  const bot = storedBot
+    ? {
+        enabled: storedBot.enabled,
+        rules: storedBot.rules.map((rule: any) => ({
+          command: rule.command,
+          response: rule.response,
+          cooldownSeconds: rule.cooldownMilliseconds / 1000,
+        })),
+        ...(storedBot.moderation
+          ? {
+              moderation: storedBot.moderation.map((rule: any) => ({
+                did: rule.did,
+                blocked: rule.blocked,
+                cooldownSeconds: rule.cooldownMilliseconds / 1000,
+                ...(rule.handle !== undefined ? { handle: rule.handle } : {}),
+              })),
+            }
+          : {}),
+        ...(storedBot.roles ? { roles: storedBot.roles } : {}),
+        ...(storedBot.routines
+          ? {
+              routines: storedBot.routines.map((item: any) => ({
+                id: item.id,
+                enabled: item.enabled,
+                response: item.response,
+                intervalSeconds: item.intervalMilliseconds / 1000,
+              })),
+            }
+          : {}),
+      }
+    : structuredClone(defaultBotSettings);
   validateBotSettings(bot);
   return {
     bot,
@@ -192,10 +219,12 @@ export function serializeModuleRecords(
   });
   const { fadeOut, ...chat } = appearance.chat;
   // Older clients must not erase moderation rules they do not understand.
-  const moderation = config.moderation ?? parseModuleRecords(config.streamerDid, previous).moderation ?? [];
+  const moderation =
+    config.moderation ?? parseModuleRecords(config.streamerDid, previous).moderation ?? [];
   validateModeration(moderation);
   const roles = config.roles ?? parseModuleRecords(config.streamerDid, previous).roles;
-  const eventMappings = config.eventMappings ?? parseModuleRecords(config.streamerDid, previous).eventMappings ?? [];
+  const eventMappings =
+    config.eventMappings ?? parseModuleRecords(config.streamerDid, previous).eventMappings ?? [];
   validateEventMappings(eventMappings);
   if (roles !== undefined) validateCommandRoles(roles);
   const records = [
@@ -206,10 +235,15 @@ export function serializeModuleRecords(
     }),
     record(moduleCollections.emoticons, "self", {
       enabled: config.enabled,
-      eventMappings: eventMappings.filter(mapping => config.commands.some(command => command.id === mapping.commandId && command.mode === "effect")),
+      eventMappings: eventMappings.filter((mapping) =>
+        config.commands.some(
+          (command) => command.id === mapping.commandId && command.mode === "effect",
+        ),
+      ),
       ...(roles !== undefined ? { roles } : {}),
-      moderation: moderation.map(rule => ({
-        did: rule.did, blocked: rule.blocked,
+      moderation: moderation.map((rule) => ({
+        did: rule.did,
+        blocked: rule.blocked,
         cooldownMilliseconds: Math.round(rule.cooldownSeconds * 1000),
         ...(rule.handle !== undefined ? { handle: rule.handle } : {}),
       })),
@@ -224,21 +258,52 @@ export function serializeModuleRecords(
   // Older clients must not erase rules they do not understand. Do not create an
   // unused collection until the user configures this module.
   const bot = config.bot ?? parseModuleRecords(config.streamerDid, previous).bot!;
-  const botModeration = bot.moderation ?? parseModuleRecords(config.streamerDid, previous).bot?.moderation;
+  const botModeration =
+    bot.moderation ?? parseModuleRecords(config.streamerDid, previous).bot?.moderation;
   const botRoles = bot.roles ?? parseModuleRecords(config.streamerDid, previous).bot?.roles;
   const routines = bot.routines ?? parseModuleRecords(config.streamerDid, previous).bot?.routines;
   if (botRoles !== undefined) validateCommandRoles(botRoles);
   validateModeration(botModeration ?? []);
   validateBotSettings({ ...bot, routines });
-  if (bot.enabled || bot.rules.length || routines?.length || botModeration?.length || botRoles || previous.some(item => item.collection === moduleCollections.bot))
-    records.push(record(moduleCollections.bot, "self", { enabled: bot.enabled, ...(botRoles ? { roles: botRoles } : {}), rules: bot.rules.map(rule => ({
-      command: rule.command, response: rule.response, cooldownMilliseconds: Math.round(rule.cooldownSeconds * 1000),
-    })), ...(routines ? { routines: routines.map(item => ({
-      id: item.id, enabled: item.enabled, response: item.response, intervalMilliseconds: Math.round(item.intervalSeconds * 1000),
-    })) } : {}), ...(botModeration ? { moderation: botModeration.map(rule => ({
-      did: rule.did, blocked: rule.blocked, cooldownMilliseconds: Math.round(rule.cooldownSeconds * 1000),
-      ...(rule.handle !== undefined ? { handle: rule.handle } : {}),
-    })) } : {}) }));
+  if (
+    bot.enabled ||
+    bot.rules.length ||
+    routines?.length ||
+    botModeration?.length ||
+    botRoles ||
+    previous.some((item) => item.collection === moduleCollections.bot)
+  )
+    records.push(
+      record(moduleCollections.bot, "self", {
+        enabled: bot.enabled,
+        ...(botRoles ? { roles: botRoles } : {}),
+        rules: bot.rules.map((rule) => ({
+          command: rule.command,
+          response: rule.response,
+          cooldownMilliseconds: Math.round(rule.cooldownSeconds * 1000),
+        })),
+        ...(routines
+          ? {
+              routines: routines.map((item) => ({
+                id: item.id,
+                enabled: item.enabled,
+                response: item.response,
+                intervalMilliseconds: Math.round(item.intervalSeconds * 1000),
+              })),
+            }
+          : {}),
+        ...(botModeration
+          ? {
+              moderation: botModeration.map((rule) => ({
+                did: rule.did,
+                blocked: rule.blocked,
+                cooldownMilliseconds: Math.round(rule.cooldownSeconds * 1000),
+                ...(rule.handle !== undefined ? { handle: rule.handle } : {}),
+              })),
+            }
+          : {}),
+      }),
+    );
   const preferences =
     config.preferences ??
     previous.find((item) => item.collection === moduleCollections.preferences)?.value;
@@ -255,8 +320,8 @@ export function serializeModuleRecords(
       value.giphyId
         ? { $type: `${mediaSchema.id}#giphyMedia`, id: value.giphyId }
         : value.blob
-        ? { $type: `${mediaSchema.id}#uploadedMedia`, blob: value.blob }
-        : { $type: `${mediaSchema.id}#externalMedia`, url: value.url };
+          ? { $type: `${mediaSchema.id}#uploadedMedia`, blob: value.blob }
+          : { $type: `${mediaSchema.id}#externalMedia`, url: value.url };
     records.push(
       record(moduleCollections.command, command.id, {
         command: command.command,

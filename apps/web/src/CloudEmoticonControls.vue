@@ -17,7 +17,7 @@ const props = defineProps<{
   beforeTest?: (command: CloudCommand) => Promise<void>;
   panel?: string;
 }>();
-const emit = defineEmits<{ 'panel-change': [panel: string] }>();
+const emit = defineEmits<{ "panel-change": [panel: string] }>();
 const kinds = ["image", "audio", "video"] as const;
 const deleting = ref<CloudCommand | null>(null);
 type MediaKind = (typeof kinds)[number];
@@ -32,52 +32,83 @@ const draftFiles: Partial<Record<MediaKind, File>> = {};
 const previewUrls = ref<Partial<Record<MediaKind, string>>>({});
 const mediaUrlInput = ref(""),
   unresolvedUrl = ref("");
-const giphyResults = ref<GiphyChoice[]>([]), giphySearching = ref(false);
-const giphySearchMode = computed(() => Boolean(mediaUrlInput.value.trim()) && !/^[a-z][a-z0-9+.-]*:/i.test(mediaUrlInput.value.trim()));
-let giphyGeneration = 0, giphyOperationId = "";
+const giphyResults = ref<GiphyChoice[]>([]),
+  giphySearching = ref(false);
+const giphySearchMode = computed(
+  () =>
+    Boolean(mediaUrlInput.value.trim()) && !/^[a-z][a-z0-9+.-]*:/i.test(mediaUrlInput.value.trim()),
+);
+let giphyGeneration = 0,
+  giphyOperationId = "";
 const giphyDebouncer = getDebouncer();
 watch(mediaUrlInput, () => {
   giphyDebouncer.clear();
-  giphyGeneration++; giphyResults.value = []; giphySearching.value = false;
+  giphyGeneration++;
+  giphyResults.value = [];
+  giphySearching.value = false;
   if (giphySearchMode.value) giphyDebouncer.debounce(() => void submitMediaInput(), 400);
 });
-function giphyLog(event: "started" | "completed" | "failed" | "selected", operationId: string, count?: number) {
+function giphyLog(
+  event: "started" | "completed" | "failed" | "selected",
+  operationId: string,
+  count?: number,
+) {
   void adminFetch(`/api/accounts/${encodeURIComponent(props.did)}/giphy-diagnostics`, {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ event, operationId, count }), signal: AbortSignal.timeout(5000),
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ event, operationId, count }),
+    signal: AbortSignal.timeout(5000),
   }).catch(() => {});
 }
 async function submitMediaInput() {
   giphyDebouncer.clear();
   if (!giphySearchMode.value) return addMediaUrl();
-  const generation = ++giphyGeneration, operationId = crypto.randomUUID();
-  giphyOperationId = operationId; giphySearching.value = true; giphyResults.value = [];
-  message.value = "Searching GIPHY…"; giphyLog("started", operationId);
+  const generation = ++giphyGeneration,
+    operationId = crypto.randomUUID();
+  giphyOperationId = operationId;
+  giphySearching.value = true;
+  giphyResults.value = [];
+  message.value = "Searching GIPHY…";
+  giphyLog("started", operationId);
   try {
     const results = await searchGiphy(mediaUrlInput.value.trim());
     if (generation !== giphyGeneration) return;
     giphyResults.value = results;
-    message.value = results.length ? "Choose a GIF to attach it." : "No GIFs found. Try another search.";
+    message.value = results.length
+      ? "Choose a GIF to attach it."
+      : "No GIFs found. Try another search.";
     giphyLog("completed", operationId, results.length);
   } catch (error) {
     if (generation !== giphyGeneration) return;
     message.value = error instanceof Error ? error.message : "Giphy search failed. Try again.";
     giphyLog("failed", operationId);
-  } finally { if (generation === giphyGeneration) giphySearching.value = false; }
+  } finally {
+    if (generation === giphyGeneration) giphySearching.value = false;
+  }
 }
 function selectGiphy(gif: GiphyChoice) {
   giphyLog("selected", giphyOperationId);
-  removeMedia("image"); removeMedia("video");
+  removeMedia("image");
+  removeMedia("video");
   pending.value.image = { giphyId: gif.id };
   previewUrls.value.image = gif.url;
-  mediaUrlInput.value = ""; unresolvedUrl.value = "";
+  mediaUrlInput.value = "";
+  unresolvedUrl.value = "";
   message.value = "GIF attached — only its Giphy ID will be stored on your PDS.";
 }
-watch(() => pending.value.image?.giphyId, async id => {
-  if (!id || previewUrls.value.image) return;
-  try { const url = await resolveGiphy(id); if (pending.value.image?.giphyId === id) previewUrls.value.image = url; }
-  catch { if (pending.value.image?.giphyId === id) message.value = "The saved Giphy GIF could not be previewed."; }
-});
+watch(
+  () => pending.value.image?.giphyId,
+  async (id) => {
+    if (!id || previewUrls.value.image) return;
+    try {
+      const url = await resolveGiphy(id);
+      if (pending.value.image?.giphyId === id) previewUrls.value.image = url;
+    } catch {
+      if (pending.value.image?.giphyId === id)
+        message.value = "The saved Giphy GIF could not be previewed.";
+    }
+  },
+);
 const defaults = (): CloudCommand => ({
   id: "",
   command: "",
@@ -141,10 +172,10 @@ function clearDraft() {
 }
 function reset() {
   clearDraft();
-  emit('panel-change', 'commands');
+  emit("panel-change", "commands");
 }
 function cancel() {
-  if (props.panel !== 'create') return reset();
+  if (props.panel !== "create") return reset();
   clearDraft();
   formOpen.value = true;
   message.value = "";
@@ -153,14 +184,23 @@ function create() {
   reset();
   formOpen.value = true;
   message.value = "";
-  emit('panel-change', 'create');
+  emit("panel-change", "create");
 }
-watch(() => props.panel, panel => { if (panel === 'create' && !formOpen.value) create(); });
-const mappedEvents = computed(() => emoteEvents.flatMap(event => {
-  const mapping = props.config.eventMappings?.find(mapping => mapping.event === event.id);
-  const command = props.config.commands.find(command => command.id === mapping?.commandId && command.mode === "effect");
-  return command ? [{ ...event, command }] : [];
-}));
+watch(
+  () => props.panel,
+  (panel) => {
+    if (panel === "create" && !formOpen.value) create();
+  },
+);
+const mappedEvents = computed(() =>
+  emoteEvents.flatMap((event) => {
+    const mapping = props.config.eventMappings?.find((mapping) => mapping.event === event.id);
+    const command = props.config.commands.find(
+      (command) => command.id === mapping?.commandId && command.mode === "effect",
+    );
+    return command ? [{ ...event, command }] : [];
+  }),
+);
 async function test(command: CloudCommand, event?: EmoteEventType) {
   busy.value = true;
   try {
@@ -190,7 +230,7 @@ function edit(command: CloudCommand) {
     if (media.blob && media.url) previewUrls.value[kind] = media.url;
   }
   message.value = "";
-  emit('panel-change', 'create');
+  emit("panel-change", "create");
 }
 function changeMode() {
   if (form.value.mode === "sticker") removeMedia("audio");
@@ -362,7 +402,7 @@ async function acceptCardDrop(files: FileList | null | undefined) {
     return { accepted: false, message: error };
   }
   if (!formOpen.value) create();
-  emit('panel-change', 'create');
+  emit("panel-change", "create");
   await uploadFiles(files);
   return { accepted: true };
 }
@@ -403,11 +443,15 @@ async function save() {
       if (!file || !command[kind]?.blob) continue;
       message.value = "Refreshing draft media on your PDS before saving…";
       const response = await adminFetch(`/api/accounts/${encodeURIComponent(props.did)}/media`, {
-        method: "POST", headers: { "Content-Type": fileMedia(file)!.type }, body: file,
+        method: "POST",
+        headers: { "Content-Type": fileMedia(file)!.type },
+        body: file,
       });
       if (!response.ok) {
         const detail = await response.json().catch(() => ({}));
-        throw new Error(`${detail.message ?? "Could not refresh the draft media."}${detail.requestId ? ` Reference: ${detail.requestId}` : ""}`);
+        throw new Error(
+          `${detail.message ?? "Could not refresh the draft media."}${detail.requestId ? ` Reference: ${detail.requestId}` : ""}`,
+        );
       }
       pending.value[kind] = command[kind] = { blob: await response.json() };
     }
@@ -462,37 +506,55 @@ defineExpose({ acceptCardDrop });
       @confirm="deleteConfirmed(deleting!, $event)"
     />
     <div v-show="!panel || panel === 'commands' || panel === 'create'">
-    <h4 v-if="!panel">Emote commands</h4>
-    <CollapsibleSection
-      v-for="group in groups"
-      :key="group.title"
-      class="command-group"
-      :title="group.title"
-      :count="group.commands.length"
-      ><p v-if="!group.commands.length" class="empty-copy">No commands yet</p>
-      <ul class="command-list striped-list">
-        <li v-for="command in group.commands" :key="command.id">
-          <strong>!{{ command.command }}</strong
-          ><button type="button" :disabled="busy" @click="test(command)">Test</button
-          ><button type="button" @click="edit(command)">Edit</button
-          ><button type="button" class="danger-button" @click="remove(command)">Delete</button>
-        </li>
-      </ul></CollapsibleSection
-    >
-    <CollapsibleSection v-if="panel === 'commands' && mappedEvents.length" class="command-group" title="Events" :count="mappedEvents.length">
-      <ul class="command-list striped-list">
-        <li v-for="event in mappedEvents" :key="event.id">
-          <strong>{{ event.name }} · !{{ event.command.command }}</strong>
-          <button type="button" :disabled="busy" :aria-label="`Simulate ${event.name}`" @click="test(event.command, event.id)">Simulate</button>
-        </li>
-      </ul>
-    </CollapsibleSection>
-    <slot name="previews" />
+      <h4 v-if="!panel">Emote commands</h4>
+      <CollapsibleSection
+        v-for="group in groups"
+        :key="group.title"
+        class="command-group"
+        :title="group.title"
+        :count="group.commands.length"
+        ><p v-if="!group.commands.length" class="empty-copy">No commands yet</p>
+        <ul class="command-list striped-list">
+          <li v-for="command in group.commands" :key="command.id">
+            <strong>!{{ command.command }}</strong
+            ><button type="button" :disabled="busy" @click="test(command)">Test</button
+            ><button type="button" @click="edit(command)">Edit</button
+            ><button type="button" class="danger-button" @click="remove(command)">Delete</button>
+          </li>
+        </ul></CollapsibleSection
+      >
+      <CollapsibleSection
+        v-if="panel === 'commands' && mappedEvents.length"
+        class="command-group"
+        title="Events"
+        :count="mappedEvents.length"
+      >
+        <ul class="command-list striped-list">
+          <li v-for="event in mappedEvents" :key="event.id">
+            <strong>{{ event.name }} · !{{ event.command.command }}</strong>
+            <button
+              type="button"
+              :disabled="busy"
+              :aria-label="`Simulate ${event.name}`"
+              @click="test(event.command, event.id)"
+            >
+              Simulate
+            </button>
+          </li>
+        </ul>
+      </CollapsibleSection>
+      <slot name="previews" />
     </div>
     <div v-if="!formOpen && !panel">
       <button class="primary-button" type="button" @click="create">Create new command</button>
     </div>
-    <form v-if="formOpen" v-show="!panel || panel === 'create'" :inert="panel === 'commands' || undefined" class="module-section command-editor editor-fields" @submit.prevent="save">
+    <form
+      v-if="formOpen"
+      v-show="!panel || panel === 'create'"
+      :inert="panel === 'commands' || undefined"
+      class="module-section command-editor editor-fields"
+      @submit.prevent="save"
+    >
       <div v-if="editing || !panel" class="editor-heading">
         <h4>{{ editing ? "Edit command" : "Create command" }}</h4>
         <button v-if="!panel" type="button" class="secondary-button" @click="reset">Close</button>
@@ -501,13 +563,13 @@ defineExpose({ acceptCardDrop });
         <strong :class="{ 'mode-selected': form.mode === 'effect' }">Clip</strong>
         <label class="switch choice-switch">
           <input
-          type="checkbox"
-          aria-label="Sticker mode"
-          :checked="form.mode === 'sticker'"
-          @change="
-            form.mode = ($event.target as HTMLInputElement).checked ? 'sticker' : 'effect';
-            changeMode();
-          "
+            type="checkbox"
+            aria-label="Sticker mode"
+            :checked="form.mode === 'sticker'"
+            @change="
+              form.mode = ($event.target as HTMLInputElement).checked ? 'sticker' : 'effect';
+              changeMode();
+            "
           /><span aria-hidden="true" />
         </label>
         <strong :class="{ 'mode-selected': form.mode === 'sticker' }">Sticker</strong>
@@ -515,7 +577,10 @@ defineExpose({ acceptCardDrop });
       <small v-if="form.mode === 'sticker'"
         >Silent stickers drift upward independently. Every matching message spawns one.</small
       >
-      <small v-else>Clips play your image, GIF, video or audio for a set duration. A cooldown limits how often chat can trigger them.</small>
+      <small v-else
+        >Clips play your image, GIF, video or audio for a set duration. A cooldown limits how often
+        chat can trigger them.</small
+      >
       <label
         >Command <input v-model="form.command" placeholder="!wow" required maxlength="40"
       /></label>
@@ -546,15 +611,26 @@ defineExpose({ acceptCardDrop });
               placeholder="https://…/media.gif or a GIF search"
               :disabled="busy"
               @keydown.enter.prevent="submitMediaInput" /></label
-          ><button v-if="!giphySearchMode" type="button" :disabled="busy || !mediaUrlInput.trim()" @click="submitMediaInput">
+          ><button
+            v-if="!giphySearchMode"
+            type="button"
+            :disabled="busy || !mediaUrlInput.trim()"
+            @click="submitMediaInput"
+          >
             Add URL
           </button>
         </div>
         <div v-if="giphySearchMode || giphyResults.length" class="giphy-picker">
           <img :src="giphyAttribution" alt="Powered by GIPHY" width="200" />
           <div v-if="giphyResults.length" class="giphy-results" aria-label="Giphy search results">
-            <button v-for="gif in giphyResults" :key="gif.id" type="button" :aria-label="`Choose ${gif.title}`"
-              :disabled="busy" @click="selectGiphy(gif)">
+            <button
+              v-for="gif in giphyResults"
+              :key="gif.id"
+              type="button"
+              :aria-label="`Choose ${gif.title}`"
+              :disabled="busy"
+              @click="selectGiphy(gif)"
+            >
               <img :src="gif.preview" :alt="gif.title" loading="lazy" />
             </button>
           </div>
@@ -652,7 +728,14 @@ defineExpose({ acceptCardDrop });
         <label class="chat-slider">
           <span>Volume</span>
           <output>{{ Math.round(form.volume * 100) }}%</output>
-          <input v-model.number="form.volume" type="range" min="0" max="1" step="0.05" aria-label="Volume" />
+          <input
+            v-model.number="form.volume"
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            aria-label="Volume"
+          />
         </label>
       </div>
       <div class="form-actions">

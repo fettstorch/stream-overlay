@@ -5,8 +5,14 @@
     "giphyMedia": {
       "type": "object",
       "required": ["id"],
-      "properties": { "id": { "type": "string", "minLength": 1, "maxLength": 128,
-        "description": "GIPHY GIF ID, resolved directly by the overlay browser. Never a persisted media URL." } }
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "GIPHY GIF ID, resolved directly by the overlay browser. Never a persisted media URL."
+        }
+      }
     },
     "externalMedia": {
       "type": "object",

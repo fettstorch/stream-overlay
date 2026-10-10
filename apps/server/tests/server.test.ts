@@ -9,7 +9,11 @@ import {
   handleRequest,
 } from "../src/server.ts";
 import { sessionCookie } from "../src/auth.ts";
-import { ChatPermissionRequiredError, CloudConfigConflictError, CloudConfigMissingError } from "../src/pds.ts";
+import {
+  ChatPermissionRequiredError,
+  CloudConfigConflictError,
+  CloudConfigMissingError,
+} from "../src/pds.ts";
 import { StructuredLogger } from "../src/logger.ts";
 import { JsonStore } from "../src/store.ts";
 
@@ -34,27 +38,49 @@ describe("cloud server boundary", () => {
     writeFileSync(join(root, "effect.html"), "<h1>Emotes overlay</h1>");
     writeFileSync(join(root, "board.html"), "<h1>Emotes listings</h1>");
     const deps = dependencies(root);
-    for (const [path, heading] of [["/emotes/", "Emotes overlay"], ["/effect/", "Emotes overlay"], ["/emote-listings/", "Emotes listings"], ["/board/", "Emotes listings"]]) {
-      const response = await handleRequest(new Request(`https://overlay.example${path}?did=did:plc:alice`), deps);
+    for (const [path, heading] of [
+      ["/emotes/", "Emotes overlay"],
+      ["/effect/", "Emotes overlay"],
+      ["/emote-listings/", "Emotes listings"],
+      ["/board/", "Emotes listings"],
+    ]) {
+      const response = await handleRequest(
+        new Request(`https://overlay.example${path}?did=did:plc:alice`),
+        deps,
+      );
       expect(response.status).toBe(200);
       expect(await response.text()).toBe(`<h1>${heading}</h1>`);
     }
   });
   test("user chat requires owner cookie and origin, validates text and explains permission failures", async () => {
-    const deps = dependencies(webRoot()), calls: unknown[] = [];
-    deps.pds.sendChat = async (...args) => { calls.push(args); return "at://sent"; };
+    const deps = dependencies(webRoot()),
+      calls: unknown[] = [];
+    deps.pds.sendChat = async (...args) => {
+      calls.push(args);
+      return "at://sent";
+    };
     const url = "https://overlay.example/api/accounts/did:plc:alice/chat/message";
     const cookie = await sessionCookie("did:plc:alice", deps.secret);
-    const send = (text: unknown, origin = deps.origin, auth = cookie) => handleRequest(new Request(url, {
-      method: "POST", headers: { Origin: origin, Cookie: `stream_overlay_session=${auth}` }, body: JSON.stringify({ text }),
-    }), deps);
+    const send = (text: unknown, origin = deps.origin, auth = cookie) =>
+      handleRequest(
+        new Request(url, {
+          method: "POST",
+          headers: { Origin: origin, Cookie: `stream_overlay_session=${auth}` },
+          body: JSON.stringify({ text }),
+        }),
+        deps,
+      );
     expect((await send("hi", "https://evil.example")).status).toBe(403);
-    expect((await send("hi", deps.origin, await sessionCookie("did:plc:other", deps.secret))).status).toBe(401);
+    expect(
+      (await send("hi", deps.origin, await sessionCookie("did:plc:other", deps.secret))).status,
+    ).toBe(401);
     for (const text of ["", "a".repeat(301), null]) expect((await send(text)).status).toBe(400);
     expect(calls).toHaveLength(0);
     expect((await send(" !hi ")).status).toBe(200);
     expect((calls[0] as any[]).slice(0, 2)).toEqual(["did:plc:alice", "!hi"]);
-    deps.pds.sendChat = async () => { throw new ChatPermissionRequiredError(); };
+    deps.pds.sendChat = async () => {
+      throw new ChatPermissionRequiredError();
+    };
     const rejected = await send("hi");
     expect(rejected.status).toBe(403);
     expect((await rejected.json()).error).toBe("chat-permission-required");
@@ -65,36 +91,101 @@ describe("cloud server boundary", () => {
     const root = "https://overlay.example/api/accounts/did:plc:alice/bot";
     expect((await handleRequest(new Request(`${root}/source`), deps)).status).toBe(401);
     const cookie = await sessionCookie("did:plc:alice", deps.secret);
-    const source = await handleRequest(new Request(`${root}/source`, { headers: { Cookie: `stream_overlay_session=${cookie}` } }), deps);
+    const source = await handleRequest(
+      new Request(`${root}/source`, { headers: { Cookie: `stream_overlay_session=${cookie}` } }),
+      deps,
+    );
     expect(source.status).toBe(200);
     const url = new URL((await source.json()).url);
-    expect(url.pathname).toBe("/bot/"); expect(url.searchParams.get("did")).toBe("did:plc:alice");
+    expect(url.pathname).toBe("/bot/");
+    expect(url.searchParams.get("did")).toBe("did:plc:alice");
     expect(url.searchParams.get("token")).toHaveLength(64);
-    expect((await handleRequest(new Request(`${root}/trigger`, { method: "POST", headers: { Origin: "https://overlay.example" }, body: JSON.stringify({ token: "forged", uri: "at://fake" }) }), deps)).status).toBe(403);
-    expect((await handleRequest(new Request(`${root}/trigger`, { method: "POST", headers: { Origin: "https://other.example" }, body: JSON.stringify({ token: url.searchParams.get("token") }) }), deps)).status).toBe(403);
-    expect((await handleRequest(new Request(`${root}/routine`, { method: "POST", headers: { Origin: deps.origin }, body: JSON.stringify({ token: "forged", routineId: "routine-1" }) }), deps)).status).toBe(403);
+    expect(
+      (
+        await handleRequest(
+          new Request(`${root}/trigger`, {
+            method: "POST",
+            headers: { Origin: "https://overlay.example" },
+            body: JSON.stringify({ token: "forged", uri: "at://fake" }),
+          }),
+          deps,
+        )
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await handleRequest(
+          new Request(`${root}/trigger`, {
+            method: "POST",
+            headers: { Origin: "https://other.example" },
+            body: JSON.stringify({ token: url.searchParams.get("token") }),
+          }),
+          deps,
+        )
+      ).status,
+    ).toBe(403);
+    expect(
+      (
+        await handleRequest(
+          new Request(`${root}/routine`, {
+            method: "POST",
+            headers: { Origin: deps.origin },
+            body: JSON.stringify({ token: "forged", routineId: "routine-1" }),
+          }),
+          deps,
+        )
+      ).status,
+    ).toBe(403);
     const calls: unknown[] = [];
     const sourceId = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
-    const post = (action: string, data: object) => handleRequest(new Request(`${root}/${action}`, {
-      method: "POST", headers: { Origin: deps.origin }, body: JSON.stringify({ token: url.searchParams.get("token"), ...data }),
-    }), deps);
+    const post = (action: string, data: object) =>
+      handleRequest(
+        new Request(`${root}/${action}`, {
+          method: "POST",
+          headers: { Origin: deps.origin },
+          body: JSON.stringify({ token: url.searchParams.get("token"), ...data }),
+        }),
+        deps,
+      );
     expect((await post("routine", { sourceId, routineId: "routine-1" })).status).toBe(409);
     expect((await (await post("lease", { sourceId })).json()).active).toBe(true);
     const standbyId = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
     expect((await (await post("lease", { sourceId: standbyId })).json()).active).toBe(false);
     expect((await post("trigger", { sourceId: standbyId, uri: "at://fake" })).status).toBe(409);
-    deps.pds.publicConfig = async () => ({ streamerDid: "did:plc:alice", enabled: true, commands: [], revision: "1" });
-    deps.botCommands!.routine = async (...args) => { calls.push(args); return { sent: true }; };
-    const result = await handleRequest(new Request(`${root}/routine`, { method: "POST", headers: { Origin: deps.origin },
-      body: JSON.stringify({ token: url.searchParams.get("token"), sourceId, routineId: "routine-1", text: "untrusted browser text" }),
-    }), deps);
+    deps.pds.publicConfig = async () => ({
+      streamerDid: "did:plc:alice",
+      enabled: true,
+      commands: [],
+      revision: "1",
+    });
+    deps.botCommands!.routine = async (...args) => {
+      calls.push(args);
+      return { sent: true };
+    };
+    const result = await handleRequest(
+      new Request(`${root}/routine`, {
+        method: "POST",
+        headers: { Origin: deps.origin },
+        body: JSON.stringify({
+          token: url.searchParams.get("token"),
+          sourceId,
+          routineId: "routine-1",
+          text: "untrusted browser text",
+        }),
+      }),
+      deps,
+    );
     expect(result.status).toBe(200);
     expect((calls[0] as unknown[])[1]).toBe("routine-1");
     expect(JSON.stringify(calls)).not.toContain("untrusted browser text");
   });
   test("Giphy browser configuration exposes only the configured key without logging it", async () => {
     const logged: unknown[] = [];
-    const deps = { ...dependencies(webRoot()), giphyApiKey: "test-browser-key", logger: new StructuredLogger(undefined, entry => logged.push(entry)) };
+    const deps = {
+      ...dependencies(webRoot()),
+      giphyApiKey: "test-browser-key",
+      logger: new StructuredLogger(undefined, (entry) => logged.push(entry)),
+    };
     const response = await handleRequest(new Request("https://overlay.example/api/giphy"), deps);
     expect(await response.json()).toEqual({ apiKey: "test-browser-key" });
     expect(JSON.stringify(logged)).not.toContain("test-browser-key");
@@ -327,7 +418,11 @@ describe("cloud server boundary", () => {
     (deps as any).pds = {
       publicConfig: async () => {
         reads++;
-        return { enabled, commands: [{ id: "wave", mode: "effect" }], eventMappings: [{ event: "teleport-arrival", commandId: "wave", text: "Welcome!" }] };
+        return {
+          enabled,
+          commands: [{ id: "wave", mode: "effect" }],
+          eventMappings: [{ event: "teleport-arrival", commandId: "wave", text: "Welcome!" }],
+        };
       },
     };
     const url = `${deps.origin}/api/accounts/${encodeURIComponent(did)}/test/wave`;
@@ -391,10 +486,25 @@ describe("cloud server boundary", () => {
     );
     expect(sent).toHaveLength(2);
     enabled = true;
-    const eventTest = await handleRequest(new Request(`${url}?event=teleport-arrival`, { method: "POST", headers }), deps);
+    const eventTest = await handleRequest(
+      new Request(`${url}?event=teleport-arrival`, { method: "POST", headers }),
+      deps,
+    );
     expect(eventTest.status).toBe(200);
-    expect(JSON.parse(sent.at(-1)!)).toMatchObject({ type: "test-command", commandId: "wave", eventId: "teleport-arrival", eventText: "Welcome!" });
-    expect((await handleRequest(new Request(`${url}?event=stream-started`, { method: "POST", headers }), deps)).status).toBe(409);
+    expect(JSON.parse(sent.at(-1)!)).toMatchObject({
+      type: "test-command",
+      commandId: "wave",
+      eventId: "teleport-arrival",
+      eventText: "Welcome!",
+    });
+    expect(
+      (
+        await handleRequest(
+          new Request(`${url}?event=stream-started`, { method: "POST", headers }),
+          deps,
+        )
+      ).status,
+    ).toBe(409);
     expect(sent).toHaveLength(3);
   });
 

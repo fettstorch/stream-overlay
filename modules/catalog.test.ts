@@ -33,7 +33,7 @@ test("cloud catalog has unique identities and routes with real build entrypoints
   }
 });
 test("Emotes uses readable overlay URLs while preserving legacy OBS paths", () => {
-  expect(cloudModuleCatalog.find(module => module.id === "emoticons")?.name).toBe("Emotes");
+  expect(cloudModuleCatalog.find((module) => module.id === "emoticons")?.name).toBe("Emotes");
   expect(cloudOverlayPages["/emotes/"]).toBe("effect.html");
   expect(cloudOverlayPages["/emote-listings/"]).toBe("board.html");
   expect(cloudOverlayPages["/effect/"]).toBe(cloudOverlayPages["/emotes/"]);
@@ -42,7 +42,10 @@ test("Emotes uses readable overlay URLs while preserving legacy OBS paths", () =
 test("local adapters retain catalog identities and stable OBS routes", () => {
   for (const manifest of cloudModuleCatalog) {
     // The central authenticated service-account bot is cloud-only.
-    if (manifest.id === "bot") { expect(cloudOverlayPages["/bot/"]).toBe("bot.html"); continue; }
+    if (manifest.id === "bot") {
+      expect(cloudOverlayPages["/bot/"]).toBe("bot.html");
+      continue;
+    }
     const local = modules.find((module) => module.id === manifest.id);
     expect(local?.name).toBe(manifest.name);
     expect(local?.routes.length).toBeGreaterThan(0);
