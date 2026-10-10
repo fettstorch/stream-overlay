@@ -23,10 +23,12 @@ async function save() {
     <p>Choose an Emote command to play when Streamplace sends an event. The Emotes browser source must be connected. Clip cooldowns still apply; chat roles and user restrictions do not apply to these automatic events.</p>
     <label v-for="event in emoteEvents" :key="event.id">
       <strong>{{ event.name }}</strong><small>{{ event.description }}</small>
-      <select v-model="choices[event.id]" :aria-label="event.name" :disabled="busy">
-        <option value="">No action</option>
-        <option v-for="command in config.commands" :key="command.id" :value="command.id">!{{ command.command }}</option>
-      </select>
+      <span class="drawn-select">
+        <select v-model="choices[event.id]" :aria-label="event.name" :disabled="busy">
+          <option value="">No action</option>
+          <option v-for="command in config.commands" :key="command.id" :value="command.id">!{{ command.command }}</option>
+        </select>
+      </span>
     </label>
     <button type="submit" :disabled="busy">{{ busy ? 'Saving…' : 'Save events' }}</button>
     <p v-if="message" role="status">{{ message }}</p>

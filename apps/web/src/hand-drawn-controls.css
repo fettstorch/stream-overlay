@@ -53,6 +53,54 @@
 }
 #app .switch input:checked + span::after { transform: translateX(22px); background-color: #90d6a8; }
 #app .choice-switch input:checked + span::after { background-color: #fff; }
+#app .drawn-select {
+  position: relative;
+  display: block;
+  min-width: 0;
+  isolation: isolate;
+  color-scheme: light;
+}
+#app .drawn-select::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border: 12px solid transparent;
+  border-image: url("./assets/branding/button-frame.png") 260 280 fill / 12px / 0 stretch;
+}
+#app .drawn-select::after {
+  content: "";
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  width: 18px;
+  height: 14px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  background: #171717;
+  mask: url("./assets/branding/controls/chevron.png") center / contain no-repeat;
+  -webkit-mask: url("./assets/branding/controls/chevron.png") center / contain no-repeat;
+}
+#app .drawn-select select {
+  appearance: none;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 12px 48px 12px 18px;
+  border: 0;
+  border-radius: 10px;
+  color: #171717;
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+#app .drawn-select select option { color: #171717; background: #fff; }
+#app .drawn-select select:focus-visible { outline: 3px solid #526baf; outline-offset: 3px; }
+#app .drawn-select:has(select:hover:not(:disabled))::before { filter: brightness(.92); }
+#app .drawn-select:has(select:disabled) { opacity: .45; }
+#app .drawn-select select:disabled { cursor: not-allowed; }
 #app .switch input:focus-visible + span { outline: 3px solid #526baf; outline-offset: 3px; }
 #app .switch input:disabled + span { opacity: .45; cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) {
