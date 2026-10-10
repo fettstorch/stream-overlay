@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import BrandWordmark from "./BrandWordmark.vue";
 import CollapseTransition from "./CollapseTransition.vue";
+import { vModuleWidth } from "./module-width-motion.ts";
 import BrandMascot from "./BrandMascot.vue";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { mutePreview } from "./mute-preview.ts";
@@ -448,7 +449,7 @@ onBeforeUnmount(() => {
       </label>
       <p v-if="modules.length && !matchingModuleCount" class="no-modules" role="status">No modules match your search.</p>
       <TransitionGroup name="module-layout" tag="div" class="module-grid">
-        <article v-for="module in orderedModules" v-show="matchesSearch(module)" :key="module.id" class="module-card" :class="{ pinned: isPinned(module.id), collapsed: !isExpanded(module) }" @click="expandCard(module, $event)">
+        <article v-for="module in orderedModules" v-show="matchesSearch(module)" :key="module.id" v-module-width="isExpanded(module)" class="module-card" :class="{ pinned: isPinned(module.id), collapsed: !isExpanded(module) }" @click="expandCard(module, $event)">
           <div class="module-heading">
             <div>
               <h3>{{ module.name }}</h3>

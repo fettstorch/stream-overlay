@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import BrandWordmark from "./BrandWordmark.vue";
 import CollapseTransition from "./CollapseTransition.vue";
+import { vModuleWidth } from "./module-width-motion.ts";
 import { adminFetch } from "./cloud-admin-fetch.ts";
 import BrandMascot from "./BrandMascot.vue";
 import StreamplaceBrand from "./StreamplaceBrand.vue";
@@ -495,6 +496,7 @@ onBeforeUnmount(() => {
             v-for="module in orderedModules"
             v-show="matchesSearch(module)"
             :key="module.id"
+            v-module-width="isExpanded(module)"
             class="module-card cloud-module"
             :class="{
               pinned: isPinned(module.id),
