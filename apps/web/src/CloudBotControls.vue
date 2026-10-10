@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import sendIcon from "./assets/branding/controls/send.png";
 import DrawnTabs from "./DrawnTabs.vue";
 import BotRoutines from "./BotRoutines.vue";
@@ -22,6 +22,7 @@ const command = ref(""),
   response = ref(""),
   cooldown = ref(30),
   editing = ref<string>();
+const commandInput = ref<HTMLInputElement>();
 const tab = ref("commands");
 const chatText = ref(""), chatSending = ref(false), chatStatus = ref(""), chatPermissionRequired = ref(false);
 async function sendChat() {
@@ -84,12 +85,14 @@ function reset() {
   cooldown.value = 30;
   editing.value = undefined;
 }
-function edit(rule: BotRule) {
+async function edit(rule: BotRule) {
   tab.value = "create";
   editing.value = rule.command;
   command.value = rule.command;
   response.value = rule.response;
   cooldown.value = rule.cooldownSeconds;
+  await nextTick();
+  commandInput.value?.focus();
 }
 async function persist(rules: BotRule[]) {
   busy.value = true;
@@ -142,7 +145,7 @@ async function copy() {
     <button :disabled="!sourceUrl" @click="copy">Copy private OBS URL</button>
   </section>
   <DrawnTabs v-model="tab" :tabs="tabs" label="Bot commands">
-    <section v-show="tab === 'commands'" class="module-section bot-tab-content">
+    <section v-show="tab === 'commands'" :inert="tab !== 'commands' || undefined" class="module-section bot-tab-content">
       <div class="bot-commands-layout">
       <div class="bot-chat">
         <div v-if="tab === 'commands'" class="bot-chat-viewport">
@@ -184,7 +187,7 @@ async function copy() {
       </div>
       </div>
     </section>
-    <section v-show="tab === 'create'" class="module-section bot-tab-content command-management">
+    <section v-show="tab === 'create'" :inert="tab !== 'create' || undefined" class="module-section bot-tab-content command-management">
       <ul class="command-list striped-list" aria-label="Manage commands">
         <li v-for="rule in config.bot?.rules ?? []" :key="rule.command" class="bot-rule">
           <div>
@@ -205,10 +208,11 @@ async function copy() {
       </ul>
       <p v-if="!config.bot?.rules.length">No bot commands yet.</p>
     </section>
-    <form v-show="tab === 'create'" class="module-section bot-tab-content editor-fields" @submit.prevent="add">
+    <form v-show="tab === 'create'" :inert="tab !== 'create' || undefined" class="module-section bot-tab-content editor-fields" @submit.prevent="add">
       <h4 v-if="editing">Edit command</h4>
       <label
         >Command<input
+          ref="commandInput"
           v-model="command"
           placeholder="!discord"
           maxlength="41"

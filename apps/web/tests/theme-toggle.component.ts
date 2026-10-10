@@ -40,7 +40,7 @@ describe("Theme toggle", () => {
     const toggle = wrapper.get('input[role="switch"]');
     expect(document.documentElement.dataset.theme).toBe("light");
     expect(toggle.attributes("aria-checked")).toBe("false");
-    expect(wrapper.findAll("img").map(image => image.attributes("alt"))).toEqual(["Light mode", "Dark mode"]);
+    expect(wrapper.findAll("img").map(image => [image.attributes("alt"), image.attributes("aria-hidden")])).toEqual([["", "true"], ["", "true"]]);
     await toggle.setValue(true);
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect(localStorage.getItem("streamface-theme")).toBe("dark");

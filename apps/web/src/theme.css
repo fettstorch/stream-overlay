@@ -9,10 +9,17 @@ html[data-theme="dark"] #app header .streamplace-brand img { filter: brightness(
 html[data-theme="dark"] #app :is(.module-card, .settings, .module-section, .drawn-tab-panel)::before,
 html[data-theme="dark"] #app .tab-ink,
 html[data-theme="dark"] #app .drawn-select::before,
-html[data-theme="dark"] #app button::before { filter: invert(.9); }
+html[data-theme="dark"] #app button::before { filter: invert(.9) var(--artwork-shadow, brightness(1)); }
 html[data-theme="dark"] #app button:hover:not(:disabled)::before,
-html[data-theme="dark"] #app .drawn-select:has(select:hover:not(:disabled))::before { filter: invert(.85); }
-html[data-theme="dark"] #app button:active:not(:disabled)::before { filter: invert(.8); }
+html[data-theme="dark"] #app .drawn-select:has(select:hover:not(:disabled))::before { filter: invert(.85) var(--artwork-shadow, brightness(1)); }
+html[data-theme="dark"] #app button:active:not(:disabled)::before { filter: invert(.8) var(--artwork-shadow, brightness(1)); }
+/* Slightly dimmer than the inverted background sketches' white ink. */
+html[data-theme="dark"] #app button::before {
+  --artwork-shadow: drop-shadow(0 3px 2.5px rgba(255, 255, 255, .06));
+}
+html[data-theme="dark"] #app button:active:not(:disabled)::before {
+  --artwork-shadow: drop-shadow(0 1px 1px rgba(255, 255, 255, .06));
+}
 html[data-theme="dark"] #app :is(.module-card, .settings, .module-section) {
   color: #eee;
   --command-row-background: #1a1a1a;

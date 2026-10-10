@@ -26,12 +26,12 @@ function saveChoice() {
 
 <template>
   <div class="theme-control">
-    <img :src="sun" alt="Light mode" />
+    <img :src="sun" alt="" aria-hidden="true" />
     <label class="switch theme-switch">
       <input v-model="dark" type="checkbox" role="switch" aria-label="Dark mode" :aria-checked="dark" @change="saveChoice" />
       <span aria-hidden="true" />
     </label>
-    <img :src="moon" alt="Dark mode" />
+    <img :src="moon" alt="" aria-hidden="true" />
   </div>
 </template>
 

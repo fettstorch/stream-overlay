@@ -1,11 +1,20 @@
 /* Shared surfaces, independent of each section's layout and behaviour. */
+#app :is(.module-card, .settings, .shadowed-section) {
+  box-shadow: none;
+}
+#app :is(.module-card, .settings, .shadowed-section)::before {
+  --artwork-shadow: drop-shadow(0 4px 5px rgba(0, 0, 0, .16));
+  filter: var(--artwork-shadow);
+}
+html[data-theme="dark"] #app :is(.module-card, .settings, .shadowed-section)::before {
+  --artwork-shadow: drop-shadow(0 5px 7px rgba(255, 255, 255, .06));
+}
 #app .settings {
   position: relative;
   isolation: isolate;
   border: 0;
   border-radius: 18px;
   background: transparent;
-  box-shadow: none;
   color: #171717;
 }
 /* Suggestions cannot escape the card's isolated stacking context. Raise the
@@ -38,6 +47,9 @@
   border: 16px solid transparent;
   border-image: var(--module-section-frame, url("./assets/branding/module-frame.png")) 350 fill / var(--module-section-frame-width, 16px) / 0 stretch;
 }
+/* Autocomplete belongs above following sections, including when nested inside
+   a collapsible section. Raise every containing isolated surface on focus. */
+#app .module-section:focus-within { z-index: 1; }
 #app h2 { color: #333; }
 #app :is(.settings, .module-section) :is(p, label, h4, strong) { color: #333; }
 #app :is(.settings, .module-section) :is(small, legend, output, .save-status, .empty-copy, .section-heading h4 span, .command-group summary span) { color: #606060; }

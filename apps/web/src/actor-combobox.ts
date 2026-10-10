@@ -20,6 +20,7 @@ export function attachActorCombobox({ input, status, searcher, delayMs = 300, on
   input.parentElement!.append(list);
   input.setAttribute("role", "combobox");
   input.setAttribute("aria-autocomplete", "list");
+  input.setAttribute("aria-haspopup", "listbox");
   input.setAttribute("aria-controls", list.id);
   input.setAttribute("aria-expanded", "false");
 

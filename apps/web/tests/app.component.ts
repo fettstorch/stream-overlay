@@ -46,6 +46,7 @@ test("runtime failures update an open card without remounting previews and stop 
   await flushPromises();
   expect(wrapper.text()).toContain("failed");
   expect(wrapper.text()).toContain("Process exited");
+  expect(wrapper.get('[role="alert"]').text()).toBe("Process exited");
   expect(wrapper.get("iframe").element).toBe(iframe);
   wrapper.unmount();
   const calls = fetchMock.mock.calls.length;
@@ -80,6 +81,27 @@ function mockFetch() {
 }
 
 describe("Admin App", () => {
+  test("streamer search exposes and operates an ARIA listbox from the keyboard", async () => {
+    mockFetch();
+    const wrapper = mount(App);
+    try {
+      await flushPromises();
+      const input = wrapper.get('input[role="combobox"]');
+      await input.setValue("alice");
+      await new Promise(resolve => setTimeout(resolve, 310));
+      await flushPromises();
+      const listbox = wrapper.get('[role="listbox"]');
+      expect(input.attributes("aria-controls")).toBe(listbox.attributes("id"));
+      expect(input.attributes("aria-haspopup")).toBe("listbox");
+      await input.trigger("keydown", { key: "ArrowDown" });
+      const option = wrapper.get('[role="option"]');
+      expect(option.attributes("aria-selected")).toBe("true");
+      expect(input.attributes("aria-activedescendant")).toBe(option.attributes("id"));
+      await input.trigger("keydown", { key: "Enter" });
+      await flushPromises();
+      expect(wrapper.find('[role="listbox"]').exists()).toBe(false);
+    } finally { wrapper.unmount(); }
+  });
   test("rapid toggles retain checked intent and serialize writes without stale response rollback", async () => {
     const fetchMock = mockFetch();
     const fallback = fetchMock.getMockImplementation()!;

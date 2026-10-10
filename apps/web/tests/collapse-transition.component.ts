@@ -47,6 +47,18 @@ test("reduced motion expands immediately without starting animation", async () =
   delete (HTMLElement.prototype as Partial<HTMLElement>).animate;
 });
 
+test("the full section heading is one native disclosure button", async () => {
+  const wrapper = mount(CollapsibleSection, { props: { title: "Settings", count: 3 }, global: { stubs: { transition: false } } });
+  const button = wrapper.get("h4 > button");
+  const content = wrapper.get(".section-content");
+  expect(button.text()).toContain("Settings (3)");
+  expect(button.attributes("aria-expanded")).toBe("false");
+  expect(button.attributes("aria-controls")).toBe(content.attributes("id"));
+  await button.trigger("click");
+  expect(button.attributes("aria-expanded")).toBe("true");
+  expect(content.attributes("inert")).toBeUndefined();
+});
+
 test("rapid toggles cancel old animations and unmount cleans up", async () => {
   const animations: Array<{ cancel: ReturnType<typeof vi.fn>; onfinish?: () => void }> = [];
   const animate = vi.fn(() => {

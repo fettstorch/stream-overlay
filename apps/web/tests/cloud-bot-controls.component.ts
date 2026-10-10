@@ -126,8 +126,10 @@ test("saves rules through existing configuration flow and preserves input on fai
     "Moderation",
   ]);
   expect((wrapper.get("form.bot-tab-content").element as HTMLFormElement).style.display).toBe("none");
+  expect(wrapper.get("form.bot-tab-content").attributes("inert")).toBeDefined();
   await wrapper.findAll('[role="tab"]')[1]!.trigger("click");
   expect((wrapper.get("form.bot-tab-content").element as HTMLFormElement).style.display).not.toBe("none");
+  expect(wrapper.get("form.bot-tab-content").attributes("inert")).toBeUndefined();
   expect(wrapper.get("form.bot-tab-content").find("h4").exists()).toBe(false);
   expect(wrapper.get('[aria-label="Commands overview"]').exists()).toBe(true);
   expect(request).toHaveBeenCalledWith("/api/accounts/did%3Aplc%3Aowner/bot/source");

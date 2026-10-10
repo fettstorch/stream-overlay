@@ -32,7 +32,7 @@ describe("Cloud Admin actor combobox", () => {
   test("renders safe bounded results and supports keyboard selection", async () => {
     const searcher = vi.fn(async (): Promise<Suggestion[]> => [{ did: "did:plc:alice", handle: "alice.test", displayName: "Alice <script>", avatar: "https://cdn.example/alice.jpg" }]);
     const { input, status } = setup(searcher); input.value = "ali"; input.dispatchEvent(new Event("input")); await new Promise(resolve => setTimeout(resolve)); await new Promise(resolve => setTimeout(resolve));
-    expect(input.getAttribute("aria-expanded")).toBe("true"); expect(document.body.textContent).toContain("Alice <script>"); expect(document.querySelector("script")).toBeNull();
+    expect(input.getAttribute("aria-expanded")).toBe("true"); expect(input.getAttribute("aria-haspopup")).toBe("listbox"); expect(document.body.textContent).toContain("Alice <script>"); expect(document.querySelector("script")).toBeNull();
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })); input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
     expect(input.value).toBe("alice.test"); expect(status.textContent).toBe("Selected @alice.test");
   });

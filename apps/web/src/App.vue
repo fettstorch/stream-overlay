@@ -3,7 +3,7 @@ import BrandWordmark from "./BrandWordmark.vue";
 import CollapseTransition from "./CollapseTransition.vue";
 import { vModuleWidth } from "./module-width-motion.ts";
 import BrandMascot from "./BrandMascot.vue";
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, useId, watch } from "vue";
 import { mutePreview } from "./mute-preview.ts";
 import EmoticonControls from "./EmoticonControls.vue";
 import PokemonModuleControls from "./PokemonModuleControls.vue";
@@ -49,6 +49,8 @@ const streamConfiguration = ref<StreamConfiguration>({ streamerDid: "", profile:
 const streamerQuery = ref("");
 const actorSuggestions = ref<ActorProfile[]>([]);
 const actorSearchOpen = ref(false);
+const activeActorSuggestion = ref(-1);
+const actorListboxId = `actor-suggestions-${useId()}`;
 const copiedModuleId = ref<string | null>(null);
 const streamMessage = ref("");
 const pokemonMessage = ref("");
@@ -279,7 +281,33 @@ function selectStreamer(identity: string) {
   const sequence = ++streamerSelectionSequence;
   streamMessage.value = "Loading profile…";
   actorSearchOpen.value = false;
+  activeActorSuggestion.value = -1;
   enqueueSave(() => saveStreamer(identity, sequence));
+}
+
+function closeActorSearch() {
+  actorSearchOpen.value = false;
+  activeActorSuggestion.value = -1;
+}
+
+function selectActiveActorSuggestion() {
+  const actor = actorSuggestions.value[activeActorSuggestion.value];
+  selectStreamer(actor?.did ?? streamerQuery.value);
+}
+
+function navigateActorSuggestions(event: KeyboardEvent) {
+  if (event.key === "Escape") {
+    if (actorSearchOpen.value) event.preventDefault();
+    closeActorSearch();
+    return;
+  }
+  if (!actorSuggestions.value.length || !["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+  event.preventDefault();
+  actorSearchOpen.value = true;
+  if (event.key === "Home") activeActorSuggestion.value = 0;
+  else if (event.key === "End") activeActorSuggestion.value = actorSuggestions.value.length - 1;
+  else if (event.key === "ArrowDown") activeActorSuggestion.value = (activeActorSuggestion.value + 1) % actorSuggestions.value.length;
+  else activeActorSuggestion.value = activeActorSuggestion.value <= 0 ? actorSuggestions.value.length - 1 : activeActorSuggestion.value - 1;
 }
 
 async function saveStreamer(identity: string, sequence: number) {
@@ -318,6 +346,7 @@ async function searchStreamer(query: string, sequence: number) {
     if (sequence !== actorSearchSequence) return;
     actorSuggestions.value = result.actors ?? [];
     actorSearchOpen.value = actorSuggestions.value.length > 0;
+    activeActorSuggestion.value = -1;
   } catch {
     if (sequence === actorSearchSequence) actorSearchOpen.value = false;
   }
@@ -331,6 +360,7 @@ watch(streamerQuery, (query) => {
   if (!loaded) return;
   if (query === streamConfiguration.value.profile?.handle || query === streamConfiguration.value.streamerDid) {
     actorSearchOpen.value = false;
+    activeActorSuggestion.value = -1;
     return;
   }
   streamMessage.value = "";
@@ -339,6 +369,7 @@ watch(streamerQuery, (query) => {
   if (query.trim().replace(/^@/, "").length < 2) {
     actorSuggestions.value = [];
     actorSearchOpen.value = false;
+    activeActorSuggestion.value = -1;
     return;
   }
   actorSearchTimer = setTimeout(() => void searchStreamer(query, sequence), 300);
@@ -416,17 +447,24 @@ onBeforeUnmount(() => {
           placeholder="Search name, handle, or paste a DID"
           role="combobox"
           aria-autocomplete="list"
+          aria-haspopup="listbox"
+          :aria-controls="actorListboxId"
           :aria-expanded="actorSearchOpen"
+          :aria-activedescendant="activeActorSuggestion >= 0 ? `${actorListboxId}-${activeActorSuggestion}` : undefined"
           @focus="actorSearchOpen = actorSuggestions.length > 0"
-          @keydown.enter.prevent="selectStreamer(streamerQuery)"
-          @keydown.esc="actorSearchOpen = false"
+          @keydown="navigateActorSuggestions"
+          @keydown.enter.prevent="selectActiveActorSuggestion"
         >
-        <span v-if="actorSearchOpen" class="actor-suggestions" role="listbox">
+        <span v-if="actorSearchOpen" :id="actorListboxId" class="actor-suggestions" role="listbox" aria-label="Streamer accounts">
           <button
-            v-for="actor in actorSuggestions"
+            v-for="(actor, index) in actorSuggestions"
             :key="actor.did"
+            :id="`${actorListboxId}-${index}`"
             type="button"
             role="option"
+            :aria-selected="activeActorSuggestion === index"
+            tabindex="-1"
+            @pointerdown.prevent
             @click="selectStreamer(actor.did)"
           >
             <img v-if="actor.avatar" :src="actor.avatar" alt="">
@@ -631,7 +669,7 @@ onBeforeUnmount(() => {
           </div>
           </div>
           </CollapseTransition>
-          <p v-if="module.error" class="error">{{ module.error }}</p>
+          <p v-if="module.error" class="error" role="alert">{{ module.error }}</p>
         </article>
       </TransitionGroup>
     </section>
