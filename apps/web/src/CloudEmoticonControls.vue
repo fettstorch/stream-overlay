@@ -6,6 +6,7 @@ import { computed, onBeforeUnmount, ref, watch } from "vue";
 import type { CloudCommand, CloudConfig, CloudMedia } from "./cloud-admin-types.ts";
 import { validateCloudCommand } from "../../../modules/emoticons/src/validation.ts";
 import { searchGiphy, resolveGiphy, type GiphyChoice } from "./giphy.ts";
+import { getDebouncer } from "@fettstorch/jule";
 import giphyAttribution from "./assets/branding/PoweredBy_200px-White_HorizLogo.png";
 
 const props = defineProps<{
@@ -33,7 +34,12 @@ const mediaUrlInput = ref(""),
 const giphyResults = ref<GiphyChoice[]>([]), giphySearching = ref(false);
 const giphySearchMode = computed(() => Boolean(mediaUrlInput.value.trim()) && !/^[a-z][a-z0-9+.-]*:/i.test(mediaUrlInput.value.trim()));
 let giphyGeneration = 0, giphyOperationId = "";
-watch(mediaUrlInput, () => { giphyGeneration++; giphyResults.value = []; giphySearching.value = false; });
+const giphyDebouncer = getDebouncer();
+watch(mediaUrlInput, () => {
+  giphyDebouncer.clear();
+  giphyGeneration++; giphyResults.value = []; giphySearching.value = false;
+  if (giphySearchMode.value) giphyDebouncer.debounce(() => void submitMediaInput(), 800);
+});
 function giphyLog(event: "started" | "completed" | "failed" | "selected", operationId: string, count?: number) {
   void adminFetch(`/api/accounts/${encodeURIComponent(props.did)}/giphy-diagnostics`, {
     method: "POST", headers: { "Content-Type": "application/json" },
@@ -41,6 +47,7 @@ function giphyLog(event: "started" | "completed" | "failed" | "selected", operat
   }).catch(() => {});
 }
 async function submitMediaInput() {
+  giphyDebouncer.clear();
   if (!giphySearchMode.value) return addMediaUrl();
   const generation = ++giphyGeneration, operationId = crypto.randomUUID();
   giphyOperationId = operationId; giphySearching.value = true; giphyResults.value = [];
@@ -432,6 +439,7 @@ async function deleteConfirmed(command: CloudCommand, dontShowAgain = false) {
   if (saved && editing.value === command.id) reset();
 }
 onBeforeUnmount(() => {
+  giphyDebouncer.clear();
   giphyGeneration++;
   for (const kind of kinds) clearPreview(kind);
 });
@@ -524,8 +532,8 @@ defineExpose({ acceptCardDrop });
               placeholder="https://…/media.gif or a GIF search"
               :disabled="busy"
               @keydown.enter.prevent="submitMediaInput" /></label
-          ><button type="button" :disabled="busy || giphySearching || !mediaUrlInput.trim()" @click="submitMediaInput">
-            {{ giphySearching ? 'Searching…' : giphySearchMode ? 'Search' : 'Add URL' }}
+          ><button v-if="!giphySearchMode" type="button" :disabled="busy || !mediaUrlInput.trim()" @click="submitMediaInput">
+            Add URL
           </button>
         </div>
         <div v-if="giphySearchMode || giphyResults.length" class="giphy-picker">
