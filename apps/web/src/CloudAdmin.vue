@@ -59,8 +59,6 @@ function obsInstructions(moduleId: string) {
       : []),
   ];
 }
-const listingPreviewOpen = ref(false);
-const effectPreviewOpen = ref(false);
 let chatPreviewFrame: HTMLIFrameElement | undefined;
 let chatPreviewConfiguration: ChatConfiguration | undefined;
 function updateChatPreview(configuration: ChatConfiguration) {
@@ -83,7 +81,6 @@ const emoticonTabs = computed(() => [
 ]);
 async function prepareEmoticonTest(command: CloudCommand) {
   emoticonTab.value = "commands";
-  effectPreviewOpen.value = true;
   await nextTick();
   const deadline = Date.now() + 10_000;
   while (!disposed && Date.now() < deadline) {
@@ -658,18 +655,20 @@ onBeforeUnmount(() => {
               <DrawnTabs v-model="emoticonTab" :tabs="emoticonTabs" label="Emoticon tools">
               <div class="emoticon-tab-content" :class="{ 'commands-columns': emoticonTab === 'commands' }">
               <div class="command-previews" v-show="emoticonTab === 'commands'" :inert="emoticonTab !== 'commands' || undefined">
-                <CollapsibleSection class="overlay-live-preview" v-model:open="effectPreviewOpen" title="Emoticon overlay preview" control-label="Emoticon overlay live preview">
-                  <div v-if="effectPreviewOpen && isExpanded(module) && emoticonTab === 'commands'" class="cloud-preview"
+                <section class="module-section overlay-live-preview">
+                  <h4>Emoticon overlay preview</h4>
+                  <div v-if="isExpanded(module) && emoticonTab === 'commands'" class="cloud-preview"
                     :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }">
                     <iframe :ref="(value) => (effectPreviewFrame = value as HTMLIFrameElement | undefined)"
                       :src="previewUrl(module.id)" title="Emoticons preview" allow="autoplay" />
                   </div>
-                </CollapsibleSection>
-                <CollapsibleSection class="overlay-live-preview" v-model:open="listingPreviewOpen" title="Listing overlay preview" control-label="Listing overlay live preview">
-                  <iframe v-if="listingPreviewOpen && isExpanded(module) && emoticonTab === 'commands'"
+                </section>
+                <section class="module-section overlay-live-preview">
+                  <h4>Listing overlay preview</h4>
+                  <iframe v-if="isExpanded(module) && emoticonTab === 'commands'"
                     :ref="(value) => (listingPreviewFrame = value as HTMLIFrameElement | undefined)"
                     :src="listingPreviewUrl" title="Emoticons command listing preview" class="listing-preview" />
-                </CollapsibleSection>
+                </section>
               </div>
                 <CloudEmoticonControls
                   :ref="(value) => setModuleControls(module.id, value)"

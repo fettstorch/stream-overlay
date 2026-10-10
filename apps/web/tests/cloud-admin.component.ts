@@ -96,8 +96,8 @@ describe("Cloud Admin", () => {
     expect(wrapper.get('button[aria-label="Show General settings"]').attributes('aria-expanded')).toBe('false');
     expect(wrapper.get('button[aria-label="Show Clips"]').attributes('aria-expanded')).toBe('false');
     expect(wrapper.get('button[aria-label="Show Emoticons (stickers)"]').attributes('aria-expanded')).toBe('false');
-    expect(wrapper.get('button[aria-label="Show Listing overlay live preview"]').attributes('aria-expanded')).toBe('false');
-    expect(wrapper.get('button[aria-label="Show Emoticon overlay live preview"]').attributes('aria-expanded')).toBe('false');
+    expect(wrapper.find('button[aria-label="Show Listing overlay live preview"]').exists()).toBe(false);
+    expect(wrapper.find('button[aria-label="Show Emoticon overlay live preview"]').exists()).toBe(false);
     const moduleBody = wrapper.get('#module-body-emoticons');
     expect(moduleBody.text()).toContain('Let users in chat trigger clips/gifs & stickers using !<command>. Create and live test those commands here.');
     expect(moduleBody.get('button[aria-label="About Effects OBS URL"]').attributes('aria-describedby')).toBe('module-help-emoticons-effects-url');
@@ -124,14 +124,12 @@ describe("Cloud Admin", () => {
     await clipsToggle.trigger('click');
     expect(wrapper.get('button[aria-label="Show Clips"]').attributes('aria-expanded')).toBe('false');
     await wrapper.get('button[aria-label="Show Clips"]').trigger('click');
-    expect(wrapper.find('iframe[title="Emoticons preview"]').exists()).toBe(false);
+    expect(wrapper.find('iframe[title="Emoticons preview"]').exists()).toBe(true);
     expect(wrapper.find('details').exists()).toBe(false);
-    await wrapper.get('button[aria-label="Show Emoticon overlay live preview"]').trigger('click');
     expect(wrapper.get('iframe[title="Emoticons preview"]').attributes('src')).not.toContain('muted=1');
     expect(wrapper.find('iframe[title="Stream background"]').exists()).toBe(false);
-    await wrapper.get('button[aria-label="Show Listing overlay live preview"]').trigger('click');
     expect(wrapper.get('iframe[title="Emoticons command listing preview"]').attributes('src')).toContain('preview=1');
-    await wrapper.get('button[aria-label="Hide Emoticon overlay live preview"]').trigger('click');
+    await wrapper.get('button[aria-label="Hide Emoticons details"]').trigger('click');
     expect(wrapper.find('iframe[title="Emoticons preview"]').exists()).toBe(false);
     await wrapper.get('button[aria-label="Show Overlay Paint details"]').trigger('click');
     expect(wrapper.get('iframe[title="Stream background"]').attributes('src')).toContain(encodeURIComponent(session.did));
@@ -229,7 +227,7 @@ describe("Cloud Admin", () => {
       await wrapper.get('.command-list button').trigger('click'); await flushPromises();
       expect(wrapper.find('iframe[title="Emoticons preview"]').exists()).toBe(true);
       expect(wrapper.get('iframe[title="Emoticons preview"]').element.parentElement?.querySelector('.preview-background')).toBeNull();
-      expect(wrapper.find('iframe[title="Emoticons command listing preview"]').exists()).toBe(false);
+      expect(wrapper.find('iframe[title="Emoticons command listing preview"]').exists()).toBe(true);
       expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/test/'))).toBe(false);
       const scrollPreview = vi.fn();
       Object.defineProperty(wrapper.get('iframe[title="Emoticons preview"]').element, 'scrollIntoView', { value: scrollPreview });
@@ -249,6 +247,7 @@ describe("Cloud Admin", () => {
       expect(wrapper.get('.board-url').isVisible()).toBe(true);
       expect(wrapper.get('.overlay-url').isVisible()).toBe(true);
       expect(wrapper.find('iframe[title="Emoticons preview"]').exists()).toBe(false);
+      expect(wrapper.find('iframe[title="Emoticons command listing preview"]').exists()).toBe(false);
       await wrapper.get('.command-editor input[placeholder="!wow"]').setValue('draft');
       await wrapper.get('.command-editor input[type="range"]').setValue('0.4');
       await wrapper.findAll('.form-actions button').find(button => button.text() === 'Cancel')!.trigger('click');
