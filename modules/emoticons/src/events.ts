@@ -1,7 +1,6 @@
 export const emoteEvents = [
   { id: "teleport-arrival", name: "Teleport arrival", description: "Another streamer teleports their viewers to your stream." },
   { id: "stream-started", name: "Stream started", description: "Your stream becomes live while this browser source is connected." },
-  { id: "stream-ended", name: "Stream ended", description: "Your live stream ends while this browser source is connected." },
 ] as const;
 export type EmoteEventType = typeof emoteEvents[number]["id"];
 export type EmoteEventMapping = { event: EmoteEventType; commandId: string };

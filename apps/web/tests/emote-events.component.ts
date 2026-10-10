@@ -6,8 +6,9 @@ test("lists event choices and saves command mappings without changing other conf
   const config = { enabled: true, commands: [{ id: "wave", command: "wave" }], eventMappings: [] } as unknown as CloudConfig;
   const save = vi.fn(async () => true);
   const wrapper = mount(EmoteEvents, { props: { config, save } });
-  expect(wrapper.findAll('select')).toHaveLength(3);
+  expect(wrapper.findAll('select')).toHaveLength(2);
   expect(wrapper.text()).not.toContain('Teleport canceled');
+  expect(wrapper.text()).not.toContain('Stream ended');
   await wrapper.get('select[aria-label="Teleport arrival"]').setValue('wave');
   await wrapper.get('form').trigger('submit'); await flushPromises();
   expect(save).toHaveBeenCalledWith({ ...config, eventMappings: [{ event: "teleport-arrival", commandId: "wave" }] });

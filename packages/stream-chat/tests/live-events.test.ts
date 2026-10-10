@@ -16,7 +16,7 @@ test("cancellations and viewer updates are not triggers", () => {
   expect(parser.parse(canceled, 1000)).toBeNull();
   expect(parser.parse({ $type: "place.stream.livestream#viewerCount", count: 20 }, 1000)).toBeNull();
 });
-test("stream initial state is ignored; new starts and ends emit only once", () => {
+test("stream initial state and ended streams are ignored; new starts emit only once", () => {
   const parser = new LiveEventParser();
   const view = { $type: "place.stream.livestream#livestreamView", uri: "at://owner/place.stream.livestream/old", record: { createdAt: new Date(500).toISOString() } };
   expect(parser.parse(view, 1000)).toBeNull();
@@ -24,6 +24,6 @@ test("stream initial state is ignored; new starts and ends emit only once", () =
   expect(parser.parse(started, 1000)?.type).toBe("stream-started");
   expect(parser.parse(started, 1000)).toBeNull();
   const ended = { ...started, record: { ...started.record, endedAt: new Date(3000).toISOString() } };
-  expect(parser.parse(ended, 1000)?.type).toBe("stream-ended");
+  expect(new LiveEventParser().parse(ended, 1000)).toBeNull();
   expect(parser.parse(ended, 1000)).toBeNull();
 });

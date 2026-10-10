@@ -10,7 +10,7 @@ interface MessageView {
   record?: { streamer?: unknown; text?: unknown; createdAt?: unknown };
 }
 export type StreamLiveEvent = {
-  type: "teleport-arrival" | "stream-started" | "stream-ended";
+  type: "teleport-arrival" | "stream-started";
   id: string;
   author?: StreamChatMessage["author"];
 };
@@ -39,11 +39,11 @@ export class LiveEventParser {
       const record = data.record;
       if (typeof data.uri !== "string" || !record || typeof record.createdAt !== "string"
         || !Number.isFinite(Date.parse(record.createdAt))) return null;
-      const ended = typeof record.endedAt === "string" && Number.isFinite(Date.parse(record.endedAt));
-      const timestamp = Date.parse(ended ? record.endedAt : record.createdAt);
-      const id = `${ended ? 'ended' : 'started'}:${data.uri}`;
+      if (record.endedAt !== undefined) return null;
+      const timestamp = Date.parse(record.createdAt);
+      const id = `started:${data.uri}`;
       if (timestamp < connectedAfter) { this.remember(id); return null; }
-      event = { type: ended ? "stream-ended" : "stream-started", id };
+      event = { type: "stream-started", id };
     } else return null;
     if (this.seen.has(event.id)) return null;
     this.remember(event.id);
