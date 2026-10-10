@@ -99,6 +99,11 @@ Required secrets/settings:
   Follow `lexicons/README.md` for publication and migration details.
 - `AUTH_DATA_DIR=/data/auth` and `PORT=8000`.
 - Optional `GIPHY_API_KEY`: enables GIF search in Create new and ID resolution in OBS.
+  `npm run deploy` references the existing Koyeb secret named `GIPHY_API_KEY` and
+  maps `streamface-bot-app-password` to `BOT_APP_PASSWORD` by default. It never
+  uploads local `.env` values. Override names with `--giphy-secret` / `--bot-secret`
+  or `KOYEB_GIPHY_SECRET` / `KOYEB_BOT_SECRET`; pass an empty CLI override to omit
+  an integration. Create these secrets once before deploying.
   This is a **public browser API key**, not a server secret: GIPHY requires direct
   browser API/media requests. It is never logged or stored in PDS records.
   Locally, set it in a gitignored `.env` and restart `bun run cloud:dev`; in Koyeb,

@@ -46,12 +46,19 @@ test("deployment uses the hosted target, one eNano in Frankfurt and a secret ref
     expect(excluded(name)).toBe(true);
 });
 
-test("optional bot deployment references a Koyeb secret without embedding its credentials", () => {
-  expect(deploymentArgs("/tmp/source", "https://streamface.live")).not.toContain("BOT_APP_PASSWORD");
+test("deployment references bot and Giphy secrets by default with overrides and opt-out", () => {
+  const defaults = deploymentArgs("/tmp/source", "https://streamface.live");
+  expect(defaults).toContain("BOT_APP_PASSWORD={{secret.streamface-bot-app-password}}");
+  expect(defaults).toContain("GIPHY_API_KEY={{secret.GIPHY_API_KEY}}");
+  const disabled = deploymentArgs("/tmp/source", "https://streamface.live", "streamface/web", "streamface-session-secret", "", "");
+  expect(disabled.some(value => /BOT_APP_PASSWORD|GIPHY_API_KEY/.test(value))).toBe(false);
   const args = deploymentArgs("/tmp/source", "https://streamface.live", "streamface/web", "streamface-session-secret", "streamface-bot-app-password");
   expect(args).toContain("BOT_APP_PASSWORD={{secret.streamface-bot-app-password}}");
   expect(deploymentOptions(["--bot-secret", "streamface-bot-app-password"])["bot-secret"]).toBe("streamface-bot-app-password");
   expect(() => deploymentArgs("/tmp/source", "https://streamface.live", "streamface/web", "streamface-session-secret", "bad=value")).toThrow("bot secret");
+  expect(deploymentOptions(["--giphy-secret", "custom-giphy"])["giphy-secret"]).toBe("custom-giphy");
+  expect(deploymentArgs("/tmp/source", "https://streamface.live", "streamface/web", "streamface-session-secret", "", "custom-giphy")).toContain("GIPHY_API_KEY={{secret.custom-giphy}}");
+  expect(() => deploymentArgs("/tmp/source", "https://streamface.live", "streamface/web", "streamface-session-secret", "", "bad=value")).toThrow("Giphy secret");
 });
 
 test("staging excludes Pets, runtime data and secrets; symlinks fail closed", async () => {
