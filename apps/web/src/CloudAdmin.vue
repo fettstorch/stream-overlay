@@ -9,7 +9,7 @@ import BrandMascot from "./BrandMascot.vue";
 import StreamplaceBrand from "./StreamplaceBrand.vue";
 import { getCloudModuleCatalog } from "../../../modules/catalog.ts";
 import type { ModuleManifest as CloudModule } from "../../../packages/overlay-sdk/src/manifest.ts";
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watchEffect } from "vue";
 import { attachActorCombobox } from "./actor-combobox.ts";
 import {
   loadPublicActorProfile,
@@ -151,6 +151,12 @@ const {
   orderedModules,
   matchingCount,
 } = useModuleCollection(cloudModules);
+const emotePreviewsStarted = ref(false);
+watchEffect(() => {
+  const module = cloudModules.value.find(module => module.id === "emoticons");
+  // Start lazily, then keep the iframe and its asset cache alive while hidden.
+  if (module && isExpanded(module) && emoticonTab.value === "commands") emotePreviewsStarted.value = true;
+});
 type ModuleDropControls = {
   acceptCardDrop: (
     files: FileList | null | undefined,
@@ -671,7 +677,7 @@ onBeforeUnmount(() => {
               <div class="command-previews" v-show="emoticonTab === 'commands'" :inert="emoticonTab !== 'commands' || undefined">
                 <section class="module-section overlay-live-preview">
                   <h4>Emote overlay preview</h4>
-                  <div v-if="isExpanded(module) && emoticonTab === 'commands'" class="cloud-preview"
+                  <div v-if="emotePreviewsStarted" class="cloud-preview"
                     :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }">
                     <iframe :ref="(value) => (effectPreviewFrame = value as HTMLIFrameElement | undefined)"
                       :src="previewUrl(module.id)" title="Emotes preview" allow="autoplay" />
@@ -679,7 +685,7 @@ onBeforeUnmount(() => {
                 </section>
                 <section class="module-section overlay-live-preview">
                   <h4>Listing overlay preview</h4>
-                  <iframe v-if="isExpanded(module) && emoticonTab === 'commands'"
+                  <iframe v-if="emotePreviewsStarted"
                     :ref="(value) => (listingPreviewFrame = value as HTMLIFrameElement | undefined)"
                     :src="listingPreviewUrl" title="Emotes command listing preview" class="listing-preview" />
                 </section>
