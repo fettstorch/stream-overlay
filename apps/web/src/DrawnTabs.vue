@@ -63,7 +63,8 @@ async function navigate(event: KeyboardEvent, index: number) {
 
 <style scoped>
 .drawn-tabs {
-  --tab-frame-top: 5px;
+  --tab-frame-top: 22px;
+  --tab-frame-overlap: 8px;
   position: relative;
   isolation: isolate;
   margin-top: 28px;
@@ -72,7 +73,7 @@ async function navigate(event: KeyboardEvent, index: number) {
 .drawn-tab-list {
   display: flex;
   align-items: end;
-  padding: 0 0 0 4px;
+  padding: 0 0 0 19px;
 }
 #app .drawn-tab {
   position: relative;
@@ -148,7 +149,7 @@ async function navigate(event: KeyboardEvent, index: number) {
   position: relative;
   z-index: 1;
   isolation: isolate;
-  margin-top: calc(-1 * var(--tab-frame-top));
+  margin-top: calc(-1 * var(--tab-frame-overlap));
   padding: 26px;
   min-width: 0;
 }
@@ -158,15 +159,14 @@ async function navigate(event: KeyboardEvent, index: number) {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  /* Nine slices: flatten only the top corners/edge, leaving the other
-     six pieces at the regular frame size. */
+  /* Regular nine-slice frame; tabs overlap the top stroke away from corners. */
   border: solid transparent;
   border-width: var(--tab-frame-top) 22px 22px;
   border-image: url("./assets/branding/module-frame.png") 350 fill / var(--tab-frame-top) 22px 22px / 0 stretch;
 }
 @media (max-width: 600px) {
   .drawn-tab-list {
-    padding-inline: 4px 0;
+    padding-inline: 19px 0;
   }
   #app .drawn-tab {
     font-size: 0.9em;
