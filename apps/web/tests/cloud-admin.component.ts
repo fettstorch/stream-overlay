@@ -104,9 +104,10 @@ describe("Cloud Admin", () => {
     expect(moduleBody.get('#module-help-emoticons-listing-url').text()).toContain('cooldowns for your clips');
     const effectsUrl = moduleBody.get('.overlay-url').element;
     const listingUrl = moduleBody.get('.board-url').element;
-    expect(effectsUrl.nextElementSibling?.querySelector('h4')?.textContent?.trim()).toBe('Live Preview');
-    expect(effectsUrl.nextElementSibling?.querySelector('button')?.getAttribute('aria-label')).toBe('Show Emoticon overlay live preview');
-    expect(listingUrl.nextElementSibling?.querySelector('button')?.getAttribute('aria-label')).toBe('Show Listing overlay live preview');
+    expect(effectsUrl.closest('.drawn-tabs')).toBeNull();
+    expect(listingUrl.closest('.drawn-tabs')).toBeNull();
+    expect(moduleBody.get('.drawn-tabs').text()).toContain('Emoticon overlay preview');
+    expect(moduleBody.get('.drawn-tabs').text()).toContain('Listing overlay preview');
     expect(wrapper.get('.account-preference').element.closest('.section-content')?.getAttribute('style')).toContain('display: none');
     await wrapper.get('button[aria-label="Show General settings"]').trigger('click');
     expect(wrapper.get('button[aria-label="Hide General settings"]').attributes('aria-expanded')).toBe('true');
@@ -241,7 +242,8 @@ describe("Cloud Admin", () => {
       expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('/test/'))).toHaveLength(1);
       await createButton.trigger('click');
       expect(wrapper.get('.command-editor').isVisible()).toBe(true);
-      expect(wrapper.get('.board-url').isVisible()).toBe(false);
+      expect(wrapper.get('.board-url').isVisible()).toBe(true);
+      expect(wrapper.get('.overlay-url').isVisible()).toBe(true);
       expect(wrapper.find('iframe[title="Emoticons preview"]').exists()).toBe(false);
       await wrapper.get('.command-editor input[placeholder="!wow"]').setValue('draft');
       await wrapper.get('.command-editor input[type="range"]').setValue('0.4');

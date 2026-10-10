@@ -605,8 +605,6 @@ onBeforeUnmount(() => {
                 </div>
               </template>
               <template v-if="module.id === 'emoticons'">
-              <DrawnTabs v-model="emoticonTab" :tabs="emoticonTabs" label="Emoticon tools">
-              <div v-show="emoticonTab === 'commands'" :inert="emoticonTab !== 'commands' || undefined">
               <section class="module-commands overlay-url-heading">
                 <h4>{{ module.id === "emoticons" ? "Effects OBS URL" : "OBS URL" }}</h4>
                 <ModuleHelp v-if="module.id === 'emoticons'" id="emoticons-effects-url" name="Effects OBS URL" align="start"
@@ -634,13 +632,6 @@ onBeforeUnmount(() => {
                   <span class="copy-icon" aria-hidden="true" />
                 </button>
               </div>
-                <CollapsibleSection class="overlay-live-preview" v-model:open="effectPreviewOpen" title="Live Preview" control-label="Emoticon overlay live preview">
-                  <div v-if="effectPreviewOpen && isExpanded(module) && emoticonTab === 'commands'" class="cloud-preview"
-                    :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }">
-                    <iframe :ref="(value) => (effectPreviewFrame = value as HTMLIFrameElement | undefined)"
-                      :src="previewUrl(module.id)" title="Emoticons preview" allow="autoplay" />
-                  </div>
-                </CollapsibleSection>
                 <section class="module-commands overlay-url-heading listing-url-heading"><h4>Command listing OBS URL</h4>
                   <ModuleHelp id="emoticons-listing-url" name="Command listing OBS URL" align="start"
                     description="This is a listing of your commands for your audience including cooldowns for your clips." />
@@ -664,7 +655,16 @@ onBeforeUnmount(() => {
                     <span class="copy-icon" aria-hidden="true" />
                   </button>
                 </div>
-                <CollapsibleSection class="overlay-live-preview" v-model:open="listingPreviewOpen" title="Live Preview" control-label="Listing overlay live preview">
+              <DrawnTabs v-model="emoticonTab" :tabs="emoticonTabs" label="Emoticon tools">
+              <div v-show="emoticonTab === 'commands'" :inert="emoticonTab !== 'commands' || undefined">
+                <CollapsibleSection class="overlay-live-preview" v-model:open="effectPreviewOpen" title="Emoticon overlay preview" control-label="Emoticon overlay live preview">
+                  <div v-if="effectPreviewOpen && isExpanded(module) && emoticonTab === 'commands'" class="cloud-preview"
+                    :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }">
+                    <iframe :ref="(value) => (effectPreviewFrame = value as HTMLIFrameElement | undefined)"
+                      :src="previewUrl(module.id)" title="Emoticons preview" allow="autoplay" />
+                  </div>
+                </CollapsibleSection>
+                <CollapsibleSection class="overlay-live-preview" v-model:open="listingPreviewOpen" title="Listing overlay preview" control-label="Listing overlay live preview">
                   <iframe v-if="listingPreviewOpen && isExpanded(module) && emoticonTab === 'commands'"
                     :ref="(value) => (listingPreviewFrame = value as HTMLIFrameElement | undefined)"
                     :src="listingPreviewUrl" title="Emoticons command listing preview" class="listing-preview" />
