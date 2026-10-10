@@ -52,13 +52,13 @@ const doodles = [camera, live, microphone, headphones, stork, star, streamDeck, 
 .doodle-1 { right: 3%; top: 5%; --tilt: 7deg; animation-delay: -3s; }
 .doodle-2 { left: 1.5%; top: 42%; width: clamp(32px, 4vw, 60px); --tilt: -8deg; animation-delay: -5s; }
 .doodle-3 { right: 1%; top: 35%; --tilt: 8deg; animation-delay: -7s; }
-.doodle-4 { left: 2%; bottom: 1%; width: clamp(40px, 5vw, 75px); --tilt: -5deg; animation-delay: -2s; }
+.doodle-4 { left: 2%; bottom: calc(1% + 40px); width: clamp(40px, 5vw, 75px); --tilt: -5deg; animation-delay: -2s; }
 .doodle-5 { right: 3%; top: 65%; --tilt: 10deg; animation-delay: -4s; }
 .doodle-6 { left: 33%; bottom: 3%; --tilt: -8deg; animation-delay: -6s; }
 .doodle-7 { right: 33%; bottom: 10%; --tilt: 5deg; animation-delay: -1s; }
 .doodle-8 { left: 2%; top: 23%; --tilt: 6deg; animation-delay: -4s; }
 .doodle-9 { right: 2%; top: 20%; --tilt: -6deg; animation-delay: -2s; }
-.doodle-10 { left: 17%; bottom: 2%; --tilt: 5deg; animation-delay: -7s; }
+.doodle-10 { left: 17%; bottom: calc(2% + 40px); --tilt: 5deg; animation-delay: -7s; }
 .doodle-11 { right: 1%; top: 50%; width: clamp(35px, 4vw, 65px); --tilt: -4deg; animation-delay: -5s; }
 .doodle-12 { left: 2%; top: 62%; width: clamp(35px, 4vw, 65px); --tilt: -8deg; animation-delay: -1s; }
 .doodle-13 { left: 2%; top: 76%; width: clamp(32px, 4vw, 55px); --tilt: 7deg; animation-delay: -6s; }
