@@ -94,6 +94,24 @@ export class CloudBot {
       if (!Array.isArray(data)) throw new Error("Unexpected chat response");
       const view = data.find((item) => item?.uri === uri);
       const message = parseDirectChatEvent(view, config.streamerDid);
+      this.logger.log("info", "cloud.bot.verification-result", {
+        requestId,
+        feedCount: data.length,
+        matched: Boolean(view),
+        parsed: Boolean(message),
+        failure: !view ? "message-not-in-feed" : !message ? "invalid-message-view"
+          : message.author.did === streamfaceBotDid ? "bot-authored" : null,
+        ...(view ? {
+          expectedViewType: view.$type === "place.stream.chat.defs#messageView",
+          deleted: view.deleted === true,
+          streamerMatches: view.record?.streamer === config.streamerDid,
+          authorMatchesUri: typeof view.author?.did === "string"
+            && uri.startsWith(`at://${view.author.did}/place.stream.chat.message/`),
+          hasText: typeof view.record?.text === "string",
+          validCreatedAt: typeof view.record?.createdAt === "string"
+            && Number.isFinite(Date.parse(view.record.createdAt)),
+        } : {}),
+      });
       if (!message || message.author.did === streamfaceBotDid) return reject("unverified-message");
       const age = this.now() - Date.parse(message.createdAt);
       if (age < -5000 || age > 60000) return reject("stale-message");

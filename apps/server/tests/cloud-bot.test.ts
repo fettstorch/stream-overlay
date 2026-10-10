@@ -98,6 +98,17 @@ test("verified commands send only server-configured replies, with valid stable T
   expect(h.logs.join()).toContain("cloud.bot.reply-completed");
   expect(h.logs.join()).not.toContain("Hello chat!");
 });
+test("verification diagnostics distinguish missing and malformed feed messages without logging text", async () => {
+  const missing = harness({ uri: `${uri}other` });
+  await missing.service.trigger(config, uri, "missing");
+  const missingLog = missing.logs.map(line => JSON.parse(line)).find(item => item.event === "cloud.bot.verification-result");
+  expect(missingLog).toMatchObject({ requestId: "missing", feedCount: 1, matched: false, failure: "message-not-in-feed" });
+  const malformed = harness({ $type: undefined });
+  await malformed.service.trigger(config, uri, "malformed");
+  const malformedLog = malformed.logs.map(line => JSON.parse(line)).find(item => item.event === "cloud.bot.verification-result");
+  expect(malformedLog).toMatchObject({ matched: true, parsed: false, expectedViewType: false, failure: "invalid-message-view" });
+  expect(malformed.logs.join()).not.toContain("!hi");
+});
 test("rejects disabled, forged, stale, deleted and bot-authored messages without sending", async () => {
   for (const overrides of [
     { deleted: true },
