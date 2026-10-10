@@ -220,7 +220,10 @@ bun run server
 ```
 
 For local cloud parity, `bun run cloud` builds and starts the same
-`infra/koyeb/Dockerfile` through Docker Compose. The service is available at
+`infra/koyeb/Dockerfile` through Docker Compose, explicitly loading the project's
+root `.env` for configured variables such as `BOT_APP_PASSWORD` and `GIPHY_API_KEY`.
+Create this gitignored file before starting (it can be empty if no integrations
+are configured). The service is available at
 `http://127.0.0.1:3010`; private OAuth state is retained in the named Docker volume
 `stream-overlay-cloud-auth`. This port is separate from Pets (`3000`), the local
 overlay host (`3001`), and Admin development (`3003`). Stop it with Ctrl-C; use
@@ -230,7 +233,7 @@ network while preserving the auth volume.
 Docker without host Bun uses the equivalent command:
 
 ```sh
-docker compose -f infra/koyeb/compose.local.yml up --build
+docker compose --env-file .env -f infra/koyeb/compose.local.yml up --build
 ```
 
 For faster source development without a container, `bun run cloud:dev` uses a
