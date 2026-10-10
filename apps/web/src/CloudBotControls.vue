@@ -115,7 +115,6 @@ async function copy() {
   </section>
   <DrawnTabs v-model="tab" :tabs="tabs" label="Bot commands">
     <section v-show="tab === 'commands'" class="module-section bot-tab-content">
-      <h4>Commands</h4>
       <ul class="command-list striped-list">
         <li v-for="rule in config.bot?.rules ?? []" :key="rule.command" class="bot-rule">
           <div>
@@ -137,7 +136,7 @@ async function copy() {
       <p v-if="!config.bot?.rules.length">No bot commands yet.</p>
     </section>
     <form v-show="tab === 'create'" class="module-section bot-tab-content editor-fields" @submit.prevent="add">
-      <h4>{{ editing ? "Edit command" : "Create bot command" }}</h4>
+      <h4 v-if="editing">Edit command</h4>
       <label
         >Command<input
           v-model="command"

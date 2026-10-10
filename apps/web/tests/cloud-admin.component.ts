@@ -147,7 +147,8 @@ describe("Cloud Admin", () => {
     expect(moduleBody.get('.drawn-tabs').text()).toContain('Emoticon overlay preview');
     expect(moduleBody.get('.drawn-tabs').text()).toContain('Listing overlay preview');
     expect(moduleBody.get('.commands-columns > .command-previews').findAll('.overlay-live-preview')).toHaveLength(2);
-    expect(moduleBody.get('.commands-columns > .emoticon-controls').text()).toContain('Emoticon commands');
+    expect(moduleBody.get('.commands-columns > .emoticon-controls').text()).not.toContain('Emoticon commands');
+    expect(moduleBody.get('.commands-columns > .emoticon-controls').text()).toContain('!wave');
     expect(moduleBody.get('.command-list').text()).not.toContain('5s clip');
     expect(wrapper.get('.account-preference').element.closest('.section-content')?.getAttribute('style')).toContain('display: none');
     await wrapper.get('button[aria-label="Show General settings"]').trigger('click');

@@ -51,6 +51,8 @@ test("saves rules through existing configuration flow and preserves input on fai
   expect((wrapper.get("form").element as HTMLFormElement).style.display).toBe("none");
   await wrapper.findAll('[role="tab"]')[1]!.trigger("click");
   expect((wrapper.get("form").element as HTMLFormElement).style.display).not.toBe("none");
+  expect(wrapper.get("form").find("h4").exists()).toBe(false);
+  expect(wrapper.get("section.bot-tab-content").find("h4").exists()).toBe(false);
   expect(request).toHaveBeenCalledWith("/api/accounts/did%3Aplc%3Aowner/bot/source");
   const inputs = wrapper.findAll("input");
   await inputs[0].setValue("!discord");

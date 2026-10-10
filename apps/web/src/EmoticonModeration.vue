@@ -65,7 +65,6 @@ async function remove(rule: EmoticonModerationRule) {
 </script>
 <template>
   <div class="emoticon-moderation">
-    <h4>Moderation</h4>
     <p>{{ description ?? 'Block a chat user from all commands, or give them one shared cooldown across clips and stickers. Admin tests are unaffected.' }}</p>
     <p class="settings-hint">{{ hint ?? 'These rules are stored on your PDS and are public, like your other overlay settings.' }}</p>
     <ul v-if="config.moderation?.length" class="module-section command-list striped-list moderation-list">
