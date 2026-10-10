@@ -18,6 +18,7 @@ import {
 import CloudEmoticonControls from "./CloudEmoticonControls.vue";
 import EmoticonModeration from "./EmoticonModeration.vue";
 import EmoteEvents from "./EmoteEvents.vue";
+import SetupImport from "./SetupImport.vue";
 import CloudModuleControls from "./CloudModuleControls.vue";
 import CloudBotControls from "./CloudBotControls.vue";
 import CollapsibleSection from "./CollapsibleSection.vue";
@@ -483,6 +484,9 @@ onBeforeUnmount(() => {
               />Ask for confirmation before deleting commands</label
             >
             <p v-if="moduleMessages.preferences" role="alert">{{ moduleMessages.preferences }}</p>
+            <CollapsibleSection title="Copy a setup">
+              <SetupImport :did="did" :config="config" :save="candidate => saveConfiguration(candidate, undefined, 'preferences')" />
+            </CollapsibleSection>
           </CollapsibleSection>
           <button
             v-if="profileState === 'unavailable'"
