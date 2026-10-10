@@ -124,11 +124,13 @@ describe("Cloud Admin", () => {
     expect(wrapper.find('details').exists()).toBe(false);
     await wrapper.get('button[aria-label="Show Emoticon overlay live preview"]').trigger('click');
     expect(wrapper.get('iframe[title="Emoticons preview"]').attributes('src')).not.toContain('muted=1');
-    expect(wrapper.get('iframe[title="Stream background"]').attributes('src')).toContain(encodeURIComponent(session.did));
+    expect(wrapper.find('iframe[title="Stream background"]').exists()).toBe(false);
     await wrapper.get('button[aria-label="Show Listing overlay live preview"]').trigger('click');
     expect(wrapper.get('iframe[title="Emoticons command listing preview"]').attributes('src')).toContain('preview=1');
     await wrapper.get('button[aria-label="Hide Emoticon overlay live preview"]').trigger('click');
     expect(wrapper.find('iframe[title="Emoticons preview"]').exists()).toBe(false);
+    await wrapper.get('button[aria-label="Show Overlay Paint details"]').trigger('click');
+    expect(wrapper.get('iframe[title="Stream background"]').attributes('src')).toContain(encodeURIComponent(session.did));
     wrapper.unmount();
   });
   test("does not label every sticker redundantly", () => {
@@ -221,6 +223,7 @@ describe("Cloud Admin", () => {
       expect(wrapper.find('.command-editor').exists()).toBe(false);
       await wrapper.get('.command-list button').trigger('click'); await flushPromises();
       expect(wrapper.find('iframe[title="Emoticons preview"]').exists()).toBe(true);
+      expect(wrapper.get('iframe[title="Emoticons preview"]').element.parentElement?.querySelector('.preview-background')).toBeNull();
       expect(wrapper.find('iframe[title="Emoticons command listing preview"]').exists()).toBe(false);
       expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/test/'))).toBe(false);
       for (const title of ['Emoticons preview']) {

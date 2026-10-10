@@ -622,7 +622,6 @@ onBeforeUnmount(() => {
                 <CollapsibleSection class="overlay-live-preview" v-model:open="effectPreviewOpen" title="Live Preview" control-label="Emoticon overlay live preview">
                   <div v-if="effectPreviewOpen && isExpanded(module) && emoticonTab === 'commands'" class="cloud-preview"
                     :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }">
-                    <iframe :src="streamUrl" title="Stream background" tabindex="-1" class="preview-background" allow="autoplay" />
                     <iframe :ref="(value) => (effectPreviewFrame = value as HTMLIFrameElement | undefined)"
                       :src="previewUrl(module.id)" title="Emoticons preview" allow="autoplay" />
                   </div>
