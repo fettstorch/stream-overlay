@@ -1,14 +1,40 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { mount } from "@vue/test-utils";
+import { mount, flushPromises } from "@vue/test-utils";
 import ThemeToggle from "../src/ThemeToggle.vue";
 
 afterEach(() => {
   localStorage.clear();
   delete document.documentElement.dataset.theme;
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("Theme toggle", () => {
+  test("follows browser preference until an explicit choice and removes the listener", async () => {
+    const removeEventListener = vi.fn();
+    let notify!: (event: { matches: boolean }) => void;
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true,
+      addEventListener: vi.fn((_type, callback) => { notify = callback; }), removeEventListener })));
+    const wrapper = mount(ThemeToggle);
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    expect(localStorage.getItem("streamface-theme")).toBeNull();
+    notify({ matches: false }); await flushPromises();
+    expect(document.documentElement.dataset.theme).toBe("light");
+    await wrapper.get("input").setValue(true);
+    notify({ matches: false }); await flushPromises();
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    expect(localStorage.getItem("streamface-theme")).toBe("dark");
+    wrapper.unmount();
+    expect(removeEventListener).toHaveBeenCalledWith("change", notify);
+  });
+
+  test("a saved light choice overrides the browser's dark preference", () => {
+    localStorage.setItem("streamface-theme", "light");
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+    const wrapper = mount(ThemeToggle);
+    expect(document.documentElement.dataset.theme).toBe("light");
+    wrapper.unmount();
+  });
   test("defaults to light, switches to dark and remembers the choice", async () => {
     const wrapper = mount(ThemeToggle);
     const toggle = wrapper.get('input[role="switch"]');

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watchEffect } from "vue";
+import { onBeforeUnmount, ref, watchEffect } from "vue";
 import sun from "./assets/branding/controls/sun.png";
 import moon from "./assets/branding/controls/moon.png";
 import "./theme.css";
@@ -7,19 +7,28 @@ import "./theme.css";
 const storageKey = "streamface-theme";
 let savedTheme: string | null = null;
 try { savedTheme = localStorage.getItem(storageKey); } catch { /* Storage may be disabled. */ }
-const dark = ref(savedTheme === "dark");
+const preference = typeof window.matchMedia === "function" ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+let explicitChoice = savedTheme === "dark" || savedTheme === "light";
+const dark = ref(explicitChoice ? savedTheme === "dark" : preference?.matches ?? false);
+function followPreference(event: MediaQueryListEvent) {
+  if (!explicitChoice) dark.value = event.matches;
+}
+preference?.addEventListener("change", followPreference);
+onBeforeUnmount(() => preference?.removeEventListener("change", followPreference));
 watchEffect(() => {
-  const theme = dark.value ? "dark" : "light";
-  document.documentElement.dataset.theme = theme;
-  try { localStorage.setItem(storageKey, theme); } catch { /* The toggle still works without storage. */ }
+  document.documentElement.dataset.theme = dark.value ? "dark" : "light";
 });
+function saveChoice() {
+  explicitChoice = true;
+  try { localStorage.setItem(storageKey, dark.value ? "dark" : "light"); } catch { /* The toggle still works without storage. */ }
+}
 </script>
 
 <template>
   <div class="theme-control">
     <img :src="sun" alt="Light mode" />
     <label class="switch theme-switch">
-      <input v-model="dark" type="checkbox" role="switch" aria-label="Dark mode" :aria-checked="dark" />
+      <input v-model="dark" type="checkbox" role="switch" aria-label="Dark mode" :aria-checked="dark" @change="saveChoice" />
       <span aria-hidden="true" />
     </label>
     <img :src="moon" alt="Dark mode" />
