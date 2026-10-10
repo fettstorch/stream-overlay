@@ -89,8 +89,22 @@ async function prepareEmoticonTest() {
   while (!disposed && Date.now() < deadline) {
     if (
       effectPreviewFrame.value?.contentDocument?.documentElement?.dataset.overlayReady === "true"
-    )
+    ) {
+      const frame = effectPreviewFrame.value;
+      const animations: Animation[] = [];
+      for (let element: HTMLElement | null = frame; element; element = element.parentElement) {
+        animations.push(...(element.getAnimations?.() ?? []));
+      }
+      // Center the final preview size, not its partially expanded position.
+      await Promise.allSettled(animations.map(animation => animation.finished));
+      if (disposed || !frame.isConnected) return;
+      frame.scrollIntoView?.({
+        block: "center",
+        inline: "nearest",
+        behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+      });
       return;
+    }
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   throw new Error("The emoticon preview could not connect. Please try Test again.");

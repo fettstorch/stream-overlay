@@ -226,6 +226,8 @@ describe("Cloud Admin", () => {
       expect(wrapper.get('iframe[title="Emoticons preview"]').element.parentElement?.querySelector('.preview-background')).toBeNull();
       expect(wrapper.find('iframe[title="Emoticons command listing preview"]').exists()).toBe(false);
       expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/test/'))).toBe(false);
+      const scrollPreview = vi.fn();
+      Object.defineProperty(wrapper.get('iframe[title="Emoticons preview"]').element, 'scrollIntoView', { value: scrollPreview });
       for (const title of ['Emoticons preview']) {
         const frame = wrapper.get(`iframe[title="${title}"]`).element as HTMLIFrameElement;
         const frameDocument = document.implementation.createHTMLDocument();
@@ -233,6 +235,7 @@ describe("Cloud Admin", () => {
         Object.defineProperty(frame, 'contentDocument', { configurable: true, value: frameDocument });
       }
       await vi.advanceTimersByTimeAsync(200); await flushPromises();
+      expect(scrollPreview).toHaveBeenCalledWith({ block: 'center', inline: 'nearest', behavior: 'smooth' });
       expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('/test/'))).toHaveLength(1);
       await createButton.trigger('click');
       expect(wrapper.get('.command-editor').isVisible()).toBe(true);
