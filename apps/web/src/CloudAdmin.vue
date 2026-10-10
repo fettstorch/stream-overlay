@@ -21,7 +21,7 @@ import CollapsibleSection from "./CollapsibleSection.vue";
 import ModuleHelp from "./ModuleHelp.vue";
 import { moduleSettings } from "../../../packages/protocol/src/cloud-settings.ts";
 import type { ChatConfiguration } from "../../../modules/chat/src/config.ts";
-import type { CloudConfig } from "./cloud-admin-types.ts";
+import type { CloudCommand, CloudConfig } from "./cloud-admin-types.ts";
 import { useModuleCollection } from "./use-module-collection.ts";
 
 const cloudModuleCatalog = getCloudModuleCatalog(import.meta.env.VITE_ENABLE_CLOUD_PETS === "true");
@@ -81,7 +81,7 @@ const emoticonTabs = computed(() => [
   { id: "commands", label: "Commands" },
   { id: "create", label: "Create new" },
 ]);
-async function prepareEmoticonTest() {
+async function prepareEmoticonTest(command: CloudCommand) {
   emoticonTab.value = "commands";
   effectPreviewOpen.value = true;
   await nextTick();
@@ -90,6 +90,7 @@ async function prepareEmoticonTest() {
     if (
       effectPreviewFrame.value?.contentDocument?.documentElement?.dataset.overlayReady === "true"
     ) {
+      if (command.mode !== "effect") return;
       const frame = effectPreviewFrame.value;
       const animations: Animation[] = [];
       for (let element: HTMLElement | null = frame; element; element = element.parentElement) {

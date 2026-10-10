@@ -210,9 +210,10 @@ describe("Cloud Admin", () => {
       expect(wrapper.get('#module-help-chat').text()).toContain('fallback');
     } finally { wrapper.unmount(); vi.useRealTimers(); }
   });
-  test("opens only the effect preview before Test, waits for readiness, and separates creation into its tab", async () => {
+  test.each(['effect', 'sticker'] as const)("prepares the %s test preview and scrolls only for clips", async (mode) => {
     vi.useFakeTimers();
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => String(input).endsWith('/api/session') ? response(session) : String(input).includes('/test/') ? response({ message: 'Test sent.' }) : response(config));
+    const testConfig = { ...config, commands: [{ ...config.commands[0], mode }] };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => String(input).endsWith('/api/session') ? response(session) : String(input).includes('/test/') ? response({ message: 'Test sent.' }) : response(testConfig));
     vi.stubGlobal('fetch', fetchMock);
     const wrapper = mount(CloudAdmin, { attachTo: document.body });
     try {
@@ -235,7 +236,8 @@ describe("Cloud Admin", () => {
         Object.defineProperty(frame, 'contentDocument', { configurable: true, value: frameDocument });
       }
       await vi.advanceTimersByTimeAsync(200); await flushPromises();
-      expect(scrollPreview).toHaveBeenCalledWith({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+      if (mode === 'effect') expect(scrollPreview).toHaveBeenCalledWith({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+      else expect(scrollPreview).not.toHaveBeenCalled();
       expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('/test/'))).toHaveLength(1);
       await createButton.trigger('click');
       expect(wrapper.get('.command-editor').isVisible()).toBe(true);

@@ -10,7 +10,7 @@ const props = defineProps<{
   did: string;
   config: CloudConfig;
   save: (candidate: CloudConfig, successMessage?: string) => Promise<boolean>;
-  beforeTest?: () => Promise<void>;
+  beforeTest?: (command: CloudCommand) => Promise<void>;
   panel?: string;
 }>();
 const emit = defineEmits<{ 'panel-change': [panel: string] }>();
@@ -109,7 +109,7 @@ watch(() => props.panel, panel => { if (panel === 'create' && !formOpen.value) c
 async function test(command: CloudCommand) {
   busy.value = true;
   try {
-    await props.beforeTest?.();
+    await props.beforeTest?.(command);
     const response = await adminFetch(
       `/api/accounts/${encodeURIComponent(props.did)}/test/${encodeURIComponent(command.id)}`,
       { method: "POST" },
