@@ -43,7 +43,7 @@ async function apply() {
 </script>
 <template>
   <div class="setup-import editor-fields">
-    <p>Copy another account's public Streamface setup, or start with @fettstorch.dev's setup.</p>
+    <p>Copy another account's public Streamface setup, or start with @fettstorch.dev's setup, and make changes to your liking.</p>
     <button type="button" :disabled="busy" @click="load('fettstorch.dev')">Use @fettstorch.dev as a base</button>
     <form @submit.prevent="load()">
       <label class="actor-search-field">Account to copy from
