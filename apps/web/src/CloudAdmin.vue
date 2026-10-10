@@ -500,7 +500,7 @@ onBeforeUnmount(() => {
       <p v-if="configurationMessage" role="status">{{ configurationMessage }}</p>
       <section>
         <h2>Modules</h2>
-        <label class="module-search"
+        <label v-if="cloudModules.length >= 6" class="module-search"
           ><span class="sr-only">Search modules</span
           ><input
             v-model="moduleQuery"

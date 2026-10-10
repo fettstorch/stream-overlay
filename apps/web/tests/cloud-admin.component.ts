@@ -404,7 +404,7 @@ describe("Cloud Admin", () => {
     expect(wrapper.find(".command-editor").exists()).toBe(false); expect(wrapper.text()).toContain("Unsupported file: notes.txt"); expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(0); wrapper.unmount();
   });
 
-  test("shares baseline search, pin persistence, and collapse behavior", async () => {
+  test("hides search for a small module collection while retaining pin and collapse behavior", async () => {
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => String(input).endsWith("/api/session") ? response(session) : response(config)));
     const wrapper = mount(CloudAdmin, { attachTo: document.body }); await flushPromises();
     expect(wrapper.get('button[aria-label="Show Emoticons details"]').attributes("aria-expanded")).toBe("false");
@@ -413,8 +413,8 @@ describe("Cloud Admin", () => {
     expect(wrapper.get('button[aria-label="Hide Emoticons details"]').attributes("aria-expanded")).toBe("true");
     await wrapper.get('button[aria-label="Pin Emoticons"]').trigger("click");
     expect(localStorage.getItem("stream-overlay.admin.pinned-modules")).toBe('["emoticons"]');
-    await wrapper.get('input[aria-label="Search modules"]').setValue("pokemon");
-    expect(wrapper.text()).toContain("No modules match your search"); expect((wrapper.get(".module-card").element as HTMLElement).style.display).toBe("none"); wrapper.unmount();
+    expect(wrapper.find('input[aria-label="Search modules"]').exists()).toBe(false);
+    wrapper.unmount();
   });
 
   test("shows a safe actionable server reason and preserves toggle state after a failed save", async () => {
