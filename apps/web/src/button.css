@@ -1,6 +1,6 @@
 /* Keep the supplied ink frame as a nine-slice decorative layer. Icon-only
    controls and actor-search results retain their purpose-specific styling. */
-#app button:not(:where(.module-icon-button, .copy-button, .info-button, .profile-retry, .actor-suggestions button)) {
+#app button:not(:where(.drawn-tab, .module-icon-button, .copy-button, .info-button, .profile-retry, .actor-suggestions button)) {
   position: relative;
   isolation: isolate;
   border: 0;
@@ -13,7 +13,7 @@
   font-weight: 650;
   cursor: pointer;
 }
-#app button:not(:where(.module-icon-button, .copy-button, .info-button, .profile-retry, .actor-suggestions button))::before {
+#app button:not(:where(.drawn-tab, .module-icon-button, .copy-button, .info-button, .profile-retry, .actor-suggestions button))::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -23,13 +23,13 @@
   border-image: url("./assets/branding/button-frame.png") 260 280 fill / 12px / 0 stretch;
   transition: filter .15s;
 }
-#app button:not(:where(.module-icon-button, .copy-button, .info-button, .profile-retry, .actor-suggestions button)):hover:not(:disabled)::before {
+#app button:not(:where(.drawn-tab, .module-icon-button, .copy-button, .info-button, .profile-retry, .actor-suggestions button)):hover:not(:disabled)::before {
   filter: brightness(.92);
 }
-#app button:not(:where(.module-icon-button, .copy-button, .info-button, .profile-retry, .actor-suggestions button)):active:not(:disabled)::before {
+#app button:not(:where(.drawn-tab, .module-icon-button, .copy-button, .info-button, .profile-retry, .actor-suggestions button)):active:not(:disabled)::before {
   filter: brightness(.84);
 }
-#app button:not(:where(.module-icon-button, .copy-button, .info-button, .profile-retry, .actor-suggestions button)):focus-visible {
+#app button:not(:where(.drawn-tab, .module-icon-button, .copy-button, .info-button, .profile-retry, .actor-suggestions button)):focus-visible {
   outline: 3px solid #526baf;
   outline-offset: 3px;
 }

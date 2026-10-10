@@ -2,7 +2,7 @@
 import { adminFetch } from "./cloud-admin-fetch.ts";
 import CollapsibleSection from "./CollapsibleSection.vue";
 import DeleteConfirmation from "./DeleteConfirmation.vue";
-import { computed, onBeforeUnmount, ref } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import type { CloudCommand, CloudConfig, CloudMedia } from "./cloud-admin-types.ts";
 import { validateCloudCommand } from "../../../modules/emoticons/src/validation.ts";
 
@@ -11,7 +11,9 @@ const props = defineProps<{
   config: CloudConfig;
   save: (candidate: CloudConfig, successMessage?: string) => Promise<boolean>;
   beforeTest?: () => Promise<void>;
+  panel?: string;
 }>();
+const emit = defineEmits<{ 'panel-change': [panel: string] }>();
 const kinds = ["image", "audio", "video"] as const;
 const deleting = ref<CloudCommand | null>(null);
 type MediaKind = (typeof kinds)[number];
@@ -86,12 +88,15 @@ function reset() {
   mediaUrlInput.value = "";
   unresolvedUrl.value = "";
   for (const kind of kinds) clearPreview(kind);
+  emit('panel-change', 'commands');
 }
 function create() {
   reset();
   formOpen.value = true;
   message.value = "";
+  emit('panel-change', 'create');
 }
+watch(() => props.panel, panel => { if (panel === 'create' && !formOpen.value) create(); });
 async function test(command: CloudCommand) {
   busy.value = true;
   try {
@@ -121,6 +126,7 @@ function edit(command: CloudCommand) {
     if (media.blob && media.url) previewUrls.value[kind] = media.url;
   }
   message.value = "";
+  emit('panel-change', 'create');
 }
 function changeMode() {
   if (form.value.mode === "sticker") removeMedia("audio");
@@ -292,6 +298,7 @@ async function acceptCardDrop(files: FileList | null | undefined) {
     return { accepted: false, message: error };
   }
   if (!formOpen.value) create();
+  emit('panel-change', 'create');
   await uploadFiles(files);
   return { accepted: true };
 }
@@ -380,7 +387,7 @@ defineExpose({ acceptCardDrop });
 </script>
 
 <template>
-  <section class="emoticon-controls">
+  <section class="emoticon-controls" :class="{ 'create-panel': panel === 'create' }">
     <DeleteConfirmation
       v-if="deleting"
       :name="`!${deleting.command}`"
@@ -388,6 +395,7 @@ defineExpose({ acceptCardDrop });
       @cancel="deleting = null"
       @confirm="deleteConfirmed(deleting!, $event)"
     />
+    <div v-show="!panel || panel === 'commands'" :inert="panel === 'create' || undefined">
     <h4>Emoticon commands</h4>
     <CollapsibleSection
       v-for="group in groups"
@@ -407,10 +415,11 @@ defineExpose({ acceptCardDrop });
       </ul></CollapsibleSection
     >
     <slot name="previews" />
-    <div v-if="!formOpen">
+    </div>
+    <div v-if="!formOpen && !panel">
       <button class="primary-button" type="button" @click="create">Create new command</button>
     </div>
-    <form v-if="formOpen" class="module-section command-editor" @submit.prevent="save">
+    <form v-if="formOpen" v-show="!panel || panel === 'create'" :inert="panel === 'commands' || undefined" class="module-section command-editor" @submit.prevent="save">
       <div class="editor-heading">
         <h4>{{ editing ? "Edit command" : "Create command" }}</h4>
         <button type="button" class="secondary-button" @click="reset">Close</button>

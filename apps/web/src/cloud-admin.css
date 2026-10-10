@@ -13,6 +13,10 @@
 .overlay-url-heading.listing-url-heading { margin-top:36px; }
 .overlay-live-preview { --module-section-margin:8px; }
 .overlay-live-preview + .emoticon-controls { margin-top:36px; }
+.drawn-tab-panel .emoticon-controls { margin-top:28px; }
+.drawn-tab-panel .create-panel.emoticon-controls { margin-top:0; padding-top:0; border-top:0; }
+.drawn-tab-panel .create-panel .command-editor { padding:0; margin-top:0; }
+.drawn-tab-panel .create-panel .command-editor::before { display:none; }
 .module-card { flex:1 1 auto; width:max-content; min-width:min(320px, 100%); max-width:100%; margin:0; }
 .module-card.collapsed { flex:0 1 auto; }
 .overlay-url { min-width:0; }

@@ -208,7 +208,7 @@ describe("Cloud Admin", () => {
       expect(wrapper.get('#module-help-chat').text()).toContain('fallback');
     } finally { wrapper.unmount(); vi.useRealTimers(); }
   });
-  test("opens both lazy previews before Test, waits for readiness, and keeps creation last", async () => {
+  test("opens both lazy previews before Test, waits for readiness, and separates creation into its tab", async () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => String(input).endsWith('/api/session') ? response(session) : String(input).includes('/test/') ? response({ message: 'Test sent.' }) : response(config));
     vi.stubGlobal('fetch', fetchMock);
@@ -216,9 +216,9 @@ describe("Cloud Admin", () => {
     try {
       await flushPromises();
       await wrapper.get('button[aria-label="Show Emoticons details"]').trigger('click');
-      const sections = wrapper.findAll('.emoticon-controls .collapsible-section');
-      const createButton = wrapper.get('.emoticon-controls > div > .primary-button');
-      expect(sections.at(-1)!.element.compareDocumentPosition(createButton.element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      const createButton = wrapper.findAll('[role="tab"]').find(tab => tab.text() === 'Create new')!;
+      expect(createButton.attributes('aria-selected')).toBe('false');
+      expect(wrapper.find('.command-editor').exists()).toBe(false);
       await wrapper.get('.command-list button').trigger('click'); await flushPromises();
       expect(wrapper.find('iframe[title="Emoticons preview"]').exists()).toBe(true);
       expect(wrapper.find('iframe[title="Emoticons command listing preview"]').exists()).toBe(true);
@@ -232,7 +232,9 @@ describe("Cloud Admin", () => {
       await vi.advanceTimersByTimeAsync(200); await flushPromises();
       expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('/test/'))).toHaveLength(1);
       await createButton.trigger('click');
-      expect(sections.at(-1)!.element.compareDocumentPosition(wrapper.get('.command-editor').element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(wrapper.get('.command-editor').isVisible()).toBe(true);
+      expect(wrapper.get('.board-url').isVisible()).toBe(false);
+      expect(wrapper.find('iframe[title="Emoticons preview"]').exists()).toBe(false);
     } finally { wrapper.unmount(); vi.useRealTimers(); }
   });
   test("tests a saved command through its authenticated account endpoint and preserves editing controls", async () => {
@@ -243,6 +245,21 @@ describe("Cloud Admin", () => {
     await wrapper.get(".command-list button").trigger("click"); await flushPromises();
     expect(fetchMock).toHaveBeenCalledWith("/api/accounts/did%3Aplc%3Aalice/test/wave", { method: "POST" });
     expect(wrapper.text()).toContain("Test sent to connected effect sources."); wrapper.unmount();
+  });
+  test("editing opens the editor tab and switching back preserves its values", async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => String(input).endsWith('/api/session') ? response(session) : response(config)));
+    const wrapper = mount(CloudAdmin, { attachTo: document.body });
+    try {
+      await flushPromises();
+      await wrapper.get('button[aria-label="Show Emoticons details"]').trigger('click');
+      await wrapper.findAll('.command-list button').find(button => button.text() === 'Edit')!.trigger('click');
+      expect(wrapper.findAll('[role="tab"]').find(tab => tab.text() === 'Create new')!.attributes('aria-selected')).toBe('true');
+      expect(wrapper.get('.command-editor').text()).toContain('Edit command');
+      await wrapper.get('input[placeholder="!wow"]').setValue('edited-draft');
+      await wrapper.findAll('[role="tab"]').find(tab => tab.text() === 'Commands')!.trigger('click');
+      await wrapper.findAll('[role="tab"]').find(tab => tab.text() === 'Create new')!.trigger('click');
+      expect((wrapper.get('input[placeholder="!wow"]').element as HTMLInputElement).value).toBe('edited-draft');
+    } finally { wrapper.unmount(); }
   });
   test("presents anonymous sign-in as an ATProto account with accessible handle search", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => response({ authenticated: false }, 401)));
@@ -260,7 +277,7 @@ describe("Cloud Admin", () => {
     expect(wrapper.find('[aria-label="Enable Emoticons"]').exists()).toBe(true);
     expect(wrapper.find('[aria-label="Copy Emoticons effects OBS URL"]').exists()).toBe(true);
     await wrapper.get('button[aria-label="Show Emoticons details"]').trigger("click");
-    await wrapper.get(".emoticon-controls .primary-button").trigger("click");
+    await wrapper.findAll('[role="tab"]').find(tab => tab.text() === 'Create new')!.trigger("click");
     expect(wrapper.text()).toContain("Create new command"); expect(wrapper.text()).toContain("Media — drop files or choose");
     expect(wrapper.findAll('.drop-zone input[type="url"]')).toHaveLength(1); expect(wrapper.text()).not.toContain("Image/GIF URL"); expect(wrapper.text()).toContain("one visual and separate audio");
     wrapper.unmount();
@@ -355,9 +372,15 @@ describe("Cloud Admin", () => {
   test("does not duplicate nested drops or discard an open draft", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith("/api/session") ? response(session) : init?.method === "POST" ? response({ $type: "blob", ref: { $link: "bafydrop" }, mimeType: "image/gif", size: 4 }) : response(config));
     vi.stubGlobal("fetch", fetchMock); vi.stubGlobal("URL", class extends URL { static createObjectURL = vi.fn(() => "blob:drop"); static revokeObjectURL = vi.fn(); });
-    const wrapper = mount(CloudAdmin, { attachTo: document.body }); await flushPromises(); await wrapper.get('button[aria-label="Show Emoticons details"]').trigger("click"); await wrapper.get(".emoticon-controls .primary-button").trigger("click"); await wrapper.get('input[placeholder="!wow"]').setValue("draft");
+    const wrapper = mount(CloudAdmin, { attachTo: document.body }); await flushPromises(); await wrapper.get('button[aria-label="Show Emoticons details"]').trigger("click"); await wrapper.findAll('[role="tab"]').find(tab => tab.text() === 'Create new')!.trigger("click"); await wrapper.get('input[placeholder="!wow"]').setValue("draft");
     wrapper.get(".drop-zone").element.dispatchEvent(mediaDrag("drop")); await flushPromises();
-    expect((wrapper.get('input[placeholder="!wow"]').element as HTMLInputElement).value).toBe("draft"); expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1); wrapper.unmount();
+    expect((wrapper.get('input[placeholder="!wow"]').element as HTMLInputElement).value).toBe("draft"); expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);
+    await wrapper.findAll('[role="tab"]').find(tab => tab.text() === 'Commands')!.trigger('click');
+    wrapper.get('.module-card').element.dispatchEvent(mediaDrag('drop')); await flushPromises();
+    expect(wrapper.findAll('[role="tab"]').find(tab => tab.text() === 'Create new')!.attributes('aria-selected')).toBe('true');
+    expect(wrapper.get('.command-editor').isVisible()).toBe(true);
+    expect((wrapper.get('input[placeholder="!wow"]').element as HTMLInputElement).value).toBe('draft');
+    wrapper.unmount();
   });
 
   test("rejects unsupported card drops without opening an empty editor", async () => {

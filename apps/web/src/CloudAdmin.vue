@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import BrandWordmark from "./BrandWordmark.vue";
 import CollapseTransition from "./CollapseTransition.vue";
+import DrawnTabs from "./DrawnTabs.vue";
 import { vModuleWidth } from "./module-width-motion.ts";
 import { adminFetch } from "./cloud-admin-fetch.ts";
 import BrandMascot from "./BrandMascot.vue";
@@ -75,7 +76,13 @@ function chatPreviewLoaded(event: Event) {
 }
 const effectPreviewFrame = ref<HTMLIFrameElement>();
 const listingPreviewFrame = ref<HTMLIFrameElement>();
+const emoticonTab = ref("commands");
+const emoticonTabs = computed(() => [
+  { id: "commands", label: "Commands" },
+  { id: "create", label: "Create new" },
+]);
 async function prepareEmoticonTest() {
+  emoticonTab.value = "commands";
   listingPreviewOpen.value = true;
   effectPreviewOpen.value = true;
   await nextTick();
@@ -575,6 +582,19 @@ onBeforeUnmount(() => {
               :inert="saving || !isExpanded(module) || undefined"
             >
               <p>{{ module.description }}</p>
+              <template v-if="module.id !== 'emoticons'">
+                <section class="module-commands"><h4>OBS URL</h4></section>
+                <div class="overlay-url">
+                  <code>{{ cloudUrl(paths[module.id]) }}</code>
+                  <a class="open-url-button" :href="cloudUrl(paths[module.id])" target="_blank" rel="noopener noreferrer"
+                    :aria-label="`Open ${module.name} effects OBS URL`"><span class="external-link-icon" aria-hidden="true" /></a>
+                  <button type="button" class="copy-button" :class="{ copied: copied === module.id }"
+                    :aria-label="`Copy ${module.name} effects OBS URL`" @click="copyUrl(module.id)"><span class="copy-icon" aria-hidden="true" /></button>
+                </div>
+              </template>
+              <template v-if="module.id === 'emoticons'">
+              <DrawnTabs v-model="emoticonTab" :tabs="emoticonTabs" label="Emoticon tools">
+              <div v-show="emoticonTab === 'commands'" :inert="emoticonTab !== 'commands' || undefined">
               <section class="module-commands overlay-url-heading">
                 <h4>{{ module.id === "emoticons" ? "Effects OBS URL" : "OBS URL" }}</h4>
                 <ModuleHelp v-if="module.id === 'emoticons'" id="emoticons-effects-url" name="Effects OBS URL" align="start"
@@ -602,9 +622,8 @@ onBeforeUnmount(() => {
                   <span class="copy-icon" aria-hidden="true" />
                 </button>
               </div>
-              <template v-if="module.id === 'emoticons'">
                 <CollapsibleSection class="overlay-live-preview" v-model:open="effectPreviewOpen" title="Live Preview" control-label="Emoticon overlay live preview">
-                  <div v-if="effectPreviewOpen && isExpanded(module)" class="cloud-preview"
+                  <div v-if="effectPreviewOpen && isExpanded(module) && emoticonTab === 'commands'" class="cloud-preview"
                     :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }">
                     <iframe :src="streamUrl" title="Stream background" tabindex="-1" class="preview-background" allow="autoplay" />
                     <iframe :ref="(value) => (effectPreviewFrame = value as HTMLIFrameElement | undefined)"
@@ -635,17 +654,21 @@ onBeforeUnmount(() => {
                   </button>
                 </div>
                 <CollapsibleSection class="overlay-live-preview" v-model:open="listingPreviewOpen" title="Live Preview" control-label="Listing overlay live preview">
-                  <iframe v-if="listingPreviewOpen && isExpanded(module)"
+                  <iframe v-if="listingPreviewOpen && isExpanded(module) && emoticonTab === 'commands'"
                     :ref="(value) => (listingPreviewFrame = value as HTMLIFrameElement | undefined)"
                     :src="listingPreviewUrl" title="Emoticons command listing preview" class="listing-preview" />
                 </CollapsibleSection>
+              </div>
                 <CloudEmoticonControls
                   :ref="(value) => setModuleControls(module.id, value)"
                   :did="did"
                   :config="config"
                   :save="saveConfiguration"
                   :before-test="prepareEmoticonTest"
+                  :panel="emoticonTab"
+                  @panel-change="emoticonTab = $event"
                 />
+              </DrawnTabs>
               </template>
               <CloudModuleControls
                 v-else
