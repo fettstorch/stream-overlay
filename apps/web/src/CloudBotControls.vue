@@ -114,7 +114,7 @@ async function copy() {
     <button :disabled="!sourceUrl" @click="copy">Copy private OBS URL</button>
   </section>
   <DrawnTabs v-model="tab" :tabs="tabs" label="Bot commands">
-    <section v-show="tab === 'commands'" class="module-section">
+    <section v-show="tab === 'commands'" class="module-section bot-tab-content">
       <h4>Commands</h4>
       <ul class="command-list striped-list">
         <li v-for="rule in config.bot?.rules ?? []" :key="rule.command" class="bot-rule">
@@ -136,7 +136,7 @@ async function copy() {
       </ul>
       <p v-if="!config.bot?.rules.length">No bot commands yet.</p>
     </section>
-    <form v-show="tab === 'create'" class="module-section editor-fields" @submit.prevent="add">
+    <form v-show="tab === 'create'" class="module-section bot-tab-content editor-fields" @submit.prevent="add">
       <h4>{{ editing ? "Edit command" : "Create bot command" }}</h4>
       <label
         >Command<input
@@ -181,6 +181,13 @@ async function copy() {
   <p v-if="message" role="status">{{ message }}</p>
 </template>
 <style scoped>
+.bot-tab-content {
+  margin: 0;
+  padding: 0;
+}
+#app .bot-tab-content::before {
+  display: none;
+}
 .bot-rule {
   display: flex;
   align-items: center;
