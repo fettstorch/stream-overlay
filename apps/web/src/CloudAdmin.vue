@@ -603,7 +603,7 @@ onBeforeUnmount(() => {
                 </button>
               </div>
               <template v-if="module.id === 'emoticons'">
-                <CollapsibleSection v-model:open="effectPreviewOpen" title="Live Preview" control-label="Emoticon overlay live preview">
+                <CollapsibleSection class="overlay-live-preview" v-model:open="effectPreviewOpen" title="Live Preview" control-label="Emoticon overlay live preview">
                   <div v-if="effectPreviewOpen && isExpanded(module)" class="cloud-preview"
                     :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }">
                     <iframe :src="streamUrl" title="Stream background" tabindex="-1" class="preview-background" allow="autoplay" />
@@ -611,7 +611,7 @@ onBeforeUnmount(() => {
                       :src="previewUrl(module.id)" title="Emoticons preview" allow="autoplay" />
                   </div>
                 </CollapsibleSection>
-                <section class="module-commands overlay-url-heading"><h4>Command listing OBS URL</h4>
+                <section class="module-commands overlay-url-heading listing-url-heading"><h4>Command listing OBS URL</h4>
                   <ModuleHelp id="emoticons-listing-url" name="Command listing OBS URL" align="start"
                     description="This is a listing of your commands for your audience including cooldowns for your clips." />
                 </section>
@@ -634,7 +634,7 @@ onBeforeUnmount(() => {
                     <span class="copy-icon" aria-hidden="true" />
                   </button>
                 </div>
-                <CollapsibleSection v-model:open="listingPreviewOpen" title="Live Preview" control-label="Listing overlay live preview">
+                <CollapsibleSection class="overlay-live-preview" v-model:open="listingPreviewOpen" title="Live Preview" control-label="Listing overlay live preview">
                   <iframe v-if="listingPreviewOpen && isExpanded(module)"
                     :ref="(value) => (listingPreviewFrame = value as HTMLIFrameElement | undefined)"
                     :src="listingPreviewUrl" title="Emoticons command listing preview" class="listing-preview" />
