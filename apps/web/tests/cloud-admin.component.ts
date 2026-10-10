@@ -25,6 +25,7 @@ describe("Cloud Admin", () => {
     vi.stubGlobal("fetch", vi.fn(async () => response({}, 401)));
     const wrapper = mount(CloudAdmin);
     expect(wrapper.get('footer').text()).toBe(`v${version} · created by @fettstorch.dev`);
+    expect(wrapper.get('footer a').attributes('href')).toBe('https://fettstorch.dev');
     wrapper.unmount();
   });
   test("Testing offers simulations only for mapped clips and sends the event identity", async () => {
