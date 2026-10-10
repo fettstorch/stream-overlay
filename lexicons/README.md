@@ -8,6 +8,11 @@ public; source authorization tokens and the bot's App Password are never stored
 in the PDS. Publish this schema separately and add `_lexicon.bot.streamface.live`
 TXT `did=did:plc:j66wyknizjxecbnrenjzj7l3`. Sign in again to grant the new collection.
 
+Bot's Commands, Create new and Moderation tabs reuse the existing drawn tab and
+user-moderation editor. Its optional `moderation` rules are independent of
+Emoticons: user DID blocks or one shared per-user cooldown across all bot commands,
+enforced on the server. Older clients retain stored restrictions when omitted.
+
 The transparent `/bot/` OBS browser source reads Streamplace's live chat and
 reports only message URIs. The server verifies recent messages through the fixed
 Streamplace chat endpoint, chooses the stored response, ignores its own account,

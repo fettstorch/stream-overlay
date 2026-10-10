@@ -114,7 +114,10 @@ export function parseModuleRecords(did: string, records: StoredRecord[]): CloudC
   const storedBot = get(moduleCollections.bot);
   const bot = storedBot ? { enabled: storedBot.enabled, rules: storedBot.rules.map((rule: any) => ({
     command: rule.command, response: rule.response, cooldownSeconds: rule.cooldownMilliseconds / 1000,
-  })) } : structuredClone(defaultBotSettings);
+  })), ...(storedBot.moderation ? { moderation: storedBot.moderation.map((rule: any) => ({
+    did: rule.did, blocked: rule.blocked, cooldownSeconds: rule.cooldownMilliseconds / 1000,
+    ...(rule.handle !== undefined ? { handle: rule.handle } : {}),
+  })) } : {}) } : structuredClone(defaultBotSettings);
   validateBotSettings(bot);
   return {
     bot,
@@ -201,11 +204,16 @@ export function serializeModuleRecords(
   // Older clients must not erase rules they do not understand. Do not create an
   // unused collection until the user configures this module.
   const bot = config.bot ?? parseModuleRecords(config.streamerDid, previous).bot!;
+  const botModeration = bot.moderation ?? parseModuleRecords(config.streamerDid, previous).bot?.moderation;
+  validateModeration(botModeration ?? []);
   validateBotSettings(bot);
-  if (bot.enabled || bot.rules.length || previous.some(item => item.collection === moduleCollections.bot))
+  if (bot.enabled || bot.rules.length || botModeration?.length || previous.some(item => item.collection === moduleCollections.bot))
     records.push(record(moduleCollections.bot, "self", { enabled: bot.enabled, rules: bot.rules.map(rule => ({
       command: rule.command, response: rule.response, cooldownMilliseconds: Math.round(rule.cooldownSeconds * 1000),
-    })) }));
+    })), ...(botModeration ? { moderation: botModeration.map(rule => ({
+      did: rule.did, blocked: rule.blocked, cooldownMilliseconds: Math.round(rule.cooldownSeconds * 1000),
+      ...(rule.handle !== undefined ? { handle: rule.handle } : {}),
+    })) } : {}) }));
   const preferences =
     config.preferences ??
     previous.find((item) => item.collection === moduleCollections.preferences)?.value;

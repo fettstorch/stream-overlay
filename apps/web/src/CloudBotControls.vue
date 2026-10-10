@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
+import DrawnTabs from "./DrawnTabs.vue";
+import EmoticonModeration from "./EmoticonModeration.vue";
 import { adminFetch } from "./cloud-admin-fetch.ts";
 import type { CloudConfig } from "./cloud-admin-types.ts";
 import { validateBotSettings, type BotRule } from "../../../modules/bot/src/config.ts";
@@ -15,6 +17,26 @@ const command = ref(""),
   response = ref(""),
   cooldown = ref(30),
   editing = ref<string>();
+const tab = ref("commands");
+const tabs = [
+  { id: "commands", label: "Commands" },
+  { id: "create", label: "Create new" },
+  { id: "moderation", label: "Moderation" },
+];
+const moderationConfig = computed(() => ({
+  ...props.config,
+  moderation: props.config.bot?.moderation ?? [],
+}));
+async function saveModeration(candidate: CloudConfig) {
+  return props.save({
+    ...props.config,
+    bot: {
+      enabled: props.config.bot?.enabled ?? false,
+      rules: props.config.bot?.rules ?? [],
+      moderation: candidate.moderation ?? [],
+    },
+  });
+}
 onMounted(async () => {
   try {
     const result = await adminFetch(
@@ -35,6 +57,7 @@ function reset() {
   editing.value = undefined;
 }
 function edit(rule: BotRule) {
+  tab.value = "create";
   editing.value = rule.command;
   command.value = rule.command;
   response.value = rule.response;
@@ -44,7 +67,7 @@ async function persist(rules: BotRule[]) {
   busy.value = true;
   message.value = "";
   try {
-    const bot = { enabled: props.config.bot?.enabled ?? false, rules };
+    const bot = { ...props.config.bot, enabled: props.config.bot?.enabled ?? false, rules };
     validateBotSettings(bot);
     const saved = await props.save({ ...props.config, bot });
     if (saved) {
@@ -90,62 +113,71 @@ async function copy() {
     </p>
     <button :disabled="!sourceUrl" @click="copy">Copy private OBS URL</button>
   </section>
-  <section class="module-section">
-    <h4>Commands</h4>
-    <ul class="command-list striped-list">
-      <li v-for="rule in config.bot?.rules ?? []" :key="rule.command" class="bot-rule">
-        <div>
-          <strong>!{{ rule.command }}</strong>
-          <p>{{ rule.response }}</p>
-          <small>{{ rule.cooldownSeconds }}s cooldown</small>
-        </div>
-        <button :disabled="busy" @click="edit(rule)">Edit</button>
-        <button
+  <DrawnTabs v-model="tab" :tabs="tabs" label="Bot commands">
+    <section v-show="tab === 'commands'" class="module-section">
+      <h4>Commands</h4>
+      <ul class="command-list striped-list">
+        <li v-for="rule in config.bot?.rules ?? []" :key="rule.command" class="bot-rule">
+          <div>
+            <strong>!{{ rule.command }}</strong>
+            <p>{{ rule.response }}</p>
+            <small>{{ rule.cooldownSeconds }}s cooldown</small>
+          </div>
+          <button :disabled="busy" @click="edit(rule)">Edit</button>
+          <button
+            :disabled="busy"
+            @click="
+              persist((config.bot?.rules ?? []).filter((item) => item.command !== rule.command))
+            "
+          >
+            Remove
+          </button>
+        </li>
+      </ul>
+      <p v-if="!config.bot?.rules.length">No bot commands yet.</p>
+    </section>
+    <form v-show="tab === 'create'" class="module-section editor-fields" @submit.prevent="add">
+      <h4>{{ editing ? "Edit command" : "Create bot command" }}</h4>
+      <label
+        >Command<input
+          v-model="command"
+          placeholder="!discord"
+          maxlength="41"
+          required
           :disabled="busy"
-          @click="
-            persist((config.bot?.rules ?? []).filter((item) => item.command !== rule.command))
-          "
-        >
-          Remove
-        </button>
-      </li>
-    </ul>
-    <p v-if="!config.bot?.rules.length">No bot commands yet.</p>
-  </section>
-  <form class="module-section editor-fields" @submit.prevent="add">
-    <h4>{{ editing ? "Edit command" : "Create bot command" }}</h4>
-    <label
-      >Command<input
-        v-model="command"
-        placeholder="!discord"
-        maxlength="41"
-        required
-        :disabled="busy"
-    /></label>
-    <label
-      >Bot reply<input
-        v-model="response"
-        placeholder="Join our Discord…"
-        maxlength="250"
-        required
-        :disabled="busy"
-    /></label>
-    <label
-      >Cooldown (seconds)<input
-        v-model.number="cooldown"
-        type="number"
-        min="5"
-        max="86400"
-        step="1"
-        required
-        :disabled="busy"
-    /></label>
-    <p>
-      The cooldown is shared by everyone using this command. Streamface ignores its own messages.
-    </p>
-    <button type="submit" :disabled="busy">{{ busy ? "Saving…" : "Save command" }}</button>
-    <button type="button" :disabled="busy" @click="reset">Cancel</button>
-  </form>
+      /></label>
+      <label
+        >Bot reply<input
+          v-model="response"
+          placeholder="Join our Discord…"
+          maxlength="250"
+          required
+          :disabled="busy"
+      /></label>
+      <label
+        >Cooldown (seconds)<input
+          v-model.number="cooldown"
+          type="number"
+          min="5"
+          max="86400"
+          step="1"
+          required
+          :disabled="busy"
+      /></label>
+      <p>
+        The cooldown is shared by everyone using this command. Streamface ignores its own messages.
+      </p>
+      <button type="submit" :disabled="busy">{{ busy ? "Saving…" : "Save command" }}</button>
+      <button type="button" :disabled="busy" @click="reset">Cancel</button>
+    </form>
+    <EmoticonModeration
+      v-if="tab === 'moderation'"
+      :config="moderationConfig"
+      :save="saveModeration"
+      description="Block a chat user from all bot commands, or set one shared per-user cooldown across bot commands."
+      hint="Bot moderation rules are public PDS data and are separate from Emoticons moderation. The server enforces them."
+    />
+  </DrawnTabs>
   <p v-if="message" role="status">{{ message }}</p>
 </template>
 <style scoped>

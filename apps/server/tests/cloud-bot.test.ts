@@ -126,6 +126,46 @@ test("private source tokens are scoped to account and service secret", () => {
   expect(validBotSourceToken(did, token, "other-secret")).toBe(false);
   expect(validBotSourceToken(did, undefined, "test-secret")).toBe(false);
 });
+test("bot user blocks and shared cooldowns are independent of Emoticons moderation", async () => {
+  const blocked = harness();
+  const restriction = { did: author, blocked: true, cooldownSeconds: 0 };
+  expect(
+    await blocked.service.trigger(
+      { ...config, bot: { ...config.bot!, moderation: [restriction] } },
+      uri,
+      "blocked",
+    ),
+  ).toMatchObject({ reason: "user-blocked" });
+  expect(blocked.sent).toHaveLength(0);
+  const h = harness();
+  const moderated = {
+    ...config,
+    moderation: [restriction],
+    bot: {
+      enabled: true,
+      rules: [
+        { command: "hi", response: "Hi", cooldownSeconds: 5 },
+        { command: "bye", response: "Bye", cooldownSeconds: 5 },
+      ],
+      moderation: [{ ...restriction, blocked: false, cooldownSeconds: 30 }],
+    },
+  };
+  expect((await h.service.trigger(moderated, uri, "accepted")).sent).toBe(true);
+  h.advance(7000);
+  h.view.uri = `at://${author}/place.stream.chat.message/3next`;
+  h.view.record.text = "!bye";
+  expect(await h.service.trigger(moderated, h.view.uri, "cooldown")).toMatchObject({
+    reason: "user-cooldown",
+  });
+  expect(h.sent).toHaveLength(1);
+  const records = serializeModuleRecords(moderated, [], new Date(now).toISOString());
+  expect(parseModuleRecords(did, records).bot?.moderation).toEqual(moderated.bot.moderation);
+  const oldClient = { ...moderated, bot: { enabled: true, rules: moderated.bot.rules } };
+  expect(
+    parseModuleRecords(did, serializeModuleRecords(oldClient, records, new Date(now).toISOString()))
+      .bot?.moderation,
+  ).toEqual(moderated.bot.moderation);
+});
 test("bot PDS records roundtrip and older clients retain rules", () => {
   const records = serializeModuleRecords(config, [], new Date(now).toISOString());
   expect(

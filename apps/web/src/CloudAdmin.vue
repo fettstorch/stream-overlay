@@ -319,7 +319,7 @@ async function toggleEnabled(module: CloudModule, event: Event) {
   const input = event.target as HTMLInputElement;
   const candidate = { ...config.value, ...moduleSettings(config.value) };
   if (module.id === "emoticons") candidate.enabled = input.checked;
-  else if (module.id === "bot") candidate.bot = { enabled: input.checked, rules: candidate.bot?.rules ?? [] };
+  else if (module.id === "bot") candidate.bot = { ...candidate.bot, enabled: input.checked, rules: candidate.bot?.rules ?? [] };
   else
     candidate.modules[
       module.id === "overlay-paint" ? "paint" : module.id === "streamplace-pets" ? "pets" : "chat"

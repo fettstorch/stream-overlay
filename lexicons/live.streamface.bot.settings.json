@@ -10,10 +10,25 @@
         "required": ["enabled", "rules", "createdAt", "updatedAt"],
         "properties": {
           "enabled": { "type": "boolean" },
+          "moderation": {
+            "type": "array",
+            "maxLength": 200,
+            "items": { "type": "ref", "ref": "#moderationRule" }
+          },
           "rules": { "type": "array", "maxLength": 50, "items": { "type": "ref", "ref": "#rule" } },
           "createdAt": { "type": "string", "format": "datetime" },
           "updatedAt": { "type": "string", "format": "datetime" }
         }
+      }
+    },
+    "moderationRule": {
+      "type": "object",
+      "required": ["did", "blocked", "cooldownMilliseconds"],
+      "properties": {
+        "did": { "type": "string", "format": "did" },
+        "handle": { "type": "string", "maxLength": 253 },
+        "blocked": { "type": "boolean" },
+        "cooldownMilliseconds": { "type": "integer", "minimum": 0, "maximum": 86400000 }
       }
     },
     "rule": {

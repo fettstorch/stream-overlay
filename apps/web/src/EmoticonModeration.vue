@@ -6,7 +6,7 @@ import type { CloudConfig } from "./cloud-admin-types.ts";
 import type { EmoticonModerationRule } from "../../../modules/emoticons/src/cloud-contracts.ts";
 import { validateModeration } from "../../../modules/emoticons/src/moderation.ts";
 
-const props = defineProps<{ config: CloudConfig; save: (config: CloudConfig) => Promise<boolean> }>();
+const props = defineProps<{ config: CloudConfig; save: (config: CloudConfig) => Promise<boolean>; description?: string; hint?: string }>();
 const input = ref<HTMLInputElement>(), searchStatus = ref<HTMLElement>();
 const query = ref(""), selected = ref<ActorSuggestion>(), blocked = ref(false), cooldown = ref(30);
 const busy = ref(false), message = ref("");
@@ -66,8 +66,8 @@ async function remove(rule: EmoticonModerationRule) {
 <template>
   <div class="emoticon-moderation">
     <h4>Moderation</h4>
-    <p>Block a chat user from all commands, or give them one shared cooldown across clips and stickers. Admin tests are unaffected.</p>
-    <p class="settings-hint">These rules are stored on your PDS and are public, like your other overlay settings.</p>
+    <p>{{ description ?? 'Block a chat user from all commands, or give them one shared cooldown across clips and stickers. Admin tests are unaffected.' }}</p>
+    <p class="settings-hint">{{ hint ?? 'These rules are stored on your PDS and are public, like your other overlay settings.' }}</p>
     <ul v-if="config.moderation?.length" class="module-section command-list striped-list moderation-list">
       <li v-for="rule in config.moderation" :key="rule.did">
         <img v-if="profiles[rule.did]?.avatar" class="moderation-avatar" :src="profiles[rule.did]!.avatar" alt=""

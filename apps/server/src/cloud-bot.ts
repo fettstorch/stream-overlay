@@ -95,6 +95,10 @@ export class CloudBot {
       if (!message || message.author.did === streamfaceBotDid) return reject("unverified-message");
       const age = this.now() - Date.parse(message.createdAt);
       if (age < -5000 || age > 60000) return reject("stale-message");
+      const restriction = config.bot.moderation?.find(rule => rule.did === message.author.did);
+      if (restriction?.blocked) return reject("user-blocked");
+      const userKey = `${config.streamerDid}:user:${message.author.did}`;
+      if (this.cooldowns.has(userKey)) return reject("user-cooldown");
       const command = /^!([a-z0-9_-]+)(?:\s|$)/i.exec(message.text)?.[1].toLowerCase();
       const rule = config.bot.rules.find((item) => item.command === command);
       if (!rule) return reject("unknown-command");
@@ -104,6 +108,7 @@ export class CloudBot {
       // Reserve synchronously before awaiting login/send, including concurrent sources.
       this.nextReplyAt = this.now() + 2000;
       this.cooldowns.set(cooldownKey, this.now() + rule.cooldownSeconds * 1000);
+      if (restriction?.cooldownSeconds) this.cooldowns.set(userKey, this.now() + restriction.cooldownSeconds * 1000);
       this.logger.log("info", "cloud.bot.verification-completed", {
         requestId,
         command: rule.command,
