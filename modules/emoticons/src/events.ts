@@ -4,6 +4,14 @@ export const emoteEvents = [
 ] as const;
 export type EmoteEventType = typeof emoteEvents[number]["id"];
 export type EmoteEventMapping = { event: EmoteEventType; commandId: string; text?: string };
+export function formatEventText(text: string | undefined, event: {
+  type: string; author?: { displayName?: string; handle?: string }; viewerCount?: number;
+}): string | undefined {
+  if (!text || event.type !== "teleport-arrival") return text;
+  const teleporter = event.author?.displayName?.trim() || event.author?.handle?.trim() || "Another streamer";
+  return text.replace(/\[(teleporter|viewers)\]/g, (_match, parameter: string) =>
+    parameter === "teleporter" ? teleporter : event.viewerCount === undefined ? "unknown" : String(event.viewerCount));
+}
 export function validateEventMappings(value: unknown): asserts value is EmoteEventMapping[] {
   if (!Array.isArray(value) || value.length > emoteEvents.length) throw new Error("Invalid Emote event mappings.");
   const seen = new Set<string>();

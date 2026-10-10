@@ -2,6 +2,7 @@ import { RelayClient } from "@streamface/browser-runtime";
 import { DirectStreamChatService } from "@streamface/stream-chat";
 import { EmoticonRuntime } from "@streamface/emoticons/src/runtime.ts";
 import { createRoleAuthorizer } from "../../../modules/emoticons/src/roles.ts";
+import { formatEventText } from "../../../modules/emoticons/src/events.ts";
 import type { EmoticonCommand, EmoticonEvent, EmoticonState } from "@streamface/emoticons/src/contracts.ts";
 import type { RelaySnapshot, EffectDiagnostic } from "@streamface/protocol";
 import { createCloudBoard } from "./cloud-board.ts";
@@ -155,7 +156,7 @@ chat?.events.subscribe(event => {
   const mapping = eventMappings.find(mapping => mapping.event === event.type);
   if (!mapping) return;
   rejectionReason = undefined;
-  const accepted = runtime.trigger(mapping.commandId, "stream-event", event.id, event.author, false, mapping.text);
+  const accepted = runtime.trigger(mapping.commandId, "stream-event", event.id, event.author, false, formatEventText(mapping.text, event));
   diagnostic(accepted ? "event-accepted" : "event-rejected", {
     commandId: mapping.commandId, reason: `event-${event.type}-${accepted ? 'accepted' : rejectionReason ?? 'rejected'}`,
   });
@@ -216,7 +217,8 @@ const relay = new RelayClient(`${location.protocol === "https:" ? "wss" : "ws"}:
     testRequests.set(message.commandId, message.requestId); rejectionReason = undefined;
     cooldownRequestId = message.requestId;
     const accepted = message.eventId
-      ? runtime.trigger(message.commandId, "stream-event", message.requestId, undefined, false, message.eventText)
+      ? runtime.trigger(message.commandId, "stream-event", message.requestId, undefined, false,
+        formatEventText(message.eventText, { type: message.eventId, author: { displayName: "Example streamer" }, viewerCount: 42 }))
       : runtime.trigger(message.commandId);
     cooldownRequestId = undefined;
     diagnostic(accepted ? "test-accepted" : "test-rejected", { requestId: message.requestId, commandId: message.commandId, reason: accepted ? undefined : rejectionReason });

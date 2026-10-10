@@ -39,6 +39,7 @@ async function save() {
       <label>Text beneath the clip (optional)
         <input v-model="texts[event.id]" :aria-label="`${event.name} text`" maxlength="500" :disabled="busy" placeholder="Your event message">
       </label>
+      <small v-if="event.id === 'teleport-arrival'">Use [teleporter] for the streamer's name and [viewers] for the arriving viewer count. Simulations use “Example streamer” and 42 viewers.</small>
       </div>
     </CollapsibleSection>
     <button type="submit" :disabled="busy">{{ busy ? 'Saving…' : 'Save events' }}</button>

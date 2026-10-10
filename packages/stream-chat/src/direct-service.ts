@@ -13,6 +13,7 @@ export type StreamLiveEvent = {
   type: "teleport-arrival" | "stream-started";
   id: string;
   author?: StreamChatMessage["author"];
+  viewerCount?: number;
 };
 
 /** Stateful because connection snapshots must not be mistaken for new events. */
@@ -29,7 +30,9 @@ export class LiveEventParser {
       const id = `arrival:${data.teleportUri}`;
       // The initial burst can replay a recent arrival, including after reload.
       if (Date.parse(data.startsAt) < connectedAfter) { this.remember(id); return null; }
-      event = { type: "teleport-arrival", id, author: {
+      event = { type: "teleport-arrival", id,
+        ...(Number.isSafeInteger(data.viewerCount) && data.viewerCount >= 0 ? { viewerCount: data.viewerCount } : {}),
+        author: {
         did: data.source.did,
         ...(typeof data.source.handle === "string" ? { handle: data.source.handle } : {}),
         ...(typeof data.source.displayName === "string" ? { displayName: data.source.displayName } : {}),

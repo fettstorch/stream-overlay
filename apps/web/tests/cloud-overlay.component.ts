@@ -31,15 +31,15 @@ test.each([false, true])("stream events trigger mapped commands only in the live
   HTMLElement.prototype.getAnimations = vi.fn(() => []);
   history.replaceState({}, "", `/emotes/?did=did:plc:alice${preview ? '&preview=1' : ''}`);
   document.body.innerHTML = '<main class="effect"></main>';
-  let eventMappings = [{ event: "teleport-arrival", commandId: "wave", text: "Welcome <friends>!" }];
+  let eventMappings = [{ event: "teleport-arrival", commandId: "wave", text: "Welcome [teleporter] and [viewers] viewers!" }];
   vi.stubGlobal("fetch", vi.fn(async () => Response.json({ enabled: true, streamerDid: "did:plc:alice", eventMappings,
     commands: [{ id: "wave", command: "wave", mode: "effect", durationSeconds: 8, cooldownSeconds: 0, volume: 1,
       width: "", height: "", mirrored: false, image: { url: "https://example.test/wave.gif" } }] })));
   await import("../src/cloud-overlay.ts"); await flushPromises();
-  liveEvents.receive!({ type: "teleport-arrival", id: "arrival:one", author: { did: "did:plc:source", handle: "source.example" } });
+  liveEvents.receive!({ type: "teleport-arrival", id: "arrival:one", viewerCount: 12, author: { did: "did:plc:source", handle: "source.example", displayName: "<friends>" } });
   await flushPromises();
   expect(document.querySelectorAll('.clip').length).toBe(preview ? 0 : 1);
-  expect(document.querySelector('.event-text')?.textContent).toBe(preview ? undefined : 'Welcome <friends>!');
+  expect(document.querySelector('.event-text')?.textContent).toBe(preview ? undefined : 'Welcome <friends> and 12 viewers!');
   expect(document.querySelector('.event-text friends')).toBeNull();
   if (!preview) expect(relay.send).toHaveBeenCalledWith(expect.objectContaining({ event: "event-accepted", commandId: "wave" }));
   eventMappings = [];
@@ -55,10 +55,10 @@ test("simulated events play the mapped clip and caption in the preview", async (
     commands: [{ id: "wave", command: "wave", mode: "effect", durationSeconds: 8, cooldownSeconds: 0, volume: 1,
       width: "", height: "", mirrored: false, image: { url: "https://example.test/wave.gif" } }] })));
   await import("../src/cloud-overlay.ts"); await flushPromises();
-  relay.receive!({ type: "test-command", commandId: "wave", requestId: "event-test", eventId: "teleport-arrival", eventText: "Welcome <friends>!" });
+  relay.receive!({ type: "test-command", commandId: "wave", requestId: "event-test", eventId: "teleport-arrival", eventText: "Welcome [teleporter] and [viewers] viewers!" });
   await flushPromises();
   expect(document.querySelectorAll('.clip')).toHaveLength(1);
-  expect(document.querySelector('.event-text')?.textContent).toBe("Welcome <friends>!");
+  expect(document.querySelector('.event-text')?.textContent).toBe("Welcome Example streamer and 42 viewers!");
   expect(document.querySelector('.event-text friends')).toBeNull();
   expect(relay.send).toHaveBeenCalledWith(expect.objectContaining({ event: "test-accepted", requestId: "event-test" }));
 });

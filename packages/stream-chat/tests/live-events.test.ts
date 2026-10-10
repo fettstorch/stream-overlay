@@ -16,6 +16,12 @@ test("cancellations and viewer updates are not triggers", () => {
   expect(parser.parse(canceled, 1000)).toBeNull();
   expect(parser.parse({ $type: "place.stream.livestream#viewerCount", count: 20 }, 1000)).toBeNull();
 });
+test("arrivals preserve valid viewer counts, including zero, without inventing missing counts", () => {
+  for (const viewerCount of [0, 42])
+    expect(new LiveEventParser().parse({ ...arrival, viewerCount }, 1000)?.viewerCount).toBe(viewerCount);
+  for (const viewerCount of [undefined, -1, 1.5, "42"])
+    expect(new LiveEventParser().parse({ ...arrival, viewerCount }, 1000)?.viewerCount).toBeUndefined();
+});
 test("stream initial state and ended streams are ignored; new starts emit only once", () => {
   const parser = new LiveEventParser();
   const view = { $type: "place.stream.livestream#livestreamView", uri: "at://owner/place.stream.livestream/old", record: { createdAt: new Date(500).toISOString() } };
