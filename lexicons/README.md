@@ -2,18 +2,18 @@
 
 ## Command access roles
 
-Both Emoticons and Bot settings support optional `roles`: `followers`, `mutuals`,
+Both Emotes and Bot settings support optional `roles`: `followers`, `mutuals`,
 `moderators`, and up to 200 explicit user DIDs (with optional display handles).
 These are module-wide allowlists: matching any selected role allows access; no
 selected role or account leaves commands open to everyone. User restrictions
 still win. Each module stores and enforces its roles independently, and older
-clients preserve omitted roles. Emoticons admin tests bypass moderation.
+clients preserve omitted roles. Emotes admin tests bypass moderation.
 
 Follower/mutual checks use the public Bluesky graph relationships endpoint, with
 bounded one-minute caching and fail-closed lookup errors. Streamplace moderators
 are recognized only from the server-controlled first badge slot of the trusted
 chat feed, with a matching recipient DID; Bot uses its server-verified message,
-never client-supplied role claims. OBS/browser instances enforce Emoticons roles;
+never client-supplied role claims. OBS/browser instances enforce Emotes roles;
 the server enforces Bot roles. Publish updated settings schemas before rollout.
 
 ## Bot
@@ -30,7 +30,7 @@ TXT `did=did:plc:j66wyknizjxecbnrenjzj7l3`. Sign in again to grant the new colle
 
 Bot's Commands, Create new, Moderation and Routines tabs reuse the existing drawn tab and
 user-moderation editor. Its optional `moderation` rules are independent of
-Emoticons: user DID blocks or one shared per-user cooldown across all bot commands,
+Emotes: user DID blocks or one shared per-user cooldown across all bot commands,
 enforced on the server. Older clients retain stored restrictions when omitted.
 
 The transparent `/bot/` OBS browser source reads Streamplace's live chat and
@@ -56,8 +56,8 @@ without logging passwords, private source tokens or message/response text.
 Chat records follow [Streamplace's message schema](https://stream.place/docs/lex-reference/chat/place-stream-chat-message/).
 
 `live.streamface` is backed by the owned `streamface.live` domain. Each module owns
-its collection. Chat, Emoticons, Paint and Pets settings use a singleton `self`
-record. Each Emoticons command has a stable record key independent of its invocation
+its collection. Chat, Emotes, Paint and Pets settings use a singleton `self`
+record. Each Emotes command has a stable record key independent of its invocation
 name; media explicitly chooses an external HTTPS URL, an uploaded PDS blob, or
 (for images only) a Giphy GIF ID.
 
@@ -76,7 +76,7 @@ record has `createdAt` and `updatedAt`. Chat's `topFadePercent` is a spatial mas
 not message decay. Owner DID and command ID are inferred from repository/record
 identity. OAuth sessions, live cooldowns and drawings are not repository records.
 
-Emoticons settings optionally contain up to 200 `moderation` rules. Each is keyed
+Emotes settings optionally contain up to 200 `moderation` rules. Each is keyed
 by a stable user DID, with an optional display handle, a complete command block,
 and a shared per-user cooldown in milliseconds. Old records default to no rules;
 older clients preserve stored rules when saving other settings. These rules are
@@ -84,7 +84,7 @@ public PDS data. The effect browser enforces them across clips and stickers;
 runtime timers remain browser-local and admin tests bypass user restrictions.
 An accepted sticker multiplier counts as one invocation. Blocking a user also
 stops pending repeats from that user; rejected attempts never extend the timer.
-The updated Emoticons settings schema needs republication by the publisher as a
+The updated Emotes settings schema needs republication by the publisher as a
 separate operational step; no new DNS record or collection permission is needed.
 
 The server validates both reads and writes with the official ATProto Lexicon SDK,

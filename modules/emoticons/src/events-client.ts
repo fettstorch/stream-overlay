@@ -21,7 +21,7 @@ export function observeEmoticonEvents(
     current.onopen = () => { if (!stopped && socket === current) { delay = 1000; connected(); } };
     current.onmessage = message => {
       if (stopped || socket !== current) return;
-      try { receive(JSON.parse(String(message.data)) as EmoticonEvent); } catch (error) { console.warn("Invalid Emoticons event", error); }
+      try { receive(JSON.parse(String(message.data)) as EmoticonEvent); } catch (error) { console.warn("Invalid Emotes event", error); }
     };
     current.onclose = () => {
       if (stopped || socket !== current) return;

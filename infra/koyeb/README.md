@@ -108,7 +108,7 @@ Required secrets/settings:
   browser API/media requests. It is never logged or stored in PDS records.
   Locally, set it in a gitignored `.env` and restart `bun run cloud:dev`; in Koyeb,
   configure the environment variable yourself. No deployment is performed automatically.
-  Publish the updated Emoticons `defs` and `command` lexicons before saving Giphy commands.
+  Publish the updated Emotes `defs` and `command` lexicons before saving Giphy commands.
   Only GIF IDs are persisted; overlays resolve them during preload and load images
   directly from GIPHY, without our Blob/object-URL cache. Existing URLs/blobs are unchanged.
 

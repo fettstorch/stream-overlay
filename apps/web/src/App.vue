@@ -512,15 +512,15 @@ onBeforeUnmount(() => {
             <span class="sr-only" aria-live="polite">{{ copiedModuleId === module.id ? "Copied" : "" }}</span>
           </div>
           <template v-if="module.id === 'emoticons'">
-            <section class="module-commands"><h4>Instruction board OBS URL</h4></section>
+            <section class="module-commands"><h4>Command listing OBS URL</h4></section>
             <div class="overlay-url board-url">
               <code>{{ boardUrl() }}</code>
               <a class="open-url-button" :href="boardUrl()" target="_blank" rel="noopener noreferrer"
-                aria-label="Open Emoticons instruction board OBS URL in a new tab" title="Open in a new tab">
+                aria-label="Open Emotes command listing OBS URL in a new tab" title="Open in a new tab">
                 <span class="external-link-icon" aria-hidden="true" />
               </a>
               <button type="button" class="copy-button" :class="{ copied: copiedModuleId === 'emoticons-board' }"
-                :aria-label="copiedModuleId === 'emoticons-board' ? 'Emoticons instruction board OBS URL copied' : 'Copy Emoticons instruction board OBS URL'"
+                :aria-label="copiedModuleId === 'emoticons-board' ? 'Emotes command listing OBS URL copied' : 'Copy Emotes command listing OBS URL'"
                 @click="copyOverlayUrl(module, true)"><span class="copy-icon" aria-hidden="true" /></button>
               <span class="sr-only" aria-live="polite">{{ copiedModuleId === 'emoticons-board' ? 'Copied' : '' }}</span>
             </div>

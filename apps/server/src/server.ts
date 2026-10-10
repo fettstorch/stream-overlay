@@ -465,7 +465,7 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
           404,
         );
       if (!config.enabled)
-        return json({ message: "Enable Emoticons before testing commands.", requestId }, 409);
+        return json({ message: "Enable Emotes before testing commands.", requestId }, 409);
       const delivered = deps.relay.testCommand(testDid, commandId, requestId);
       const previewDelivered = deps.relay.testCommand(testDid, commandId, requestId, "preview");
       return json({
@@ -475,7 +475,7 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
           ? "Test sent to connected effect sources. Playback follows their queue and cooldown rules."
           : previewDelivered
             ? "Test sent to the admin preview. No live OBS source is connected."
-            : "No effect source is connected. Expand the effects preview or open your Emoticons effects OBS URL first.",
+            : "No effect source is connected. Expand the effects preview or open your Emotes OBS URL first.",
         requestId,
       });
     } catch (error) {

@@ -29,6 +29,17 @@ function webRoot() {
 }
 
 describe("cloud server boundary", () => {
+  test("serves new Emotes paths and legacy OBS aliases from the same pages", async () => {
+    const root = webRoot();
+    writeFileSync(join(root, "effect.html"), "<h1>Emotes overlay</h1>");
+    writeFileSync(join(root, "board.html"), "<h1>Emotes listings</h1>");
+    const deps = dependencies(root);
+    for (const [path, heading] of [["/emotes/", "Emotes overlay"], ["/effect/", "Emotes overlay"], ["/emote-listings/", "Emotes listings"], ["/board/", "Emotes listings"]]) {
+      const response = await handleRequest(new Request(`https://overlay.example${path}?did=did:plc:alice`), deps);
+      expect(response.status).toBe(200);
+      expect(await response.text()).toBe(`<h1>${heading}</h1>`);
+    }
+  });
   test("user chat requires owner cookie and origin, validates text and explains permission failures", async () => {
     const deps = dependencies(webRoot()), calls: unknown[] = [];
     deps.pds.sendChat = async (...args) => { calls.push(args); return "at://sent"; };

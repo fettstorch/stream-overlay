@@ -6,14 +6,14 @@ import { observeEmoticonEvents } from "../../../modules/emoticons/src/events-cli
 const commands = ref<EmoticonCommand[]>([]);
 const commandGroups = computed(() => [
   { title: "Clips", commands: commands.value.filter(command => command.mode !== "sticker") },
-  { title: "Emoticons (stickers)", commands: commands.value.filter(command => command.mode === "sticker") },
+  { title: "Emotes (stickers)", commands: commands.value.filter(command => command.mode === "sticker") },
 ]);
 const assets = ref<EmoticonAsset[]>([]);
 const formOpen = ref(false);
 const editing = ref<string | null>(null);
 const message = ref("");
 const busy = ref(false);
-const defaults = () => ({ mode: "effect" as "effect" | "sticker", command: "", imageAssetId: null as string | null, audioAssetId: null as string | null, videoAssetId: null as string | null, durationSeconds: 5, cooldownSeconds: 20, volume: 1, width: "", height: "", mirrored: false });
+const defaults = () => ({ mode: "sticker" as "effect" | "sticker", command: "", imageAssetId: null as string | null, audioAssetId: null as string | null, videoAssetId: null as string | null, durationSeconds: 8, cooldownSeconds: 20, volume: 1, width: "", height: "", mirrored: false });
 const form = ref(defaults());
 const imageUrl = computed(() => form.value.imageAssetId ? `/api/emoticons/assets/${form.value.imageAssetId}` : "");
 const audioUrl = computed(() => form.value.audioAssetId ? `/api/emoticons/assets/${form.value.audioAssetId}` : "");
@@ -149,7 +149,7 @@ function selected(event: Event) { const input = event.target as HTMLInputElement
 </script>
 <template>
   <section class="emoticon-controls">
-    <h4>Emoticon commands</h4>
+    <h4>Emote commands</h4>
     <p>Effect source: match your OBS canvas. Board source: start at 420 × 600 px, then size independently. Both disappear when disabled.</p>
     <CollapsibleSection v-for="group in commandGroups" :key="group.title" class="command-group" :title="group.title" :count="group.commands.length">
     <p v-if="!group.commands.length">No commands yet</p>

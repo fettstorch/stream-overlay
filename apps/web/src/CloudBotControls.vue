@@ -244,7 +244,7 @@ async function copy() {
       :config="moderationConfig"
       :save="saveModeration"
       description="Block a chat user from all bot commands, or set one shared per-user cooldown across bot commands."
-      hint="Bot moderation rules are public PDS data and are separate from Emoticons moderation. The server enforces them."
+      hint="Bot moderation rules are public PDS data and are separate from Emotes moderation. The server enforces them."
     />
     <BotRoutines v-if="tab === 'routines'" :config="config" :save="save" />
   </DrawnTabs>

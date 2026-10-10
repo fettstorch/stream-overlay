@@ -186,8 +186,8 @@ async function cardDrop(module: CloudModule, event: DragEvent) {
   } else if (result.message) moduleMessages.value[module.id] = result.message;
 }
 
-const effectUrl = computed(() => cloudUrl("/effect/"));
-const boardUrl = computed(() => cloudUrl("/board/"));
+const effectUrl = computed(() => cloudUrl("/emotes/"));
+const boardUrl = computed(() => cloudUrl("/emote-listings/"));
 const listingPreviewUrl = computed(() => `${boardUrl.value}&preview=1`);
 function cloudUrl(path: string) {
   const url = new URL(path, location.origin);
@@ -330,7 +330,7 @@ async function toggleEnabled(module: CloudModule, event: Event) {
 async function copyUrl(kind: string) {
   try {
     await navigator.clipboard.writeText(
-      cloudUrl(kind === "board" ? "/board/" : kind === "effect" ? "/effect/" : paths[kind]),
+      cloudUrl(kind === "board" ? "/emote-listings/" : kind === "effect" ? "/emotes/" : paths[kind]),
     );
     copied.value = kind;
     clearTimeout(copyTimer);
@@ -602,15 +602,15 @@ onBeforeUnmount(() => {
                 <div class="overlay-url">
                   <code>{{ cloudUrl(paths[module.id]) }}</code>
                   <a class="open-url-button" :href="cloudUrl(paths[module.id])" target="_blank" rel="noopener noreferrer"
-                    :aria-label="`Open ${module.name} effects OBS URL`"><span class="external-link-icon" aria-hidden="true" /></a>
+                    :aria-label="`Open ${module.name} OBS URL`"><span class="external-link-icon" aria-hidden="true" /></a>
                   <button type="button" class="copy-button" :class="{ copied: copied === module.id }"
-                    :aria-label="`Copy ${module.name} effects OBS URL`" @click="copyUrl(module.id)"><span class="copy-icon" aria-hidden="true" /></button>
+                    :aria-label="`Copy ${module.name} OBS URL`" @click="copyUrl(module.id)"><span class="copy-icon" aria-hidden="true" /></button>
                 </div>
               </template>
               <template v-if="module.id === 'emoticons'">
               <section class="module-commands overlay-url-heading">
-                <h4>{{ module.id === "emoticons" ? "Effects OBS URL" : "OBS URL" }}</h4>
-                <ModuleHelp v-if="module.id === 'emoticons'" id="emoticons-effects-url" name="Effects OBS URL" align="start"
+                <h4>{{ module.id === "emoticons" ? "Emotes OBS URL" : "OBS URL" }}</h4>
+                <ModuleHelp v-if="module.id === 'emoticons'" id="emoticons-effects-url" name="Emotes OBS URL" align="start"
                   description="This is the overlay for the actual clips/gifs & stickers. Ideally put this in a browser source that spans your whole stream." />
               </section>
               <div class="overlay-url">
@@ -620,7 +620,7 @@ onBeforeUnmount(() => {
                   :href="cloudUrl(paths[module.id])"
                   target="_blank"
                   rel="noopener noreferrer"
-                  :aria-label="`Open ${module.name} effects OBS URL`"
+                  :aria-label="`Open ${module.name} OBS URL`"
                   ><span class="external-link-icon" aria-hidden="true" /></a
                 ><button
                   type="button"
@@ -629,7 +629,7 @@ onBeforeUnmount(() => {
                     copied:
                       copied === module.id || (module.id === 'emoticons' && copied === 'effect'),
                   }"
-                  :aria-label="`Copy ${module.name} effects OBS URL`"
+                  :aria-label="`Copy ${module.name} OBS URL`"
                   @click="copyUrl(module.id === 'emoticons' ? 'effect' : module.id)"
                 >
                   <span class="copy-icon" aria-hidden="true" />
@@ -646,34 +646,34 @@ onBeforeUnmount(() => {
                     :href="boardUrl"
                     target="_blank"
                     rel="noopener noreferrer"
-                    aria-label="Open Emoticons instruction board OBS URL"
+                    aria-label="Open Emotes command listing OBS URL"
                     ><span class="external-link-icon" aria-hidden="true" /></a
                   ><button
                     type="button"
                     class="copy-button"
                     :class="{ copied: copied === 'board' }"
-                    aria-label="Copy Emoticons instruction board OBS URL"
+                    aria-label="Copy Emotes command listing OBS URL"
                     @click="copyUrl('board')"
                   >
                     <span class="copy-icon" aria-hidden="true" />
                   </button>
                 </div>
-              <DrawnTabs v-model="emoticonTab" :tabs="emoticonTabs" label="Emoticon tools">
+              <DrawnTabs v-model="emoticonTab" :tabs="emoticonTabs" label="Emote tools">
               <div class="emoticon-tab-content" :class="{ 'commands-columns': emoticonTab === 'commands' }">
               <div class="command-previews" v-show="emoticonTab === 'commands'" :inert="emoticonTab !== 'commands' || undefined">
                 <section class="module-section overlay-live-preview">
-                  <h4>Emoticon overlay preview</h4>
+                  <h4>Emote overlay preview</h4>
                   <div v-if="isExpanded(module) && emoticonTab === 'commands'" class="cloud-preview"
                     :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }">
                     <iframe :ref="(value) => (effectPreviewFrame = value as HTMLIFrameElement | undefined)"
-                      :src="previewUrl(module.id)" title="Emoticons preview" allow="autoplay" />
+                      :src="previewUrl(module.id)" title="Emotes preview" allow="autoplay" />
                   </div>
                 </section>
                 <section class="module-section overlay-live-preview">
                   <h4>Listing overlay preview</h4>
                   <iframe v-if="isExpanded(module) && emoticonTab === 'commands'"
                     :ref="(value) => (listingPreviewFrame = value as HTMLIFrameElement | undefined)"
-                    :src="listingPreviewUrl" title="Emoticons command listing preview" class="listing-preview" />
+                    :src="listingPreviewUrl" title="Emotes command listing preview" class="listing-preview" />
                 </section>
               </div>
                   <EmoticonModeration v-show="emoticonTab === 'moderation'" :config="config" :save="saveConfiguration" />

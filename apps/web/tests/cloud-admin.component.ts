@@ -20,6 +20,18 @@ function response(body: unknown, status = 200) { return new Response(JSON.string
 function mediaDrag(type: string, name = "drop.gif") { const event = new Event(type, { bubbles: true, cancelable: true }); Object.defineProperty(event, "dataTransfer", { value: { types: ["Files"], files: [new File(["GIF8"], name)], dropEffect: "none" } }); return event; }
 
 describe("Cloud Admin", () => {
+  test("new commands default to Sticker with a neutral choice switch and reset to Sticker", async () => {
+    const save = vi.fn(async () => true);
+    const wrapper = mount(CloudEmoticonControls, { props: { did: session.did, config, save, panel: "commands" } });
+    await wrapper.setProps({ panel: "create" });
+    const mode = wrapper.get('.choice-switch input');
+    expect((mode.element as HTMLInputElement).checked).toBe(true);
+    await mode.setValue(false);
+    expect(wrapper.text()).toContain("Clips play");
+    await wrapper.get('.form-actions button[type="button"]').trigger('click');
+    expect((wrapper.get('.choice-switch input').element as HTMLInputElement).checked).toBe(true);
+    wrapper.unmount();
+  });
   test("Giphy searches after 400ms of idle typing and cancels pending searches for URLs or unmount", async () => {
     vi.useFakeTimers(); giphyMocks.searchGiphy.mockClear(); giphyMocks.searchGiphy.mockResolvedValue([]);
     vi.stubGlobal("fetch", vi.fn(async () => response({ ok: true })));
@@ -127,27 +139,29 @@ describe("Cloud Admin", () => {
     vi.stubGlobal("fetch", fetchMock);
     const wrapper = mount(CloudAdmin); await flushPromises();
     expect(wrapper.find('[aria-label="Streamer handle"]').exists()).toBe(false);
-    expect(wrapper.get('.pin-button').attributes('aria-label')).toBe('Pin Emoticons');
+    expect(wrapper.get('.pin-button').attributes('aria-label')).toBe('Pin Emotes');
     expect(wrapper.get('.pin-button .pin-icon').attributes('aria-hidden')).toBe('true');
     expect(wrapper.findAll('.module-message')).toHaveLength(0);
-    await wrapper.get('button[aria-label="Show Emoticons details"]').trigger("click");
+    await wrapper.get('button[aria-label="Show Emotes details"]').trigger("click");
     expect(wrapper.get('button[aria-label="Show General settings"]').attributes('aria-expanded')).toBe('false');
     expect(wrapper.get('button[aria-label="Show Clips"]').attributes('aria-expanded')).toBe('false');
-    expect(wrapper.get('button[aria-label="Show Emoticons (stickers)"]').attributes('aria-expanded')).toBe('false');
+    expect(wrapper.get('button[aria-label="Show Emotes (stickers)"]').attributes('aria-expanded')).toBe('false');
     expect(wrapper.find('button[aria-label="Show Listing overlay live preview"]').exists()).toBe(false);
-    expect(wrapper.find('button[aria-label="Show Emoticon overlay live preview"]').exists()).toBe(false);
+    expect(wrapper.find('button[aria-label="Show Emote overlay live preview"]').exists()).toBe(false);
     const moduleBody = wrapper.get('#module-body-emoticons');
     expect(moduleBody.text()).toContain('Let users in chat trigger clips/gifs & stickers using !<command>. Create and live test those commands here.');
-    expect(moduleBody.get('button[aria-label="About Effects OBS URL"]').attributes('aria-describedby')).toBe('module-help-emoticons-effects-url');
+    expect(moduleBody.get('button[aria-label="About Emotes OBS URL"]').attributes('aria-describedby')).toBe('module-help-emoticons-effects-url');
     expect(moduleBody.get('#module-help-emoticons-listing-url').text()).toContain('cooldowns for your clips');
     const effectsUrl = moduleBody.get('.overlay-url').element;
     const listingUrl = moduleBody.get('.board-url').element;
+    expect(moduleBody.get('.overlay-url code').text()).toContain('/emotes/?did=');
+    expect(moduleBody.get('.board-url code').text()).toContain('/emote-listings/?did=');
     expect(effectsUrl.closest('.drawn-tabs')).toBeNull();
     expect(listingUrl.closest('.drawn-tabs')).toBeNull();
-    expect(moduleBody.get('.drawn-tabs').text()).toContain('Emoticon overlay preview');
+    expect(moduleBody.get('.drawn-tabs').text()).toContain('Emote overlay preview');
     expect(moduleBody.get('.drawn-tabs').text()).toContain('Listing overlay preview');
     expect(moduleBody.get('.commands-columns > .command-previews').findAll('.overlay-live-preview')).toHaveLength(2);
-    expect(moduleBody.get('.commands-columns > .emoticon-controls').text()).not.toContain('Emoticon commands');
+    expect(moduleBody.get('.commands-columns > .emoticon-controls').text()).not.toContain('Emote commands');
     expect(moduleBody.get('.commands-columns > .emoticon-controls').text()).toContain('!wave');
     expect(moduleBody.get('.command-list').text()).not.toContain('5s clip');
     expect(wrapper.get('.account-preference').element.closest('.section-content')?.getAttribute('style')).toContain('display: none');
@@ -163,13 +177,13 @@ describe("Cloud Admin", () => {
     await clipsToggle.trigger('click');
     expect(wrapper.get('button[aria-label="Show Clips"]').attributes('aria-expanded')).toBe('false');
     await wrapper.get('button[aria-label="Show Clips"]').trigger('click');
-    expect(wrapper.find('iframe[title="Emoticons preview"]').exists()).toBe(true);
+    expect(wrapper.find('iframe[title="Emotes preview"]').exists()).toBe(true);
     expect(wrapper.find('details').exists()).toBe(false);
-    expect(wrapper.get('iframe[title="Emoticons preview"]').attributes('src')).not.toContain('muted=1');
+    expect(wrapper.get('iframe[title="Emotes preview"]').attributes('src')).not.toContain('muted=1');
     expect(wrapper.find('iframe[title="Stream background"]').exists()).toBe(false);
-    expect(wrapper.get('iframe[title="Emoticons command listing preview"]').attributes('src')).toContain('preview=1');
-    await wrapper.get('button[aria-label="Hide Emoticons details"]').trigger('click');
-    expect(wrapper.find('iframe[title="Emoticons preview"]').exists()).toBe(false);
+    expect(wrapper.get('iframe[title="Emotes command listing preview"]').attributes('src')).toContain('preview=1');
+    await wrapper.get('button[aria-label="Hide Emotes details"]').trigger('click');
+    expect(wrapper.find('iframe[title="Emotes preview"]').exists()).toBe(false);
     await wrapper.get('button[aria-label="Show Overlay Paint details"]').trigger('click');
     expect(wrapper.get('iframe[title="Stream background"]').attributes('src')).toContain(encodeURIComponent(session.did));
     wrapper.unmount();
@@ -259,18 +273,18 @@ describe("Cloud Admin", () => {
     const wrapper = mount(CloudAdmin, { attachTo: document.body });
     try {
       await flushPromises();
-      await wrapper.get('button[aria-label="Show Emoticons details"]').trigger('click');
+      await wrapper.get('button[aria-label="Show Emotes details"]').trigger('click');
       const createButton = wrapper.findAll('[role="tab"]').find(tab => tab.text() === 'Create new')!;
       expect(createButton.attributes('aria-selected')).toBe('false');
       expect(wrapper.find('.command-editor').exists()).toBe(false);
       await wrapper.get('.command-list button').trigger('click'); await flushPromises();
-      expect(wrapper.find('iframe[title="Emoticons preview"]').exists()).toBe(true);
-      expect(wrapper.get('iframe[title="Emoticons preview"]').element.parentElement?.querySelector('.preview-background')).toBeNull();
-      expect(wrapper.find('iframe[title="Emoticons command listing preview"]').exists()).toBe(true);
+      expect(wrapper.find('iframe[title="Emotes preview"]').exists()).toBe(true);
+      expect(wrapper.get('iframe[title="Emotes preview"]').element.parentElement?.querySelector('.preview-background')).toBeNull();
+      expect(wrapper.find('iframe[title="Emotes command listing preview"]').exists()).toBe(true);
       expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/test/'))).toBe(false);
       const scrollPreview = vi.fn();
-      Object.defineProperty(wrapper.get('iframe[title="Emoticons preview"]').element, 'scrollIntoView', { value: scrollPreview });
-      for (const title of ['Emoticons preview']) {
+      Object.defineProperty(wrapper.get('iframe[title="Emotes preview"]').element, 'scrollIntoView', { value: scrollPreview });
+      for (const title of ['Emotes preview']) {
         const frame = wrapper.get(`iframe[title="${title}"]`).element as HTMLIFrameElement;
         const frameDocument = document.implementation.createHTMLDocument();
         frameDocument.documentElement.dataset.overlayReady = 'true';
@@ -285,15 +299,17 @@ describe("Cloud Admin", () => {
       expect(wrapper.find('.commands-columns').exists()).toBe(false);
       expect(wrapper.get('.board-url').isVisible()).toBe(true);
       expect(wrapper.get('.overlay-url').isVisible()).toBe(true);
-      expect(wrapper.find('iframe[title="Emoticons preview"]').exists()).toBe(false);
-      expect(wrapper.find('iframe[title="Emoticons command listing preview"]').exists()).toBe(false);
+      expect(wrapper.find('iframe[title="Emotes preview"]').exists()).toBe(false);
+      expect(wrapper.find('iframe[title="Emotes command listing preview"]').exists()).toBe(false);
       await wrapper.get('.command-editor input[placeholder="!wow"]').setValue('draft');
+      await wrapper.get('.choice-switch input').setValue(false);
       await wrapper.get('.command-editor input[type="range"]').setValue('0.4');
       await wrapper.findAll('.form-actions button').find(button => button.text() === 'Cancel')!.trigger('click');
       expect(createButton.attributes('aria-selected')).toBe('true');
       expect(wrapper.get('.command-editor').isVisible()).toBe(true);
       expect((wrapper.get('.command-editor input[placeholder="!wow"]').element as HTMLInputElement).value).toBe('');
-      expect((wrapper.get('.command-editor input[type="range"]').element as HTMLInputElement).value).toBe('1');
+      expect((wrapper.get('.choice-switch input').element as HTMLInputElement).checked).toBe(true);
+      expect(wrapper.find('.command-editor input[type="range"]').exists()).toBe(false);
     } finally { wrapper.unmount(); vi.useRealTimers(); }
   });
   test("tests a saved command through its authenticated account endpoint and preserves editing controls", async () => {
@@ -310,7 +326,7 @@ describe("Cloud Admin", () => {
     const wrapper = mount(CloudAdmin, { attachTo: document.body });
     try {
       await flushPromises();
-      await wrapper.get('button[aria-label="Show Emoticons details"]').trigger('click');
+      await wrapper.get('button[aria-label="Show Emotes details"]').trigger('click');
       await wrapper.findAll('.command-list button').find(button => button.text() === 'Edit')!.trigger('click');
       expect(wrapper.findAll('[role="tab"]').find(tab => tab.text() === 'Create new')!.attributes('aria-selected')).toBe('true');
       expect(wrapper.get('.command-editor').text()).toContain('Edit command');
@@ -330,13 +346,14 @@ describe("Cloud Admin", () => {
   test("renders Streamface branding and the module and command editor for saved PDS data", async () => {
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => String(input).endsWith("/api/session") ? response(session) : response(config)));
     const wrapper = mount(CloudAdmin, { attachTo: document.body }); await flushPromises();
-    expect(wrapper.get("h1 img").attributes("alt")).toBe("streamface"); expect(wrapper.get(".brand-mascot").attributes("aria-hidden")).toBe("true"); expect(wrapper.text()).not.toContain("STREAM.PLACE OVERLAY"); expect(wrapper.text()).toContain("Emoticons"); expect(wrapper.text()).toContain("!wave");
+    expect(wrapper.get("h1 img").attributes("alt")).toBe("streamface"); expect(wrapper.get(".brand-mascot").attributes("aria-hidden")).toBe("true"); expect(wrapper.text()).not.toContain("STREAM.PLACE OVERLAY"); expect(wrapper.text()).toContain("Emotes"); expect(wrapper.text()).toContain("!wave");
     expect(wrapper.text()).toContain("ATPROTO ACCOUNT"); expect(wrapper.text()).toContain("Connected"); expect(wrapper.text()).toContain("@alice.bsky.social"); expect(wrapper.text()).not.toContain("CLOUD ACCOUNT");
     expect(wrapper.get(".account-profile img").attributes("src")).toBe("https://cdn.example/alice.jpg");
-    expect(wrapper.find('[aria-label="Enable Emoticons"]').exists()).toBe(true);
-    expect(wrapper.find('[aria-label="Copy Emoticons effects OBS URL"]').exists()).toBe(true);
-    await wrapper.get('button[aria-label="Show Emoticons details"]').trigger("click");
+    expect(wrapper.find('[aria-label="Enable Emotes"]').exists()).toBe(true);
+    expect(wrapper.find('[aria-label="Copy Emotes OBS URL"]').exists()).toBe(true);
+    await wrapper.get('button[aria-label="Show Emotes details"]').trigger("click");
     await wrapper.findAll('[role="tab"]').find(tab => tab.text() === 'Create new')!.trigger("click");
+    await wrapper.get('.choice-switch input').setValue(false);
     expect(wrapper.text()).toContain("Create new command"); expect(wrapper.text()).toContain("Media — drop files or choose");
     expect(wrapper.findAll('.drop-zone input[placeholder="https://…/media.gif or a GIF search"]')).toHaveLength(1); expect(wrapper.text()).not.toContain("Image/GIF URL"); expect(wrapper.text()).toContain("one visual and separate audio");
     wrapper.unmount();
@@ -348,6 +365,7 @@ describe("Cloud Admin", () => {
     vi.stubGlobal("fetch", fetchMock); vi.stubGlobal("URL", class extends URL { static createObjectURL = vi.fn(() => "blob:preview"); static revokeObjectURL = vi.fn(); });
     const wrapper = mount(CloudEmoticonControls, { props: { did: session.did, config: { ...config, commands: [] }, save } });
     await wrapper.get(".primary-button").trigger("click"); const input = wrapper.get('input[type="file"]');
+    await wrapper.get('.choice-switch input').setValue(false);
     Object.defineProperty(input.element, "files", { configurable: true, value: [new File(["GIF8"], "dance.gif")] }); await input.trigger("change"); await flushPromises();
     Object.defineProperty(input.element, "files", { configurable: true, value: [new File(["sound"], "sound.mp3", { type: "audio/mpeg" })] }); await input.trigger("change"); await flushPromises();
     expect(fetchMock).toHaveBeenNthCalledWith(1, expect.any(String), expect.objectContaining({ headers: { "Content-Type": "image/gif" } }));
@@ -369,6 +387,8 @@ describe("Cloud Admin", () => {
     const wrapper = mount(CloudEmoticonControls, { props: { did: session.did, config: { ...config, commands: [] }, save } });
     await wrapper.get(".primary-button").trigger("click");
     await wrapper.get('input[placeholder="!wow"]').setValue("cube");
+    expect((wrapper.get('.choice-switch input').element as HTMLInputElement).checked).toBe(true);
+    await wrapper.get('.choice-switch input').setValue(false);
     expect(wrapper.text()).toContain('Clips play your image, GIF, video or audio');
     await wrapper.get('input[aria-label="Sticker mode"]').setValue(true);
     expect(wrapper.text()).toContain('Silent stickers drift upward independently. Every matching message spawns one.');
@@ -426,14 +446,14 @@ describe("Cloud Admin", () => {
     const wrapper = mount(CloudAdmin, { attachTo: document.body }); await flushPromises(); const card = wrapper.get(".module-card");
     card.element.dispatchEvent(mediaDrag("dragenter")); await wrapper.vm.$nextTick(); expect(card.classes()).toContain("file-drag-active"); expect(wrapper.text()).toContain("Drop media to create a command");
     card.element.dispatchEvent(mediaDrag("drop")); await flushPromises();
-    expect(wrapper.get('button[aria-label="Hide Emoticons details"]').attributes("aria-expanded")).toBe("true"); expect(wrapper.text()).toContain("Create new command"); expect(wrapper.text()).toContain("image attached");
+    expect(wrapper.get('button[aria-label="Hide Emotes details"]').attributes("aria-expanded")).toBe("true"); expect(wrapper.text()).toContain("Create new command"); expect(wrapper.text()).toContain("image attached");
     expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1); wrapper.unmount();
   });
 
   test("does not duplicate nested drops or discard an open draft", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith("/api/session") ? response(session) : init?.method === "POST" ? response({ $type: "blob", ref: { $link: "bafydrop" }, mimeType: "image/gif", size: 4 }) : response(config));
     vi.stubGlobal("fetch", fetchMock); vi.stubGlobal("URL", class extends URL { static createObjectURL = vi.fn(() => "blob:drop"); static revokeObjectURL = vi.fn(); });
-    const wrapper = mount(CloudAdmin, { attachTo: document.body }); await flushPromises(); await wrapper.get('button[aria-label="Show Emoticons details"]').trigger("click"); await wrapper.findAll('[role="tab"]').find(tab => tab.text() === 'Create new')!.trigger("click"); await wrapper.get('input[placeholder="!wow"]').setValue("draft");
+    const wrapper = mount(CloudAdmin, { attachTo: document.body }); await flushPromises(); await wrapper.get('button[aria-label="Show Emotes details"]').trigger("click"); await wrapper.findAll('[role="tab"]').find(tab => tab.text() === 'Create new')!.trigger("click"); await wrapper.get('input[placeholder="!wow"]').setValue("draft");
     wrapper.get(".drop-zone").element.dispatchEvent(mediaDrag("drop")); await flushPromises();
     expect((wrapper.get('input[placeholder="!wow"]').element as HTMLInputElement).value).toBe("draft"); expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);
     await wrapper.findAll('[role="tab"]').find(tab => tab.text() === 'Commands')!.trigger('click');
@@ -453,11 +473,11 @@ describe("Cloud Admin", () => {
   test("hides search for a small module collection while retaining pin and collapse behavior", async () => {
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => String(input).endsWith("/api/session") ? response(session) : response(config)));
     const wrapper = mount(CloudAdmin, { attachTo: document.body }); await flushPromises();
-    expect(wrapper.get('button[aria-label="Show Emoticons details"]').attributes("aria-expanded")).toBe("false");
+    expect(wrapper.get('button[aria-label="Show Emotes details"]').attributes("aria-expanded")).toBe("false");
     expect((wrapper.get(".module-body").element as HTMLElement).style.display).toBe("none");
-    await wrapper.get('button[aria-label="Show Emoticons details"]').trigger("click");
-    expect(wrapper.get('button[aria-label="Hide Emoticons details"]').attributes("aria-expanded")).toBe("true");
-    await wrapper.get('button[aria-label="Pin Emoticons"]').trigger("click");
+    await wrapper.get('button[aria-label="Show Emotes details"]').trigger("click");
+    expect(wrapper.get('button[aria-label="Hide Emotes details"]').attributes("aria-expanded")).toBe("true");
+    await wrapper.get('button[aria-label="Pin Emotes"]').trigger("click");
     expect(localStorage.getItem("stream-overlay.admin.pinned-modules")).toBe('["emoticons"]');
     expect(wrapper.find('input[aria-label="Search modules"]').exists()).toBe(false);
     wrapper.unmount();
@@ -470,7 +490,7 @@ describe("Cloud Admin", () => {
       return response(config);
     }));
     const wrapper = mount(CloudAdmin); await flushPromises();
-    const toggle = wrapper.get('[aria-label="Enable Emoticons"]'); await toggle.setValue(false); await flushPromises();
+    const toggle = wrapper.get('[aria-label="Enable Emotes"]'); await toggle.setValue(false); await flushPromises();
     expect((toggle.element as HTMLInputElement).checked).toBe(true); expect(wrapper.text()).toContain("does not grant access to write these records"); expect(wrapper.text()).toContain("last saved configuration is still active"); wrapper.unmount();
   });
 

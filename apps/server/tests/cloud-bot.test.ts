@@ -204,7 +204,7 @@ test("private source tokens are scoped to account and service secret", () => {
   expect(validBotSourceToken(did, token, "other-secret")).toBe(false);
   expect(validBotSourceToken(did, undefined, "test-secret")).toBe(false);
 });
-test("bot user blocks and shared cooldowns are independent of Emoticons moderation", async () => {
+test("bot user blocks and shared cooldowns are independent of Emotes moderation", async () => {
   const blocked = harness();
   const restriction = { did: author, blocked: true, cooldownSeconds: 0 };
   expect(

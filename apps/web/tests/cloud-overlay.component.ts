@@ -5,9 +5,9 @@ vi.mock("../../../modules/emoticons/src/asset-cache.ts", () => ({ createStickerA
 const giphy = vi.hoisted(() => ({ load: vi.fn(async (id: string) => `https://media.giphy.com/${id}/giphy.gif`), retain: vi.fn(), clear: vi.fn() }));
 vi.mock("../src/giphy.ts", () => ({ createGiphyPreloader: () => giphy }));
 
-const relay = vi.hoisted(() => ({ receive: undefined as undefined | ((message: any) => void), send: vi.fn(), close: vi.fn() }));
+const relay = vi.hoisted(() => ({ receive: undefined as undefined | ((message: any) => void), hello: vi.fn(), send: vi.fn(), close: vi.fn() }));
 vi.mock("@streamface/browser-runtime", () => ({ RelayClient: class {
-  constructor(_url: string, _hello: unknown, receive: (message: any) => void) { relay.receive = receive; }
+  constructor(_url: string, _hello: unknown, receive: (message: any) => void) { relay.hello(_hello); relay.receive = receive; }
   send = relay.send;
   close = relay.close;
 } }));
@@ -20,13 +20,21 @@ vi.mock("@streamface/stream-chat", () => ({ DirectStreamChatService: class {
 afterEach(() => {
   window.dispatchEvent(new Event("pagehide"));
   vi.useRealTimers(); vi.unstubAllGlobals(); vi.resetModules();
-  document.body.replaceChildren(); relay.send.mockClear();
+  document.body.replaceChildren(); relay.send.mockClear(); relay.hello.mockClear();
   assets.load.mockClear(); assets.retain.mockClear(); assets.clear.mockClear();
   giphy.load.mockClear(); giphy.retain.mockClear(); giphy.clear.mockClear();
 });
+test.each(["/emote-listings/", "/board/"])("%s initializes the listing runtime, not effect playback", async path => {
+  history.replaceState({}, "", `${path}?did=did:plc:alice`);
+  document.body.innerHTML = '<main class="board"></main>';
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ enabled: true, streamerDid: "did:plc:alice", commands: [] })));
+  await import("../src/cloud-overlay.ts"); await flushPromises();
+  expect(relay.hello).toHaveBeenCalledWith(expect.objectContaining({ page: "board" }));
+  expect(relay.send).not.toHaveBeenCalledWith(expect.objectContaining({ event: "config-loaded" }));
+});
 
 test("Giphy IDs preload on startup and updates without entering the blob cache", async () => {
-  history.replaceState({}, "", "/effect/?did=did:plc:alice");
+  history.replaceState({}, "", "/emotes/?did=did:plc:alice");
   document.body.innerHTML = '<main class="effect"></main>';
   const command = { id: "gif", command: "gif", mode: "sticker", durationSeconds: 5, cooldownSeconds: 0, volume: 1, width: "", height: "", mirrored: false };
   let commands = [{ ...command, image: { giphyId: "abc" } }];

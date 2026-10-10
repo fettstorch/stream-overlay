@@ -11,7 +11,7 @@ import tailUrl from "../../../modules/emoticons/assets/speech-bubble-tail.png";
 import { createStickerAssetCache } from "../../../modules/emoticons/src/asset-cache.ts";
 import { createGiphyPreloader } from "./giphy.ts";
 
-const boardMode = location.pathname.startsWith("/board"); const did = new URLSearchParams(location.search).get("did") ?? ""; const channel = new URLSearchParams(location.search).get("preview") === "1" ? "preview" : "live";
+const boardMode = document.querySelector(".board") !== null; const did = new URLSearchParams(location.search).get("did") ?? ""; const channel = new URLSearchParams(location.search).get("preview") === "1" ? "preview" : "live";
 if (!did.startsWith("did:")) document.body.textContent = "Missing ?did= account identifier";
 const container = document.querySelector<HTMLElement>(boardMode ? ".board" : ".effect")!; let config: EmoticonState = { enabled: false, commands: [], assets: [] }; let cooldowns: RelaySnapshot["cooldowns"] = {}; let revision = 0;
 const testRequests = new Map<string, string>();

@@ -18,7 +18,7 @@ import { jsonToLex, lexToJson } from "@atproto/lexicon";
 
 const did = "did:plc:alice",
   timestamp = "2026-10-09T12:00:00.000Z";
-test("roles round trip separately for Bot and Emoticons and survive older clients", () => {
+test("roles round trip separately for Bot and Emotes and survive older clients", () => {
   const roles = { followers: true, mutuals: false, moderators: true, users: [{ did: "did:plc:viewer", handle: "viewer.example" }] };
   const botRoles = { ...roles, followers: false, mutuals: true };
   const candidate = { ...config, roles, bot: { enabled: true, rules: [], roles: botRoles } };

@@ -32,7 +32,7 @@ const chatService = new StreamChatService(getActorProfile, (event, details) => l
 const directChatService = new DirectStreamChatService((event, details) => logger.log(event, details));
 const emoticons = new EmoticonService(join(projectRoot, "runtime/emoticons"), (event, details) => logger.log(event, details));
 const emoticonBundle = await Bun.build({ entrypoints: [join(projectRoot, "modules/emoticons/src/client.ts")], target: "browser", minify: true });
-if (!emoticonBundle.success) throw new AggregateError(emoticonBundle.logs, "Could not build Emoticons");
+if (!emoticonBundle.success) throw new AggregateError(emoticonBundle.logs, "Could not build Emotes");
 const emoticonJavascript = await emoticonBundle.outputs[0]!.text();
 // Keep HTML and its startup-built client in sync throughout this host run.
 const emoticonHtml = await Bun.file(join(projectRoot, "modules/emoticons/index.html")).text();

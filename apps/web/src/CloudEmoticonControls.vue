@@ -80,8 +80,8 @@ watch(() => pending.value.image?.giphyId, async id => {
 const defaults = (): CloudCommand => ({
   id: "",
   command: "",
-  mode: "effect",
-  durationSeconds: 5,
+  mode: "sticker",
+  durationSeconds: 8,
   cooldownSeconds: 20,
   volume: 1,
   width: "",
@@ -110,7 +110,7 @@ const groups = computed(() => [
     commands: props.config.commands.filter((command) => command.mode !== "sticker"),
   },
   {
-    title: "Emoticons (stickers)",
+    title: "Emotes (stickers)",
     commands: props.config.commands.filter((command) => command.mode === "sticker"),
   },
 ]);
@@ -456,7 +456,7 @@ defineExpose({ acceptCardDrop });
       @confirm="deleteConfirmed(deleting!, $event)"
     />
     <div v-show="!panel || panel === 'commands'" :inert="panel === 'create' || undefined">
-    <h4 v-if="!panel">Emoticon commands</h4>
+    <h4 v-if="!panel">Emote commands</h4>
     <CollapsibleSection
       v-for="group in groups"
       :key="group.title"
@@ -485,7 +485,7 @@ defineExpose({ acceptCardDrop });
       </div>
       <div class="command-mode-selector">
         <strong :class="{ 'mode-selected': form.mode === 'effect' }">Clip</strong>
-        <label class="switch">
+        <label class="switch choice-switch">
           <input
           type="checkbox"
           aria-label="Sticker mode"

@@ -52,6 +52,7 @@
   background: url("./assets/branding/controls/toggle-frame.png") center / 100% 100% no-repeat;
 }
 #app .switch input:checked + span::after { transform: translateX(22px); background-color: #90d6a8; }
+#app .choice-switch input:checked + span::after { background-color: #fff; }
 #app .switch input:focus-visible + span { outline: 3px solid #526baf; outline-offset: 3px; }
 #app .switch input:disabled + span { opacity: .45; cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) {

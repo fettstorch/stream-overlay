@@ -124,7 +124,7 @@ an OBS Browser Source. New messages appear with their author's display name
 (or handle/DID fallback) on a transparent background, newest at the bottom.
 The overlay retains at most 50 messages; previous chat history is not fetched.
 Switching Chat off clears the display and stops its subscription; switching on
-resumes with new incoming messages. Chat, Emoticons, and both Pokémon modules
+resumes with new incoming messages. Chat, Emotes, and both Pokémon modules
 share one direct Stream.place WebSocket connection in the host, with no additional
 port or server. The Jetstream listener remains a separate service for future
 AT Protocol consumers; no current host module needs to start it. Pets continues
@@ -286,7 +286,7 @@ Runtime interval counters use ephemeral server memory; stable per-window PDS
 record keys provide additional duplicate protection across server restarts.
 Publish the updated Bot settings lexicon before rolling out routines to PDSs.
 
-The Streamface admin includes Emoticons, Chat and Overlay Paint. Streamplace
+The Streamface admin includes Emotes, Chat and Overlay Paint. Streamplace
 Pets is temporarily excluded from cloud builds pending upstream permission;
 its local integration remains available. Pokémon Blue and Crystal remain local-only. The local `bun run overlay`
 workflow and its existing OBS URLs are unchanged.
@@ -299,16 +299,20 @@ Cloud OBS sources use your account DID in `?did=`:
 
 | Source | Path |
 | --- | --- |
-| Emoticon effects | `/effect/` |
-| Emoticon command listing | `/board/` |
+| Emote effects | `/emotes/` |
+| Emote command listing | `/emote-listings/` |
 | Chat | `/chat/` |
 | Overlay Paint | `/paint/` |
 | Streamplace Pets | `/pets/` |
 
+The old `/effect/` and `/board/` paths remain working aliases for existing OBS
+sources. Published `live.streamface.emoticons.*` record IDs and existing storage
+paths remain unchanged; “Emotes” is the user-facing module name.
+
 All modules share the stream selected in the admin. Stream dimensions
 are detected from Stream.place, with a 1920 × 1080 fallback and OBS setup
 instructions. Each module supports pinning, collapsing, search and an inline
-preview. Emoticons previews play audio and use a separate cooldown channel;
+preview. Emotes previews play audio and use a separate cooldown channel;
 Test dispatches to both the live source and the preview. Author avatars and
 test placeholders appear with effects. The command listing keeps thumbnails,
 usage examples, cooldown rings and automatic scrolling.
@@ -340,9 +344,9 @@ bun run typecheck
 bun run build
 ```
 
-## Emoticons
+## Emotes
 
-Start with `bun run overlay`, select your streamer account, and open **Emoticons**
+Start with `bun run overlay`, select your streamer account, and open **Emotes**
 in Admin and enable the module (new installations start it disabled). Create a command with an image/GIF, an audio file, or both. Drop files
 into the corresponding upload area or use its file picker. Click **Create command**
 or **Save changes** after uploads. Commands and uploaded assets persist locally in
@@ -362,7 +366,7 @@ Stickers default to a 5vw × 5vw box and an eight-second lifetime; CSS size and
 duration remain configurable. They bypass effect queues and cooldowns, and can
 overlap normal effects. Disabling the module clears both kinds.
 
-Names are unique within Emoticons. Other modules remain independent: configuring
+Names are unique within Emotes. Other modules remain independent: configuring
 `pet` here can invoke both this effect and Pokémon's pet behavior.
 
 The first invocation enters the shared queue immediately. Its per-command
@@ -390,7 +394,7 @@ Add **two separate OBS Browser Sources**:
    box of **40vw × 35vh**, centered horizontally at **5vh** from the top. Optional
    CSS width/height fields override the box per command (e.g. `500px`, `50vw`,
    `30vh`, `50%`, `auto`); leaving fields empty restores defaults.
-2. Instruction board: `http://localhost:3001/overlays/emoticons/board/`. Start at
+2. Command listing: `http://localhost:3001/overlays/emoticons/board/`. Start at
    **420 × 600** and choose its size/position independently. Increase its height
    for longer command lists. It lists every saved command,
    updates live after edits without refreshing OBS, and emits no audio.
@@ -404,12 +408,12 @@ connection. Use the effect URL’s open icon in Admin to preview effects in a se
 tab. Uploaded audio has a muted player you can explicitly unmute to audition it. **Test** follows the same
 queue/cooldown rules and plays audio in connected OBS effect sources.
 
-Turning Emoticons off hides both sources, stops audio and clears pending effects.
+Turning Emotes off hides both sources, stops audio and clears pending effects.
 Re-enabling starts empty. A disconnected source clears its display and never
 replays historical effects after reconnecting. No additional server or port is
 needed; all existing OBS URLs retain their behavior.
 
-Emoticons diagnostics use the existing host log file (its exact location is printed
+Emotes diagnostics use the existing host log file (its exact location is printed
 at startup). Filter for `emoticons.` to follow command receipt, rejection reasons
 (disabled, unknown, duplicate, queued, playing or cooldown), queue acceptance,
 effect broadcasts and completion. Overlay logs report connections, effect
