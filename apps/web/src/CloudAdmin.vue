@@ -484,9 +484,6 @@ onBeforeUnmount(() => {
               />Ask for confirmation before deleting commands</label
             >
             <p v-if="moduleMessages.preferences" role="alert">{{ moduleMessages.preferences }}</p>
-            <CollapsibleSection title="Copy a setup">
-              <SetupImport :did="did" :config="config" :save="candidate => saveConfiguration(candidate, undefined, 'preferences')" />
-            </CollapsibleSection>
           </CollapsibleSection>
           <button
             v-if="profileState === 'unavailable'"
@@ -508,6 +505,10 @@ onBeforeUnmount(() => {
         </p>
       </section>
       <p v-if="configurationMessage" role="status">{{ configurationMessage }}</p>
+      <CollapsibleSection v-if="config" title="Copy a setup">
+        <SetupImport :did="did" :config="config" :save="candidate => saveConfiguration(candidate, undefined, 'preferences')" />
+        <p v-if="moduleMessages.preferences" role="alert">{{ moduleMessages.preferences }}</p>
+      </CollapsibleSection>
       <section>
         <h2>Modules</h2>
         <label v-if="cloudModules.length >= 6" class="module-search"
