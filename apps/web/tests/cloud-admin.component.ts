@@ -317,7 +317,9 @@ describe("Cloud Admin", () => {
     const wrapper = mount(CloudEmoticonControls, { props: { did: session.did, config: { ...config, commands: [] }, save } });
     await wrapper.get(".primary-button").trigger("click");
     await wrapper.get('input[placeholder="!wow"]').setValue("cube");
-    await wrapper.get('.sticker-toggle input').setValue(true);
+    expect(wrapper.text()).toContain('Clips play your image, GIF, video or audio');
+    await wrapper.get('input[aria-label="Sticker mode"]').setValue(true);
+    expect(wrapper.text()).toContain('Silent stickers drift upward independently. Every matching message spawns one.');
     const file = new File(["cube"], "cube.png", { type: "image/png" });
     const input = wrapper.get('input[type="file"]');
     Object.defineProperty(input.element, "files", { configurable: true, value: [file] });

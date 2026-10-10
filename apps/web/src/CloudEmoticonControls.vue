@@ -433,20 +433,25 @@ defineExpose({ acceptCardDrop });
         <h4>{{ editing ? "Edit command" : "Create command" }}</h4>
         <button v-if="!panel" type="button" class="secondary-button" @click="reset">Close</button>
       </div>
-      <label class="sticker-toggle"
-        ><input
+      <div class="command-mode-selector">
+        <strong :class="{ 'mode-selected': form.mode === 'effect' }">Clip</strong>
+        <label class="switch">
+          <input
           type="checkbox"
+          aria-label="Sticker mode"
           :checked="form.mode === 'sticker'"
           @change="
             form.mode = ($event.target as HTMLInputElement).checked ? 'sticker' : 'effect';
             changeMode();
           "
-        />
-        Sticker</label
-      >
+          /><span aria-hidden="true" />
+        </label>
+        <strong :class="{ 'mode-selected': form.mode === 'sticker' }">Sticker</strong>
+      </div>
       <small v-if="form.mode === 'sticker'"
         >Silent stickers drift upward independently. Every matching message spawns one.</small
       >
+      <small v-else>Clips play your image, GIF, video or audio for a set duration. A cooldown limits how often chat can trigger them.</small>
       <label
         >Command <input v-model="form.command" placeholder="!wow" required maxlength="40"
       /></label>
