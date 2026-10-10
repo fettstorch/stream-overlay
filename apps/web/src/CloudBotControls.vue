@@ -18,6 +18,24 @@ const command = ref(""),
   cooldown = ref(30),
   editing = ref<string>();
 const tab = ref("commands");
+const chatText = ref(""), chatSending = ref(false), chatStatus = ref(""), chatPermissionRequired = ref(false);
+async function sendChat() {
+  if (chatSending.value || !chatText.value.trim()) return;
+  chatSending.value = true; chatStatus.value = ""; chatPermissionRequired.value = false;
+  try {
+    const result = await adminFetch(`/api/accounts/${encodeURIComponent(props.config.streamerDid)}/chat/message`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: chatText.value }),
+    });
+    const data = await result.json();
+    if (!result.ok) {
+      chatPermissionRequired.value = data.error === "chat-permission-required";
+      throw new Error(data.message ?? "Could not send your message.");
+    }
+    chatText.value = ""; chatStatus.value = "Message sent to your stream chat.";
+  } catch (error) {
+    chatStatus.value = error instanceof Error ? error.message : "Could not confirm sending. Check chat before retrying.";
+  } finally { chatSending.value = false; }
+}
 const chatUrl = computed(() => `https://stream.place/chat-popout/${encodeURIComponent(props.config.streamerDid)}`);
 const tabs = [
   { id: "commands", label: "Commands" },
@@ -121,6 +139,12 @@ async function copy() {
       <div class="bot-commands-layout">
       <div class="bot-chat">
         <iframe v-if="tab === 'commands'" :src="chatUrl" title="Your Streamplace chat" referrerpolicy="no-referrer" />
+        <form class="bot-chat-composer editor-fields" @submit.prevent="sendChat">
+          <label>Send as your logged-in account<input v-model="chatText" placeholder="Type a chat message or !command" maxlength="3000" required :disabled="chatSending" /></label>
+          <button type="submit" :disabled="chatSending || !chatText.trim()">{{ chatSending ? 'Sending…' : 'Send message' }}</button>
+          <p v-if="chatStatus" role="status">{{ chatStatus }}</p>
+          <a v-if="chatPermissionRequired" :href="`/oauth/login?handle=${encodeURIComponent(config.streamerDid)}`">Authorize chat posting</a>
+        </form>
         <p class="settings-hint">Type commands in your chat to test real bot replies. Normal roles, restrictions and cooldowns apply.</p>
         <p v-if="!config.bot?.enabled" class="settings-hint">Enable the Bot module to respond to commands here.</p>
         <iframe v-if="tab === 'commands' && sourceUrl && configured && config.bot?.enabled"
@@ -203,6 +227,8 @@ async function copy() {
 .bot-chat > iframe:not([hidden]) { width: 100%; height: 480px; border: 0; background: white; }
 .bot-chat > iframe[hidden] { display: none; }
 .bot-chat .settings-hint { margin-top: 12px; }
+.bot-chat-composer { display: grid; gap: 10px; margin-top: 12px; }
+.bot-chat-composer button { justify-self: start; }
 @media (min-width: 900px) {
   .bot-commands-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 }

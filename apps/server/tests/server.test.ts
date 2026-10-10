@@ -9,7 +9,7 @@ import {
   handleRequest,
 } from "../src/server.ts";
 import { sessionCookie } from "../src/auth.ts";
-import { CloudConfigConflictError, CloudConfigMissingError } from "../src/pds.ts";
+import { ChatPermissionRequiredError, CloudConfigConflictError, CloudConfigMissingError } from "../src/pds.ts";
 import { StructuredLogger } from "../src/logger.ts";
 import { JsonStore } from "../src/store.ts";
 
@@ -29,6 +29,26 @@ function webRoot() {
 }
 
 describe("cloud server boundary", () => {
+  test("user chat requires owner cookie and origin, validates text and explains permission failures", async () => {
+    const deps = dependencies(webRoot()), calls: unknown[] = [];
+    deps.pds.sendChat = async (...args) => { calls.push(args); return "at://sent"; };
+    const url = "https://overlay.example/api/accounts/did:plc:alice/chat/message";
+    const cookie = await sessionCookie("did:plc:alice", deps.secret);
+    const send = (text: unknown, origin = deps.origin, auth = cookie) => handleRequest(new Request(url, {
+      method: "POST", headers: { Origin: origin, Cookie: `stream_overlay_session=${auth}` }, body: JSON.stringify({ text }),
+    }), deps);
+    expect((await send("hi", "https://evil.example")).status).toBe(403);
+    expect((await send("hi", deps.origin, await sessionCookie("did:plc:other", deps.secret))).status).toBe(401);
+    for (const text of ["", "a".repeat(301), null]) expect((await send(text)).status).toBe(400);
+    expect(calls).toHaveLength(0);
+    expect((await send(" !hi ")).status).toBe(200);
+    expect((calls[0] as any[]).slice(0, 2)).toEqual(["did:plc:alice", "!hi"]);
+    deps.pds.sendChat = async () => { throw new ChatPermissionRequiredError(); };
+    const rejected = await send("hi");
+    expect(rejected.status).toBe(403);
+    expect((await rejected.json()).error).toBe("chat-permission-required");
+    expect(deps.oauth.clientMetadata.scope).toContain("repo:place.stream.chat.message");
+  });
   test("bot source URL is owner-only and trigger requires its scoped token", async () => {
     const deps = dependencies(webRoot());
     const root = "https://overlay.example/api/accounts/did:plc:alice/bot";

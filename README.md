@@ -255,6 +255,15 @@ stream.place stream; no separate streamer selection is needed.
 The cloud user interface is served at `/`. OAuth returns there too; old `/admin/`
 bookmarks redirect to `/`. The separate local overlay host keeps its existing admin URL.
 
+The Bot Commands tab embeds your Streamplace chat and provides a separate message
+input using your Streamface login. Sending publishes a real, public
+`place.stream.chat.message` record on your PDS, as you, to your own stream.
+Existing logins need to authorize the added chat-write permission using the
+"Authorize chat posting" link. Normal bot roles, restrictions and cooldowns apply;
+this is not an admin-test bypass. Failed sends retain the draft and are never
+automatically retried. The chat listener runs only while Commands is open and the
+Bot is enabled; OBS can run alongside it using the existing duplicate protection.
+
 The Streamface admin includes Emoticons, Chat and Overlay Paint. Streamplace
 Pets is temporarily excluded from cloud builds pending upstream permission;
 its local integration remains available. Pokémon Blue and Crystal remain local-only. The local `bun run overlay`

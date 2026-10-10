@@ -3,6 +3,8 @@ import { getCloudOverlayPages } from "../../../modules/catalog.ts";
 import { tmpdir } from "node:os";
 import { createOAuth, readSessionCookie, sessionCookie } from "./auth.ts";
 import {
+  ChatPermissionRequiredError,
+  ChatRateLimitError,
   CloudConfigConflictError,
   CloudConfigMissingError,
   PdsService,
@@ -240,6 +242,29 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
     }
   }
   if (path === "/health") return json({ status: "ok" });
+  const chatDid = didFromPath(path, "chat/message");
+  if (chatDid && request.method === "POST") {
+    if (!sameOrigin(request, deps.origin)) return json({ error: "invalid-origin" }, 403);
+    if (await readSessionCookie(request, deps.secret) !== chatDid) return json({ error: "unauthorized" }, 401);
+    let text: string;
+    try {
+      const data = JSON.parse(new TextDecoder().decode(await boundedBody(request, 16384)));
+      if (typeof data.text !== "string") throw new Error();
+      text = data.text.trim();
+      const graphemes = [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text)].length;
+      if (!text || Buffer.byteLength(text) > 3000 || graphemes > 300) throw new Error();
+    } catch { return json({ error: "invalid-message", message: "Enter a message of up to 300 characters." }, 400); }
+    try {
+      const uri = await deps.pds.sendChat(chatDid, text, { logger: deps.logger, requestId });
+      return json({ sent: true, uri });
+    } catch (error) {
+      const permission = error instanceof ChatPermissionRequiredError;
+      deps.logger.log("warn", "cloud.chat.send-failed", { requestId, reason: permission ? "permission-required" : error instanceof ChatRateLimitError ? "rate-limit" : "pds-failed", ...safeError(error) });
+      if (permission) return json({ error: "chat-permission-required", message: "Sign in again to allow Streamface to send chat messages as you.", requestId }, 403);
+      if (error instanceof ChatRateLimitError) return json({ error: "rate-limit", message: "Wait a moment before sending again.", requestId }, 429);
+      return json({ error: "chat-send-failed", message: "Could not confirm sending your message. Check the chat before retrying.", requestId }, 502);
+    }
+  }
   const botDid = didFromPath(path, "bot/(source|trigger)");
   if (botDid && path.endsWith("/source") && request.method === "GET") {
     if (await readSessionCookie(request, deps.secret) !== botDid) return json({ error: "unauthorized" }, 401);
@@ -650,7 +675,7 @@ export function createDependencies(env = process.env): Dependencies {
     namespace === STREAMFACE_NAMESPACE ? moduleCollections : collections(namespace),
   )
     .map((collection) => `repo:${collection}`)
-    .join(" ")} blob:image/* blob:audio/* blob:video/*`;
+    .join(" ")} repo:place.stream.chat.message blob:image/* blob:audio/* blob:video/*`;
   const logger = new StructuredLogger(
     env.CLOUD_LOG_FILE ??
       (local && env.NODE_ENV !== "production"

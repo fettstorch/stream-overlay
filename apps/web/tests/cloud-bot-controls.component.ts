@@ -19,6 +19,21 @@ const config = {
   revision: "1",
   bot: { enabled: false, rules: [] },
 };
+test("chat composer preserves failed messages and offers reauthorization before successful posting", async () => {
+  const wrapper = mount(CloudBotControls, { props: { config, save: vi.fn() } });
+  await flushPromises();
+  const input = wrapper.get('input[placeholder="Type a chat message or !command"]');
+  await input.setValue('!hi');
+  request.mockResolvedValueOnce(Response.json({ error: 'chat-permission-required', message: 'Sign in again to allow chat posting.' }, { status: 403 }));
+  await wrapper.get('.bot-chat-composer').trigger('submit'); await flushPromises();
+  expect((input.element as HTMLInputElement).value).toBe('!hi');
+  expect(wrapper.get('.bot-chat-composer a').attributes('href')).toBe('/oauth/login?handle=did%3Aplc%3Aowner');
+  request.mockResolvedValueOnce(Response.json({ sent: true }));
+  await wrapper.get('.bot-chat-composer').trigger('submit'); await flushPromises();
+  expect(request).toHaveBeenLastCalledWith('/api/accounts/did%3Aplc%3Aowner/chat/message', expect.objectContaining({ method: 'POST', body: JSON.stringify({ text: '!hi' }) }));
+  expect((input.element as HTMLInputElement).value).toBe('');
+  wrapper.unmount();
+});
 test("Commands embeds the streamer's chat and runs the private listener only while enabled and open", async () => {
   const wrapper = mount(CloudBotControls, { props: { config, save: vi.fn() } });
   await flushPromises();
@@ -64,16 +79,16 @@ test("saves rules through existing configuration flow and preserves input on fai
     "Create new",
     "Moderation",
   ]);
-  expect((wrapper.get("form").element as HTMLFormElement).style.display).toBe("none");
+  expect((wrapper.get("form.bot-tab-content").element as HTMLFormElement).style.display).toBe("none");
   await wrapper.findAll('[role="tab"]')[1]!.trigger("click");
-  expect((wrapper.get("form").element as HTMLFormElement).style.display).not.toBe("none");
-  expect(wrapper.get("form").find("h4").exists()).toBe(false);
+  expect((wrapper.get("form.bot-tab-content").element as HTMLFormElement).style.display).not.toBe("none");
+  expect(wrapper.get("form.bot-tab-content").find("h4").exists()).toBe(false);
   expect(wrapper.get("section.bot-tab-content").find("h4").exists()).toBe(false);
   expect(request).toHaveBeenCalledWith("/api/accounts/did%3Aplc%3Aowner/bot/source");
-  const inputs = wrapper.findAll("input");
+  const inputs = wrapper.get("form.bot-tab-content").findAll("input");
   await inputs[0].setValue("!discord");
   await inputs[1].setValue("Join our Discord!");
-  await wrapper.get("form").trigger("submit");
+  await wrapper.get("form.bot-tab-content").trigger("submit");
   await flushPromises();
   expect(save).toHaveBeenCalledWith(
     expect.objectContaining({
@@ -85,12 +100,12 @@ test("saves rules through existing configuration flow and preserves input on fai
   );
   expect((inputs[0].element as HTMLInputElement).value).toBe("!discord");
   save.mockResolvedValue(true);
-  await wrapper.get("form").trigger("submit");
+  await wrapper.get("form.bot-tab-content").trigger("submit");
   await flushPromises();
   expect((inputs[0].element as HTMLInputElement).value).toBe("");
   await wrapper.get('button[type="button"]:not([role="tab"])').trigger("click");
   expect(wrapper.findAll('[role="tab"]')[1]!.attributes("aria-selected")).toBe("true");
-  expect(wrapper.get("form").classes()).toContain("editor-fields");
+  expect(wrapper.get("form.bot-tab-content").classes()).toContain("editor-fields");
   wrapper.unmount();
 });
 test("duplicate commands never overwrite existing rules accidentally", async () => {
@@ -106,7 +121,7 @@ test("duplicate commands never overwrite existing rules accidentally", async () 
   });
   await wrapper.get('input[placeholder="!discord"]').setValue("hi");
   await wrapper.get('input[placeholder="Join our Discord…"]').setValue("Changed");
-  await wrapper.get("form").trigger("submit");
+  await wrapper.get("form.bot-tab-content").trigger("submit");
   await flushPromises();
   expect(save).not.toHaveBeenCalled();
   expect(wrapper.text()).toContain("unique command");
