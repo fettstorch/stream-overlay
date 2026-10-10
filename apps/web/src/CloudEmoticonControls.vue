@@ -561,9 +561,13 @@ defineExpose({ acceptCardDrop });
             :placeholder="form.mode === 'sticker' ? '5vw (default)' : '35vh (default)'"
         /></label>
       </div>
-      <label v-if="form.mode === 'effect'"
-        >Volume <input v-model.number="form.volume" type="range" min="0" max="1" step="0.05"
-      /></label>
+      <div v-if="form.mode === 'effect'" class="appearance-controls">
+        <label class="chat-slider">
+          <span>Volume</span>
+          <output>{{ Math.round(form.volume * 100) }}%</output>
+          <input v-model.number="form.volume" type="range" min="0" max="1" step="0.05" aria-label="Volume" />
+        </label>
+      </div>
       <div class="form-actions">
         <button class="primary-button" type="submit" :disabled="busy">
           {{ editing ? "Save changes" : "Create new command" }}</button
