@@ -16,6 +16,7 @@ import {
   type PublicActorProfile,
 } from "./actor-search.ts";
 import CloudEmoticonControls from "./CloudEmoticonControls.vue";
+import EmoticonModeration from "./EmoticonModeration.vue";
 import CloudModuleControls from "./CloudModuleControls.vue";
 import CollapsibleSection from "./CollapsibleSection.vue";
 import ModuleHelp from "./ModuleHelp.vue";
@@ -78,6 +79,7 @@ const emoticonTab = ref("commands");
 const emoticonTabs = computed(() => [
   { id: "commands", label: "Commands" },
   { id: "create", label: "Create new" },
+  { id: "moderation", label: "Moderation" },
 ]);
 async function prepareEmoticonTest(command: CloudCommand) {
   emoticonTab.value = "commands";
@@ -670,7 +672,10 @@ onBeforeUnmount(() => {
                     :src="listingPreviewUrl" title="Emoticons command listing preview" class="listing-preview" />
                 </section>
               </div>
+                  <EmoticonModeration v-show="emoticonTab === 'moderation'" :config="config" :save="saveConfiguration" />
                 <CloudEmoticonControls
+                    v-show="emoticonTab !== 'moderation'"
+                    :inert="emoticonTab === 'moderation' || undefined"
                   :ref="(value) => setModuleControls(module.id, value)"
                   :did="did"
                   :config="config"

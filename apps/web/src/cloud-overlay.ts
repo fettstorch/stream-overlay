@@ -32,6 +32,15 @@ function offerSound() {
   document.body.append(soundButton);
 }
 let rejectionReason: string | undefined;
+const moderationLogTimes = new Map<string, number>();
+function moderationDiagnostic(event: "moderation-accepted" | "moderation-rejected", details: Omit<EffectDiagnostic, "type" | "event">) {
+  const key = `${event}:${details.reason ?? "accepted"}`;
+  const now = Date.now();
+  // Chat spam must not itself flood the relay or the log sink.
+  if (now - (moderationLogTimes.get(key) ?? -Infinity) < 5000) return;
+  moderationLogTimes.set(key, now);
+  diagnostic(event, details);
+}
 function diagnostic(event: EffectDiagnostic["event"], details: Omit<EffectDiagnostic, "type" | "event"> = {}) { relay.send({ type: "diagnostic", event, ...details }); }
 function renderBoard() { board?.render({ ...config, cooldowns }); }
 async function play(event: Extract<EmoticonEvent, { type: "effect" }>) {
@@ -116,7 +125,14 @@ async function play(event: Extract<EmoticonEvent, { type: "effect" }>) {
   setTimeout(() => { for (const element of wrapper.querySelectorAll("audio,video")) { (element as HTMLMediaElement).pause(); activeMedia.delete(element as HTMLMediaElement); } wrapper.remove(); activeWrappers.delete(wrapper); }, event.durationSeconds * 1000);
 }
 function nextRevision() { revision = Math.max(revision + 1, Date.now()); return revision; }
-const runtime = boardMode ? undefined : new EmoticonRuntime({ effect: play, log: (event, details) => { if (event === "emoticons.command-rejected") rejectionReason = String(details?.reason ?? "unknown"); }, cooldowns: state => { cooldowns = state; relay.send({ type: "cooldowns", revision: nextRevision(), cooldowns: state, requestId: cooldownRequestId }); } });
+const runtime = boardMode ? undefined : new EmoticonRuntime({ effect: play, log: (event, details) => {
+  if (event === "emoticons.command-rejected") {
+    rejectionReason = String(details?.reason ?? "unknown");
+    if (rejectionReason === "user-blocked" || rejectionReason === "user-cooldown")
+      moderationDiagnostic("moderation-rejected", { commandId: String(details?.commandId), reason: rejectionReason });
+  }
+  if (event === "emoticons.moderation-accepted") moderationDiagnostic("moderation-accepted", { commandId: String(details?.commandId) });
+}, cooldowns: state => { cooldowns = state; relay.send({ type: "cooldowns", revision: nextRevision(), cooldowns: state, requestId: cooldownRequestId }); } });
 const chat = boardMode ? undefined : new DirectStreamChatService(); chat?.messages.subscribe(message => runtime?.message(message.id, message.text, message.author));
 async function refresh(force = false) {
   try {
@@ -139,7 +155,7 @@ async function refresh(force = false) {
       }
       preloadedSources = new Set([...preloadedSources].filter(source => sources.has(source)));
     }
-    config = { enabled: cloud.enabled, commands, assets: [], cooldowns };
+    config = { enabled: cloud.enabled, commands, assets: [], cooldowns, moderation: cloud.moderation };
     runtime?.configure(config);
     configLoaded = true; markPreviewReady();
     if (!cloud.enabled) clearPlayback();

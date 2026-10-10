@@ -25,6 +25,66 @@ test("clip queue waits for media readiness before consuming display duration", a
 });
 afterEach(() => { for (const runtime of runtimes.splice(0)) runtime.clear(); });
 
+test("moderation blocks by DID across commands but leaves preview tests alone", () => {
+  const effects: string[] = [], logs: string[] = [];
+  const runtime = new EmoticonRuntime({ effect: event => { effects.push(event.command.id); },
+    log: (_event, detail) => { if (detail?.reason) logs.push(String(detail.reason)); } });
+  runtimes.push(runtime);
+  runtime.configure({ enabled: true, commands: [command("clip"), command("sticker", { mode: "sticker" })], assets: [],
+    moderation: [{ did: "did:plc:blocked", handle: "old.handle", blocked: true, cooldownSeconds: 30 }] });
+  runtime.message("1", "!clip", { did: "did:plc:blocked", handle: "new.handle" });
+  runtime.message("2", "!sticker x3", { did: "did:plc:blocked" });
+  expect(effects).toEqual([]);
+  expect(logs).toEqual(["user-blocked", "user-blocked"]);
+  expect(runtime.trigger("sticker", "preview", undefined, { did: "did:plc:blocked" })).toBe(true);
+  runtime.message("3", "!sticker", { did: "did:plc:other", handle: "old.handle" });
+  expect(effects).toEqual(["sticker", "sticker"]);
+});
+
+test("one personal cooldown covers clips and stickers without extending rejected attempts", () => {
+  let now = 1000;
+  const originalNow = Date.now;
+  Date.now = () => now;
+  try {
+    const effects: string[] = [], logs: string[] = [];
+    const runtime = new EmoticonRuntime({ effect: event => { effects.push(event.command.id); },
+      log: (_event, detail) => { if (detail?.reason) logs.push(String(detail.reason)); } });
+    runtimes.push(runtime);
+    const state = { enabled: true, commands: [command("clip"), command("sticker", { mode: "sticker" })], assets: [],
+      moderation: [{ did: "did:plc:viewer", blocked: false, cooldownSeconds: 30 }] };
+    runtime.configure(state);
+    runtime.message("1", "!sticker", { did: "did:plc:viewer" });
+    now = 20_000;
+    runtime.message("2", "!clip", { did: "did:plc:viewer" });
+    runtime.configure(state); // Polling must not reset cooldowns.
+    now = 31_000;
+    runtime.message("3", "!clip", { did: "did:plc:viewer" });
+    runtime.message("4", "!sticker", { did: "did:plc:viewer" });
+    runtime.message("5", "!sticker", { did: "did:plc:other" });
+    expect(effects).toEqual(["sticker", "clip", "sticker"]);
+    expect(logs).toEqual(["user-cooldown", "user-cooldown"]);
+    runtime.configure({ ...state, moderation: [] });
+    runtime.message("6", "!sticker", { did: "did:plc:viewer" });
+    expect(effects).toHaveLength(4);
+  } finally { Date.now = originalNow; }
+});
+
+test("accepted sticker repetitions share a single personal cooldown; a new block cancels the rest", async () => {
+  const effect = mock(() => {});
+  const runtime = new EmoticonRuntime({ effect });
+  runtimes.push(runtime);
+  const state = { enabled: true, commands: [command("rain", { mode: "sticker" as const })], assets: [],
+    moderation: [{ did: "did:plc:viewer", blocked: false, cooldownSeconds: 30 }] };
+  runtime.configure(state);
+  runtime.message("1", "!rain x30", { did: "did:plc:viewer" });
+  await Bun.sleep(110);
+  expect(effect.mock.calls.length).toBeGreaterThan(1);
+  runtime.configure({ ...state, moderation: [{ ...state.moderation[0], blocked: true }] });
+  const count = effect.mock.calls.length;
+  await Bun.sleep(120);
+  expect(effect.mock.calls.length).toBe(count);
+});
+
 test("matches chat, deduplicates reconnect repeats, and owns cooldown decisions", () => {
   const effects: Extract<EmoticonEvent, { type: "effect" }>[] = [];
   const cooldowns: unknown[] = [];

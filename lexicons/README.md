@@ -15,6 +15,17 @@ record has `createdAt` and `updatedAt`. Chat's `topFadePercent` is a spatial mas
 not message decay. Owner DID and command ID are inferred from repository/record
 identity. OAuth sessions, live cooldowns and drawings are not repository records.
 
+Emoticons settings optionally contain up to 200 `moderation` rules. Each is keyed
+by a stable user DID, with an optional display handle, a complete command block,
+and a shared per-user cooldown in milliseconds. Old records default to no rules;
+older clients preserve stored rules when saving other settings. These rules are
+public PDS data. The effect browser enforces them across clips and stickers;
+runtime timers remain browser-local and admin tests bypass user restrictions.
+An accepted sticker multiplier counts as one invocation. Blocking a user also
+stops pending repeats from that user; rejected attempts never extend the timer.
+The updated Emoticons settings schema needs republication by the publisher as a
+separate operational step; no new DNS record or collection permission is needed.
+
 The server validates both reads and writes with the official ATProto Lexicon SDK,
 plus app constraints (HTTPS media, safe command names, colors and CSS sizes).
 Streamface module writes leave PDS validation unset: known schemas are validated,

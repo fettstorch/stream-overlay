@@ -1,3 +1,4 @@
+import type { EmoticonModerationRule } from "./cloud-contracts.ts";
 export interface EmoticonCommand {
   id: string;
   command: string;
@@ -27,6 +28,7 @@ export interface EmoticonState {
   enabled: boolean;
   commands: EmoticonCommand[];
   assets: EmoticonAsset[];
+  moderation?: EmoticonModerationRule[];
   cooldowns?: Record<string, { endsAt: number; durationSeconds: number }>;
 }
 export interface EmoticonAuthor { did?: string; avatar?: string; displayName?: string; handle?: string }

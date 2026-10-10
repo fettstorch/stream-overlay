@@ -1,4 +1,10 @@
 /** Transport-neutral command shape. PDS serialization belongs to the server adapter. */
+export type EmoticonModerationRule = {
+  did: string;
+  handle?: string;
+  blocked: boolean;
+  cooldownSeconds: number;
+};
 export type CloudMedia = {
   url?: string;
   blob?: {

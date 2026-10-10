@@ -40,6 +40,21 @@ const config: CloudConfig = {
     },
   ],
 };
+test("moderation rules roundtrip, retain fractional seconds and survive older clients", () => {
+  const moderation = [{ did: "did:plc:viewer", handle: "viewer.example", blocked: false, cooldownSeconds: 30.5 }];
+  const records = serializeModuleRecords({ ...config, moderation }, [], timestamp);
+  expect(records[1].value.moderation[0].cooldownMilliseconds).toBe(30500);
+  expect(parseModuleRecords(did, records).moderation).toEqual(moderation);
+  expect(parseModuleRecords(did, serializeModuleRecords(config, records, timestamp)).moderation).toEqual(moderation);
+  expect(parseModuleRecords(did, serializeModuleRecords({ ...config, moderation: [] }, records, timestamp)).moderation).toEqual([]);
+  for (const invalid of [
+    [...moderation, ...moderation],
+    [{ ...moderation[0], did: "not-a-did" }],
+    [{ ...moderation[0], cooldownSeconds: -1 }],
+    [{ ...moderation[0], cooldownSeconds: 86401 }],
+    [{ ...moderation[0], blocked: "yes" }],
+  ]) expect(() => serializeModuleRecords({ ...config, moderation: invalid as any }, [], timestamp)).toThrow();
+});
 test("account-wide preferences roundtrip, default to confirmation and survive older clients", () => {
   const initial = serializeModuleRecords(config, [], timestamp);
   expect(parseModuleRecords(did, initial).preferences).toBeUndefined();

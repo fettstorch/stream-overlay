@@ -6,9 +6,10 @@ type Options = {
   searcher: (query: string, signal: AbortSignal) => Promise<ActorSuggestion[]>;
   delayMs?: number;
   onSelect?: (actor: ActorSuggestion) => void;
+  purpose?: "sign-in" | "moderation";
 };
 
-export function attachActorCombobox({ input, status, searcher, delayMs = 300, onSelect }: Options) {
+export function attachActorCombobox({ input, status, searcher, delayMs = 300, onSelect, purpose = "sign-in" }: Options) {
   const list = document.createElement("div");
   list.id = `actor-suggestions-${crypto.randomUUID()}`;
   list.className = "actor-suggestions";
@@ -81,11 +82,11 @@ export function attachActorCombobox({ input, status, searcher, delayMs = 300, on
       if (requestSequence !== sequence) return;
       const actors = Array.isArray(body) ? body.slice(0, 6) : [];
       render(actors);
-      status.textContent = actors.length ? `${actors.length} Bluesky profile${actors.length === 1 ? "" : "s"} found.` : "No Bluesky profiles found. You can still sign in with this handle.";
+      status.textContent = actors.length ? `${actors.length} Bluesky profile${actors.length === 1 ? "" : "s"} found.` : purpose === "moderation" ? "No profiles found. Enter the exact handle to resolve the account." : "No Bluesky profiles found. You can still sign in with this handle.";
     } catch (error) {
       if (requestSequence !== sequence || (error instanceof DOMException && error.name === "AbortError")) return;
       render([]);
-      status.textContent = "Bluesky search is unavailable. You can still sign in with this handle.";
+      status.textContent = purpose === "moderation" ? "Search is unavailable. Enter the exact handle to resolve the account." : "Bluesky search is unavailable. You can still sign in with this handle.";
     }
   }
 

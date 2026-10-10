@@ -1,4 +1,5 @@
 import type { EmoticonAuthor, EmoticonCommand, EmoticonEvent, EmoticonState } from "./contracts.ts";
+import type { EmoticonModerationRule } from "./cloud-contracts.ts";
 
 export interface EmoticonRuntimeOptions {
   effect: (event: Extract<EmoticonEvent, { type: "effect" }>) => void | Promise<void>;
@@ -12,6 +13,8 @@ export class EmoticonRuntime {
   private enabled = false;
   private readonly seen = new Set<string>();
   private readonly cooldownEnds = new Map<string, number>();
+  private moderation = new Map<string, EmoticonModerationRule>();
+  private readonly userLastAccepted = new Map<string, number>();
   private readonly queue: { command: EmoticonCommand; author?: EmoticonAuthor }[] = [];
   private readonly stickerTimers = new Set<ReturnType<typeof setTimeout>>();
   private active: EmoticonCommand | null = null;
@@ -24,6 +27,8 @@ export class EmoticonRuntime {
 
   configure(state: EmoticonState) {
     this.commands = structuredClone(state.commands);
+    this.moderation = new Map((state.moderation ?? []).map(rule => [rule.did, { ...rule }]));
+    for (const did of this.userLastAccepted.keys()) if (!this.moderation.has(did)) this.userLastAccepted.delete(did);
     if (this.enabled !== state.enabled) {
       this.enabled = state.enabled;
       if (!state.enabled) this.clear();
@@ -53,7 +58,7 @@ export class EmoticonRuntime {
     for (let index = 1; index < count; index++) {
       const timer = setTimeout(() => {
         this.stickerTimers.delete(timer);
-        if (this.commands.some(item => item.id === command.id && item.mode === "sticker")) this.trigger(command.id, "chat", id, author);
+        if (this.commands.some(item => item.id === command.id && item.mode === "sticker")) this.trigger(command.id, "chat-repeat", id, author);
       }, index * 3000 / (count - 1));
       this.stickerTimers.add(timer);
     }
@@ -61,14 +66,23 @@ export class EmoticonRuntime {
 
   trigger(id: string, source = "preview", messageId?: string, author?: EmoticonAuthor) {
     const command = this.commands.find(item => item.id === id);
+    const rule = source.startsWith("chat") && author?.did ? this.moderation.get(author.did) : undefined;
+    const userRemaining = rule && this.userLastAccepted.has(rule.did)
+      ? Math.max(0, this.userLastAccepted.get(rule.did)! + rule.cooldownSeconds * 1000 - Date.now()) : 0;
     const reason = !this.enabled ? "module-disabled" : !command ? "unknown-command"
+      : rule?.blocked ? "user-blocked"
+      : source === "chat" && userRemaining > 0 ? "user-cooldown"
       : command.mode === "sticker" ? null : this.active?.id === id ? "already-playing"
       : this.queue.some(item => item.command.id === id) ? "already-queued"
       : (this.cooldownEnds.get(id) ?? 0) > Date.now() ? "cooldown" : null;
     if (reason || !command) {
       this.log("emoticons.command-rejected", { commandId: id, command: command?.command, source, messageId, reason,
-        cooldownRemainingMs: Math.max(0, (this.cooldownEnds.get(id) ?? 0) - Date.now()) });
+        cooldownRemainingMs: reason === "user-cooldown" ? userRemaining : Math.max(0, (this.cooldownEnds.get(id) ?? 0) - Date.now()) });
       return false;
+    }
+    if (source === "chat" && rule) {
+      this.userLastAccepted.set(rule.did, Date.now());
+      this.log("emoticons.moderation-accepted", { commandId: id, messageId, cooldownSeconds: rule.cooldownSeconds });
     }
     if (source === "preview" && !author) author = {
       displayName: "Test sender",
@@ -94,6 +108,7 @@ export class EmoticonRuntime {
     this.active = null;
     this.queue.length = 0;
     this.cooldownEnds.clear();
+    this.userLastAccepted.clear();
     this.publishCooldowns();
   }
 

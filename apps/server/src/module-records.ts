@@ -11,6 +11,7 @@ import { moduleSettings } from "../../../packages/protocol/src/cloud-settings.ts
 import type { CloudConfig } from "../../../packages/protocol/src/cloud-config.ts";
 import type { CloudCommand, CloudMedia } from "../../../modules/emoticons/src/cloud-contracts.ts";
 import { validateCloudCommand } from "../../../modules/emoticons/src/validation.ts";
+import { validateModeration } from "../../../modules/emoticons/src/moderation.ts";
 
 export const STREAMFACE_NAMESPACE = "live.streamface";
 export const LEGACY_NAMESPACE = "invalid.streamoverlay.dev";
@@ -100,6 +101,11 @@ export function parseModuleRecords(did: string, records: StoredRecord[]): CloudC
     });
   if (new Set(commands.map((command) => command.command)).size !== commands.length)
     throw new Error("Duplicate commands");
+  const moderation = (get(moduleCollections.emoticons)?.moderation ?? []).map((rule: any) => ({
+    did: rule.did, blocked: rule.blocked, cooldownSeconds: rule.cooldownMilliseconds / 1000,
+    ...(rule.handle !== undefined ? { handle: rule.handle } : {}),
+  }));
+  validateModeration(moderation);
   return {
     ...moduleSettings({
       modules: {
@@ -127,6 +133,7 @@ export function parseModuleRecords(did: string, records: StoredRecord[]): CloudC
     enabled: get(moduleCollections.emoticons)?.enabled ?? true,
     streamerDid: did,
     commands,
+    moderation,
     revision: recordRevision(records),
     ...(get(moduleCollections.preferences)
       ? { preferences: { confirmDeletion: get(moduleCollections.preferences)!.confirmDeletion } }
@@ -156,13 +163,23 @@ export function serializeModuleRecords(
     },
   });
   const { fadeOut, ...chat } = appearance.chat;
+  // Older clients must not erase moderation rules they do not understand.
+  const moderation = config.moderation ?? parseModuleRecords(config.streamerDid, previous).moderation ?? [];
+  validateModeration(moderation);
   const records = [
     record(moduleCollections.chat, "self", {
       ...chat,
       topFadePercent: fadeOut,
       enabled: appearance.modules.chat,
     }),
-    record(moduleCollections.emoticons, "self", { enabled: config.enabled }),
+    record(moduleCollections.emoticons, "self", {
+      enabled: config.enabled,
+      moderation: moderation.map(rule => ({
+        did: rule.did, blocked: rule.blocked,
+        cooldownMilliseconds: Math.round(rule.cooldownSeconds * 1000),
+        ...(rule.handle !== undefined ? { handle: rule.handle } : {}),
+      })),
+    }),
     record(moduleCollections.paint, "self", {
       color: appearance.paint.color,
       decayMilliseconds: Math.round(appearance.paint.decaySeconds * 1000),
