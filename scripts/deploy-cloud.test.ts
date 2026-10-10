@@ -24,15 +24,15 @@ test("cloud development uses the pinned explicit executable for build and server
   expect(scripts["cloud:dev"]).toBe(`${launcher} run --filter @streamface/web build && PORT=\${PORT:-3010} ${launcher} --no-orphans apps/server/src/server.ts`);
 });
 
-test("deployment uses the hosted target, one eNano in Frankfurt and a secret reference", () => {
+test("deployment includes Pets for the author demo, one eNano in Frankfurt and a secret reference", () => {
   const args = deploymentArgs("/tmp/source", "https://streamface.example");
   for (const value of [
-    "hosted",
+    "pets",
     "eco-nano",
     "fra",
     "8000:http:/health",
     "SESSION_SECRET={{secret.streamface-session-secret}}",
-    "ENABLE_CLOUD_PETS=false",
+    "ENABLE_CLOUD_PETS=true",
   ])
     expect(args).toContain(value);
   expect(() => deploymentArgs("/tmp/source", "http://example.com")).toThrow();
@@ -51,6 +51,14 @@ test("deployment uses the hosted target, one eNano in Frankfurt and a secret ref
     expect(excluded(name)).toBe(true);
 });
 
+test("Pets can be excluded again with a single deployment flag", () => {
+  expect(deploymentOptions([])["without-pets"]).toBe(false);
+  expect(deploymentOptions(["--without-pets"])["without-pets"]).toBe(true);
+  const args = deploymentArgs("/tmp/source", "https://streamface.live", "streamface/web", "streamface-session-secret", "", "", false);
+  expect(args).toContain("hosted");
+  expect(args).toContain("ENABLE_CLOUD_PETS=false");
+});
+
 test("deployment references bot and Giphy secrets by default with overrides and opt-out", () => {
   const defaults = deploymentArgs("/tmp/source", "https://streamface.live");
   expect(defaults).toContain("BOT_APP_PASSWORD={{secret.streamface-bot-app-password}}");
@@ -66,7 +74,7 @@ test("deployment references bot and Giphy secrets by default with overrides and 
   expect(() => deploymentArgs("/tmp/source", "https://streamface.live", "streamface/web", "streamface-session-secret", "", "bad=value")).toThrow("Giphy secret");
 });
 
-test("staging excludes Pets, runtime data and secrets; symlinks fail closed", async () => {
+test("staging includes Pets unless disabled, excludes runtime data and secrets; symlinks fail closed", async () => {
   const root = await mkdtemp(join(tmpdir(), "streamface-deploy-test-"));
   let staged: Awaited<ReturnType<typeof stageCloudSource>> | undefined;
   try {
@@ -95,13 +103,19 @@ test("staging excludes Pets, runtime data and secrets; symlinks fail closed", as
       await Bun.write(join(root, path), "fixture");
     staged = await stageCloudSource(root);
     expect(await Bun.file(join(staged.directory, "apps/source.ts")).exists()).toBe(true);
+    expect(await Bun.file(join(staged.directory, "streamplace-pets/pets.js")).exists()).toBe(true);
     for (const path of [
       "apps/.env",
       "apps/production.json",
-      "streamplace-pets/pets.js",
       "runtime/oauth.json",
     ])
       expect(await Bun.file(join(staged.directory, path)).exists()).toBe(false);
+    const withoutPets = await stageCloudSource(root, false);
+    try {
+      expect(await Bun.file(join(withoutPets.directory, "streamplace-pets/pets.js")).exists()).toBe(false);
+    } finally {
+      await rm(withoutPets.directory, { recursive: true, force: true });
+    }
     await symlink(join(root, "runtime/oauth.json"), join(root, "apps/link.ts"));
     await expect(stageCloudSource(root)).rejects.toThrow("symlinks");
   } finally {

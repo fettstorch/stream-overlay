@@ -19,13 +19,14 @@ On 2026-10-09, both the checked-out upstream tree and the current upstream root
 contained no licence file. GitHub's repository metadata also reported no licence.
 Do not treat a public GitHub repository as a redistribution grant.
 
-The local integration remains available, but do not publish the bundled Pets
-HTML/CSS/JavaScript as part of the hosted service or redistribute cloud images
-until the authors grant permission or publish an applicable licence. Before
-release, record that permission here, or include the licence and all notices it
-requires. Attribution alone does not resolve this release blocker.
+On 2026-10-10, the Streamface owner requested inclusion in the v0.1.0 hosted
+demo so the author can review the integration. The owner reports that the author
+wants to see it and will remove the integration if the author declines. This
+records the demo decision, not a licence or redistribution grant. Permission for
+broader release remains unresolved; record a grant or applicable licence here
+when available. Attribution alone does not grant redistribution rights.
 
 Default cloud builds exclude this upstream code and hide its module. The local
-integration and an explicit `pets` Docker target are retained for reinstatement
-after permission; see `infra/koyeb/README.md`. The default hosted image can be
-released without the Pets integration.
+integration and an explicit `pets` Docker target are retained. The deployment
+script currently selects that target for the author demo; `--without-pets`
+restores the Pets-free archive and hosted target. See `infra/koyeb/README.md`.

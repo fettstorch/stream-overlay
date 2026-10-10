@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { parseArgs } from "node:util";
 import { StructuredLogger } from "../apps/server/src/logger.ts";
 
-// Deliberately omit the upstream Pets checkout, runtime data and agent metadata.
+// Package Pets for the author demo; runtime data and agent metadata stay excluded.
 const sourceRoots = ["apps", "modules", "packages", "lexicons"];
 const sourceFiles = [
   "package.json",
@@ -22,7 +22,7 @@ export function excluded(name: string) {
   );
 }
 
-export async function stageCloudSource(root: string) {
+export async function stageCloudSource(root: string, includePets = true) {
   const directory = await mkdtemp(join(tmpdir(), "streamface-deploy-"));
   let files = 0,
     bytes = 0;
@@ -57,7 +57,7 @@ export async function stageCloudSource(root: string) {
       files++;
       bytes += (await Bun.file(target).stat()).size;
     }
-    for (const relative of sourceRoots) {
+    for (const relative of [...sourceRoots, ...(includePets ? ["streamplace-pets"] : [])]) {
       await rejectSymlink(relative);
       await copy(relative);
     }
@@ -75,6 +75,7 @@ export function deploymentArgs(
   secretName = "streamface-session-secret",
   botSecret = "streamface-bot-app-password",
   giphySecret = "GIPHY_API_KEY",
+  includePets = true,
 ) {
   if (!/^[a-z0-9-]+\/[a-z0-9-]+$/.test(target)) throw new Error("Use an app/service target");
   if (!/^[a-z0-9-]+$/.test(secretName)) throw new Error("Invalid Koyeb secret name");
@@ -92,7 +93,7 @@ export function deploymentArgs(
     "--archive-docker-dockerfile",
     "infra/koyeb/Dockerfile",
     "--archive-docker-target",
-    "hosted",
+    includePets ? "pets" : "hosted",
     "--instance-type",
     "eco-nano",
     "--regions",
@@ -116,7 +117,7 @@ export function deploymentArgs(
     "--env",
     "LEXICON_NAMESPACE=live.streamface",
     "--env",
-    "ENABLE_CLOUD_PETS=false",
+    `ENABLE_CLOUD_PETS=${includePets}`,
     "--env",
     "AUTH_DATA_DIR=/data/auth",
     "--env",
@@ -137,6 +138,7 @@ export function deploymentOptions(args: string[]) {
       "bot-secret": { type: "string", default: process.env.KOYEB_BOT_SECRET || "streamface-bot-app-password" },
       "giphy-secret": { type: "string", default: process.env.KOYEB_GIPHY_SECRET || "GIPHY_API_KEY" },
       execute: { type: "boolean", default: false },
+      "without-pets": { type: "boolean", default: false },
       help: { type: "boolean", default: false },
     },
   }).values;
@@ -152,18 +154,19 @@ if (import.meta.main) {
     const values = deploymentOptions(Bun.argv.slice(2));
     if (values.help) {
       console.log(
-        "Usage: npm run deploy\nDeploys to streamface.live using existing session, bot and Giphy Koyeb secrets. npm run deploy:preview stages source locally without uploading.\nOptional overrides: --origin, --target, --secret, --bot-secret, --giphy-secret. KOYEB_BOT_SECRET and KOYEB_GIPHY_SECRET override secret names. Pass an empty secret override to disable that integration.",
+        "Usage: npm run deploy\nDeploys to streamface.live with Pets for the author demo, using existing session, bot and Giphy Koyeb secrets. npm run deploy:preview stages source locally without uploading.\nOptional overrides: --origin, --target, --secret, --bot-secret, --giphy-secret, --without-pets. KOYEB_BOT_SECRET and KOYEB_GIPHY_SECRET override secret names. Pass an empty secret override to disable that integration.",
       );
     } else {
-      deploymentArgs("preview", values.origin, values.target, values.secret, values["bot-secret"], values["giphy-secret"]);
+      const includePets = !values["without-pets"];
+      deploymentArgs("preview", values.origin, values.target, values.secret, values["bot-secret"], values["giphy-secret"], includePets);
       stage = "source-staging";
-      staged = await stageCloudSource(resolve(import.meta.dirname, ".."));
+      staged = await stageCloudSource(resolve(import.meta.dirname, ".."), includePets);
       logger.log("info", "cloud.deploy.source-staged", {
         operationId,
         ...staged,
-        petsIncluded: false,
+        petsIncluded: includePets,
       });
-      const args = deploymentArgs(staged.directory, values.origin, values.target, values.secret, values["bot-secret"], values["giphy-secret"]);
+      const args = deploymentArgs(staged.directory, values.origin, values.target, values.secret, values["bot-secret"], values["giphy-secret"], includePets);
       console.log(["koyeb", ...args].map((arg) => `'${arg.replaceAll("'", "'\\''")}'`).join(" "));
       if (!values.execute)
         console.log(

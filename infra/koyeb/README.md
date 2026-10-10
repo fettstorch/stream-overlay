@@ -14,7 +14,7 @@ npm run deploy:preview
 
 This only stages source in a temporary directory and prints the deployment
 command. Inspect that directory or build it with Docker before proceeding.
-It excludes the upstream Pets checkout, runtime/session data, hidden files,
+For the v0.1.0 author demo it includes the upstream Pets checkout. It excludes runtime/session data, hidden files,
 environment files, dependencies, generated builds, logs, and paths marked
 prod/production or secret/credential. Symlinks are rejected rather than followed.
 Only the required workspace source roots and build files are packaged.
@@ -26,13 +26,16 @@ npm run deploy
 ```
 
 This uploads the staged source and creates or updates `streamface/web` using
-the `hosted` Docker target, one `eco-nano` instance in Frankfurt, HTTP port 8000,
+the `pets` Docker target, one `eco-nano` instance in Frankfurt, HTTP port 8000,
 and `/health`. It references the existing secret by name; it never reads a local
 session secret. The default origin is `https://streamface.live`; the app and
 secret setup above is one-time, not repeated per deployment.
 Override it with `npm run deploy -- --origin https://YOUR-DOMAIN` for another deployment.
 Other optional flags are `--target app/service`
 and `--secret secret-name`.
+Pets can be removed again with `npm run deploy -- --without-pets`; this excludes
+the upstream checkout from the archive, uses the `hosted` target and disables
+the module on both client and server.
 The temporary directory is removed after execution; preview directories are kept
 for inspection. A non-zero exit leaves diagnostics in the CLI output.
 
@@ -78,8 +81,10 @@ No upstream Pets checkout is needed to build the default image. A CLI source arc
 must also omit the top-level `streamplace-pets/` directory, not merely rely on
 Docker's final-stage exclusion.
 
-After permission is recorded in `THIRD_PARTY_NOTICES.md`, restore the existing
-integration with the opt-in Docker target:
+The deployment script currently explicitly selects the `pets` target for the
+v0.1.0 author demo at the owner's request. This is not a recorded licence or
+redistribution grant; see `THIRD_PARTY_NOTICES.md`. The plain Docker default
+remains Pets-free. To build the demo image yourself:
 
 ```sh
 docker build --target pets -f infra/koyeb/Dockerfile -t streamface:pets .
@@ -89,7 +94,8 @@ This target includes the upstream assets, enables its admin card, and sets
 `ENABLE_CLOUD_PETS=true` for the server. For direct development instead, build
 with `VITE_ENABLE_CLOUD_PETS=true` and run the server with `ENABLE_CLOUD_PETS=true`.
 Both switches deliberately default to false. The opt-in keeps the original
-author attribution and project links. Do not publish this target before permission.
+author attribution and project links. Use `--without-pets` to disable it again
+if the author declines; broader release permission remains unresolved.
 
 Required secrets/settings:
 
