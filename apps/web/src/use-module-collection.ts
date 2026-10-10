@@ -23,8 +23,12 @@ export function useModuleCollection<T extends ControlRoomModule>(modules: Readon
   function isExpanded(module: T) { return expanded.value[module.id] ?? false; }
   function toggleDetails(module: T) { expanded.value[module.id] = !isExpanded(module); }
   function expandCard(module: T, event: MouseEvent) {
-    if (isExpanded(module) || (event.target as Element).closest("button, a, input, select, textarea, label")) return;
-    expanded.value[module.id] = true;
+    const target = event.target as Element;
+    if (target.closest("button, a, input, select, textarea, label, [contenteditable], [role='button']")) return;
+    // Expanded cards only fold from their own background or heading, never nested content.
+    if (isExpanded(module) && target !== event.currentTarget
+      && !target.matches(".module-body") && !target.closest(".module-heading")) return;
+    toggleDetails(module);
   }
   function matchesSearch(module: T) {
     const normalized = query.value.trim().toLocaleLowerCase();

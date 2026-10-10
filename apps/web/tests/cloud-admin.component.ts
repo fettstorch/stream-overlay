@@ -478,6 +478,15 @@ describe("Cloud Admin", () => {
     await wrapper.get('button[aria-label="Show Emotes details"]').trigger("click");
     expect(wrapper.get('button[aria-label="Hide Emotes details"]').attributes("aria-expanded")).toBe("true");
     await wrapper.get('button[aria-label="Pin Emotes"]').trigger("click");
+    expect(wrapper.get('.module-card').classes()).not.toContain('collapsed');
+    await wrapper.get('.module-body p').trigger('click');
+    expect(wrapper.get('.module-card').classes()).not.toContain('collapsed');
+    await wrapper.get('.module-card').trigger('click');
+    expect(wrapper.get('.module-card').classes()).toContain('collapsed');
+    await wrapper.get('.module-card').trigger('click');
+    expect(wrapper.get('.module-card').classes()).not.toContain('collapsed');
+    await wrapper.get('.module-body').trigger('click');
+    expect(wrapper.get('.module-card').classes()).toContain('collapsed');
     expect(localStorage.getItem("stream-overlay.admin.pinned-modules")).toBe('["emoticons"]');
     expect(wrapper.find('input[aria-label="Search modules"]').exists()).toBe(false);
     wrapper.unmount();

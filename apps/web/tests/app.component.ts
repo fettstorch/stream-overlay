@@ -244,6 +244,10 @@ describe("Admin App", () => {
       const preview = wrapper.get("iframe").element;
       expect(wrapper.get(".module-body").attributes("style")).toContain("display: none");
       await wrapper.get('button[aria-label="Show Pokémon Blue mGBA details"]').trigger("click");
+      await wrapper.get('.module-card').trigger('click');
+      expect(wrapper.get('.module-card').classes()).toContain('collapsed');
+      await wrapper.get('.module-card').trigger('click');
+      expect(wrapper.get('.module-card').classes()).not.toContain('collapsed');
       await wrapper.get('button[aria-label="Hide Pokémon Blue mGBA details"]').trigger("click");
       expect(wrapper.get(".module-body").attributes("style")).toContain("display: none");
       expect(wrapper.get('input[aria-label="Enable Pokémon Blue mGBA"]').element).toHaveProperty("checked", true);

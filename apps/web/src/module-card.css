@@ -22,6 +22,9 @@
   border-width: 18px;
   border-image-width: 18px;
 }
+#app .module-card,
+#app .module-card .module-heading,
+#app .module-card .module-body,
 #app .module-card.collapsed,
 #app .module-card.collapsed .module-heading,
 #app .module-card.collapsed .module-heading > div:first-child,
@@ -29,6 +32,7 @@
 #app .module-card.collapsed .status {
   cursor: pointer;
 }
+#app .module-card .module-body > * { cursor: auto; }
 .module-card.pinned {
   outline: 2px solid #526baf;
   outline-offset: 3px;
