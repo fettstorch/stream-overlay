@@ -45,8 +45,8 @@ const chatUrl = computed(() => `https://stream.place/chat-popout/${encodeURIComp
 const tabs = [
   { id: "commands", label: "Testing" },
   { id: "create", label: "Commands" },
-  { id: "moderation", label: "Moderation" },
   { id: "routines", label: "Routines" },
+  { id: "moderation", label: "Moderation" },
 ];
 const moderationConfig = computed(() => ({
   ...props.config,

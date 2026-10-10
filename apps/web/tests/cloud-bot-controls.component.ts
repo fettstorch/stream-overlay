@@ -69,7 +69,7 @@ test("Moderation reuses the editor but stores restrictions only in Bot settings"
     props: { config: { ...config, moderation: [emoticonRule] }, save },
     global: { stubs: { EmoticonModeration: true } },
   });
-  await wrapper.findAll('[role="tab"]')[2]!.trigger("click");
+  await wrapper.findAll('[role="tab"]')[3]!.trigger("click");
   const editor = wrapper.findComponent(EmoticonModeration);
   expect(editor.props("config").moderation).toEqual([]);
   const botRule = { did: "did:plc:viewer", blocked: false, cooldownSeconds: 30 };
@@ -89,8 +89,8 @@ test("saves rules through existing configuration flow and preserves input on fai
   expect(wrapper.findAll('[role="tab"]').map((item) => item.text())).toEqual([
     "Testing",
     "Commands",
-    "Moderation",
     "Routines",
+    "Moderation",
   ]);
   expect((wrapper.get("form.bot-tab-content").element as HTMLFormElement).style.display).toBe("none");
   await wrapper.findAll('[role="tab"]')[1]!.trigger("click");
