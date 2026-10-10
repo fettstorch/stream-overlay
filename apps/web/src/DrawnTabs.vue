@@ -79,8 +79,6 @@ async function navigate(event: KeyboardEvent, index: number) {
   z-index: 0;
   --cap-start: calc(52px * 75 / 120);
   --cap-end: calc(52px * 85 / 120);
-  --fill-start: calc(var(--cap-start) - 12px);
-  --fill-end: calc(var(--cap-end) - 12px);
   --start-image: url("./assets/branding/controls/tab-middle-start.png");
   --center-image: url("./assets/branding/controls/tab-middle-center.png");
   --end-image: url("./assets/branding/controls/tab-middle-end.png");
@@ -125,7 +123,6 @@ async function navigate(event: KeyboardEvent, index: number) {
 #app .drawn-tab.tab-left {
   --cap-start: calc(52px * 30 / 120);
   --cap-end: calc(52px * 75 / 120);
-  --fill-start: 6px;
   --start-image: url("./assets/branding/controls/tab-left-start.png");
   --center-image: url("./assets/branding/controls/tab-left-center.png");
   --end-image: url("./assets/branding/controls/tab-left-end.png");
@@ -133,27 +130,14 @@ async function navigate(event: KeyboardEvent, index: number) {
 #app .drawn-tab.tab-right {
   --cap-start: calc(52px * 75 / 120);
   --cap-end: calc(52px * 30 / 120);
-  --fill-end: 5px;
   --start-image: url("./assets/branding/controls/tab-right-start.png");
   --center-image: url("./assets/branding/controls/tab-right-center.png");
   --end-image: url("./assets/branding/controls/tab-right-end.png");
-}
-#app .drawn-tab::after {
-  content: "";
-  position: absolute;
-  z-index: -2;
-  inset: 10px var(--fill-end) 0 var(--fill-start);
-  background: #fff;
-  border-radius: 12px 12px 0 0;
-  pointer-events: none;
 }
 #app .drawn-tab.selected {
   z-index: 3;
   color: #111;
   -webkit-text-stroke: 0.3px currentColor;
-}
-#app .drawn-tab.selected::after {
-  bottom: -3px;
 }
 #app .drawn-tab:focus-visible {
   outline: 2px solid #526baf;
