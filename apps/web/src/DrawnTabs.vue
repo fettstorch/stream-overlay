@@ -71,13 +71,15 @@ async function navigate(event: KeyboardEvent, index: number) {
 .drawn-tab-list {
   display: flex;
   align-items: end;
-  padding: 0 6px;
+  padding: 0;
 }
 #app .drawn-tab {
   position: relative;
   z-index: 0;
   --cap-start: calc(52px * 70 / 120);
   --cap-end: calc(52px * 70 / 120);
+  --fill-start: calc(var(--cap-start) - 12px);
+  --fill-end: calc(var(--cap-end) - 12px);
   --start-image: url("./assets/branding/controls/tab-middle-start.png");
   --center-image: url("./assets/branding/controls/tab-middle-center.png");
   --end-image: url("./assets/branding/controls/tab-middle-end.png");
@@ -117,11 +119,12 @@ async function navigate(event: KeyboardEvent, index: number) {
   background-image: var(--end-image);
 }
 #app .drawn-tab + .drawn-tab {
-  margin-left: -22px;
+  margin-left: calc(-1 * (var(--cap-start) + 26px));
 }
 #app .drawn-tab.tab-left {
   --cap-start: calc(52px * 45 / 120);
   --cap-end: calc(52px * 115 / 120);
+  --fill-start: 6px;
   --start-image: url("./assets/branding/controls/tab-left-start.png");
   --center-image: url("./assets/branding/controls/tab-left-center.png");
   --end-image: url("./assets/branding/controls/tab-left-end.png");
@@ -129,6 +132,7 @@ async function navigate(event: KeyboardEvent, index: number) {
 #app .drawn-tab.tab-right {
   --cap-start: calc(52px * 90 / 120);
   --cap-end: calc(52px * 35 / 120);
+  --fill-end: 5px;
   --start-image: url("./assets/branding/controls/tab-right-start.png");
   --center-image: url("./assets/branding/controls/tab-right-center.png");
   --end-image: url("./assets/branding/controls/tab-right-end.png");
@@ -137,7 +141,7 @@ async function navigate(event: KeyboardEvent, index: number) {
   content: "";
   position: absolute;
   z-index: -2;
-  inset: 10px var(--cap-end) 0 var(--cap-start);
+  inset: 10px var(--fill-end) 0 var(--fill-start);
   background: #fff;
   border-radius: 12px 12px 0 0;
   pointer-events: none;
@@ -148,7 +152,7 @@ async function navigate(event: KeyboardEvent, index: number) {
   -webkit-text-stroke: 0.3px currentColor;
 }
 #app .drawn-tab.selected::after {
-  bottom: -8px;
+  bottom: -3px;
 }
 #app .drawn-tab:focus-visible {
   outline: 2px solid #526baf;
@@ -158,7 +162,7 @@ async function navigate(event: KeyboardEvent, index: number) {
   position: relative;
   z-index: 1;
   isolation: isolate;
-  margin-top: -8px;
+  margin-top: -14px;
   padding: 26px;
   min-width: 0;
 }
@@ -173,7 +177,7 @@ async function navigate(event: KeyboardEvent, index: number) {
 }
 @media (max-width: 600px) {
   .drawn-tab-list {
-    padding-inline: 6px;
+    padding-inline: 0;
   }
   #app .drawn-tab {
     font-size: 0.9em;
