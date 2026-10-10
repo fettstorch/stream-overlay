@@ -14,6 +14,9 @@ services:
       LEXICON_NAMESPACE: live.streamface
       AUTH_DATA_DIR: /data/auth
       GIPHY_API_KEY: ${GIPHY_API_KEY:-}
+      BOT_APP_PASSWORD: ${BOT_APP_PASSWORD:-}
+      BOT_IDENTIFIER: ${BOT_IDENTIFIER:-streamface.live}
+      BOT_PDS: ${BOT_PDS:-https://bsky.social}
     ports:
       - 127.0.0.1:${CLOUD_PORT:-3010}:8000
     volumes:

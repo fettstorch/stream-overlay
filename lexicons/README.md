@@ -1,5 +1,35 @@
 # Streamface records
 
+## Bot
+
+`live.streamface.bot.settings` is a singleton `self` record containing `enabled`
+and up to 50 command/response rules with integer-millisecond cooldowns. Rules are
+public; source authorization tokens and the bot's App Password are never stored
+in the PDS. Publish this schema separately and add `_lexicon.bot.streamface.live`
+TXT `did=did:plc:j66wyknizjxecbnrenjzj7l3`. Sign in again to grant the new collection.
+
+The transparent `/bot/` OBS browser source reads Streamplace's live chat and
+reports only message URIs. The server verifies recent messages through the fixed
+Streamplace chat endpoint, chooses the stored response, ignores its own account,
+and enforces shared command cooldowns, bounded concurrency and deduplication.
+Deterministic TID record keys also prevent duplicate replies after a restart.
+There is no server-side chat subscription. Only messages received while the source
+is running trigger replies; history is not replayed. If verification fails, no
+reply is sent. The private source URL is available only to its signed-in owner;
+changing SESSION_SECRET invalidates all source keys. Stop the source or disable
+Bot to stop replies (PDS/config changes may take up to the refresh interval).
+
+Server configuration: `BOT_APP_PASSWORD` is the dedicated Streamface account's
+App Password, never its main password. Optional `BOT_IDENTIFIER`, `BOT_PDS` and
+`BOT_EXPECTED_DID` override the service account defaults. Koyeb deployments can
+reference an existing secret with `KOYEB_BOT_SECRET=streamface-bot-app-password`
+in the local environment; the deploy script sends only its name, not its value.
+Create the secret once manually, then use the normal deploy command. Bot login,
+verification and reply success/failure events use the existing structured logger
+without logging passwords, private source tokens or message/response text.
+
+Chat records follow [Streamplace's message schema](https://stream.place/docs/lex-reference/chat/place-stream-chat-message/).
+
 `live.streamface` is backed by the owned `streamface.live` domain. Each module owns
 its collection. Chat, Emoticons, Paint and Pets settings use a singleton `self`
 record. Each Emoticons command has a stable record key independent of its invocation

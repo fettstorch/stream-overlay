@@ -201,13 +201,13 @@ describe("Cloud Admin", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     const wrapper = mount(CloudAdmin); await flushPromises();
-    expect(wrapper.findAll("[data-module]").map(card => card.attributes("data-module"))).toEqual(["emoticons", "chat", "overlay-paint"]);
+    expect(wrapper.findAll("[data-module]").map(card => card.attributes("data-module"))).toEqual(["emoticons", "chat", "bot", "overlay-paint"]);
     expect(wrapper.text()).toContain("2560 × 1440");
     expect(wrapper.text()).not.toContain("Your stream");
     expect(wrapper.get('.obs-guidance').text()).toContain('Browser Sources in OBS');
     expect(wrapper.get('.obs-guidance').text()).toContain('carefully read its instructions');
     expect(wrapper.get('.obs-guidance').text()).not.toContain('2560');
-    expect(wrapper.findAll('.module-actions button.info-button')).toHaveLength(3);
+    expect(wrapper.findAll('.module-actions button.info-button')).toHaveLength(4);
     expect(wrapper.get('#module-help-emoticons').text()).toContain('420 × 600');
     expect(wrapper.get('#module-help-chat').text()).toContain('height to 1440 px');
     expect(wrapper.get('#module-help-chat').text()).not.toContain('420 × 600');

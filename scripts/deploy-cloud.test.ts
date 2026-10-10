@@ -46,6 +46,14 @@ test("deployment uses the hosted target, one eNano in Frankfurt and a secret ref
     expect(excluded(name)).toBe(true);
 });
 
+test("optional bot deployment references a Koyeb secret without embedding its credentials", () => {
+  expect(deploymentArgs("/tmp/source", "https://streamface.live")).not.toContain("BOT_APP_PASSWORD");
+  const args = deploymentArgs("/tmp/source", "https://streamface.live", "streamface/web", "streamface-session-secret", "streamface-bot-app-password");
+  expect(args).toContain("BOT_APP_PASSWORD={{secret.streamface-bot-app-password}}");
+  expect(deploymentOptions(["--bot-secret", "streamface-bot-app-password"])["bot-secret"]).toBe("streamface-bot-app-password");
+  expect(() => deploymentArgs("/tmp/source", "https://streamface.live", "streamface/web", "streamface-session-secret", "bad=value")).toThrow("bot secret");
+});
+
 test("staging excludes Pets, runtime data and secrets; symlinks fail closed", async () => {
   const root = await mkdtemp(join(tmpdir(), "streamface-deploy-test-"));
   let staged: Awaited<ReturnType<typeof stageCloudSource>> | undefined;

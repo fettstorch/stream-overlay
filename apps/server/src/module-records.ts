@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import { Lexicons, jsonToLex, type LexiconDoc } from "@atproto/lexicon";
 import chatSchema from "../../../lexicons/live.streamface.chat.settings.json";
+import botSchema from "../../../lexicons/live.streamface.bot.settings.json";
+import { defaultBotSettings, validateBotSettings } from "../../../modules/bot/src/config.ts";
 import emoticonsSchema from "../../../lexicons/live.streamface.emoticons.settings.json";
 import commandSchema from "../../../lexicons/live.streamface.emoticons.command.json";
 import mediaSchema from "../../../lexicons/live.streamface.emoticons.defs.json";
@@ -16,6 +18,7 @@ import { validateModeration } from "../../../modules/emoticons/src/moderation.ts
 export const STREAMFACE_NAMESPACE = "live.streamface";
 export const LEGACY_NAMESPACE = "invalid.streamoverlay.dev";
 export const moduleCollections = {
+  bot: botSchema.id,
   preferences: preferencesSchema.id,
   chat: chatSchema.id,
   emoticons: emoticonsSchema.id,
@@ -24,6 +27,7 @@ export const moduleCollections = {
   command: commandSchema.id,
 };
 export const lexicons = new Lexicons([
+  botSchema,
   chatSchema,
   emoticonsSchema,
   commandSchema,
@@ -107,7 +111,13 @@ export function parseModuleRecords(did: string, records: StoredRecord[]): CloudC
     ...(rule.handle !== undefined ? { handle: rule.handle } : {}),
   }));
   validateModeration(moderation);
+  const storedBot = get(moduleCollections.bot);
+  const bot = storedBot ? { enabled: storedBot.enabled, rules: storedBot.rules.map((rule: any) => ({
+    command: rule.command, response: rule.response, cooldownSeconds: rule.cooldownMilliseconds / 1000,
+  })) } : structuredClone(defaultBotSettings);
+  validateBotSettings(bot);
   return {
+    bot,
     ...moduleSettings({
       modules: {
         chat: chat?.enabled ?? true,
@@ -188,6 +198,14 @@ export function serializeModuleRecords(
     }),
     record(moduleCollections.pets, "self", { enabled: appearance.modules.pets }),
   ];
+  // Older clients must not erase rules they do not understand. Do not create an
+  // unused collection until the user configures this module.
+  const bot = config.bot ?? parseModuleRecords(config.streamerDid, previous).bot!;
+  validateBotSettings(bot);
+  if (bot.enabled || bot.rules.length || previous.some(item => item.collection === moduleCollections.bot))
+    records.push(record(moduleCollections.bot, "self", { enabled: bot.enabled, rules: bot.rules.map(rule => ({
+      command: rule.command, response: rule.response, cooldownMilliseconds: Math.round(rule.cooldownSeconds * 1000),
+    })) }));
   const preferences =
     config.preferences ??
     previous.find((item) => item.collection === moduleCollections.preferences)?.value;

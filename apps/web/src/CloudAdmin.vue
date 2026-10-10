@@ -18,6 +18,7 @@ import {
 import CloudEmoticonControls from "./CloudEmoticonControls.vue";
 import EmoticonModeration from "./EmoticonModeration.vue";
 import CloudModuleControls from "./CloudModuleControls.vue";
+import CloudBotControls from "./CloudBotControls.vue";
 import CollapsibleSection from "./CollapsibleSection.vue";
 import ModuleHelp from "./ModuleHelp.vue";
 import { moduleSettings } from "../../../packages/protocol/src/cloud-settings.ts";
@@ -43,6 +44,7 @@ const dimensionsDetected = ref(false);
 let dimensionsTimer: ReturnType<typeof setInterval> | undefined;
 let disposed = false;
 function obsInstructions(moduleId: string) {
+  if (moduleId === "bot") return ["Add the private Bot URL as a transparent OBS browser source. Any size works.", "The bot reads chat only while that source is running. Keep its URL private."];
   const { width, height } = dimensions.value;
   const size =
     moduleId === "chat"
@@ -120,8 +122,9 @@ const paths: Record<string, string> = Object.fromEntries(
 function moduleEnabled(id: string) {
   const module = cloudModuleCatalog.find((module) => module.id === id);
   if (!config.value || !module) return false;
+  if (id === "bot") return config.value.bot?.enabled ?? false;
   const key = module.cloud.enabledKey;
-  return key === "emoticons" ? config.value.enabled : moduleSettings(config.value).modules[key];
+  return key === "emoticons" ? config.value.enabled : key === "bot" ? config.value.bot?.enabled ?? false : moduleSettings(config.value).modules[key];
 }
 function previewUrl(id: string) {
   const url = new URL(cloudUrl(paths[id]));
@@ -316,6 +319,7 @@ async function toggleEnabled(module: CloudModule, event: Event) {
   const input = event.target as HTMLInputElement;
   const candidate = { ...config.value, ...moduleSettings(config.value) };
   if (module.id === "emoticons") candidate.enabled = input.checked;
+  else if (module.id === "bot") candidate.bot = { enabled: input.checked, rules: candidate.bot?.rules ?? [] };
   else
     candidate.modules[
       module.id === "overlay-paint" ? "paint" : module.id === "streamplace-pets" ? "pets" : "chat"
@@ -593,7 +597,7 @@ onBeforeUnmount(() => {
               :inert="saving || !isExpanded(module) || undefined"
             >
               <p>{{ module.description }}</p>
-              <template v-if="module.id !== 'emoticons'">
+              <template v-if="module.id !== 'emoticons' && module.id !== 'bot'">
                 <section class="module-commands"><h4>OBS URL</h4></section>
                 <div class="overlay-url">
                   <code>{{ cloudUrl(paths[module.id]) }}</code>
@@ -687,6 +691,8 @@ onBeforeUnmount(() => {
               </div>
               </DrawnTabs>
               </template>
+              <CloudBotControls v-else-if="module.id === 'bot'" :config="config"
+                :save="(candidate) => saveConfiguration(candidate, undefined, 'bot')" />
               <CloudModuleControls
                 v-else
                 :module-id="module.id"
@@ -699,7 +705,7 @@ onBeforeUnmount(() => {
                 Your OBS source still shows live chat.
               </p>
               <div
-                v-if="module.id !== 'emoticons' && isExpanded(module)"
+                v-if="module.id !== 'emoticons' && module.id !== 'bot' && isExpanded(module)"
                 class="cloud-preview"
                 :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }"
               >

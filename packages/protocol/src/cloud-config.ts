@@ -3,6 +3,7 @@ import type { CloudCommand, EmoticonModerationRule } from "../../../modules/emot
 
 /** Account configuration delivered to admins and overlays; not an ATProto record. */
 export type CloudConfig = CloudModuleSettings & {
+  bot?: import("../../../modules/bot/src/config.ts").BotSettings;
   enabled: boolean;
   streamerDid: string;
   commands: CloudCommand[];

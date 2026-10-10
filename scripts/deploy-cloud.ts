@@ -73,9 +73,11 @@ export function deploymentArgs(
   origin: string,
   target = "streamface/web",
   secretName = "streamface-session-secret",
+  botSecret?: string,
 ) {
   if (!/^[a-z0-9-]+\/[a-z0-9-]+$/.test(target)) throw new Error("Use an app/service target");
   if (!/^[a-z0-9-]+$/.test(secretName)) throw new Error("Invalid Koyeb secret name");
+  if (botSecret && !/^[a-z0-9-]+$/.test(botSecret)) throw new Error("Invalid bot secret name");
   const url = new URL(origin);
   if (url.protocol !== "https:" || url.origin !== origin)
     throw new Error("Use an HTTPS origin without a trailing slash, credentials or path");
@@ -117,6 +119,7 @@ export function deploymentArgs(
     "AUTH_DATA_DIR=/data/auth",
     "--env",
     "PORT=8000",
+    ...(botSecret ? ["--env", `BOT_APP_PASSWORD={{secret.${botSecret}}}`] : []),
     "--wait",
   ];
 }
@@ -128,6 +131,7 @@ export function deploymentOptions(args: string[]) {
       origin: { type: "string", default: "https://streamface.live" },
       target: { type: "string", default: "streamface/web" },
       secret: { type: "string", default: "streamface-session-secret" },
+      "bot-secret": { type: "string", default: process.env.KOYEB_BOT_SECRET },
       execute: { type: "boolean", default: false },
       help: { type: "boolean", default: false },
     },
@@ -144,10 +148,10 @@ if (import.meta.main) {
     const values = deploymentOptions(Bun.argv.slice(2));
     if (values.help) {
       console.log(
-        "Usage: npm run deploy\nDeploys to streamface.live using the existing Koyeb secret. npm run deploy:preview stages source locally without uploading.\nOptional overrides: npm run deploy -- --origin https://YOUR-DOMAIN --target app/service --secret existing-secret-name",
+        "Usage: npm run deploy\nDeploys to streamface.live using the existing Koyeb secret. npm run deploy:preview stages source locally without uploading.\nOptional overrides: npm run deploy -- --origin https://YOUR-DOMAIN --target app/service --secret existing-secret-name --bot-secret existing-bot-secret-name\nKOYEB_BOT_SECRET can configure the bot secret reference for subsequent single-command deploys.",
       );
     } else {
-      deploymentArgs("preview", values.origin, values.target, values.secret);
+      deploymentArgs("preview", values.origin, values.target, values.secret, values["bot-secret"]);
       stage = "source-staging";
       staged = await stageCloudSource(resolve(import.meta.dirname, ".."));
       logger.log("info", "cloud.deploy.source-staged", {
@@ -155,7 +159,7 @@ if (import.meta.main) {
         ...staged,
         petsIncluded: false,
       });
-      const args = deploymentArgs(staged.directory, values.origin, values.target, values.secret);
+      const args = deploymentArgs(staged.directory, values.origin, values.target, values.secret, values["bot-secret"]);
       console.log(["koyeb", ...args].map((arg) => `'${arg.replaceAll("'", "'\\''")}'`).join(" "));
       if (!values.execute)
         console.log(

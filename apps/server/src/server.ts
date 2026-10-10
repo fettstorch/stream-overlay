@@ -14,9 +14,13 @@ import { safeError, StructuredLogger } from "./logger.ts";
 import { CloudPaint } from "./cloud-paint.ts";
 import { getStreamDimensions } from "../../../packages/stream-chat/src/stream-dimensions.ts";
 import { STREAMFACE_NAMESPACE, moduleCollections } from "./module-records.ts";
+import { createBotAuth, type BotAuth } from "./bot-auth.ts";
+import { CloudBot, botSourceToken, validBotSourceToken } from "./cloud-bot.ts";
 
 const defaultWebRoot = resolve(import.meta.dir, "../../web/dist");
 type Dependencies = {
+  bot?: BotAuth;
+  botCommands?: CloudBot;
   giphyApiKey?: string;
   enablePets?: boolean;
   origin: string;
@@ -236,6 +240,30 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
     }
   }
   if (path === "/health") return json({ status: "ok" });
+  const botDid = didFromPath(path, "bot/(source|trigger)");
+  if (botDid && path.endsWith("/source") && request.method === "GET") {
+    if (await readSessionCookie(request, deps.secret) !== botDid) return json({ error: "unauthorized" }, 401);
+    const source = new URL("/bot/", deps.origin);
+    source.searchParams.set("did", botDid);
+    source.searchParams.set("token", botSourceToken(botDid, deps.secret));
+    return json({ url: source.toString(), configured: Boolean(deps.bot) });
+  }
+  if (botDid && path.endsWith("/trigger") && request.method === "POST") {
+    if (!sameOrigin(request, deps.origin)) return json({ error: "invalid-origin" }, 403);
+    try {
+      const data = JSON.parse(new TextDecoder().decode(await boundedBody(request, 1024)));
+      if (!validBotSourceToken(botDid, data.token, deps.secret)) {
+        deps.logger.log("warn", "cloud.bot.command-rejected", { requestId, reason: "unauthorized" });
+        return json({ error: "unauthorized" }, 403);
+      }
+      const config = await deps.pds.publicConfig(botDid);
+      if (!deps.botCommands) return json({ sent: false, reason: "not-configured" }, 503);
+      return json(await deps.botCommands.trigger(config, data.uri, requestId));
+    } catch {
+      deps.logger.log("warn", "cloud.bot.trigger-failed", { requestId });
+      return json({ error: "bot-unavailable", requestId }, 503);
+    }
+  }
   // Browser API key by design: GIPHY forbids proxying API/media requests.
   if (path === "/api/giphy" && request.method === "GET") {
     deps.logger.log("info", "cloud.giphy.configuration", { requestId, configured: Boolean(deps.giphyApiKey) });
@@ -630,7 +658,10 @@ export function createDependencies(env = process.env): Dependencies {
         : undefined),
   );
   const oauth = createOAuth(origin, dataDir, scope);
+  const bot = createBotAuth(env, logger);
   return {
+    bot,
+    botCommands: new CloudBot(bot, logger),
     giphyApiKey: env.GIPHY_API_KEY?.trim(),
     enablePets: env.ENABLE_CLOUD_PETS === "true",
     origin,
@@ -692,10 +723,12 @@ if (import.meta.main) {
     deps.pds.cleanup();
   }, 60_000);
   const shutdown = () => {
+    deps.bot?.stop();
     clearInterval(cleanup);
     server.stop(true);
   };
   process.once("SIGTERM", shutdown);
   process.once("SIGINT", shutdown);
+  deps.bot?.start();
   console.log(`Streamface server listening on ${server.hostname}:${server.port}`);
 }

@@ -1,0 +1,29 @@
+{
+  "lexicon": 1,
+  "id": "live.streamface.bot.settings",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "literal:self",
+      "record": {
+        "type": "object",
+        "required": ["enabled", "rules", "createdAt", "updatedAt"],
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "rules": { "type": "array", "maxLength": 50, "items": { "type": "ref", "ref": "#rule" } },
+          "createdAt": { "type": "string", "format": "datetime" },
+          "updatedAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    },
+    "rule": {
+      "type": "object",
+      "required": ["command", "response", "cooldownMilliseconds"],
+      "properties": {
+        "command": { "type": "string", "maxLength": 40 },
+        "response": { "type": "string", "maxLength": 250 },
+        "cooldownMilliseconds": { "type": "integer", "minimum": 5000, "maximum": 86400000 }
+      }
+    }
+  }
+}

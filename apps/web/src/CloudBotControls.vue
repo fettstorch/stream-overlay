@@ -1,0 +1,166 @@
+<script setup lang="ts">
+import { onMounted, ref } from "vue";
+import { adminFetch } from "./cloud-admin-fetch.ts";
+import type { CloudConfig } from "./cloud-admin-types.ts";
+import { validateBotSettings, type BotRule } from "../../../modules/bot/src/config.ts";
+const props = defineProps<{
+  config: CloudConfig;
+  save: (config: CloudConfig) => Promise<boolean>;
+}>();
+const sourceUrl = ref(""),
+  configured = ref(false),
+  busy = ref(false),
+  message = ref("");
+const command = ref(""),
+  response = ref(""),
+  cooldown = ref(30),
+  editing = ref<string>();
+onMounted(async () => {
+  try {
+    const result = await adminFetch(
+      `/api/accounts/${encodeURIComponent(props.config.streamerDid)}/bot/source`,
+    );
+    if (!result.ok) throw new Error();
+    const data = await result.json();
+    sourceUrl.value = data.url;
+    configured.value = data.configured;
+  } catch {
+    message.value = "Could not load the private Bot browser source URL.";
+  }
+});
+function reset() {
+  command.value = "";
+  response.value = "";
+  cooldown.value = 30;
+  editing.value = undefined;
+}
+function edit(rule: BotRule) {
+  editing.value = rule.command;
+  command.value = rule.command;
+  response.value = rule.response;
+  cooldown.value = rule.cooldownSeconds;
+}
+async function persist(rules: BotRule[]) {
+  busy.value = true;
+  message.value = "";
+  try {
+    const bot = { enabled: props.config.bot?.enabled ?? false, rules };
+    validateBotSettings(bot);
+    const saved = await props.save({ ...props.config, bot });
+    if (saved) {
+      reset();
+      message.value = "Bot rules saved.";
+    }
+  } catch (error) {
+    message.value = error instanceof Error ? error.message : "Could not save bot rules.";
+  } finally {
+    busy.value = false;
+  }
+}
+async function add() {
+  const name = command.value.trim().replace(/^!/, "").toLowerCase();
+  const rules = [
+    ...(props.config.bot?.rules ?? []).filter((rule) => rule.command !== editing.value),
+    { command: name, response: response.value.trim(), cooldownSeconds: cooldown.value },
+  ];
+  await persist(rules);
+}
+async function copy() {
+  try {
+    await navigator.clipboard.writeText(sourceUrl.value);
+    message.value = "Private OBS URL copied.";
+  } catch {
+    message.value = "Could not copy the URL.";
+  }
+}
+</script>
+<template>
+  <section class="module-section">
+    <h4>Bot OBS URL</h4>
+    <p>
+      Keep this transparent browser source running in OBS. Any size works. Disable “Shutdown source
+      when not visible” if replies should continue when switching scenes.
+    </p>
+    <p>
+      Keep the URL private — it authorizes this stream's bot source. Rules and reply texts are
+      public PDS data.
+    </p>
+    <p v-if="!configured" role="status">
+      The server's Streamface bot account is not configured yet.
+    </p>
+    <button :disabled="!sourceUrl" @click="copy">Copy private OBS URL</button>
+  </section>
+  <section class="module-section">
+    <h4>Commands</h4>
+    <ul class="command-list striped-list">
+      <li v-for="rule in config.bot?.rules ?? []" :key="rule.command" class="bot-rule">
+        <div>
+          <strong>!{{ rule.command }}</strong>
+          <p>{{ rule.response }}</p>
+          <small>{{ rule.cooldownSeconds }}s cooldown</small>
+        </div>
+        <button :disabled="busy" @click="edit(rule)">Edit</button>
+        <button
+          :disabled="busy"
+          @click="
+            persist((config.bot?.rules ?? []).filter((item) => item.command !== rule.command))
+          "
+        >
+          Remove
+        </button>
+      </li>
+    </ul>
+    <p v-if="!config.bot?.rules.length">No bot commands yet.</p>
+  </section>
+  <form class="module-section editor-fields" @submit.prevent="add">
+    <h4>{{ editing ? "Edit command" : "Create bot command" }}</h4>
+    <label
+      >Command<input
+        v-model="command"
+        placeholder="!discord"
+        maxlength="41"
+        required
+        :disabled="busy"
+    /></label>
+    <label
+      >Bot reply<input
+        v-model="response"
+        placeholder="Join our Discord…"
+        maxlength="250"
+        required
+        :disabled="busy"
+    /></label>
+    <label
+      >Cooldown (seconds)<input
+        v-model.number="cooldown"
+        type="number"
+        min="5"
+        max="86400"
+        step="1"
+        required
+        :disabled="busy"
+    /></label>
+    <p>
+      The cooldown is shared by everyone using this command. Streamface ignores its own messages.
+    </p>
+    <button type="submit" :disabled="busy">{{ busy ? "Saving…" : "Save command" }}</button>
+    <button type="button" :disabled="busy" @click="reset">Cancel</button>
+  </form>
+  <p v-if="message" role="status">{{ message }}</p>
+</template>
+<style scoped>
+.bot-rule {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem;
+}
+.bot-rule > div {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.bot-rule p {
+  margin: 0.3rem 0;
+}
+</style>

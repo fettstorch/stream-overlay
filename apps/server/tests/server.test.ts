@@ -29,6 +29,19 @@ function webRoot() {
 }
 
 describe("cloud server boundary", () => {
+  test("bot source URL is owner-only and trigger requires its scoped token", async () => {
+    const deps = dependencies(webRoot());
+    const root = "https://overlay.example/api/accounts/did:plc:alice/bot";
+    expect((await handleRequest(new Request(`${root}/source`), deps)).status).toBe(401);
+    const cookie = await sessionCookie("did:plc:alice", deps.secret);
+    const source = await handleRequest(new Request(`${root}/source`, { headers: { Cookie: `stream_overlay_session=${cookie}` } }), deps);
+    expect(source.status).toBe(200);
+    const url = new URL((await source.json()).url);
+    expect(url.pathname).toBe("/bot/"); expect(url.searchParams.get("did")).toBe("did:plc:alice");
+    expect(url.searchParams.get("token")).toHaveLength(64);
+    expect((await handleRequest(new Request(`${root}/trigger`, { method: "POST", headers: { Origin: "https://overlay.example" }, body: JSON.stringify({ token: "forged", uri: "at://fake" }) }), deps)).status).toBe(403);
+    expect((await handleRequest(new Request(`${root}/trigger`, { method: "POST", headers: { Origin: "https://other.example" }, body: JSON.stringify({ token: url.searchParams.get("token") }) }), deps)).status).toBe(403);
+  });
   test("Giphy browser configuration exposes only the configured key without logging it", async () => {
     const logged: unknown[] = [];
     const deps = { ...dependencies(webRoot()), giphyApiKey: "test-browser-key", logger: new StructuredLogger(undefined, entry => logged.push(entry)) };

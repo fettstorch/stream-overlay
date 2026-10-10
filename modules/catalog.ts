@@ -1,5 +1,6 @@
 import type { ModuleManifest } from "../packages/overlay-sdk/src/manifest.ts";
 import { chatManifest } from "./chat/src/manifest.ts";
+import { botManifest } from "./bot/src/manifest.ts";
 import { overlayPaintManifest } from "./overlay-paint/src/manifest.ts";
 import { emoticonsManifest } from "./emoticons/src/manifest.ts";
 import { streamplacePetsManifest } from "./streamplace-pets/src/manifest.ts";
@@ -8,6 +9,7 @@ import { streamplacePetsManifest } from "./streamplace-pets/src/manifest.ts";
 const availableCloudModules = [
   emoticonsManifest,
   chatManifest,
+  botManifest,
   overlayPaintManifest,
   streamplacePetsManifest,
 ] as const satisfies readonly ModuleManifest[];
