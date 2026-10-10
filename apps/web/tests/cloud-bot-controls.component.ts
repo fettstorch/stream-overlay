@@ -44,7 +44,7 @@ test("chat composer preserves failed messages and offers reauthorization before 
   expect(wrapper.get('.chat-avatar').attributes('aria-label')).toBe('Profile picture unavailable');
   wrapper.unmount();
 });
-test("Commands embeds chat and the private listener stays running across tabs while enabled", async () => {
+test("Testing embeds chat and the private listener stays running across tabs while enabled", async () => {
   const wrapper = mount(CloudBotControls, { props: { config, save: vi.fn() } });
   await flushPromises();
   expect(wrapper.get('iframe[title="Your Streamplace chat"]').attributes('src'))
@@ -60,6 +60,39 @@ test("Commands embeds chat and the private listener stays running across tabs wh
   expect(wrapper.findAll('iframe')).toHaveLength(1);
   await wrapper.findAll('[role="tab"]')[0]!.trigger('click');
   expect(wrapper.findAll('iframe')).toHaveLength(2);
+  wrapper.unmount();
+});
+test("Testing lists all commands and routines while Commands provides command management", async () => {
+  const rules = [{ command: "hi", response: "Hello", cooldownSeconds: 30 }];
+  const routines = [
+    { id: "active", response: "Welcome!", intervalSeconds: 60, enabled: true },
+    { id: "paused", response: "Follow the stream", intervalSeconds: 300, enabled: false },
+  ];
+  const save = vi.fn(async () => true);
+  const wrapper = mount(CloudBotControls, {
+    props: { config: { ...config, bot: { enabled: true, rules, routines } }, save },
+  });
+  await flushPromises();
+  const overview = wrapper.get('[aria-label="Commands overview"]');
+  expect(overview.text()).toContain("!hi");
+  expect(overview.findAll("button")).toHaveLength(0);
+  const routineOverview = wrapper.get('[aria-label="Routines overview"]');
+  expect(routineOverview.findAll("li")).toHaveLength(2);
+  expect(routineOverview.text()).toContain("Every 1 minute");
+  expect(routineOverview.text()).toContain("Welcome!");
+  expect(routineOverview.text()).toContain("Enabled");
+  expect(routineOverview.text()).toContain("Follow the stream");
+  expect(routineOverview.text()).toContain("Paused");
+  await wrapper.findAll('[role="tab"]')[1]!.trigger("click");
+  const management = wrapper.get('[aria-label="Manage commands"]');
+  expect((management.element.parentElement as HTMLElement).style.display).not.toBe("none");
+  await management.findAll("button")[0]!.trigger("click");
+  expect((wrapper.get('input[placeholder="!discord"]').element as HTMLInputElement).value).toBe("hi");
+  await management.findAll("button")[1]!.trigger("click");
+  await flushPromises();
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({
+    bot: { enabled: true, rules: [], routines },
+  }));
   wrapper.unmount();
 });
 test("Moderation reuses the editor but stores restrictions only in Bot settings", async () => {
@@ -96,7 +129,7 @@ test("saves rules through existing configuration flow and preserves input on fai
   await wrapper.findAll('[role="tab"]')[1]!.trigger("click");
   expect((wrapper.get("form.bot-tab-content").element as HTMLFormElement).style.display).not.toBe("none");
   expect(wrapper.get("form.bot-tab-content").find("h4").exists()).toBe(false);
-  expect(wrapper.get("section.bot-tab-content").find("h4").exists()).toBe(false);
+  expect(wrapper.get('[aria-label="Commands overview"]').exists()).toBe(true);
   expect(request).toHaveBeenCalledWith("/api/accounts/did%3Aplc%3Aowner/bot/source");
   const inputs = wrapper.get("form.bot-tab-content").findAll("input");
   await inputs[0].setValue("!discord");

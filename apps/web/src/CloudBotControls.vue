@@ -163,7 +163,29 @@ async function copy() {
         <p v-if="!config.bot?.enabled" class="settings-hint">Enable the Bot module to respond to commands here.</p>
       </div>
       <div>
-      <ul class="command-list striped-list">
+      <h4>Commands</h4>
+      <ul class="command-list striped-list" aria-label="Commands overview">
+        <li v-for="rule in config.bot?.rules ?? []" :key="rule.command" class="bot-rule">
+          <div><strong>!{{ rule.command }}</strong><p>{{ rule.response }}</p><small>{{ rule.cooldownSeconds }}s cooldown</small></div>
+        </li>
+      </ul>
+      <p v-if="!config.bot?.rules.length">No bot commands yet.</p>
+      <h4 class="routine-overview-heading">Routines</h4>
+      <ul class="command-list striped-list" aria-label="Routines overview">
+        <li v-for="routine in config.bot?.routines ?? []" :key="routine.id" class="bot-rule">
+          <div>
+            <strong>Every {{ routine.intervalSeconds / 60 }} {{ routine.intervalSeconds === 60 ? 'minute' : 'minutes' }}</strong>
+            <p>{{ routine.response }}</p>
+            <small>{{ routine.enabled ? 'Enabled' : 'Paused' }}</small>
+          </div>
+        </li>
+      </ul>
+      <p v-if="!config.bot?.routines?.length">No routines yet.</p>
+      </div>
+      </div>
+    </section>
+    <section v-show="tab === 'create'" class="module-section bot-tab-content command-management">
+      <ul class="command-list striped-list" aria-label="Manage commands">
         <li v-for="rule in config.bot?.rules ?? []" :key="rule.command" class="bot-rule">
           <div>
             <strong>!{{ rule.command }}</strong>
@@ -182,8 +204,6 @@ async function copy() {
         </li>
       </ul>
       <p v-if="!config.bot?.rules.length">No bot commands yet.</p>
-      </div>
-      </div>
     </section>
     <form v-show="tab === 'create'" class="module-section bot-tab-content editor-fields" @submit.prevent="add">
       <h4 v-if="editing">Edit command</h4>
@@ -237,6 +257,8 @@ async function copy() {
   margin: 0;
   padding: 0;
 }
+.command-management { margin-bottom: 24px; }
+.routine-overview-heading { margin-top: 24px; }
 .bot-commands-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
 .bot-chat { min-width: 0; }
 .bot-chat-viewport { height: 480px; overflow: hidden; }
