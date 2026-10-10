@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import BrandWordmark from "./BrandWordmark.vue";
+import ThemeToggle from "./ThemeToggle.vue";
 import { version } from "../../../package.json";
 import CollapseTransition from "./CollapseTransition.vue";
 import DrawnTabs from "./DrawnTabs.vue";
@@ -423,6 +424,7 @@ onBeforeUnmount(() => {
 <template>
   <main>
     <header>
+      <ThemeToggle />
       <BrandWordmark />
       <p class="intro">
         Manage your <StreamplaceBrand /> stream overlays from anywhere and copy their stable URLs

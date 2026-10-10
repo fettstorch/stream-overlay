@@ -1,0 +1,56 @@
+/* Theme only the configurator, never the media, avatars or OBS iframes.
+   Invert decorative monochrome artwork separately to preserve its ink strokes. */
+html[data-theme="light"] { color-scheme: light; }
+html[data-theme="dark"] { color-scheme: dark; background: #111; }
+html[data-theme="dark"] body { background: #111; color: #eee; }
+html[data-theme="dark"] #app .brand-background { background: #111; }
+html[data-theme="dark"] #app :is(.doodle, .theme-control img) { filter: invert(1); }
+html[data-theme="dark"] #app header .streamplace-brand img { filter: brightness(0) invert(1); }
+html[data-theme="dark"] #app :is(.module-card, .settings, .module-section, .drawn-tab-panel)::before,
+html[data-theme="dark"] #app .tab-ink,
+html[data-theme="dark"] #app .drawn-select::before,
+html[data-theme="dark"] #app button::before { filter: invert(.9); }
+html[data-theme="dark"] #app button:hover:not(:disabled)::before,
+html[data-theme="dark"] #app .drawn-select:has(select:hover:not(:disabled))::before { filter: invert(.85); }
+html[data-theme="dark"] #app button:active:not(:disabled)::before { filter: invert(.8); }
+html[data-theme="dark"] #app :is(.module-card, .settings, .module-section) {
+  color: #eee;
+  --command-row-background: #1a1a1a;
+  --command-row-alternate-background: #292929;
+}
+html[data-theme="dark"] #app :is(h2, h3, h4, p, label, strong, button, select, .editor-fields label, .module-commands h4, .emoticon-controls, .info-button, .module-icon-button, .site-footer) { color: #eee; }
+html[data-theme="dark"] #app :is(small, legend, output, .status, .save-status, .empty-copy, .section-heading h4 span, .command-group summary span, .command-list li > span, .section-kicker, .intro, .module-message) { color: #bdbdbd; }
+html[data-theme="dark"] #app a { color: #c2ceff; }
+html[data-theme="dark"] #app .site-footer a { color: inherit; }
+html[data-theme="dark"] #app :is(.connected-status, .status[data-status="running"]) { color: #90d6a8; }
+html[data-theme="dark"] #app .connected-status span { background: #90d6a8; }
+html[data-theme="dark"] #app :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"]), textarea, select option, .actor-suggestions) { color: #eee; background: #1a1a1a; border-color: #888; }
+html[data-theme="dark"] #app input::placeholder,
+html[data-theme="dark"] #app textarea::placeholder { color: #aaa; }
+html[data-theme="dark"] #app :is(.actor-suggestions button:hover, .actor-suggestions button[aria-selected="true"], .drop-zone:hover, .module-icon-button:hover, .info-button:hover) { background: #333; color: #fff; }
+html[data-theme="dark"] #app .state-panel { background: #222; color: #eee; border-color: #888; }
+html[data-theme="dark"] #app :is(.danger-button, .error-panel strong) { color: #ff9caa; }
+html[data-theme="dark"] #app .pin-button[aria-pressed="true"] { color: #c2ceff; background: #30374d; }
+html[data-theme="dark"] #app .drawn-tab { color: #bdbdbd; }
+html[data-theme="dark"] #app .drawn-tab.selected { color: #fff; }
+html[data-theme="dark"] #app .drawn-select { color-scheme: dark; }
+html[data-theme="dark"] #app .drawn-select::after { background: #eee; }
+html[data-theme="dark"] #app .switch span { background: none; }
+html[data-theme="dark"] #app .switch span::before {
+  content: ""; position: absolute; inset: 0;
+  background: url("./assets/branding/controls/toggle-frame.png") center / 100% 100% no-repeat;
+  filter: invert(.9);
+}
+html[data-theme="dark"] #app input[type="range"]::-webkit-slider-runnable-track { filter: invert(.9); }
+html[data-theme="dark"] #app input[type="range"]::-moz-range-track { filter: invert(.9); }
+html[data-theme="dark"] #app .drawn-dialog { color: #eee; isolation: isolate; border-image: none; background: transparent; }
+html[data-theme="dark"] #app .drawn-dialog::before {
+  content: ""; position: absolute; inset: -22px; z-index: -1; pointer-events: none;
+  border: 22px solid transparent;
+  border-image: url("./assets/branding/module-frame.png") 350 fill / 22px / 0 stretch;
+  filter: invert(.9);
+}
+html[data-theme="dark"] #app .drawn-dialog .preference-hint { color: #bdbdbd; }
+html[data-theme="dark"] #app .module-section .upstream-info { color: #efdcaa; background: #332b19; border-color: #a88b45; }
+html[data-theme="dark"] #app .upstream-info p { color: inherit; }
+html[data-theme="dark"] #app .upstream-info a { color: #ffdf86; }
