@@ -18,6 +18,7 @@ import arrows from "./assets/branding/doodles/arrows.png";
 import arrowUp from "./assets/branding/doodles/arrow-up.png";
 import arrowDown from "./assets/branding/doodles/arrow-down.png";
 import chair from "./assets/branding/doodles/chair.png";
+import shockedSketch from "./assets/branding/doodles/shocked-sketch.png";
 
 const doodles = [camera, live, microphone, headphones, stork, star, streamDeck, smile,
   cloud, cube, hands, speaker, like, arrows, arrowUp, arrowDown, chair];
@@ -27,6 +28,7 @@ const doodles = [camera, live, microphone, headphones, stork, star, streamDeck, 
   <ButtonLightingFilters />
   <div class="brand-background" aria-hidden="true">
     <img v-for="(src, index) in doodles" :key="src" :src="src" :class="`doodle doodle-${index}`" alt="" />
+    <img class="doodle light-mode-sketch" :src="shockedSketch" alt="" />
   </div>
   <img class="brand-mascot" :src="mascot" alt="" aria-hidden="true" />
 </template>
@@ -67,6 +69,7 @@ const doodles = [camera, live, microphone, headphones, stork, star, streamDeck, 
 .doodle-14 { left: 46%; top: 2%; width: clamp(30px, 3vw, 48px); --tilt: -7deg; animation-delay: -3s; }
 .doodle-15 { right: 18%; bottom: 5%; width: clamp(30px, 3vw, 48px); --tilt: 9deg; animation-delay: -8s; }
 .doodle-16 { left: 49%; bottom: 1%; width: clamp(45px, 5vw, 80px); --tilt: -5deg; animation-delay: -4s; }
+.light-mode-sketch { right: clamp(150px, 18vw, 260px); top: 10%; width: clamp(92px, 12vw, 132px); --tilt: 0deg; animation: none; }
 @keyframes doodle-wiggle {
   from { transform: translateY(-1px) rotate(calc(var(--tilt) - 1deg)); }
   to { transform: translateY(1px) rotate(calc(var(--tilt) + 1deg)); }

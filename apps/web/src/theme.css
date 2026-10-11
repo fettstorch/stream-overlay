@@ -5,6 +5,7 @@ html[data-theme="dark"] { color-scheme: dark; background: #111; }
 html[data-theme="dark"] body { background: #111; color: #eee; }
 html[data-theme="dark"] #app .brand-background { background: #111; }
 html[data-theme="dark"] #app :is(.doodle, .theme-control img) { filter: invert(1); }
+html[data-theme="dark"] #app .light-mode-sketch { display: none; }
 html[data-theme="dark"] #app header .streamplace-brand img { filter: brightness(0) invert(1); }
 html[data-theme="dark"] #app :is(.module-card, .settings, .module-section, .drawn-tab-panel)::before,
 html[data-theme="dark"] #app .tab-ink,
