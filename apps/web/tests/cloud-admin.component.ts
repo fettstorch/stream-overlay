@@ -303,6 +303,10 @@ describe("Cloud Admin", () => {
     const wrapper = mount(CloudAdmin); await flushPromises();
     expect(wrapper.findAll("[data-module]").map(card => card.attributes("data-module"))).toEqual(["emoticons", "chat", "bot", "overlay-paint", "pokemon-crystal-mgba"]);
     expect(wrapper.get('[data-module="pokemon-crystal-mgba"] .status').text()).toBe('running');
+    const crystalToggle = wrapper.get('[aria-label="Enable Pokémon Crystal mGBA"]');
+    await crystalToggle.setValue(false); await flushPromises();
+    expect(wrapper.get('[data-module="pokemon-crystal-mgba"] .status').text()).toBe('stopped');
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PUT" && JSON.parse(String(init.body)).pokemonCrystalMgbaEnabled === false)).toBe(true);
     await wrapper.get('.module-badges button[aria-pressed="false"] .button-content').trigger('click');
     expect(wrapper.findAll('[data-module]').filter(card => card.isVisible()).map(card => card.attributes('data-module'))).toEqual(['emoticons', 'bot', 'pokemon-crystal-mgba']);
     await wrapper.get('.module-badges button[aria-pressed="true"]').trigger('click');
@@ -326,7 +330,7 @@ describe("Cloud Admin", () => {
     expect(wrapper.get('[aria-label="Chat appearance"]').classes()).toContain('module-section');
     expect(wrapper.get('[aria-label="Paint appearance"]').classes()).toContain('module-section');
     const delay = wrapper.get('[aria-label="Paint appearance"] input[type=number]'); await delay.setValue(3.5); await delay.trigger("change"); await flushPromises();
-    const write = fetchMock.mock.calls.find(([, init]) => init?.method === "PUT")!;
+    const write = fetchMock.mock.calls.find(([, init]) => init?.method === "PUT" && JSON.parse(String(init.body)).paint?.decaySeconds === 3.5)!;
     const saved = JSON.parse(String(write[1]?.body));
     expect(saved.paint.decaySeconds).toBe(3.5); expect(saved.chat.fontSize).toBe(20); expect(saved.commands).toEqual(config.commands);
     expect(wrapper.find('[data-module="streamplace-pets"]').exists()).toBe(false);

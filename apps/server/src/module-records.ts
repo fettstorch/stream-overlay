@@ -231,6 +231,7 @@ export function parseModuleRecords(did: string, records: StoredRecord[]): CloudC
       })),
     ...(get(moduleCollections.crystalSettings)
       ? {
+          pokemonCrystalMgbaEnabled: get(moduleCollections.crystalSettings)!.enabled ?? true,
           pokemonCrystalMgbaThoughtIntervalSeconds: get(moduleCollections.crystalSettings)!
             .thoughtIntervalSeconds,
         }
@@ -405,11 +406,19 @@ export function serializeModuleRecords(
     thoughtIntervalSeconds > 86400
   )
     throw new Error("Invalid thought interval");
+  const crystalEnabled = config.pokemonCrystalMgbaEnabled ?? true;
+  if (typeof crystalEnabled !== "boolean") throw new Error("Invalid Crystal enabled state");
   if (
+    config.pokemonCrystalMgbaEnabled !== undefined ||
     config.pokemonCrystalMgbaThoughtIntervalSeconds !== undefined ||
     previous.some((item) => item.collection === moduleCollections.crystalSettings)
   )
-    records.push(record(moduleCollections.crystalSettings, "self", { thoughtIntervalSeconds }));
+    records.push(
+      record(moduleCollections.crystalSettings, "self", {
+        enabled: crystalEnabled,
+        thoughtIntervalSeconds,
+      }),
+    );
   for (const item of crystalMedia) {
     const next = record(moduleCollections.crystalMedia, String(item.number), {
       media: item.blob

@@ -110,6 +110,60 @@ test("Crystal overlay receives rapid HP updates, refreshes artwork, and clears s
   await flushPromises();
   expect(wrapper.find(".crystal-cloud-overlay").exists()).toBe(false);
 });
+test("Crystal overlay stays empty and ignores chat while disabled", async () => {
+  history.replaceState({}, "", "/pokemon-crystal-mgba/?did=did:plc:a&preview=1");
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ pokemonCrystalMgbaEnabled: false })));
+  wrapper = mount(Overlay);
+  await flushPromises();
+  relay.receive({ type: "pokemon-crystal-mgba", snapshot: snapshot(20) });
+  chat.receive({ text: "!pet PIKA", author: { did: "did:plc:b" } });
+  await flushPromises();
+  expect(wrapper.find(".crystal-cloud-overlay").exists()).toBe(false);
+});
+test("Crystal waits for configuration and remains disabled when loading fails", async () => {
+  history.replaceState({}, "", "/pokemon-crystal-mgba/?did=did:plc:a&preview=1");
+  let resolve!: (response: Response) => void;
+  const fetchMock = vi.fn(() => new Promise<Response>(done => { resolve = done; }));
+  vi.stubGlobal("fetch", fetchMock);
+  wrapper = mount(Overlay);
+  relay.receive({ type: "pokemon-crystal-mgba", snapshot: snapshot(20) });
+  chat.receive({ text: "!pet PIKA", author: { did: "did:plc:b" } });
+  await flushPromises();
+  expect(wrapper.find(".crystal-cloud-overlay").exists()).toBe(false);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  resolve(new Response(null, { status: 502 }));
+  await flushPromises();
+  relay.receive({ type: "pokemon-crystal-mgba", snapshot: snapshot(20) });
+  await flushPromises();
+  expect(wrapper.find(".crystal-cloud-overlay").exists()).toBe(false);
+});
+test("an older config response cannot reactivate Crystal after disabling", async () => {
+  history.replaceState({}, "", "/pokemon-crystal-mgba/?did=did:plc:a&preview=1");
+  const requests: ((response: Response) => void)[] = [];
+  vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(resolve => { requests.push(resolve); })));
+  wrapper = mount(Overlay);
+  requests[0]!(Response.json({ pokemonCrystalMgbaEnabled: true }));
+  await flushPromises();
+  relay.receive({ type: "pokemon-crystal-mgba", snapshot: snapshot(20) });
+  await flushPromises();
+  expect(wrapper.text()).toContain("PIKA");
+  relay.receive({ type: "config-changed" });
+  relay.receive({ type: "config-changed" });
+  requests[2]!(Response.json({ pokemonCrystalMgbaEnabled: false }));
+  await flushPromises();
+  expect(wrapper.find(".crystal-cloud-overlay").exists()).toBe(false);
+  requests[1]!(Response.json({ pokemonCrystalMgbaEnabled: true }));
+  await flushPromises();
+  relay.receive({ type: "pokemon-crystal-mgba", snapshot: snapshot(20) });
+  await flushPromises();
+  expect(wrapper.find(".crystal-cloud-overlay").exists()).toBe(false);
+  relay.receive({ type: "config-changed" });
+  requests[3]!(Response.json({ pokemonCrystalMgbaEnabled: true }));
+  await flushPromises();
+  relay.receive({ type: "pokemon-crystal-mgba", snapshot: snapshot(20) });
+  await flushPromises();
+  expect(wrapper.text()).toContain("PIKA");
+});
 test("Crystal controls save only artwork mappings and restore defaults", async () => {
   const config = {
     streamerDid: "did:plc:a",

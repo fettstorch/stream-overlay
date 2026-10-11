@@ -42,6 +42,7 @@
 .module-card .status[data-status="running"] { color: #23834d; }
 .module-card .module-body > p { color: #414141; }
 .module-card .module-commands h4 { color: #535353; }
+.module-card .module-actions { align-self: flex-start; }
 .module-card .module-icon-button { color: #444; }
 .module-card .module-icon-button:hover,
 .module-card .module-icon-button:focus-visible { color: #111; background: #eee; }

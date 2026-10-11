@@ -244,7 +244,7 @@ async function deleteCustomModule(id: string) {
   );
 }
 function moduleEnabled(id: string) {
-  if (id === "pokemon-crystal-mgba") return true;
+  if (id === "pokemon-crystal-mgba") return config.value?.pokemonCrystalMgbaEnabled ?? true;
   if (id.startsWith("custom:"))
     return (
       config.value?.customModules?.find((module) => `custom:${module.id}` === id)?.enabled ?? false
@@ -254,7 +254,7 @@ function moduleEnabled(id: string) {
   if (id === "bot") return config.value.bot?.enabled ?? false;
   if (module.cloud.enabledKey === "customModule") return false;
   const key = module.cloud.enabledKey;
-  if (key === "pokemonCrystalMgba") return true;
+  if (key === "pokemonCrystalMgba") return config.value.pokemonCrystalMgbaEnabled ?? true;
   return key === "emoticons"
     ? config.value.enabled
     : key === "bot"
@@ -471,6 +471,8 @@ async function toggleEnabled(module: CloudModule, event: Event) {
   const input = event.target as HTMLInputElement;
   const candidate = { ...config.value, ...moduleSettings(config.value) };
   if (module.id === "emoticons") candidate.enabled = input.checked;
+  else if (module.id === "pokemon-crystal-mgba")
+    candidate.pokemonCrystalMgbaEnabled = input.checked;
   else if (module.id === "bot")
     candidate.bot = { ...candidate.bot, enabled: input.checked, rules: candidate.bot?.rules ?? [] };
   else if (module.id.startsWith("custom:")) {
@@ -886,7 +888,7 @@ onBeforeUnmount(() => {
                   :name="module.name"
                   :description="module.description"
                   :instructions="obsInstructions(module.id)"
-                /><label v-if="config && module.id !== 'pokemon-crystal-mgba'" class="switch"
+                /><label v-if="config" class="switch"
                   ><input
                     type="checkbox"
                     :checked="moduleEnabled(module.id)"
