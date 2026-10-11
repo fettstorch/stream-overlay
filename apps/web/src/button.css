@@ -100,6 +100,15 @@ html[data-theme] #app button:not(:where(.drawn-tab, .module-icon-button, .collap
 html[data-theme] #app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button)) {
   color: #171717;
 }
+/* Match the Pokémon badge's warm yellow in dark mode without changing
+   the supplied ink frame, lighting or semantic action-button colors. */
+html[data-theme="dark"] #app button:not(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button, .atproto-button, .danger-button, .success-button, .module-badge),
+html[data-theme="dark"] #app button:not(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button, .atproto-button, .danger-button, .success-button, .module-badge) .button-content {
+  color: #fff;
+}
+html[data-theme="dark"] #app button:not(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button, .atproto-button, .danger-button, .success-button, .module-badge)::before {
+  filter: url("#button-warm-yellow") var(--artwork-shadow);
+}
 html[data-theme] #app button:is(.atproto-button, .danger-button, .success-button),
 html[data-theme] #app button:is(.atproto-button, .danger-button, .success-button) .button-content {
   color: #fff;

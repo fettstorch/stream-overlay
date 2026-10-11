@@ -1,6 +1,9 @@
 <template>
   <svg class="button-lighting-filters" aria-hidden="true" width="0" height="0">
     <defs>
+      <filter id="button-warm-yellow" color-interpolation-filters="sRGB">
+        <feColorMatrix type="matrix" values="0.299 0.587 0.114 0 0 0.2814 0.5525 0.1073 0 0 0.2333 0.4581 0.0890 0 0 0 0 0 1 0" />
+      </filter>
       <filter id="button-curved-light" color-interpolation-filters="sRGB">
         <feOffset in="SourceAlpha" dx="-2" dy="2" result="shifted" />
         <feComposite in="SourceAlpha" in2="shifted" operator="out" result="edge" />
