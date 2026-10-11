@@ -276,7 +276,11 @@ describe("Cloud Admin", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     const wrapper = mount(CloudAdmin); await flushPromises();
-    expect(wrapper.findAll("[data-module]").map(card => card.attributes("data-module"))).toEqual(["emoticons", "chat", "pokemon-crystal-mgba", "bot", "overlay-paint"]);
+    expect(wrapper.findAll("[data-module]").map(card => card.attributes("data-module"))).toEqual(["emoticons", "chat", "bot", "overlay-paint", "pokemon-crystal-mgba"]);
+    expect(wrapper.get('[data-module="pokemon-crystal-mgba"] .status').text()).toBe('running');
+    await wrapper.get('.module-badges button[aria-pressed="false"] .button-content').trigger('click');
+    expect(wrapper.findAll('[data-module]').filter(card => card.isVisible()).map(card => card.attributes('data-module'))).toEqual(['emoticons', 'bot', 'pokemon-crystal-mgba']);
+    await wrapper.get('.module-badges button[aria-pressed="true"]').trigger('click');
     expect(wrapper.text()).toContain("2560 × 1440");
     expect(wrapper.text()).not.toContain("Your stream");
     expect(wrapper.get('.obs-guidance').text()).toContain('Browser Sources in OBS');

@@ -273,6 +273,9 @@ const streamUrl = computed(() =>
 );
 const {
   query: moduleQuery,
+  badges,
+  selectedBadge,
+  toggleBadge,
   isPinned,
   togglePin,
   isExpanded,
@@ -754,6 +757,11 @@ onBeforeUnmount(() => {
             ><span class="button-content"> New </span>
           </button>
         </div>
+        <div class="module-badges" aria-label="Filter modules by badge">
+          <button v-for="badge in badges" :key="badge" type="button" class="module-badge" :data-badge="badge" :aria-pressed="selectedBadge === badge" @click="toggleBadge(badge)">
+            <span class="button-content">{{ badge }}</span>
+          </button>
+        </div>
         <p v-if="moduleMessages['custom-modules']" role="status">
           {{ moduleMessages["custom-modules"] }}
         </p>
@@ -825,6 +833,7 @@ onBeforeUnmount(() => {
                     <img :src="pencilIcon" class="pencil-icon" alt="" />
                   </button>
                 </div>
+                <div class="module-badges card-badges"><span v-for="badge in module.badges" :key="badge" class="module-badge" :data-badge="badge">{{ badge }}</span></div>
                 <span v-if="module.id.startsWith('custom:')" class="custom-module-badge"
                   >Custom Module</span
                 >
@@ -832,11 +841,7 @@ onBeforeUnmount(() => {
                   class="status"
                   :data-status="moduleEnabled(module.id) ? 'running' : 'stopped'"
                   >{{
-                    module.id === "pokemon-crystal-mgba"
-                      ? "available"
-                      : moduleEnabled(module.id)
-                        ? "running"
-                        : "stopped"
+                    moduleEnabled(module.id) ? "running" : "stopped"
                   }}</span
                 >
               </div>
@@ -1158,6 +1163,35 @@ onBeforeUnmount(() => {
   <BrandMascot />
 </template>
 <style scoped>
+.module-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.card-badges { gap: 6px; margin: 4px 0 8px; }
+.module-badge[data-badge="commands"] { --badge-border: #7650a0; --badge-fill: #eee2fa; }
+.module-badge[data-badge="overlay"] { --badge-border: #23778c; --badge-fill: #d9f1f6; }
+.module-badge[data-badge="game"] { --badge-border: #437c35; --badge-fill: #e2f2d9; }
+.module-badge[data-badge="pokemon"] { --badge-border: #a36b10; --badge-fill: #fff0c7; }
+.module-badge,
+:global(html[data-theme] #app button.module-badge) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid var(--badge-border);
+  border-radius: 999px;
+  background: var(--badge-fill);
+  color: var(--badge-border);
+  padding: 2px 10px;
+  min-height: 0;
+  font-size: 0.8em;
+  font-weight: 700;
+  line-height: 1.3;
+  box-shadow: none;
+  transform: none;
+}
+:global(html[data-theme] #app button.module-badge::before),
+:global(html[data-theme] #app button.module-badge::after) { display: none; }
+:global(html[data-theme] #app button.module-badge .button-content) { color: inherit; transform: none; }
+:global(html[data-theme] #app button.module-badge[aria-pressed="true"]) { outline: 2px solid var(--badge-border); outline-offset: 3px; }
+:global(html[data-theme] #app button.module-badge:focus-visible) { outline: 2px dashed var(--badge-border); outline-offset: 3px; }
+:global(html[data-theme] #app button.module-badge:hover) { filter: brightness(0.96); }
 .modules-heading {
   display: flex;
   align-items: center;

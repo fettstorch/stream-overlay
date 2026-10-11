@@ -1,5 +1,6 @@
 import type { ModuleManifest } from "../../../packages/overlay-sdk/src/manifest.ts";
 export const crystalMgbaManifest = {
+  badges: ["commands", "overlay", "game", "pokemon"],
   id: "pokemon-crystal-mgba",
   name: "Pokémon Crystal mGBA",
   description:

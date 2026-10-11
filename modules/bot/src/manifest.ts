@@ -1,5 +1,6 @@
 import type { ModuleManifest } from "../../../packages/overlay-sdk/src/manifest.ts";
 export const botManifest = {
+  badges: ["commands"],
   id: "bot",
   name: "Bot",
   description:

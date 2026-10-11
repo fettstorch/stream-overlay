@@ -1,5 +1,6 @@
 import type { ModuleManifest } from "../../../packages/overlay-sdk/src/manifest.ts";
 export const emoticonsManifest = {
+  badges: ["commands", "overlay"],
   id: "emoticons",
   name: "Emotes",
   description:
