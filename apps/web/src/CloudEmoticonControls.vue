@@ -71,7 +71,10 @@ async function submitMediaInput() {
   message.value = "Searching GIPHY…";
   giphyLog("started", operationId);
   try {
-    const results = await searchGiphy(mediaUrlInput.value.trim());
+    const results = await searchGiphy(
+      mediaUrlInput.value.trim(),
+      form.value.mode === "sticker" ? "stickers" : "gifs",
+    );
     if (generation !== giphyGeneration) return;
     giphyResults.value = results;
     message.value = results.length
@@ -236,6 +239,11 @@ function changeMode() {
   if (form.value.mode === "sticker") removeMedia("audio");
   if (!pending.value.video && !pending.value.audio)
     form.value.durationSeconds = form.value.mode === "sticker" ? 8 : 5;
+  giphyDebouncer.clear();
+  giphyGeneration++;
+  giphyResults.value = [];
+  giphySearching.value = false;
+  if (giphySearchMode.value) giphyDebouncer.debounce(() => void submitMediaInput(), 400);
 }
 const mediaTypes: Record<string, { kind: MediaKind; type: string }> = {
   gif: { kind: "image", type: "image/gif" },

@@ -105,7 +105,7 @@ describe("Cloud Admin", () => {
       expect(giphyMocks.searchGiphy).not.toHaveBeenCalled();
       expect(wrapper.findAll('button').some(button => button.text() === 'Search')).toBe(false);
       await vi.advanceTimersByTimeAsync(1);
-      expect(giphyMocks.searchGiphy).toHaveBeenCalledExactlyOnceWith("cats");
+      expect(giphyMocks.searchGiphy).toHaveBeenCalledExactlyOnceWith("cats", "stickers");
       await input.setValue("dogs"); await vi.advanceTimersByTimeAsync(200);
       await input.setValue("https://example.com/gif"); await vi.advanceTimersByTimeAsync(400);
       expect(giphyMocks.searchGiphy).toHaveBeenCalledTimes(1);
@@ -122,12 +122,34 @@ describe("Cloud Admin", () => {
     await wrapper.get('.primary-button').trigger('click');
     const input = wrapper.get('input[placeholder="https://…/media.gif or a GIF search"]');
     await input.setValue("happy"); await input.trigger("keydown", { key: "Enter" }); await flushPromises();
-    expect(giphyMocks.searchGiphy).toHaveBeenCalledWith("happy");
+    expect(giphyMocks.searchGiphy).toHaveBeenCalledWith("happy", "stickers");
     await wrapper.get('button[aria-label="Choose Happy"]').trigger("click");
     await wrapper.get('input[placeholder="!wow"]').setValue("happy");
     await wrapper.get('.command-editor').trigger("submit"); await flushPromises();
     expect(save).toHaveBeenCalledWith(expect.objectContaining({ commands: expect.arrayContaining([expect.objectContaining({ command: "happy", image: { giphyId: "abc" } })]) }), expect.any(String));
     wrapper.unmount();
+  });
+  test("searches the Giphy catalog selected by the command mode", async () => {
+    vi.useFakeTimers();
+    giphyMocks.searchGiphy.mockClear();
+    giphyMocks.searchGiphy.mockResolvedValue([]);
+    vi.stubGlobal("fetch", vi.fn(async () => response({ ok: true })));
+    const wrapper = mount(CloudEmoticonControls, { props: { did: session.did, config, save: vi.fn() } });
+    try {
+      await wrapper.get('.primary-button').trigger('click');
+      const input = wrapper.get('input[placeholder="https://…/media.gif or a GIF search"]');
+      await input.setValue("cats");
+      await vi.advanceTimersByTimeAsync(400);
+      expect(giphyMocks.searchGiphy).toHaveBeenLastCalledWith("cats", "stickers");
+
+      await wrapper.get('.choice-switch input').setValue(false);
+      await vi.advanceTimersByTimeAsync(400);
+      expect(giphyMocks.searchGiphy).toHaveBeenLastCalledWith("cats", "gifs");
+      expect(giphyMocks.searchGiphy).toHaveBeenCalledTimes(2);
+    } finally {
+      wrapper.unmount();
+      vi.useRealTimers();
+    }
   });
   test("retains upstream attribution in the optional Pets controls", () => {
     const wrapper = mount(CloudModuleControls, { props: { moduleId: "streamplace-pets", config, save: vi.fn(async () => true) } });
