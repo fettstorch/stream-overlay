@@ -71,16 +71,16 @@ async function saveRoles() {
         <img v-if="profiles[user.did]?.avatar" :src="profiles[user.did]!.avatar" alt="" @error="profiles[user.did]!.avatar = ''" />
         <span v-else class="avatar-placeholder" role="img" aria-label="Profile picture unavailable" />
         <strong>{{ profiles[user.did]?.handle ? `@${profiles[user.did]!.handle}` : user.handle ? `@${user.handle}` : user.did }}</strong>
-        <button type="button" :disabled="busy" @click="roles.users = roles.users.filter(item => item.did !== user.did)">Remove</button>
+        <button class="danger-button" type="button" :disabled="busy" @click="roles.users = roles.users.filter(item => item.did !== user.did)"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Remove</span></button>
       </li>
     </ul>
     <label class="role-search">Specific user
       <input ref="input" v-model="query" placeholder="Add @handle" :disabled="busy" autocomplete="off" @input="selected = undefined" @keydown.enter.prevent="addUser" />
     </label>
     <span ref="searchStatus" role="status" class="settings-hint" />
-    <button type="button" :disabled="busy || !query.trim()" @click="addUser">Add user</button>
+    <button class="atproto-button" type="button" :disabled="busy || !query.trim()" @click="addUser"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Add user</span></button>
     <p class="settings-hint">{{ rolesRestricted(roles) ? 'Only matching users will be allowed. If a relationship lookup fails, access is denied.' : 'No roles selected: everyone can use commands, subject to restrictions.' }} Changes take effect after saving.</p>
-    <button type="button" :disabled="busy" @click="saveRoles">{{ busy ? 'Saving…' : 'Save roles' }}</button>
+    <button class="success-button" type="button" :disabled="busy" @click="saveRoles"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">{{ busy ? 'Saving…' : 'Save roles' }}</span></button>
     <p v-if="message" role="status">{{ message }}</p>
   </div>
 </template>

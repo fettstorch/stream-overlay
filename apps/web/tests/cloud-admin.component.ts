@@ -161,12 +161,12 @@ describe("Cloud Admin", () => {
     await wrapper.get('.danger-button').trigger('click');
     expect(save).not.toHaveBeenCalled();
     await wrapper.get('dialog input[type="checkbox"]').setValue(true);
-    await wrapper.get('dialog .danger-button').trigger('click');
+    await wrapper.get('dialog .confirm-delete-button').trigger('click');
     await flushPromises();
     expect(save).toHaveBeenCalledWith(expect.objectContaining({ commands: [], preferences: { confirmDeletion: false } }), expect.any(String));
     expect(wrapper.find('dialog').exists()).toBe(true);
     save.mockResolvedValue(true);
-    await wrapper.get('dialog .danger-button').trigger('click');
+    await wrapper.get('dialog .confirm-delete-button').trigger('click');
     await flushPromises();
     expect(wrapper.find('dialog').exists()).toBe(false);
     wrapper.unmount();

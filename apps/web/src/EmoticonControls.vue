@@ -153,9 +153,9 @@ function selected(event: Event) { const input = event.target as HTMLInputElement
     <p>Effect source: match your OBS canvas. Board source: start at 420 × 600 px, then size independently. Both disappear when disabled.</p>
     <CollapsibleSection v-for="group in commandGroups" :key="group.title" class="command-group" :title="group.title" :count="group.commands.length">
     <p v-if="!group.commands.length">No commands yet</p>
-    <ul class="command-list striped-list"><li v-for="command in group.commands" :key="command.id"><strong>!{{ command.command }}</strong><button type="button" @click="test(command)">Test</button><button type="button" @click="edit(command)">Edit</button><button type="button" @click="remove(command)">Delete</button></li></ul>
+    <ul class="command-list striped-list"><li v-for="command in group.commands" :key="command.id"><strong>!{{ command.command }}</strong><button type="button" @click="test(command)"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Test</span></button><button type="button" @click="edit(command)"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Edit</span></button><button class="danger-button" type="button" @click="remove(command)"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Delete</span></button></li></ul>
     </CollapsibleSection>
-    <div v-if="!formOpen"><button type="button" @click="create">Create new command</button></div>
+    <div v-if="!formOpen"><button type="button" @click="create"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Create new command</span></button></div>
     <form v-if="formOpen" class="module-section command-editor" @submit.prevent="save">
       <h4>{{ editing ? 'Edit command' : 'Create command' }}</h4>
       <label class="sticker-toggle"><input type="checkbox" :checked="form.mode === 'sticker'" @change="form.mode = ($event.target as HTMLInputElement).checked ? 'sticker' : 'effect'; changeMode()"> Sticker</label>
@@ -170,7 +170,7 @@ function selected(event: Event) { const input = event.target as HTMLInputElement
         <template v-for="kind in (['image', 'audio', 'video'] as const)" :key="kind">
         <div v-if="form[assetKey(kind)]" class="attachment">
           <span>{{ attachment(kind)?.originalName || attachment(kind)?.filename || 'Attached file' }}</span>
-          <button type="button" :disabled="busy" :aria-label="`Remove ${kind} attachment`" @click="form[assetKey(kind)] = null">Remove</button>
+          <button class="danger-button" type="button" :disabled="busy" :aria-label="`Remove ${kind} attachment`" @click="form[assetKey(kind)] = null"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Remove</span></button>
         </div>
         </template>
       </div>
@@ -189,7 +189,7 @@ function selected(event: Event) { const input = event.target as HTMLInputElement
       <label v-if="form.mode === 'effect'">Volume <input v-model.number="form.volume" type="range" min="0" max="1" step="0.05"></label>
       <small v-if="form.mode === 'sticker'">Default: 5vw × 5vw, preserving proportions, spawning across the bottom and drifting upward.</small>
       <small v-else>Examples: 300px, 40vw, 25vh, 50%, auto. Images and videos keep their proportions inside this box, centered at 5vh from the top.</small>
-      <div><button type="submit" :disabled="busy">{{ editing ? 'Save changes' : 'Create new command' }}</button><button type="button" :disabled="busy" @click="reset">Cancel</button></div>
+      <div><button class="success-button" type="submit" :disabled="busy"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">{{ editing ? 'Save changes' : 'Create new command' }}</span></button><button class="danger-button" type="button" :disabled="busy" @click="reset"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Cancel</span></button></div>
     </form>
     <p role="status">{{ message }}</p>
   </section>

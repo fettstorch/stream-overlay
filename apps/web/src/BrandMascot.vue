@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ButtonLightingFilters from "./ButtonLightingFilters.vue";
 import mascot from "./assets/branding/mascot.png";
 import camera from "./assets/branding/doodles/camera.png";
 import live from "./assets/branding/doodles/live.png";
@@ -23,6 +24,7 @@ const doodles = [camera, live, microphone, headphones, stork, star, streamDeck, 
 </script>
 
 <template>
+  <ButtonLightingFilters />
   <div class="brand-background" aria-hidden="true">
     <img v-for="(src, index) in doodles" :key="src" :src="src" :class="`doodle doodle-${index}`" alt="" />
   </div>

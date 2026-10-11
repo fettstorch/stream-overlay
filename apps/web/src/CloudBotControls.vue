@@ -142,7 +142,7 @@ async function copy() {
     <p v-if="!configured" role="status">
       The server's Streamface bot account is not configured yet.
     </p>
-    <button :disabled="!sourceUrl" @click="copy">Copy private OBS URL</button>
+    <button :disabled="!sourceUrl" @click="copy"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Copy private OBS URL</span></button>
   </section>
   <DrawnTabs v-model="tab" :tabs="tabs" label="Bot commands">
     <section v-show="tab === 'commands'" :inert="tab !== 'commands' || undefined" class="module-section bot-tab-content">
@@ -157,7 +157,7 @@ async function copy() {
             <span v-else class="chat-avatar avatar-placeholder" role="img" aria-label="Profile picture unavailable" />
             <input v-model="chatText" aria-label="Chat message" placeholder="Type a chat message or !command" maxlength="3000" required :disabled="chatSending" />
             <button v-if="chatText.trim()" class="chat-send" type="submit" :disabled="chatSending" :aria-label="chatSending ? 'Sending message' : 'Send message'">
-              <img :src="sendIcon" alt="" />
+              <span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><img :src="sendIcon" alt="" />
             </button>
           </div>
           <p v-if="chatStatus" role="status">{{ chatStatus }}</p>
@@ -195,15 +195,15 @@ async function copy() {
             <p>{{ rule.response }}</p>
             <small>{{ rule.cooldownSeconds }}s cooldown</small>
           </div>
-          <button :disabled="busy" @click="edit(rule)">Edit</button>
-          <button
+          <button :disabled="busy" @click="edit(rule)"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Edit</span></button>
+          <button class="danger-button"
             :disabled="busy"
             @click="
               persist((config.bot?.rules ?? []).filter((item) => item.command !== rule.command))
             "
-          >
+          ><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">
             Remove
-          </button>
+          </span></button>
         </li>
       </ul>
       <p v-if="!config.bot?.rules.length">No bot commands yet.</p>
@@ -240,8 +240,8 @@ async function copy() {
       <p>
         The cooldown is shared by everyone using this command. Streamface ignores its own messages.
       </p>
-      <button type="submit" :disabled="busy">{{ busy ? "Saving…" : "Save command" }}</button>
-      <button type="button" :disabled="busy" @click="reset">Cancel</button>
+      <button class="success-button" type="submit" :disabled="busy"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">{{ busy ? "Saving…" : "Save command" }}</span></button>
+      <button class="danger-button" type="button" :disabled="busy" @click="reset"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Cancel</span></button>
     </form>
     <EmoticonModeration
       v-if="tab === 'moderation'"

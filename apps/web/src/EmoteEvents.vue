@@ -42,7 +42,7 @@ async function save() {
       <small v-if="event.id === 'teleport-arrival'">Use [teleporter] for the streamer's name and [viewers] for the arriving viewer count. Simulations use “Example streamer” and 42 viewers.</small>
       </div>
     </CollapsibleSection>
-    <button type="submit" :disabled="busy">{{ busy ? 'Saving…' : 'Save events' }}</button>
+    <button class="success-button" type="submit" :disabled="busy"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">{{ busy ? 'Saving…' : 'Save events' }}</span></button>
     <p v-if="message" role="status">{{ message }}</p>
   </form>
 </template>

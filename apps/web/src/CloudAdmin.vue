@@ -574,7 +574,7 @@ onBeforeUnmount(() => {
               autocomplete="username"
               placeholder="Search name or handle"
               required /></label
-          ><button class="primary-button" type="submit">Continue with AT Protocol</button>
+          ><button class="primary-button atproto-button" type="submit"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Continue with AT Protocol</span></button>
         </form>
         <p ref="loginStatus" class="save-status login-status" aria-live="polite">
           {{ loginMessage }}
@@ -671,7 +671,7 @@ onBeforeUnmount(() => {
             Retry profile
           </button>
         </div>
-        <button type="button" class="secondary-button" @click="logout">Log out</button>
+        <button type="button" class="secondary-button danger-button" @click="logout"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Log out</span></button>
       </section>
       <section class="settings obs-guidance" aria-labelledby="obs-guidance-title">
         <h2 id="obs-guidance-title">Use your overlays in OBS</h2>
@@ -707,9 +707,9 @@ onBeforeUnmount(() => {
       <section>
         <div class="modules-heading">
           <h2>Modules</h2>
-          <button type="button" aria-label="Create custom module" :disabled="!config || saving" @click="createCustomModule">
+          <button type="button" aria-label="Create custom module" :disabled="!config || saving" @click="createCustomModule"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">
             New
-          </button>
+          </span></button>
         </div>
         <p v-if="moduleMessages['custom-modules']" role="status">
           {{ moduleMessages["custom-modules"] }}
@@ -830,7 +830,7 @@ onBeforeUnmount(() => {
             <div v-if="loadState === 'error'" class="state-panel error-panel">
               <strong>Your saved configuration could not be loaded.</strong
               ><span>We did not replace it with an empty setup.</span
-              ><button type="button" @click="loadConfiguration">Retry</button>
+              ><button type="button" @click="loadConfiguration"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Retry</span></button>
             </div>
             <div v-else-if="loadState === 'loading'" class="state-panel">
               Loading your configuration…
@@ -1027,12 +1027,13 @@ onBeforeUnmount(() => {
                 />
                 <button
                   v-if="module.id.startsWith('custom:')"
+                  class="danger-button"
                   type="button"
                   :disabled="saving"
                   @click="deleteCustomModule(module.id)"
-                >
+                ><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">
                   Delete module
-                </button>
+                </span></button>
                 <p v-if="module.id === 'chat'" class="chat-preview-note">
                   Sample chat preview — these messages are generated here, not sent to your stream.
                   Your OBS source still shows live chat.

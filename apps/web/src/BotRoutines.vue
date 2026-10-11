@@ -37,8 +37,8 @@ async function add() {
             @change="persist((config.bot?.routines ?? []).map(rule => rule.id === item.id ? { ...rule, enabled: ($event.target as HTMLInputElement).checked } : rule))" />
           <span aria-hidden="true" />
         </label>
-        <button :disabled="busy" @click="edit(item)">Edit</button>
-        <button :disabled="busy" @click="persist((config.bot?.routines ?? []).filter(rule => rule.id !== item.id))">Remove</button>
+        <button :disabled="busy" @click="edit(item)"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Edit</span></button>
+        <button class="danger-button" :disabled="busy" @click="persist((config.bot?.routines ?? []).filter(rule => rule.id !== item.id))"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Remove</span></button>
       </li>
     </ul>
     <p v-if="!config.bot?.routines?.length">No routines yet.</p>
@@ -46,7 +46,7 @@ async function add() {
       <h4>{{ editing ? 'Edit routine' : 'New routine' }}</h4>
       <label>Bot message<textarea v-model="text" maxlength="250" required :disabled="busy" placeholder="Remember to follow the stream…" /></label>
       <label>Every (minutes)<input v-model.number="minutes" type="number" min="0.5" max="1440" step="any" required :disabled="busy" /></label>
-      <div><button type="submit" :disabled="busy">{{ busy ? 'Saving…' : 'Save routine' }}</button> <button type="button" :disabled="busy" @click="reset">Cancel</button></div>
+      <div><button class="success-button" type="submit" :disabled="busy"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">{{ busy ? 'Saving…' : 'Save routine' }}</span></button> <button class="danger-button" type="button" :disabled="busy" @click="reset"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Cancel</span></button></div>
     </form>
     <p v-if="status" role="status">{{ status }}</p>
   </section>

@@ -57,11 +57,11 @@ onBeforeUnmount(() => clearTimeout(timer));
     <label>Interval (seconds)<input v-model.number="configuration.thoughtIntervalSeconds" type="number" min="1" max="3600" step="1" aria-label="Crystal thought bubble interval in seconds"></label>
     <span>Time between team members thinking of their favourite petter. Changes apply live.</span>
     <div class="pet-reset">
-      <button v-if="!armed" type="button" @click="armed = true">Reset pet counts</button>
+      <button v-if="!armed" type="button" @click="armed = true"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Reset pet counts</span></button>
       <template v-else>
         <span>Clear all Crystal pet counts for every Pokémon and streamer? This cannot be undone.</span>
-        <button type="button" :disabled="resetting" @click="reset">Confirm reset</button>
-        <button type="button" :disabled="resetting" @click="armed = false">Cancel</button>
+        <button type="button" :disabled="resetting" @click="reset"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Confirm reset</span></button>
+        <button class="danger-button" type="button" :disabled="resetting" @click="armed = false"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Cancel</span></button>
       </template>
     </div>
     <span class="module-message" aria-live="polite">{{ message }}</span>

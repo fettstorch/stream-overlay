@@ -44,21 +44,21 @@ async function apply() {
 <template>
   <div class="setup-import editor-fields">
     <p>Copy another account's public Streamface setup, or start with @fettstorch.dev's setup, and make changes to your liking.</p>
-    <button type="button" :disabled="busy" @click="load('fettstorch.dev')">Use @fettstorch.dev as a base</button>
+    <button class="atproto-button" type="button" :disabled="busy" @click="load('fettstorch.dev')"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Use @fettstorch.dev as a base</span></button>
     <form @submit.prevent="load()">
       <label class="actor-search-field">Account to copy from
         <input ref="input" v-model="handle" :disabled="busy" placeholder="handle.example" @input="source = undefined">
       </label>
       <small ref="status" role="status" />
-      <button type="submit" :disabled="busy || !handle.trim()">Review setup</button>
+      <button type="submit" :disabled="busy || !handle.trim()"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Review setup</span></button>
     </form>
     <div v-if="source" class="import-review">
       <strong>Import @{{ sourceHandle }}</strong>
       <p>{{ source.commands.length }} Emote commands, {{ source.bot?.rules.length ?? 0 }} bot commands, {{ source.bot?.routines?.length ?? 0 }} routines.</p>
       <p>Matching command names and routine IDs will be replaced; unrelated commands and routines stay. Module settings, event mappings, roles and restrictions will be replaced with this account's settings. Review copied restrictions for your audience. Enabled bot routines may start posting immediately if your Bot source is connected.</p>
       <p>Your account, OBS URLs and deletion-confirmation preference stay unchanged. Uploaded media is copied to your PDS; external media links remain links.</p>
-      <button type="button" :disabled="busy" @click="apply">Confirm import</button>
-      <button type="button" :disabled="busy" @click="source = undefined">Cancel</button>
+      <button class="success-button" type="button" :disabled="busy" @click="apply"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Confirm import</span></button>
+      <button class="danger-button" type="button" :disabled="busy" @click="source = undefined"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Cancel</span></button>
     </div>
     <p v-if="message" role="status">{{ message }}</p>
   </div>

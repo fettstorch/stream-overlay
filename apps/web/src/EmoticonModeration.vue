@@ -81,8 +81,8 @@ async function remove(rule: EmoticonModerationRule) {
         <span v-else class="moderation-avatar avatar-placeholder" role="img" aria-label="Profile picture unavailable" />
         <div><strong>{{ profiles[rule.did]?.handle ? `@${profiles[rule.did]!.handle}` : rule.handle ? `@${rule.handle}` : rule.did }}</strong>
           <small>{{ rule.blocked ? 'Blocked from all commands' : `${rule.cooldownSeconds}s shared cooldown` }}</small></div>
-        <button type="button" :disabled="busy" @click="edit(rule)">Edit</button>
-        <button type="button" :disabled="busy" @click="remove(rule)">Remove</button>
+        <button type="button" :disabled="busy" @click="edit(rule)"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Edit</span></button>
+        <button class="danger-button" type="button" :disabled="busy" @click="remove(rule)"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Remove</span></button>
       </li>
     </ul>
     <p v-else>No user-specific restrictions yet.</p>
@@ -100,7 +100,7 @@ async function remove(rule: EmoticonModerationRule) {
         <input v-model.number="cooldown" type="number" min="0" max="86400" step="0.1" required :disabled="busy" />
       </label>
       <p v-if="!blocked" class="settings-hint">After an accepted command, this user must wait before triggering any other command. Rejected attempts don't restart the timer.</p>
-      <div class="form-actions"><button type="submit" :disabled="busy || !query.trim()">{{ busy ? 'Saving…' : 'Save rule' }}</button>
+      <div class="form-actions"><button class="success-button" type="submit" :disabled="busy || !query.trim()"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">{{ busy ? 'Saving…' : 'Save rule' }}</span></button>
       </div>
     </form>
     <p v-if="message" role="status">{{ message }}</p>

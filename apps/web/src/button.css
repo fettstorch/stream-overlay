@@ -12,7 +12,6 @@
   font: inherit;
   font-weight: 650;
   cursor: pointer;
-  transition: transform 100ms ease;
 }
 #app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button))::before {
   content: "";
@@ -21,20 +20,57 @@
   z-index: -1;
   pointer-events: none;
   border: 12px solid transparent;
-  border-image: url("./assets/branding/button-frame.png") 260 280 fill / 12px / 0 stretch;
-  transition: filter .15s;
+  border-image: url("./assets/branding/button-frame-grey.svg") 260 280 fill / 12px / 0 stretch;
   --artwork-shadow: drop-shadow(0 3px 2.5px rgba(0, 0, 0, .22));
   filter: var(--artwork-shadow);
 }
-#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button)):hover:not(:disabled)::before {
-  filter: brightness(.92) var(--artwork-shadow);
+#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button))::after,
+#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button)) > :is(.button-press-shade, .button-hover-shade) {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 12px solid transparent;
+  border-image: url("./assets/branding/button-interior-mask.svg") 260 280 fill / 12px / 0 stretch;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 180ms ease;
 }
+#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button))::after {
+  filter: url("#button-curved-light");
+  opacity: .65;
+  /* A localized specular glint, not a continuous illuminated outline. */
+  mask-image: radial-gradient(ellipse 55% 75% at 88% 12%, #000 0 25%, transparent 75%);
+}
+#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button)) > .button-press-shade {
+  filter: url("#button-curved-dark");
+  transform: none;
+}
+#app button > .button-hover-shade {
+  filter: url("#button-curved-hover-dark");
+  opacity: .4;
+  mask-image: radial-gradient(ellipse 55% 75% at 12% 88%, #000 0 25%, transparent 75%);
+}
+#app button:active:not(:disabled) > .button-hover-shade { opacity: 0; }
 #app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button)):active:not(:disabled)::before {
   --artwork-shadow: drop-shadow(0 1px 1px rgba(0, 0, 0, .18));
-  filter: brightness(.72) var(--artwork-shadow);
 }
-#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button)):active:not(:disabled) {
-  transform: translateY(2px) scale(.97);
+#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button)):active:not(:disabled) > .button-press-shade { opacity: .4; }
+#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button)):active:not(:disabled)::after {
+  opacity: 0;
+  animation: button-light-release 180ms ease-out both;
+}
+@keyframes button-light-release {
+  from { opacity: .65; filter: url("#button-curved-light") blur(0); }
+  65% { opacity: 0; }
+  to { opacity: 0; filter: url("#button-curved-light") blur(1px); }
+}
+#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button)) > :not(.button-press-shade, .button-hover-shade) {
+  transition: transform 100ms ease;
+  transform-origin: center;
+}
+#app button .button-content { display: inline-block; }
+#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button)):active:not(:disabled) > :not(.button-press-shade, .button-hover-shade) {
+  transform: translate(-1px, 1px) scale(.97);
 }
 #app button[data-save-state="saved"] { color: #19733b; opacity: 1; }
 html[data-theme="dark"] #app button[data-save-state="saved"] { color: #70e7a1; }
@@ -44,8 +80,29 @@ html[data-theme="dark"] #app button[data-save-state="saved"] { color: #70e7a1; }
 }
 #app button.primary-button { font-weight: 800; }
 #app button.danger-button { color: #a01e2b; }
+/* Semantic fills retain the drawn black outline and its alpha-shaped shadow.
+   Only the original white centre is replaced; lighting remains on top. */
+#app button.atproto-button { --button-artwork: url("./assets/branding/button-frame-blue.svg"); }
+#app button.danger-button { --button-artwork: url("./assets/branding/button-frame-red.svg"); }
+#app button.success-button { --button-artwork: url("./assets/branding/button-frame-green.svg"); }
+html[data-theme] #app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button))::before {
+  filter: var(--artwork-shadow);
+}
+html[data-theme] #app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button)) {
+  color: #171717;
+}
+html[data-theme] #app button:is(.atproto-button, .danger-button, .success-button),
+html[data-theme] #app button:is(.atproto-button, .danger-button, .success-button) .button-content {
+  color: #fff;
+}
+html[data-theme] #app button:is(.atproto-button, .danger-button, .success-button)::before {
+  border-image-source: var(--button-artwork);
+  filter: var(--artwork-shadow);
+}
 #app button:disabled { opacity: .45; cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) {
-  #app button, #app button::before { transition: none; }
-  #app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button)):active:not(:disabled) { transform: none; }
+  #app button, #app button::before, #app button::after { transition: none; }
+  #app button::after { animation: none !important; }
+  #app button > * { transition: none; }
+  #app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button)):active:not(:disabled) > * { transform: none; }
 }

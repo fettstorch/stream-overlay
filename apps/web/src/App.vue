@@ -658,11 +658,11 @@ onBeforeUnmount(() => {
             <span>Time between team members thinking of their favourite petter. Changes apply live.</span>
             <span class="module-message" aria-live="polite">{{ pokemonMessage }}</span>
             <div class="pet-reset">
-              <button v-if="!petResetArmed" type="button" @click="petResetArmed = true; petResetMessage = ''">Reset pet counts</button>
+              <button v-if="!petResetArmed" type="button" @click="petResetArmed = true; petResetMessage = ''"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Reset pet counts</span></button>
               <template v-else>
                 <span>Clear all saved pet counts for every Pokémon and streamer? This cannot be undone.</span>
-                <button type="button" :disabled="petResetBusy" @click="resetPetCounts">Confirm reset</button>
-                <button type="button" :disabled="petResetBusy" @click="petResetArmed = false">Cancel</button>
+                <button type="button" :disabled="petResetBusy" @click="resetPetCounts"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Confirm reset</span></button>
+                <button class="danger-button" type="button" :disabled="petResetBusy" @click="petResetArmed = false"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Cancel</span></button>
               </template>
               <span class="module-message" aria-live="polite">{{ petResetMessage }}</span>
             </div>

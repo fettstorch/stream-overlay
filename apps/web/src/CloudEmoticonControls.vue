@@ -517,9 +517,9 @@ defineExpose({ acceptCardDrop });
         <ul class="command-list striped-list">
           <li v-for="command in group.commands" :key="command.id">
             <strong>!{{ command.command }}</strong
-            ><button type="button" :disabled="busy" @click="test(command)">Test</button
-            ><button type="button" @click="edit(command)">Edit</button
-            ><button type="button" class="danger-button" @click="remove(command)">Delete</button>
+            ><button type="button" :disabled="busy" @click="test(command)"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Test</span></button
+            ><button type="button" @click="edit(command)"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Edit</span></button
+            ><button type="button" class="danger-button" @click="remove(command)"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Delete</span></button>
           </li>
         </ul></CollapsibleSection
       >
@@ -537,16 +537,16 @@ defineExpose({ acceptCardDrop });
               :disabled="busy"
               :aria-label="`Simulate ${event.name}`"
               @click="test(event.command, event.id)"
-            >
+            ><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">
               Simulate
-            </button>
+            </span></button>
           </li>
         </ul>
       </CollapsibleSection>
       <slot name="previews" />
     </div>
     <div v-if="!formOpen && !panel">
-      <button class="primary-button" type="button" @click="create">Create new command</button>
+      <button class="primary-button" type="button" @click="create"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Create new command</span></button>
     </div>
     <form
       v-if="formOpen"
@@ -557,7 +557,7 @@ defineExpose({ acceptCardDrop });
     >
       <div v-if="editing || !panel" class="editor-heading">
         <h4>{{ editing ? "Edit command" : "Create command" }}</h4>
-        <button v-if="!panel" type="button" class="secondary-button" @click="reset">Close</button>
+        <button v-if="!panel" type="button" class="secondary-button" @click="reset"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Close</span></button>
       </div>
       <div class="command-mode-selector">
         <strong :class="{ 'mode-selected': form.mode === 'effect' }">Clip</strong>
@@ -616,9 +616,9 @@ defineExpose({ acceptCardDrop });
             type="button"
             :disabled="busy || !mediaUrlInput.trim()"
             @click="submitMediaInput"
-          >
+          ><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">
             Add URL
-          </button>
+          </span></button>
         </div>
         <div v-if="giphySearchMode || giphyResults.length" class="giphy-picker">
           <img :src="giphyAttribution" alt="Powered by GIPHY" width="200" />
@@ -631,7 +631,7 @@ defineExpose({ acceptCardDrop });
               :disabled="busy"
               @click="selectGiphy(gif)"
             >
-              <img :src="gif.preview" :alt="gif.title" loading="lazy" />
+              <span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><img :src="gif.preview" :alt="gif.title" loading="lazy" />
             </button>
           </div>
         </div>
@@ -645,18 +645,18 @@ defineExpose({ acceptCardDrop });
         >
         <div v-if="unresolvedUrl" class="media-kind-choice">
           <span>What kind of direct media is this?</span
-          ><button type="button" @click="attachUrl('image', unresolvedUrl)">Image/GIF</button
+          ><button type="button" @click="attachUrl('image', unresolvedUrl)"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Image/GIF</span></button
           ><button
             v-if="form.mode === 'effect'"
             type="button"
             @click="attachUrl('audio', unresolvedUrl)"
-          >
-            Audio</button
-          ><button type="button" @click="attachUrl('video', unresolvedUrl)">Video</button>
+          ><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">
+            Audio</span></button
+          ><button type="button" @click="attachUrl('video', unresolvedUrl)"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Video</span></button>
         </div>
         <div v-for="kind in kinds" v-show="pending[kind]" :key="kind" class="attachment">
           <span>{{ kind }} attached</span
-          ><button type="button" @click="removeMedia(kind)">Remove</button>
+          ><button class="danger-button" type="button" @click="removeMedia(kind)"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Remove</span></button>
         </div>
       </div>
       <label v-if="mediaUrl('image') || mediaUrl('video')" class="sticker-toggle"
@@ -739,11 +739,11 @@ defineExpose({ acceptCardDrop });
         </label>
       </div>
       <div class="form-actions">
-        <button class="primary-button" type="submit" :disabled="busy">
-          {{ editing ? "Save changes" : "Create new command" }}</button
-        ><button type="button" class="secondary-button" :disabled="busy" @click="cancel">
+        <button class="primary-button success-button" type="submit" :disabled="busy">
+          <span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">{{ editing ? "Save changes" : "Create new command" }}</span></button
+        ><button type="button" class="secondary-button danger-button" :disabled="busy" @click="cancel"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">
           Cancel
-        </button>
+        </span></button>
       </div>
     </form>
     <p v-if="message" class="module-message" role="status">{{ message }}</p>

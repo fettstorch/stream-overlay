@@ -262,11 +262,11 @@ function reset() {
       </div>
     </div>
     <div class="editor-actions">
-      <button class="save-overlay-button" type="button" :aria-busy="saving" :data-save-state="savedFeedback && !dirty ? 'saved' : undefined" :disabled="saving || uploading || !dirty" @click="save">
-        {{ saving ? 'Saving…' : savedFeedback && !dirty ? '✓ Saved' : 'Save overlay' }}</button
-      ><button type="button" :disabled="saving || uploading || !dirty" @click="reset">
+      <button class="save-overlay-button success-button" type="button" :aria-busy="saving" :data-save-state="savedFeedback && !dirty ? 'saved' : undefined" :disabled="saving || uploading || !dirty" @click="save">
+        <span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">{{ saving ? 'Saving…' : savedFeedback && !dirty ? '✓ Saved' : 'Save overlay' }}</span></button
+      ><button class="danger-button" type="button" :disabled="saving || uploading || !dirty" @click="reset"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">
         Discard changes
-      </button>
+      </span></button>
     </div>
     <p v-if="message" role="status">{{ message }}</p>
     <div class="editor-preview">
