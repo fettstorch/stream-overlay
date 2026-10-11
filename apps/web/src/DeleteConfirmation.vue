@@ -22,14 +22,25 @@ onMounted(() => dialog.value?.showModal());
     >
     <p class="preference-hint">Saved for your account, across all modules.</p>
     <div class="dialog-actions">
-      <button class="danger-button" type="button" :disabled="busy" autofocus @click="emit('cancel')"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Cancel</span></button
+      <button
+        class="danger-button"
+        type="button"
+        :disabled="busy"
+        autofocus
+        @click="emit('cancel')"
+      >
+        <span class="button-press-shade" aria-hidden="true"></span
+        ><span class="button-hover-shade" aria-hidden="true"></span
+        ><span class="button-content">Cancel</span></button
       ><button
         type="button"
         class="danger-button confirm-delete-button"
         :disabled="busy"
         @click="emit('confirm', dontShowAgain)"
       >
-        <span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">{{ busy ? "Deleting…" : "Delete" }}</span>
+        <span class="button-press-shade" aria-hidden="true"></span
+        ><span class="button-hover-shade" aria-hidden="true"></span
+        ><span class="button-content">{{ busy ? "Deleting…" : "Delete" }}</span>
       </button>
     </div>
   </dialog>

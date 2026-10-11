@@ -4,7 +4,6 @@
   "CONTRIBUTING.md",
   "scripts/format.ts",
   "scripts/deploy-cloud.ts",
-  "scripts/deploy-cloud.test.ts",
   "scripts/format-targets.json",
   ".github/workflows/ci.yml",
   "modules/catalog.ts",

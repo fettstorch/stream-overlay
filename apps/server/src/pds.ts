@@ -164,14 +164,29 @@ export class PdsService {
   }
   async removeCrystalPetCounts(did: string, pokemonId?: string, petterDid?: string) {
     const counts = await this.crystalPetCounts(did);
-    const selected = counts.filter(item => (!pokemonId || item.pokemonId === pokemonId) && (!petterDid || item.petterDid === petterDid));
+    const selected = counts.filter(
+      (item) =>
+        (!pokemonId || item.pokemonId === pokemonId) &&
+        (!petterDid || item.petterDid === petterDid),
+    );
     const session = await this.oauth.restore(did);
     const { scope } = await session.getTokenInfo();
-    if (!scope.split(" ").some(value => value === `repo:${crystalPetCollection}` || value === "transition:generic")) throw new ChatPermissionRequiredError("Pet history permission required");
+    if (
+      !scope
+        .split(" ")
+        .some((value) => value === `repo:${crystalPetCollection}` || value === "transition:generic")
+    )
+      throw new ChatPermissionRequiredError("Pet history permission required");
     const agent = this.agentFactory(session);
     for (const item of selected) {
-      const rkey = createHash("sha256").update(JSON.stringify([item.pokemonId, item.petterDid])).digest("hex");
-      await agent.com.atproto.repo.deleteRecord({ repo: did, collection: crystalPetCollection, rkey });
+      const rkey = createHash("sha256")
+        .update(JSON.stringify([item.pokemonId, item.petterDid]))
+        .digest("hex");
+      await agent.com.atproto.repo.deleteRecord({
+        repo: did,
+        collection: crystalPetCollection,
+        rkey,
+      });
     }
     return selected.length;
   }

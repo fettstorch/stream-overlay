@@ -50,7 +50,8 @@ function json(value: unknown, status = 200, headers: HeadersInit = {}) {
   });
 }
 function routeName(path: string) {
-  if (didFromPath(path, "pokemon-crystal-mgba/(script|ingest|pet|pet-counts)")) return "accounts.crystal";
+  if (didFromPath(path, "pokemon-crystal-mgba/(script|ingest|pet|pet-counts)"))
+    return "accounts.crystal";
   if (path === "/health") return "health";
   if (path.startsWith("/oauth/")) return `oauth.${path.slice(7).replaceAll("/", ".")}`;
   if (didFromPath(path, "media")) return "accounts.media";
@@ -314,36 +315,70 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
       command = await deps.pds.crystalPetMessage(petDid, body.uri);
       pokemonId = (await deps.crystal.petTarget(petDid, body.witness, command.name))!;
     } catch {
-      deps.logger.log("warn", "cloud.crystal.pet-rejected", { requestId, reason: "invalid-live-command" });
+      deps.logger.log("warn", "cloud.crystal.pet-rejected", {
+        requestId,
+        reason: "invalid-live-command",
+      });
       return json({ error: "invalid-live-command", requestId }, 400);
     }
     try {
-      const result = await deps.pds.recordCrystalPet(petDid, pokemonId, command.author, command.uri, { logger: deps.logger, requestId });
+      const result = await deps.pds.recordCrystalPet(
+        petDid,
+        pokemonId,
+        command.author,
+        command.uri,
+        { logger: deps.logger, requestId },
+      );
       return json(result);
     } catch (error) {
       const permission = error instanceof ChatPermissionRequiredError;
-      deps.logger.log("warn", "cloud.crystal.pet-save-failed", { requestId, reason: permission ? "permission-required" : "pds-write-failed" });
-      return json({ error: permission ? "pet-permission-required" : "pet-save-failed", requestId }, permission ? 403 : 503);
+      deps.logger.log("warn", "cloud.crystal.pet-save-failed", {
+        requestId,
+        reason: permission ? "permission-required" : "pds-write-failed",
+      });
+      return json(
+        { error: permission ? "pet-permission-required" : "pet-save-failed", requestId },
+        permission ? 403 : 503,
+      );
     }
   }
   const countsDid = didFromPath(path, "pokemon-crystal-mgba/pet-counts");
   if (countsDid && request.method === "DELETE") {
     if (!sameOrigin(request, deps.origin)) return json({ error: "invalid-origin" }, 403);
-    if ((await readSessionCookie(request, deps.secret)) !== countsDid) return json({ error: "unauthorized" }, 401);
+    if ((await readSessionCookie(request, deps.secret)) !== countsDid)
+      return json({ error: "unauthorized" }, 401);
     try {
       const body = JSON.parse(new TextDecoder().decode(await boundedBody(request, 4096)));
-      if (body.all !== true && (!/^[a-f0-9]{4}-[a-f0-9]{4}$/.test(body.pokemonId) || typeof body.petterDid !== "string" || !body.petterDid.startsWith("did:"))) return json({ error: "invalid-pet-mapping" }, 400);
-      const removed = await deps.pds.removeCrystalPetCounts(countsDid, body.all === true ? undefined : body.pokemonId, body.all === true ? undefined : body.petterDid);
+      if (
+        body.all !== true &&
+        (!/^[a-f0-9]{4}-[a-f0-9]{4}$/.test(body.pokemonId) ||
+          typeof body.petterDid !== "string" ||
+          !body.petterDid.startsWith("did:"))
+      )
+        return json({ error: "invalid-pet-mapping" }, 400);
+      const removed = await deps.pds.removeCrystalPetCounts(
+        countsDid,
+        body.all === true ? undefined : body.pokemonId,
+        body.all === true ? undefined : body.petterDid,
+      );
       deps.logger.log("info", "cloud.crystal.pet-counts-removed", { requestId, count: removed });
       return json({ removed });
     } catch {
       deps.logger.log("warn", "cloud.crystal.pet-counts-remove-failed", { requestId });
-      return json({ error: "pet-counts-remove-failed", message: "Could not remove pet history. Check your PDS permissions.", requestId }, 503);
+      return json(
+        {
+          error: "pet-counts-remove-failed",
+          message: "Could not remove pet history. Check your PDS permissions.",
+          requestId,
+        },
+        503,
+      );
     }
   }
   if (countsDid && request.method === "GET") {
-    try { return json(await deps.pds.crystalPetCounts(countsDid)); }
-    catch {
+    try {
+      return json(await deps.pds.crystalPetCounts(countsDid));
+    } catch {
       deps.logger.log("warn", "cloud.crystal.pet-counts-load-failed", { requestId });
       return json({ error: "pet-counts-unavailable", requestId }, 503);
     }
@@ -889,7 +924,9 @@ export function createDependencies(env = process.env): Dependencies {
     namespace === STREAMFACE_NAMESPACE ? moduleCollections : collections(namespace),
   )
     .map((collection) => `repo:${collection}`)
-    .join(" ")} repo:live.streamface.pokemonCrystalMgba.petCount repo:place.stream.chat.message blob:image/* blob:audio/* blob:video/*`;
+    .join(
+      " ",
+    )} repo:live.streamface.pokemonCrystalMgba.petCount repo:place.stream.chat.message blob:image/* blob:audio/* blob:video/*`;
   const logger = new StructuredLogger(
     env.CLOUD_LOG_FILE ??
       (local && env.NODE_ENV !== "production"

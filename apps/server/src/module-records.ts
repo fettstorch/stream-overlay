@@ -229,7 +229,12 @@ export function parseModuleRecords(did: string, records: StoredRecord[]): CloudC
           ? { blob: record.value.media.blob }
           : { url: record.value.media.url }),
       })),
-    ...(get(moduleCollections.crystalSettings) ? { pokemonCrystalMgbaThoughtIntervalSeconds: get(moduleCollections.crystalSettings)!.thoughtIntervalSeconds } : {}),
+    ...(get(moduleCollections.crystalSettings)
+      ? {
+          pokemonCrystalMgbaThoughtIntervalSeconds: get(moduleCollections.crystalSettings)!
+            .thoughtIntervalSeconds,
+        }
+      : {}),
     customModules,
     bot,
     ...moduleSettings({
@@ -390,9 +395,20 @@ export function serializeModuleRecords(
     parseModuleRecords(config.streamerDid, previous).pokemonCrystalMgbaMedia ??
     [];
   validateCrystalMedia(crystalMedia);
-  const thoughtIntervalSeconds = config.pokemonCrystalMgbaThoughtIntervalSeconds ?? parseModuleRecords(config.streamerDid, previous).pokemonCrystalMgbaThoughtIntervalSeconds ?? 120;
-  if (!Number.isInteger(thoughtIntervalSeconds) || thoughtIntervalSeconds < 1 || thoughtIntervalSeconds > 86400) throw new Error("Invalid thought interval");
-  if (config.pokemonCrystalMgbaThoughtIntervalSeconds !== undefined || previous.some(item => item.collection === moduleCollections.crystalSettings))
+  const thoughtIntervalSeconds =
+    config.pokemonCrystalMgbaThoughtIntervalSeconds ??
+    parseModuleRecords(config.streamerDid, previous).pokemonCrystalMgbaThoughtIntervalSeconds ??
+    120;
+  if (
+    !Number.isInteger(thoughtIntervalSeconds) ||
+    thoughtIntervalSeconds < 1 ||
+    thoughtIntervalSeconds > 86400
+  )
+    throw new Error("Invalid thought interval");
+  if (
+    config.pokemonCrystalMgbaThoughtIntervalSeconds !== undefined ||
+    previous.some((item) => item.collection === moduleCollections.crystalSettings)
+  )
     records.push(record(moduleCollections.crystalSettings, "self", { thoughtIntervalSeconds }));
   for (const item of crystalMedia) {
     const next = record(moduleCollections.crystalMedia, String(item.number), {

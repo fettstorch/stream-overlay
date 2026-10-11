@@ -1,12 +1,25 @@
 import { expect, test } from "bun:test";
 test("Crystal thought interval persists and survives older clients", () => {
-  const config = { enabled: true, streamerDid: "did:plc:a", commands: [], revision: "new", pokemonCrystalMgbaThoughtIntervalSeconds: 45 };
+  const config = {
+    enabled: true,
+    streamerDid: "did:plc:a",
+    commands: [],
+    revision: "new",
+    pokemonCrystalMgbaThoughtIntervalSeconds: 45,
+  };
   const now = new Date().toISOString();
   const records = serializeModuleRecords(config, [], now);
-  expect(parseModuleRecords(config.streamerDid, records).pokemonCrystalMgbaThoughtIntervalSeconds).toBe(45);
+  expect(
+    parseModuleRecords(config.streamerDid, records).pokemonCrystalMgbaThoughtIntervalSeconds,
+  ).toBe(45);
   const { pokemonCrystalMgbaThoughtIntervalSeconds, ...older } = config;
-  expect(parseModuleRecords(config.streamerDid, serializeModuleRecords(older, records, now)).pokemonCrystalMgbaThoughtIntervalSeconds).toBe(45);
-  expect(() => serializeModuleRecords({ ...config, pokemonCrystalMgbaThoughtIntervalSeconds: 0 }, [], now)).toThrow();
+  expect(
+    parseModuleRecords(config.streamerDid, serializeModuleRecords(older, records, now))
+      .pokemonCrystalMgbaThoughtIntervalSeconds,
+  ).toBe(45);
+  expect(() =>
+    serializeModuleRecords({ ...config, pokemonCrystalMgbaThoughtIntervalSeconds: 0 }, [], now),
+  ).toThrow();
 });
 import {
   CloudConfigConflictError,

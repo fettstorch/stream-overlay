@@ -758,7 +758,15 @@ onBeforeUnmount(() => {
           </button>
         </div>
         <div class="module-badges" aria-label="Filter modules by badge">
-          <button v-for="badge in badges" :key="badge" type="button" class="module-badge" :data-badge="badge" :aria-pressed="selectedBadge === badge" @click="toggleBadge(badge)">
+          <button
+            v-for="badge in badges"
+            :key="badge"
+            type="button"
+            class="module-badge"
+            :data-badge="badge"
+            :aria-pressed="selectedBadge === badge"
+            @click="toggleBadge(badge)"
+          >
             <span class="button-content">{{ badge }}</span>
           </button>
         </div>
@@ -833,16 +841,22 @@ onBeforeUnmount(() => {
                     <img :src="pencilIcon" class="pencil-icon" alt="" />
                   </button>
                 </div>
-                <div class="module-badges card-badges"><span v-for="badge in module.badges" :key="badge" class="module-badge" :data-badge="badge">{{ badge }}</span></div>
+                <div class="module-badges card-badges">
+                  <span
+                    v-for="badge in module.badges"
+                    :key="badge"
+                    class="module-badge"
+                    :data-badge="badge"
+                    >{{ badge }}</span
+                  >
+                </div>
                 <span v-if="module.id.startsWith('custom:')" class="custom-module-badge"
                   >Custom Module</span
                 >
                 <span
                   class="status"
                   :data-status="moduleEnabled(module.id) ? 'running' : 'stopped'"
-                  >{{
-                    moduleEnabled(module.id) ? "running" : "stopped"
-                  }}</span
+                  >{{ moduleEnabled(module.id) ? "running" : "stopped" }}</span
                 >
               </div>
               <div class="module-actions">
@@ -1069,10 +1083,25 @@ onBeforeUnmount(() => {
                   :avatar="profile?.avatar"
                   :save="(candidate) => saveConfiguration(candidate, undefined, 'bot')"
                 />
-                <DrawnTabs v-else-if="module.id === 'pokemon-crystal-mgba'" v-model="crystalTab" :tabs="crystalTabs" label="Pokémon tools">
-                  <div v-show="crystalTab === 'testing'" :inert="crystalTab !== 'testing' || undefined">
-                    <div class="cloud-preview" :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }">
-                      <iframe :src="previewUrl(module.id)" :title="`${module.name} preview`" allow="autoplay" />
+                <DrawnTabs
+                  v-else-if="module.id === 'pokemon-crystal-mgba'"
+                  v-model="crystalTab"
+                  :tabs="crystalTabs"
+                  label="Pokémon tools"
+                >
+                  <div
+                    v-show="crystalTab === 'testing'"
+                    :inert="crystalTab !== 'testing' || undefined"
+                  >
+                    <div
+                      class="cloud-preview"
+                      :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }"
+                    >
+                      <iframe
+                        :src="previewUrl(module.id)"
+                        :title="`${module.name} preview`"
+                        allow="autoplay"
+                      />
                     </div>
                     <CrystalChatTest :did="config.streamerDid" />
                   </div>
@@ -1083,7 +1112,11 @@ onBeforeUnmount(() => {
                     :config="config"
                     :save="(candidate) => saveConfiguration(candidate, undefined, module.id)"
                   />
-                  <CrystalPettingControls v-if="crystalTab === 'petting'" :config="config" :save="(candidate) => saveConfiguration(candidate, undefined, module.id)" />
+                  <CrystalPettingControls
+                    v-if="crystalTab === 'petting'"
+                    :config="config"
+                    :save="(candidate) => saveConfiguration(candidate, undefined, module.id)"
+                  />
                 </DrawnTabs>
                 <CloudCustomModuleControls
                   v-else-if="module.id.startsWith('custom:')"
@@ -1164,12 +1197,32 @@ onBeforeUnmount(() => {
   <BrandMascot />
 </template>
 <style scoped>
-.module-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
-.card-badges { gap: 6px; margin: 4px 0 8px; }
-.module-badge[data-badge="commands"] { --badge-border: #7650a0; --badge-fill: #eee2fa; }
-.module-badge[data-badge="overlay"] { --badge-border: #23778c; --badge-fill: #d9f1f6; }
-.module-badge[data-badge="game"] { --badge-border: #437c35; --badge-fill: #e2f2d9; }
-.module-badge[data-badge="pokemon"] { --badge-border: #a36b10; --badge-fill: #fff0c7; }
+.module-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.card-badges {
+  gap: 6px;
+  margin: 4px 0 8px;
+}
+.module-badge[data-badge="commands"] {
+  --badge-border: #7650a0;
+  --badge-fill: #eee2fa;
+}
+.module-badge[data-badge="overlay"] {
+  --badge-border: #23778c;
+  --badge-fill: #d9f1f6;
+}
+.module-badge[data-badge="game"] {
+  --badge-border: #437c35;
+  --badge-fill: #e2f2d9;
+}
+.module-badge[data-badge="pokemon"] {
+  --badge-border: #a36b10;
+  --badge-fill: #fff0c7;
+}
 .module-badge,
 :global(html[data-theme] #app button.module-badge) {
   display: inline-flex;
@@ -1188,11 +1241,24 @@ onBeforeUnmount(() => {
   transform: none;
 }
 :global(html[data-theme] #app button.module-badge::before),
-:global(html[data-theme] #app button.module-badge::after) { display: none; }
-:global(html[data-theme] #app button.module-badge .button-content) { color: inherit; transform: none; }
-:global(html[data-theme] #app button.module-badge[aria-pressed="true"]) { outline: 2px solid var(--badge-border); outline-offset: 3px; }
-:global(html[data-theme] #app button.module-badge:focus-visible) { outline: 2px dashed var(--badge-border); outline-offset: 3px; }
-:global(html[data-theme] #app button.module-badge:hover) { filter: brightness(0.96); }
+:global(html[data-theme] #app button.module-badge::after) {
+  display: none;
+}
+:global(html[data-theme] #app button.module-badge .button-content) {
+  color: inherit;
+  transform: none;
+}
+:global(html[data-theme] #app button.module-badge[aria-pressed="true"]) {
+  outline: 2px solid var(--badge-border);
+  outline-offset: 3px;
+}
+:global(html[data-theme] #app button.module-badge:focus-visible) {
+  outline: 2px dashed var(--badge-border);
+  outline-offset: 3px;
+}
+:global(html[data-theme] #app button.module-badge:hover) {
+  filter: brightness(0.96);
+}
 .modules-heading {
   display: flex;
   align-items: center;
