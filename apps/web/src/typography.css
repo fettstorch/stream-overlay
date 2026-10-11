@@ -36,3 +36,5 @@
 #app .command-list strong { font-size: 1.1em; font-weight: 700; }
 #app .account-profile strong { font-size: 1.15em; font-weight: 700; }
 #app .primary-button { font-weight: 800; }
+/* Copyable URLs should read like regular text, not oversized monospace code. */
+#app .overlay-url code { font: inherit; }

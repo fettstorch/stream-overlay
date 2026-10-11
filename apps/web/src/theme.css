@@ -23,6 +23,7 @@ html[data-theme="dark"] #app :is(small, legend, output, .status, .save-status, .
 html[data-theme="dark"] #app a { color: #c2ceff; }
 html[data-theme="dark"] #app .site-footer a { color: inherit; }
 html[data-theme="dark"] #app :is(.connected-status, .status[data-status="running"]) { color: #90d6a8; }
+html[data-theme="dark"] #app .copy-button.copied { color: #70e7a1; }
 html[data-theme="dark"] #app .connected-status span { background: #90d6a8; }
 html[data-theme="dark"] #app :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"]), textarea, select option, .actor-suggestions) { color: #eee; background: #1a1a1a; border-color: #888; }
 html[data-theme="dark"] #app input::placeholder,
