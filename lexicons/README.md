@@ -32,8 +32,10 @@ and replaced by the new record on the next authenticated save. Its old OBS URL r
 an alias. Quickstart copies append records with fresh IDs and preserve destination modules.
 
 Before deploying, publish this new schema using the existing publisher account
-and delegate `_lexicon.custommodule.streamface.live` to that publisher DID, as for
-the other module authorities. A fresh OAuth login grants the new collection.
+and republish `live.streamface.preferences` for its optional `vimControls` field.
+Both schemas use the `live.streamface` authority and its existing
+`_lexicon.streamface.live` TXT delegation to the publisher DID; no new DNS record
+is needed. A fresh OAuth login grants the new collection.
 Application startup and tests do not publish schemas or modify DNS.
 
 ## Bot
