@@ -20,6 +20,7 @@ import { loadPublicActorProfile } from "./actor-search.ts";
 
 const did = new URLSearchParams(location.search).get("did") ?? "";
 const snapshot = ref<PokemonSnapshot>();
+const enabled = ref(false);
 const mappings = ref<NonNullable<CloudConfig["pokemonCrystalMgbaMedia"]>>([]);
 const activePets = reactive<Record<string, PetAppearance>>({});
 const thought = ref<ThoughtAppearance>();
@@ -121,19 +122,24 @@ function clearLive() {
   queues.updateParty([]);
   for (const key of Object.keys(activePets)) delete activePets[key];
 }
+let configRequest = 0;
 async function loadMappings() {
+  const request = ++configRequest;
   try {
     const response = await fetch(`/api/accounts/${encodeURIComponent(did)}/config?refresh=1`, {
       cache: "no-store",
     });
     if (!response.ok) throw new Error("config-failed");
     const config = (await response.json()) as CloudConfig;
-    if (!disposed) {
+    if (!disposed && request === configRequest) {
+      enabled.value = config.pokemonCrystalMgbaEnabled ?? true;
+      if (!enabled.value) clearLive();
       mappings.value = config.pokemonCrystalMgbaMedia ?? [];
       const seconds = config.pokemonCrystalMgbaThoughtIntervalSeconds ?? 120;
       if (seconds !== thoughtSeconds) { thoughtSeconds = seconds; setThoughtInterval(seconds); }
     }
   } catch {
+    if (disposed || request !== configRequest) return;
     relay?.send({
       type: "diagnostic",
       event: "config-failed",
@@ -152,7 +158,7 @@ onMounted(() => {
     },
     (message) => {
       if (message.type === "config-changed") void loadMappings();
-      if (message.type !== "pokemon-crystal-mgba") return;
+      if (message.type !== "pokemon-crystal-mgba" || !enabled.value) return;
       snapshot.value = message.snapshot;
       witness = message.petWitness;
       if (thought.value && !message.snapshot.party.some((p) => p.id === thought.value!.pokemonId))
@@ -171,6 +177,7 @@ onMounted(() => {
   {
     chat.setStreamerDid(did);
     unsubscribe = chat.messages.subscribe((message) => {
+      if (!enabled.value) return;
       const match = /^!pet\s+(.+)$/i.exec(message.text.trim());
       if (!match || !snapshot.value) return;
       const author = message.author.avatar
@@ -236,7 +243,7 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <main v-if="snapshot" class="crystal-cloud-overlay">
+  <main v-if="enabled && snapshot" class="crystal-cloud-overlay">
     <PokemonTeam
       :party="snapshot.party"
       :images="images"

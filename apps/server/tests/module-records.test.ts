@@ -21,6 +21,19 @@ test("Crystal thought interval persists and survives older clients", () => {
     serializeModuleRecords({ ...config, pokemonCrystalMgbaThoughtIntervalSeconds: 0 }, [], now),
   ).toThrow();
 });
+test("Crystal enabled state persists and defaults on", () => {
+  const config = {
+    enabled: true,
+    streamerDid: "did:plc:a",
+    commands: [],
+    revision: "new",
+    pokemonCrystalMgbaEnabled: false,
+  };
+  const now = new Date().toISOString();
+  const records = serializeModuleRecords(config, [], now);
+  expect(parseModuleRecords(config.streamerDid, records).pokemonCrystalMgbaEnabled).toBe(false);
+  expect(parseModuleRecords(config.streamerDid, []).pokemonCrystalMgbaEnabled).toBeUndefined();
+});
 import {
   CloudConfigConflictError,
   CloudConfigMissingError,

@@ -6,6 +6,7 @@ import type {
 
 /** Account configuration delivered to admins and overlays; not an ATProto record. */
 export type CloudConfig = CloudModuleSettings & {
+  pokemonCrystalMgbaEnabled?: boolean;
   pokemonCrystalMgbaThoughtIntervalSeconds?: number;
   pokemonCrystalMgbaMedia?: import("../../../modules/pokemon-crystal/src/cloud-contracts.ts").CrystalMedia[];
   customModules?: import("../../../modules/custom-module/src/config.ts").CustomModule[];
