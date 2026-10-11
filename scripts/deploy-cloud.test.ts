@@ -153,6 +153,7 @@ test("staging includes Pets unless disabled, excludes runtime data and secrets; 
       "packages",
       "lexicons",
       "infra/koyeb",
+      "scripts",
       "streamplace-pets",
       "runtime",
     ])
@@ -163,6 +164,7 @@ test("staging includes Pets unless disabled, excludes runtime data and secrets; 
       "tsconfig.json",
       ".dockerignore",
       "infra/koyeb/Dockerfile",
+      "scripts/mgba-crystal.lua",
       "apps/source.ts",
       "apps/.env",
       "apps/production.json",
@@ -172,6 +174,7 @@ test("staging includes Pets unless disabled, excludes runtime data and secrets; 
       await Bun.write(join(root, path), "fixture");
     staged = await stageCloudSource(root);
     expect(await Bun.file(join(staged.directory, "apps/source.ts")).exists()).toBe(true);
+    expect(await Bun.file(join(staged.directory, "scripts/mgba-crystal.lua")).exists()).toBe(true);
     expect(await Bun.file(join(staged.directory, "streamplace-pets/pets.js")).exists()).toBe(true);
     for (const path of ["apps/.env", "apps/production.json", "runtime/oauth.json"])
       expect(await Bun.file(join(staged.directory, path)).exists()).toBe(false);

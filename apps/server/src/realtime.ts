@@ -27,7 +27,7 @@ export class Relay {
     const account = this.accounts.get(peer.did)!;
     if (message.type === "diagnostic") {
       if (peer.page === "board" && message.event !== "cooldowns-received") return peer.socket.close(1008, "board cooldown diagnostics required");
-      if (peer.page !== "effect" && peer.page !== "admin" && peer.page !== "board") return peer.socket.close(1008, "runtime diagnostics required");
+      if (peer.page !== "effect" && peer.page !== "admin" && peer.page !== "board" && peer.page !== "pokemon-crystal-mgba") return peer.socket.close(1008, "runtime diagnostics required");
       const { type, event, ...details } = message;
       this.logger?.log(event.endsWith("failed") || event === "media-missing" || event === "test-rejected" ? "warn" : "info", `cloud.${peer.page === "effect" ? "effect" : peer.page === "board" ? "board" : "module"}.${event}`, { ...details, channel: peer.channel, clientReported: true });
       return;
@@ -44,6 +44,35 @@ export class Relay {
   close(peer: Peer) { if (!peer.did) return; const account = this.accounts.get(peer.did); if (!account) return; account.peers.delete(peer); this.logger?.log("info", "cloud.relay.connection-closed", { page: peer.page, channel: peer.channel }); if (!account.peers.size) account.disconnectedAt = this.now(); }
   cleanup() { const now = this.now(); for (const [did, account] of this.accounts) if (!account.peers.size && account.disconnectedAt && now - Math.max(account.lastMeaningfulAt, account.disconnectedAt) >= this.inactivityMs) this.accounts.delete(did); }
   configChanged(did: string, revision: string) { const account = this.accounts.get(did); if (!account) return; account.lastMeaningfulAt = this.now(); this.logger?.log("info", "cloud.relay.config-changed", { connectedPeers: account.peers.size }); this.broadcast(account, "live", { type: "config-changed", revision }); this.broadcast(account, "preview", { type: "config-changed", revision }); }
+  /** Pass-through only: never put emulator state into account.snapshots. */
+  crystal(
+    did: string,
+    snapshot: import("../../../packages/pokemon-model/src/snapshot.ts").PokemonSnapshot,
+    petWitness?: string,
+  ) {
+    const account = this.accounts.get(did);
+    const message = JSON.stringify({
+      type: "pokemon-crystal-mgba",
+      snapshot,
+      ...(petWitness ? { petWitness } : {}),
+    } satisfies RelayServerMessage);
+    let delivered = 0;
+    for (const peer of account?.peers ?? []) {
+      if (peer.page !== "pokemon-crystal-mgba") continue;
+      if (peer.socket.getBufferedAmount && peer.socket.getBufferedAmount() > 65536) {
+        peer.socket.close(1013, "slow subscriber");
+        continue;
+      }
+      try {
+        peer.socket.send(message);
+        delivered++;
+      } catch {
+        peer.socket.close();
+      }
+    }
+    if (account && delivered) account.lastMeaningfulAt = this.now();
+    return delivered;
+  }
   testCommand(did: string, commandId: string, requestId: string, channel: "live" | "preview" = "live", event?: { eventId: string; eventText?: string }) {
     const account = this.accounts.get(did);
     let delivered = 0;

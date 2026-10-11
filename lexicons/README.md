@@ -1,5 +1,30 @@
 # Streamface records
 
+## Pokémon Crystal mGBA
+
+`live.streamface.pokemonCrystalMgba.media` stores one species-to-image mapping per
+record. Its key is the canonical decimal National Pokédex number (`1`–`251`, no
+leading zeros), validated by the application; ownership comes from the repository.
+Deleting a mapping restores the overlay's default artwork. These mappings belong
+only to Crystal mGBA and are not shared with Blue or other emulator modules.
+
+The required `media` field uses this module's own closed union:
+`live.streamface.pokemonCrystalMgba.defs#externalMedia` for a direct HTTPS image
+URL, or `#uploadedMedia` for an image blob up to 10 MB. Animated images are
+supported. `createdAt` and `updatedAt` follow the existing record timestamp
+convention. HTTPS and supported image formats require application validation;
+Lexicon URI validation alone does not enforce them.
+
+There is no game-state record. Team membership, HP, EXP, eggs and acquired badges
+are passed from mGBA through the server to connected overlays without retaining
+a server snapshot or writing them to the PDS. Lua periodically sends the full
+current state so newly connected overlays can render it.
+
+These schemas are wired into cloud settings, OAuth scopes and the Admin.
+Publication requires a separate authorized operation, including the module's
+authority DNS delegation and collection permission. Schema validation tests do
+not publish records or change user data.
+
 ## Command access roles
 
 Both Emotes and Bot settings support optional `roles`: `followers`, `mutuals`,

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-defineProps<{ name: string; busy: boolean }>();
+withDefaults(defineProps<{ name: string; busy: boolean; description?: string }>(), {
+  description: "This removes the command from your PDS.",
+});
 const emit = defineEmits<{ cancel: []; confirm: [dontShowAgain: boolean] }>();
 const dialog = ref<HTMLDialogElement>();
 const dontShowAgain = ref(false);
@@ -14,7 +16,7 @@ onMounted(() => dialog.value?.showModal());
     @cancel.prevent="!busy && emit('cancel')"
   >
     <h3 id="delete-confirmation-title">Delete {{ name }}?</h3>
-    <p>This removes the command from your PDS.</p>
+    <p>{{ description }}</p>
     <label
       ><input v-model="dontShowAgain" type="checkbox" :disabled="busy" />Don't show again</label
     >

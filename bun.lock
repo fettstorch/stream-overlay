@@ -52,6 +52,8 @@
         "@replit/codemirror-vim": "^6.4.0",
         "@streamface/browser-runtime": "workspace:*",
         "@streamface/emoticons": "workspace:*",
+        "@streamface/pokemon-model": "workspace:*",
+        "@streamface/pokemon-ui": "workspace:*",
         "@streamface/protocol": "workspace:*",
         "@streamface/stream-chat": "workspace:*",
         "codemirror": "^6.0.2",

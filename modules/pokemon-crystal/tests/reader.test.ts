@@ -15,11 +15,12 @@ function runLua(extra: string) {
     script = { dir = "." }
     emu = { memory = {} }
     function emu:romSize() return 0x200000 end
+    function emu:read8(address) if address == 0xFF70 then return ram[address] or 249 end; return ram[address] or 0 end
     emu.memory.cart0 = {
       read8 = function(_, address) return rom[address] or 0 end,
       readRange = function() return "PM_CRYSTAL" end,
     }
-    emu.memory.wram = { read8 = function(_, offset) return ram[offset + 0xC000] or 0 end }
+    emu.memory.wram = { size = function() return 32768 end, read8 = function(_, offset) return ram[offset + 0xC000] or 0 end }
     rom[0x14C], rom[0x14E], rom[0x14F] = 1, 0x18, 0xD2
     console = { log = function() end, error = function(_, message) print(message) end }
     callbacks = { add = function(_, _, fn) tick = fn end }
@@ -74,10 +75,13 @@ test("Crystal Lua preserves stable identities while exporting changed party orde
   expect(result.map((pokemon: { id: string }) => pokemon.id)).toEqual(["1235-ab35", "1234-ab34"]);
 });
 
+
 test("Crystal Lua rejects incomplete species lists instead of publishing transient swaps", () => {
   const result = runLua(`ram[0xDCD7],ram[0xDCD9]=1,0xFF; setMon(0,152,"LEAF",52,false); ram[0xDCD8]=155; advance(); return files["./../runtime/pokemon-crystal/team.json"] or "null"`);
   expect(result).toBeNull();
 });
+
+
 
 test("Crystal uses the Gen II character map, not Blue's accented-character bytes", () => {
   const result = runLua(`

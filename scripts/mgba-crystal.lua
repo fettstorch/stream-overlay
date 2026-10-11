@@ -1,22 +1,32 @@
 -- Live English Pokémon Crystal Rev 1 reader for mGBA 0.10+.
--- Verified against pret/pokecrystal11.sym. WRAM bank 1 is read directly,
--- never through the CPU's currently selected bank; no emulator writes.
+-- Verified against pret/pokecrystal11.sym. Read bank 1 directly when the full
+-- WRAM domain is available; otherwise use the bus only while bank 1 is selected.
+-- No emulator writes.
 local function scriptDirectory()
   if script and script.dir then return script.dir end
   local source = debug.getinfo(1, "S").source:gsub("^@", "")
   return source:match("^(.*)[/\\]") or "."
 end
 local outputDirectory = scriptDirectory() .. "/../runtime/pokemon-crystal"
-local rom = emu.memory.cart0
-local wram = emu.memory.wram
+local rom, wram
+local useBus = false
+local readerMode = nil
 local function supportedRom()
-  return emu:romSize() == 0x200000 and rom:readRange(0x134, 10) == "PM_CRYSTAL"
-    and rom:read8(0x14C) == 1 and rom:read8(0x14E) == 0x18 and rom:read8(0x14F) == 0xD2
+  -- Refresh handles after ROM load/reset; never retain an old memory domain.
+  local ok, supported = pcall(function()
+    rom, wram = emu.memory.cart0, emu.memory.wram
+    return emu:romSize() == 0x200000 and rom:readRange(0x134, 10) == "PM_CRYSTAL"
+      and rom:read8(0x14C) == 1 and rom:read8(0x14E) == 0x18 and rom:read8(0x14F) == 0xD2
+  end)
+  return ok and supported
 end
-assert(supportedRom(), "Crystal overlay requires English Pokémon Crystal Rev 1 (USA/Europe).")
+-- A ROM may not yet be loaded. Publishing stays disabled until it passes checks.
 -- wStepCount=01:dc73, wPartyCount=01:dcd7, wPartyMons=01:dcdf, nicknames=01:de41;
 -- wJohtoBadges=01:d857 and wKantoBadges=01:d858.
-local function read8(address) return wram:read8(address - 0xC000) end
+local function read8(address)
+  if useBus then return emu:read8(address) end
+  return wram:read8(address - 0xC000)
+end
 local function read16(address) return read8(address) * 256 + read8(address + 1) end
 local function read24(address) return read8(address) * 65536 + read8(address + 1) * 256 + read8(address + 2) end
 local special = {
@@ -49,12 +59,13 @@ local function expAt(level, species)
   -- GrowthRates=14:4efa: numerator/denominator, signed-square, linear, constant.
   local offset = 0x50EFA + growth * 4
   local ratio = rom:read8(offset)
+  assert(growth <= 5 and ratio % 16 > 0, "invalid ROM growth data")
   local square = rom:read8(offset + 1)
   if square >= 128 then square = -(square - 128) end
   return math.max(0, math.floor(math.floor(ratio / 16) * level^3 / (ratio % 16))
     + square * level^2 + rom:read8(offset + 2) * level - rom:read8(offset + 3))
 end
-local function snapshot()
+local function snapshotMemory()
   local count = read8(0xDCD7)
   if count < 0 or count > 6 or read8(0xDCD8 + count) ~= 0xFF then
     return nil, string.format("party count=%d sentinel=%d", count, read8(0xDCD8 + count))
@@ -72,6 +83,7 @@ local function snapshot()
     if level < 1 or level > 100 then return nil, string.format("slot=%d level=%d", slot, level) end
     local name = egg and "EGG" or nameAt(0xDE41 + slot * 11)
     local id = string.format("%04x-%04x", read16(address + 6), read16(address + 21))
+    if read16(address + 34) > read16(address + 36) then return nil, "unstable HP values" end
     -- Eggs store remaining hatch cycles in MON_HAPPINESS (+27).
     local remainingCycles = read8(address + 27)
     local totalCycles = math.max(1, rom:read8(0x51424 + (species - 1) * 32 + 15), remainingCycles)
@@ -83,6 +95,29 @@ local function snapshot()
       expAt(level, species), expAt(math.min(100, level + 1), species), tostring(egg)):gsub("}$", hatch .. "}")
   end
   return "[" .. table.concat(entries, ",") .. "]\n", string.format('{"mask":%d}\n', read8(0xD857) + read8(0xD858) * 256)
+end
+local function snapshot()
+  if not supportedRom() then return nil, "requires English Crystal USA/Europe Rev 1" end
+  local function attempt(bus)
+    useBus = bus
+    local ok, team, badges = pcall(snapshotMemory)
+    if not ok then return nil, "memory read failed or ROM data unavailable" end
+    if team then
+      local mode = bus and "CPU bus (bank 1)" or "banked WRAM domain"
+      if readerMode ~= mode then console:log("Crystal reader using " .. mode); readerMode = mode end
+    end
+    return team, badges
+  end
+  local sizeOk, size = pcall(function() return wram:size() end)
+  local reason = "banked WRAM unavailable"
+  if sizeOk and type(size) == "number" and size >= 0x8000 then
+    local team, details = attempt(false)
+    if team then return team, details end
+    reason = details
+  end
+  local bankOk, bank = pcall(function() return emu:read8(0xFF70) & 7 end)
+  if bankOk and (bank == 1 or bank == 0) then return attempt(true) end
+  return nil, reason .. "; waiting for WRAM bank 1 on the CPU bus"
 end
 local function atomicWrite(filename, contents)
   local path = outputDirectory .. "/" .. filename

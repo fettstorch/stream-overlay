@@ -33,6 +33,12 @@ test("search preserves result order and exact media URLs", async () => {
   expect((await searchGiphy("hello world")).map((gif) => gif.id)).toEqual(["b", "a"]);
   expect(sdk.search).toHaveBeenCalledWith("hello world", { limit: 18, rating: "pg-13" });
   expect((await searchGiphy("again"))[0]!.url).toContain("?cid=keep");
+  await searchGiphy("pikachu", "stickers");
+  expect(sdk.search).toHaveBeenLastCalledWith("pikachu", {
+    limit: 18,
+    rating: "pg-13",
+    type: "stickers",
+  });
   await expect(searchGiphy("x".repeat(51))).rejects.toThrow("50");
 });
 test("missing configuration is actionable and can be retried", async () => {

@@ -24,6 +24,9 @@ import EmoteEvents from "./EmoteEvents.vue";
 import SetupImport from "./SetupImport.vue";
 import CloudModuleControls from "./CloudModuleControls.vue";
 import CloudBotControls from "./CloudBotControls.vue";
+import CloudCrystalControls from "./CloudCrystalControls.vue";
+import CrystalChatTest from "./CrystalChatTest.vue";
+import CrystalPettingControls from "./CrystalPettingControls.vue";
 import CloudCustomModuleControls from "./CloudCustomModuleControls.vue";
 import CollapsibleSection from "./CollapsibleSection.vue";
 import ModuleHelp from "./ModuleHelp.vue";
@@ -87,6 +90,12 @@ const dimensionsDetected = ref(false);
 let dimensionsTimer: ReturnType<typeof setInterval> | undefined;
 let disposed = false;
 function obsInstructions(moduleId: string) {
+  if (moduleId === "pokemon-crystal-mgba")
+    return [
+      "Add this as a compact, transparent OBS browser source beside your gameplay—not a full-screen overlay.",
+      "Start at 640 × 720 px, then adjust the source dimensions and position to fit your stream layout.",
+      "Leave room around the party for pet animations and thought bubbles.",
+    ];
   if (moduleId.startsWith("custom:")) {
     return [
       "The overlay fills the OBS browser source at whatever dimensions you choose.",
@@ -131,6 +140,13 @@ function chatPreviewLoaded(event: Event) {
 const effectPreviewFrame = ref<HTMLIFrameElement>();
 const listingPreviewFrame = ref<HTMLIFrameElement>();
 const emoticonTab = ref("commands");
+const crystalTab = ref("testing");
+const crystalTabs = [
+  { id: "testing", label: "Testing" },
+  { id: "script", label: "Lua script" },
+  { id: "artwork", label: "Pokémon artwork" },
+  { id: "petting", label: "Petting" },
+];
 const emoticonTabs = computed(() => [
   { id: "commands", label: "Testing" },
   { id: "create", label: "Commands" },
@@ -228,6 +244,7 @@ async function deleteCustomModule(id: string) {
   );
 }
 function moduleEnabled(id: string) {
+  if (id === "pokemon-crystal-mgba") return true;
   if (id.startsWith("custom:"))
     return (
       config.value?.customModules?.find((module) => `custom:${module.id}` === id)?.enabled ?? false
@@ -237,6 +254,7 @@ function moduleEnabled(id: string) {
   if (id === "bot") return config.value.bot?.enabled ?? false;
   if (module.cloud.enabledKey === "customModule") return false;
   const key = module.cloud.enabledKey;
+  if (key === "pokemonCrystalMgba") return true;
   return key === "emoticons"
     ? config.value.enabled
     : key === "bot"
@@ -574,14 +592,25 @@ onBeforeUnmount(() => {
               autocomplete="username"
               placeholder="Search name or handle"
               required /></label
-          ><button class="primary-button atproto-button" type="submit"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Continue with AT Protocol</span></button>
+          ><button class="primary-button atproto-button" type="submit">
+            <span class="button-press-shade" aria-hidden="true"></span
+            ><span class="button-hover-shade" aria-hidden="true"></span
+            ><span class="button-content">Continue with AT Protocol</span>
+          </button>
         </form>
         <p ref="loginStatus" class="save-status login-status" aria-live="polite">
           {{ loginMessage }}
         </p>
       </section>
-      <CollapsibleSection v-model:open="publicTutorialOpen" title="Tutorial" class="shadowed-section">
-        <p>This tutorial shows you how to create a browser source in OBS and use one of your streamface modules in it.</p>
+      <CollapsibleSection
+        v-model:open="publicTutorialOpen"
+        title="Tutorial"
+        class="shadowed-section"
+      >
+        <p>
+          This tutorial shows you how to create a browser source in OBS and use one of your
+          streamface modules in it.
+        </p>
         <video
           v-if="publicTutorialOpen"
           class="tutorial-video"
@@ -637,7 +666,7 @@ onBeforeUnmount(() => {
                     'preferences',
                   )
                 "
-              />Ask for confirmation before deleting commands</label
+              />Ask for confirmation before deletions</label
             >
             <label class="account-preference"
               ><input
@@ -671,7 +700,11 @@ onBeforeUnmount(() => {
             Retry profile
           </button>
         </div>
-        <button type="button" class="secondary-button danger-button" @click="logout"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Log out</span></button>
+        <button type="button" class="secondary-button danger-button" @click="logout">
+          <span class="button-press-shade" aria-hidden="true"></span
+          ><span class="button-hover-shade" aria-hidden="true"></span
+          ><span class="button-content">Log out</span>
+        </button>
       </section>
       <section class="settings obs-guidance" aria-labelledby="obs-guidance-title">
         <h2 id="obs-guidance-title">Use your overlays in OBS</h2>
@@ -691,7 +724,10 @@ onBeforeUnmount(() => {
         <p v-if="moduleMessages.preferences" role="alert">{{ moduleMessages.preferences }}</p>
       </CollapsibleSection>
       <CollapsibleSection v-model:open="tutorialOpen" title="Tutorial" class="shadowed-section">
-        <p>This tutorial shows you how to create a browser source in OBS and use one of your streamface modules in it.</p>
+        <p>
+          This tutorial shows you how to create a browser source in OBS and use one of your
+          streamface modules in it.
+        </p>
         <video
           v-if="tutorialOpen"
           class="tutorial-video"
@@ -707,9 +743,16 @@ onBeforeUnmount(() => {
       <section>
         <div class="modules-heading">
           <h2>Modules</h2>
-          <button type="button" aria-label="Create custom module" :disabled="!config || saving" @click="createCustomModule"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">
-            New
-          </span></button>
+          <button
+            type="button"
+            aria-label="Create custom module"
+            :disabled="!config || saving"
+            @click="createCustomModule"
+          >
+            <span class="button-press-shade" aria-hidden="true"></span
+            ><span class="button-hover-shade" aria-hidden="true"></span
+            ><span class="button-content"> New </span>
+          </button>
         </div>
         <p v-if="moduleMessages['custom-modules']" role="status">
           {{ moduleMessages["custom-modules"] }}
@@ -788,7 +831,13 @@ onBeforeUnmount(() => {
                 <span
                   class="status"
                   :data-status="moduleEnabled(module.id) ? 'running' : 'stopped'"
-                  >{{ moduleEnabled(module.id) ? "running" : "stopped" }}</span
+                  >{{
+                    module.id === "pokemon-crystal-mgba"
+                      ? "available"
+                      : moduleEnabled(module.id)
+                        ? "running"
+                        : "stopped"
+                  }}</span
                 >
               </div>
               <div class="module-actions">
@@ -818,7 +867,7 @@ onBeforeUnmount(() => {
                   :name="module.name"
                   :description="module.description"
                   :instructions="obsInstructions(module.id)"
-                /><label v-if="config" class="switch"
+                /><label v-if="config && module.id !== 'pokemon-crystal-mgba'" class="switch"
                   ><input
                     type="checkbox"
                     :checked="moduleEnabled(module.id)"
@@ -830,7 +879,11 @@ onBeforeUnmount(() => {
             <div v-if="loadState === 'error'" class="state-panel error-panel">
               <strong>Your saved configuration could not be loaded.</strong
               ><span>We did not replace it with an empty setup.</span
-              ><button type="button" @click="loadConfiguration"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Retry</span></button>
+              ><button type="button" @click="loadConfiguration">
+                <span class="button-press-shade" aria-hidden="true"></span
+                ><span class="button-hover-shade" aria-hidden="true"></span
+                ><span class="button-content">Retry</span>
+              </button>
             </div>
             <div v-else-if="loadState === 'loading'" class="state-panel">
               Loading your configuration…
@@ -847,7 +900,9 @@ onBeforeUnmount(() => {
                   <span
                     v-for="(text, index) in module.description.split(/(HTML|CSS)/g)"
                     :key="index"
-                    :class="text === 'HTML' ? 'html-label' : text === 'CSS' ? 'css-label' : undefined"
+                    :class="
+                      text === 'HTML' ? 'html-label' : text === 'CSS' ? 'css-label' : undefined
+                    "
                     >{{ text }}</span
                   >
                 </p>
@@ -1009,6 +1064,22 @@ onBeforeUnmount(() => {
                   :avatar="profile?.avatar"
                   :save="(candidate) => saveConfiguration(candidate, undefined, 'bot')"
                 />
+                <DrawnTabs v-else-if="module.id === 'pokemon-crystal-mgba'" v-model="crystalTab" :tabs="crystalTabs" label="Pokémon tools">
+                  <div v-show="crystalTab === 'testing'" :inert="crystalTab !== 'testing' || undefined">
+                    <div class="cloud-preview" :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }">
+                      <iframe :src="previewUrl(module.id)" :title="`${module.name} preview`" allow="autoplay" />
+                    </div>
+                    <CrystalChatTest :did="config.streamerDid" />
+                  </div>
+                  <CloudCrystalControls
+                    v-show="crystalTab === 'script' || crystalTab === 'artwork'"
+                    :inert="!['script', 'artwork'].includes(crystalTab) || undefined"
+                    :panel="crystalTab === 'script' ? 'script' : 'artwork'"
+                    :config="config"
+                    :save="(candidate) => saveConfiguration(candidate, undefined, module.id)"
+                  />
+                  <CrystalPettingControls v-if="crystalTab === 'petting'" :config="config" :save="(candidate) => saveConfiguration(candidate, undefined, module.id)" />
+                </DrawnTabs>
                 <CloudCustomModuleControls
                   v-else-if="module.id.startsWith('custom:')"
                   :module-id="module.id.slice(7)"
@@ -1031,9 +1102,11 @@ onBeforeUnmount(() => {
                   type="button"
                   :disabled="saving"
                   @click="deleteCustomModule(module.id)"
-                ><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">
-                  Delete module
-                </span></button>
+                >
+                  <span class="button-press-shade" aria-hidden="true"></span
+                  ><span class="button-hover-shade" aria-hidden="true"></span
+                  ><span class="button-content"> Delete module </span>
+                </button>
                 <p v-if="module.id === 'chat'" class="chat-preview-note">
                   Sample chat preview — these messages are generated here, not sent to your stream.
                   Your OBS source still shows live chat.
@@ -1042,6 +1115,7 @@ onBeforeUnmount(() => {
                   v-if="
                     module.id !== 'emoticons' &&
                     module.id !== 'bot' &&
+                    module.id !== 'pokemon-crystal-mgba' &&
                     !module.id.startsWith('custom:') &&
                     isExpanded(module)
                   "
@@ -1090,11 +1164,21 @@ onBeforeUnmount(() => {
   gap: 16px;
   margin-bottom: 18px;
 }
-.modules-heading h2 { margin: 0; }
-.html-label { color: #b77b00; }
-.css-label { color: #1769c2; }
-:global(html[data-theme="dark"] .html-label) { color: #f5c542; }
-:global(html[data-theme="dark"] .css-label) { color: #69b5ff; }
+.modules-heading h2 {
+  margin: 0;
+}
+.html-label {
+  color: #b77b00;
+}
+.css-label {
+  color: #1769c2;
+}
+:global(html[data-theme="dark"] .html-label) {
+  color: #f5c542;
+}
+:global(html[data-theme="dark"] .css-label) {
+  color: #69b5ff;
+}
 .account-preference {
   display: flex;
   align-items: center;

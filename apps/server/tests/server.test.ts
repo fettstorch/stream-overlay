@@ -33,6 +33,68 @@ function webRoot() {
 }
 
 describe("cloud server boundary", () => {
+  test("Crystal download is owner-only; native ingest is bounded, revocable and never calls PDS", async () => {
+    const deps = dependencies(webRoot());
+    deps.pds.publicConfig = async () => {
+      throw new Error("Gameplay must not read PDS");
+    };
+    deps.pds.save = async () => {
+      throw new Error("Gameplay must not write PDS");
+    };
+    const root = "https://overlay.example/api/accounts/did:plc:alice/pokemon-crystal-mgba";
+    const owner = {
+      Origin: deps.origin,
+      Cookie: `stream_overlay_session=${await sessionCookie("did:plc:alice", deps.secret)}`,
+    };
+    expect(
+      (await handleRequest(new Request(`${root}/script`, { method: "POST" }), deps)).status,
+    ).toBe(403);
+    expect(
+      (
+        await handleRequest(
+          new Request(`${root}/script`, {
+            method: "POST",
+            headers: { ...owner, Origin: "https://evil.example" },
+          }),
+          deps,
+        )
+      ).status,
+    ).toBe(403);
+    const download = await handleRequest(
+      new Request(`${root}/script`, { method: "POST", headers: owner }),
+      deps,
+    );
+    expect(download.status).toBe(200);
+    const token = /token=([a-f0-9]{64})/.exec(await download.text())![1]!;
+    const ingest = (body: string, secret = token) =>
+      handleRequest(
+        new Request(`${root}/ingest?token=${secret}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+        }),
+        deps,
+      );
+    expect((await ingest("{}", "invalid")).status).toBe(403);
+    expect((await ingest("{}")).status).toBe(400);
+    expect((await ingest("x".repeat(17000))).status).toBe(413);
+    const result = await ingest(
+      JSON.stringify({ version: 1, session: "test", sequence: 1, team: [], badges: { mask: 0 } }),
+    );
+    expect(result.status).toBe(200);
+    expect(Number(result.headers.get("content-length"))).toBe(
+      Buffer.byteLength(await result.text()),
+    );
+    expect(
+      (
+        await handleRequest(
+          new Request(`${root}/script`, { method: "DELETE", headers: owner }),
+          deps,
+        )
+      ).status,
+    ).toBe(200);
+    expect((await ingest("{}")).status).toBe(403);
+  });
   test("serves new Emotes paths and legacy OBS aliases from the same pages", async () => {
     const root = webRoot();
     writeFileSync(join(root, "effect.html"), "<h1>Emotes overlay</h1>");

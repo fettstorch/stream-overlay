@@ -32,12 +32,18 @@ async function configureClient() {
   return new GiphyFetch(apiKey);
 }
 export type GiphyChoice = { id: string; title: string; preview: string; url: string };
-export async function searchGiphy(query: string): Promise<GiphyChoice[]> {
+export async function searchGiphy(
+  query: string,
+  type: "gifs" | "stickers" = "gifs",
+  offset = 0,
+): Promise<GiphyChoice[]> {
   if (query.length > 50) throw new Error("Giphy search terms can contain at most 50 characters.");
   const api = await client();
   let result;
   try {
-    result = await bounded(api.search(query, { limit: 18, rating: "pg-13" }));
+    result = await bounded(
+      api.search(query, { limit: 18, rating: "pg-13", ...(offset ? { offset } : {}), ...(type === "stickers" ? { type } : {}) }),
+    );
   } catch {
     throw new Error(
       "Giphy search failed or its request limit was reached. Please try again later.",

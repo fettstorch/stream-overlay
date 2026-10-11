@@ -18,9 +18,11 @@ import { getStreamDimensions } from "../../../packages/stream-chat/src/stream-di
 import { STREAMFACE_NAMESPACE, moduleCollections } from "./module-records.ts";
 import { createBotAuth, type BotAuth } from "./bot-auth.ts";
 import { CloudBot, botSourceToken, validBotSourceToken } from "./cloud-bot.ts";
+import { CloudCrystal, crystalIngestOrigin } from "./cloud-crystal.ts";
 
 const defaultWebRoot = resolve(import.meta.dir, "../../web/dist");
 type Dependencies = {
+  crystal?: CloudCrystal;
   bot?: BotAuth;
   botCommands?: CloudBot;
   giphyApiKey?: string;
@@ -36,12 +38,19 @@ type Dependencies = {
 };
 type SocketData = { peer?: ReturnType<Relay["open"]> };
 function json(value: unknown, status = 200, headers: HeadersInit = {}) {
-  return Response.json(value, {
+  const body = JSON.stringify(value);
+  return new Response(body, {
     status,
-    headers: { "Cache-Control": "no-store", ...headers },
+    headers: {
+      "Content-Type": "application/json",
+      "Content-Length": String(Buffer.byteLength(body)),
+      "Cache-Control": "no-store",
+      ...headers,
+    },
   });
 }
 function routeName(path: string) {
+  if (didFromPath(path, "pokemon-crystal-mgba/(script|ingest|pet|pet-counts)")) return "accounts.crystal";
   if (path === "/health") return "health";
   if (path.startsWith("/oauth/")) return `oauth.${path.slice(7).replaceAll("/", ".")}`;
   if (didFromPath(path, "media")) return "accounts.media";
@@ -242,6 +251,101 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
     }
   }
   if (path === "/health") return json({ status: "ok" });
+  const crystalDid = didFromPath(path, "pokemon-crystal-mgba/(script|ingest)");
+  if (crystalDid && path.endsWith("/script") && ["POST", "DELETE"].includes(request.method)) {
+    if (!sameOrigin(request, deps.origin)) return json({ error: "invalid-origin" }, 403);
+    if ((await readSessionCookie(request, deps.secret)) !== crystalDid)
+      return json({ error: "unauthorized" }, 401);
+    if (!deps.crystal) return json({ error: "crystal-unavailable" }, 503);
+    if (request.method === "DELETE") {
+      await deps.crystal.revoke(crystalDid, requestId);
+      return json({ revoked: true });
+    }
+    return new Response(await deps.crystal.download(crystalDid, requestId), {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Content-Disposition": 'attachment; filename="streamface-crystal-mgba.lua"',
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  }
+  if (crystalDid && path.endsWith("/ingest") && request.method === "POST") {
+    if (!deps.crystal) return json({ error: "crystal-unavailable" }, 503);
+    const sourceHash = await deps.crystal.authorize(crystalDid, url.searchParams.get("token"));
+    if (!sourceHash) {
+      deps.logger.log("warn", "cloud.crystal.ingest-rejected", {
+        requestId,
+        reason: "unauthorized",
+      });
+      return json({ error: "unauthorized" }, 403);
+    }
+    try {
+      if (request.headers.get("content-type")?.split(";", 1)[0] !== "application/json")
+        return json({ error: "json-required" }, 415);
+      const body = JSON.parse(new TextDecoder().decode(await boundedBody(request, 16384)));
+      if ((await deps.crystal.authorize(crystalDid, url.searchParams.get("token"))) !== sourceHash)
+        return json({ error: "unauthorized" }, 403);
+      // No PDS access, snapshot cache, or queued replay on this path.
+      const result = deps.crystal.relaySnapshot(crystalDid, sourceHash, body, requestId);
+      return json(result, result.status, result.status === 429 ? { "Retry-After": "1" } : {});
+    } catch (error) {
+      deps.logger.log("warn", "cloud.crystal.ingest-rejected", {
+        requestId,
+        reason: error instanceof RangeError ? "body-too-large" : "invalid-snapshot",
+      });
+      return json(
+        { error: "invalid-snapshot", requestId },
+        error instanceof RangeError ? 413 : 400,
+      );
+    }
+  }
+  const petDid = didFromPath(path, "pokemon-crystal-mgba/pet");
+  if (petDid && request.method === "POST") {
+    if (!sameOrigin(request, deps.origin)) return json({ error: "invalid-origin" }, 403);
+    if (!deps.crystal) return json({ error: "crystal-unavailable" }, 503);
+    let command: Awaited<ReturnType<PdsService["crystalPetMessage"]>>;
+    let pokemonId: string;
+    try {
+      const body = JSON.parse(new TextDecoder().decode(await boundedBody(request, 8192)));
+      await deps.crystal.petTarget(petDid, body.witness);
+      command = await deps.pds.crystalPetMessage(petDid, body.uri);
+      pokemonId = (await deps.crystal.petTarget(petDid, body.witness, command.name))!;
+    } catch {
+      deps.logger.log("warn", "cloud.crystal.pet-rejected", { requestId, reason: "invalid-live-command" });
+      return json({ error: "invalid-live-command", requestId }, 400);
+    }
+    try {
+      const result = await deps.pds.recordCrystalPet(petDid, pokemonId, command.author, command.uri, { logger: deps.logger, requestId });
+      return json(result);
+    } catch (error) {
+      const permission = error instanceof ChatPermissionRequiredError;
+      deps.logger.log("warn", "cloud.crystal.pet-save-failed", { requestId, reason: permission ? "permission-required" : "pds-write-failed" });
+      return json({ error: permission ? "pet-permission-required" : "pet-save-failed", requestId }, permission ? 403 : 503);
+    }
+  }
+  const countsDid = didFromPath(path, "pokemon-crystal-mgba/pet-counts");
+  if (countsDid && request.method === "DELETE") {
+    if (!sameOrigin(request, deps.origin)) return json({ error: "invalid-origin" }, 403);
+    if ((await readSessionCookie(request, deps.secret)) !== countsDid) return json({ error: "unauthorized" }, 401);
+    try {
+      const body = JSON.parse(new TextDecoder().decode(await boundedBody(request, 4096)));
+      if (body.all !== true && (!/^[a-f0-9]{4}-[a-f0-9]{4}$/.test(body.pokemonId) || typeof body.petterDid !== "string" || !body.petterDid.startsWith("did:"))) return json({ error: "invalid-pet-mapping" }, 400);
+      const removed = await deps.pds.removeCrystalPetCounts(countsDid, body.all === true ? undefined : body.pokemonId, body.all === true ? undefined : body.petterDid);
+      deps.logger.log("info", "cloud.crystal.pet-counts-removed", { requestId, count: removed });
+      return json({ removed });
+    } catch {
+      deps.logger.log("warn", "cloud.crystal.pet-counts-remove-failed", { requestId });
+      return json({ error: "pet-counts-remove-failed", message: "Could not remove pet history. Check your PDS permissions.", requestId }, 503);
+    }
+  }
+  if (countsDid && request.method === "GET") {
+    try { return json(await deps.pds.crystalPetCounts(countsDid)); }
+    catch {
+      deps.logger.log("warn", "cloud.crystal.pet-counts-load-failed", { requestId });
+      return json({ error: "pet-counts-unavailable", requestId }, 503);
+    }
+  }
   const chatDid = didFromPath(path, "chat/message");
   if (chatDid && request.method === "POST") {
     if (!sameOrigin(request, deps.origin)) return json({ error: "invalid-origin" }, 403);
@@ -726,7 +830,7 @@ export async function handleRequest(request: Request, deps: Dependencies) {
     startedAt = Date.now(),
     path = new URL(request.url).pathname,
     route = routeName(path),
-    shouldLog = route !== "static";
+    shouldLog = route !== "static" && !(route === "accounts.crystal" && path.endsWith("/ingest"));
   if (shouldLog)
     deps.logger.log("info", "cloud.http.request-received", {
       requestId,
@@ -783,7 +887,7 @@ export function createDependencies(env = process.env): Dependencies {
     namespace === STREAMFACE_NAMESPACE ? moduleCollections : collections(namespace),
   )
     .map((collection) => `repo:${collection}`)
-    .join(" ")} repo:place.stream.chat.message blob:image/* blob:audio/* blob:video/*`;
+    .join(" ")} repo:live.streamface.pokemonCrystalMgba.petCount repo:place.stream.chat.message blob:image/* blob:audio/* blob:video/*`;
   const logger = new StructuredLogger(
     env.CLOUD_LOG_FILE ??
       (local && env.NODE_ENV !== "production"
@@ -792,7 +896,16 @@ export function createDependencies(env = process.env): Dependencies {
   );
   const oauth = createOAuth(origin, dataDir, scope);
   const bot = createBotAuth(env, logger);
+  const relay = new Relay(() => Date.now(), 3_600_000, 12, logger);
+  const ingestOrigin = new URL(origin);
+  ingestOrigin.protocol = "http:";
   return {
+    crystal: new CloudCrystal(
+      dataDir,
+      crystalIngestOrigin(env.POKEMON_INGEST_ORIGIN ?? ingestOrigin.origin),
+      relay,
+      logger,
+    ),
     bot,
     botCommands: new CloudBot(bot, logger),
     giphyApiKey: env.GIPHY_API_KEY?.trim(),
@@ -802,7 +915,7 @@ export function createDependencies(env = process.env): Dependencies {
     secret,
     oauth,
     pds: new PdsService(oauth, namespace),
-    relay: new Relay(() => Date.now(), 3_600_000, 12, logger),
+    relay,
     paint: new CloudPaint(logger),
     logger,
   };
@@ -854,6 +967,7 @@ if (import.meta.main) {
     deps.relay.cleanup();
     deps.paint.cleanup();
     deps.pds.cleanup();
+    deps.crystal?.cleanup();
   }, 60_000);
   const shutdown = () => {
     deps.bot?.stop();

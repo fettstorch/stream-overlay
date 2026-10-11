@@ -1,6 +1,13 @@
 import { createHash } from "node:crypto";
 import { Lexicons, jsonToLex, type LexiconDoc } from "@atproto/lexicon";
 import chatSchema from "../../../lexicons/live.streamface.chat.settings.json";
+import crystalMediaSchema from "../../../lexicons/live.streamface.pokemonCrystalMgba.media.json";
+import crystalSettingsSchema from "../../../lexicons/live.streamface.pokemonCrystalMgba.settings.json";
+import crystalDefsSchema from "../../../lexicons/live.streamface.pokemonCrystalMgba.defs.json";
+import {
+  crystalMediaDefinitions,
+  validateCrystalMedia,
+} from "../../../modules/pokemon-crystal/src/cloud-contracts.ts";
 import customModuleSchema from "../../../lexicons/live.streamface.custommodule.json";
 import {
   customModuleSettings,
@@ -31,6 +38,8 @@ legacyCustomModuleSchema.defs.main.key = "literal:self";
 legacyCustomModuleSchema.defs.main.record.required =
   legacyCustomModuleSchema.defs.main.record.required.filter((key: string) => key !== "name");
 export const moduleCollections = {
+  crystalSettings: crystalSettingsSchema.id,
+  crystalMedia: crystalMediaSchema.id,
   customModule: customModuleSchema.id,
   legacyCustomModule: legacyCustomModuleSchema.id as string,
   bot: botSchema.id,
@@ -42,6 +51,9 @@ export const moduleCollections = {
   command: commandSchema.id,
 };
 export const lexicons = new Lexicons([
+  crystalSettingsSchema,
+  crystalMediaSchema,
+  crystalDefsSchema,
   customModuleSchema,
   legacyCustomModuleSchema,
   botSchema,
@@ -59,11 +71,28 @@ export function validateRecord(record: StoredRecord) {
   if (!/^[A-Za-z0-9._:~-]{1,128}$/.test(record.rkey) || [".", ".."].includes(record.rkey))
     throw new Error("Invalid record key");
   if (
-    ![moduleCollections.command, moduleCollections.customModule].includes(record.collection) &&
+    ![
+      moduleCollections.command,
+      moduleCollections.customModule,
+      moduleCollections.crystalMedia,
+    ].includes(record.collection) &&
     record.rkey !== "self"
   )
     throw new Error("Settings must use the self record key");
   lexicons.assertValidRecord(record.collection, jsonToLex(record.value));
+  if (record.collection === moduleCollections.crystalMedia) {
+    if (!/^[1-9][0-9]{0,2}$/.test(record.rkey) || Number(record.rkey) > 251)
+      throw new Error("Invalid Crystal species key");
+    const media = record.value.media;
+    validateCrystalMedia([
+      {
+        number: Number(record.rkey),
+        ...(media.$type === `${crystalMediaDefinitions}#uploadedMedia`
+          ? { blob: media.blob }
+          : { url: media.url }),
+      },
+    ]);
+  }
 }
 // Include every record, not only settings timestamps: outside clients may edit commands.
 export function recordRevision(records: StoredRecord[]) {
@@ -192,6 +221,15 @@ export function parseModuleRecords(did: string, records: StoredRecord[]): CloudC
     });
   validateCustomModules(customModules);
   return {
+    pokemonCrystalMgbaMedia: records
+      .filter((record) => record.collection === moduleCollections.crystalMedia)
+      .map((record) => ({
+        number: Number(record.rkey),
+        ...(record.value.media.$type === `${crystalMediaDefinitions}#uploadedMedia`
+          ? { blob: record.value.media.blob }
+          : { url: record.value.media.url }),
+      })),
+    ...(get(moduleCollections.crystalSettings) ? { pokemonCrystalMgbaThoughtIntervalSeconds: get(moduleCollections.crystalSettings)!.thoughtIntervalSeconds } : {}),
     customModules,
     bot,
     ...moduleSettings({
@@ -347,6 +385,26 @@ export function serializeModuleRecords(
     );
   const customModules =
     config.customModules ?? parseModuleRecords(config.streamerDid, previous).customModules ?? [];
+  const crystalMedia =
+    config.pokemonCrystalMgbaMedia ??
+    parseModuleRecords(config.streamerDid, previous).pokemonCrystalMgbaMedia ??
+    [];
+  validateCrystalMedia(crystalMedia);
+  const thoughtIntervalSeconds = config.pokemonCrystalMgbaThoughtIntervalSeconds ?? parseModuleRecords(config.streamerDid, previous).pokemonCrystalMgbaThoughtIntervalSeconds ?? 120;
+  if (!Number.isInteger(thoughtIntervalSeconds) || thoughtIntervalSeconds < 1 || thoughtIntervalSeconds > 86400) throw new Error("Invalid thought interval");
+  if (config.pokemonCrystalMgbaThoughtIntervalSeconds !== undefined || previous.some(item => item.collection === moduleCollections.crystalSettings))
+    records.push(record(moduleCollections.crystalSettings, "self", { thoughtIntervalSeconds }));
+  for (const item of crystalMedia) {
+    const next = record(moduleCollections.crystalMedia, String(item.number), {
+      media: item.blob
+        ? { $type: `${crystalMediaDefinitions}#uploadedMedia`, blob: item.blob }
+        : { $type: `${crystalMediaDefinitions}#externalMedia`, url: item.url },
+    });
+    const old = previous.find((r) => r.collection === next.collection && r.rkey === next.rkey);
+    if (old && JSON.stringify(old.value.media) === JSON.stringify(next.value.media))
+      next.value.updatedAt = old.value.updatedAt;
+    records.push(next);
+  }
   validateCustomModules(customModules);
   for (const module of customModules) {
     const next = record(moduleCollections.customModule, module.id, {

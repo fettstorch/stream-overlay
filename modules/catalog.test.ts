@@ -13,6 +13,7 @@ test("Pets is absent by default but retains its opt-in and local integration", (
   expect(cloudModuleCatalog.map((module) => module.id)).toEqual([
     "emoticons",
     "chat",
+    "pokemon-crystal-mgba",
     "bot",
     "overlay-paint",
     "custom-module",
@@ -43,7 +44,11 @@ test("Emotes uses readable overlay URLs while preserving legacy OBS paths", () =
 test("local adapters retain catalog identities and stable OBS routes", () => {
   for (const manifest of cloudModuleCatalog) {
     // The central authenticated service-account bot is cloud-only.
-    if (manifest.id === "bot" || manifest.id === "custom-module") {
+    if (
+      manifest.id === "bot" ||
+      manifest.id === "custom-module" ||
+      manifest.id === "pokemon-crystal-mgba"
+    ) {
       expect(cloudOverlayPages[manifest.cloud.pages[0].path]).toBe(
         manifest.cloud.pages[0].entrypoint,
       );

@@ -7,6 +7,7 @@ import { StructuredLogger } from "../apps/server/src/logger.ts";
 // Package Pets for the author demo; runtime data and agent metadata stay excluded.
 const sourceRoots = ["apps", "modules", "packages", "lexicons"];
 const sourceFiles = [
+  "scripts/mgba-crystal.lua",
   "package.json",
   "bun.lock",
   "tsconfig.json",

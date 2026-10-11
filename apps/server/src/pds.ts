@@ -1,4 +1,5 @@
 import { Agent, type ComAtprotoRepoApplyWrites } from "@atproto/api";
+import { createHash } from "node:crypto";
 import { lexToJson } from "@atproto/lexicon";
 import { createDidResolver, type NodeOAuthClient } from "@atproto/oauth-client-node";
 import { safeError, type StructuredLogger } from "./logger.ts";
@@ -31,6 +32,7 @@ type Diagnostics = { logger: StructuredLogger; requestId: string };
 export class CloudConfigMissingError extends Error {}
 export class ChatPermissionRequiredError extends Error {}
 export class ChatRateLimitError extends Error {}
+export const crystalPetCollection = "live.streamface.pokemonCrystalMgba.petCount";
 export class CloudConfigConflictError extends Error {
   constructor() {
     super("The configuration changed since it was loaded. Reload before saving.");
@@ -133,6 +135,170 @@ export class PdsService {
   private readonly fetchFn;
   private readonly agentFactory;
   private chatAttempts = new Map<string, number>();
+  private petWrites = new Map<string, Promise<unknown>>();
+  private petPending = 0;
+  async crystalPetCounts(did: string) {
+    const service = await this.resolvePdsFn(did);
+    const records = await listAllRecords(
+      async (cursor) =>
+        (await xrpc(this.fetchFn, service, "com.atproto.repo.listRecords", {
+          repo: did,
+          collection: crystalPetCollection,
+          limit: "100",
+          ...(cursor ? { cursor } : {}),
+        })) as any,
+      10000,
+    );
+    return records
+      .map((item) => item.value)
+      .filter(
+        (value) =>
+          value?.$type === crystalPetCollection &&
+          /^[a-f0-9]{4}-[a-f0-9]{4}$/.test(value.pokemonId) &&
+          typeof value.petterDid === "string" &&
+          value.petterDid.startsWith("did:") &&
+          Number.isSafeInteger(value.count) &&
+          value.count > 0,
+      )
+      .map(({ pokemonId, petterDid, count }) => ({ pokemonId, petterDid, count }));
+  }
+  async removeCrystalPetCounts(did: string, pokemonId?: string, petterDid?: string) {
+    const counts = await this.crystalPetCounts(did);
+    const selected = counts.filter(item => (!pokemonId || item.pokemonId === pokemonId) && (!petterDid || item.petterDid === petterDid));
+    const session = await this.oauth.restore(did);
+    const { scope } = await session.getTokenInfo();
+    if (!scope.split(" ").some(value => value === `repo:${crystalPetCollection}` || value === "transition:generic")) throw new ChatPermissionRequiredError("Pet history permission required");
+    const agent = this.agentFactory(session);
+    for (const item of selected) {
+      const rkey = createHash("sha256").update(JSON.stringify([item.pokemonId, item.petterDid])).digest("hex");
+      await agent.com.atproto.repo.deleteRecord({ repo: did, collection: crystalPetCollection, rkey });
+    }
+    return selected.length;
+  }
+  /** Verify the original public chat record, not browser-supplied author/text claims. */
+  async crystalPetMessage(streamer: string, uri: unknown) {
+    if (typeof uri !== "string" || uri.length > 1024) throw new Error("Invalid chat record");
+    const match =
+      /^at:\/\/(did:[^/]+)\/place\.stream\.chat\.message\/([A-Za-z0-9._~:-]{1,512})$/.exec(uri);
+    if (!match) throw new Error("Invalid chat record");
+    const author = match[1]!;
+    const result = (await xrpc(
+      this.fetchFn,
+      await this.resolvePdsFn(author),
+      "com.atproto.repo.getRecord",
+      {
+        repo: author,
+        collection: "place.stream.chat.message",
+        rkey: match[2]!,
+      },
+    )) as any;
+    const record = result.value;
+    const name = typeof record?.text === "string" && /^\s*!pet\s+(.+?)\s*$/i.exec(record.text)?.[1];
+    const age = Date.now() - Date.parse(record?.createdAt);
+    if (
+      record?.$type !== "place.stream.chat.message" ||
+      record.streamer !== streamer ||
+      !name ||
+      !Number.isFinite(age) ||
+      age < -10000 ||
+      age > 60000
+    )
+      throw new Error("Not a recent pet command for this stream");
+    return { author, name, uri };
+  }
+  async recordCrystalPet(
+    did: string,
+    pokemonId: string,
+    petterDid: string,
+    uri: string,
+    diagnostics: Diagnostics,
+  ) {
+    if (!/^[a-f0-9]{4}-[a-f0-9]{4}$/.test(pokemonId)) throw new Error("Invalid Pokémon identity");
+    if (this.petPending >= 100) throw new ChatRateLimitError();
+    const key = createHash("sha256")
+      .update(JSON.stringify([pokemonId, petterDid]))
+      .digest("hex");
+    const lock = `${did}:${key}`;
+    this.petPending++;
+    const work = (this.petWrites.get(lock) ?? Promise.resolve())
+      .catch(() => {})
+      .then(async () => {
+        const session = await this.oauth.restore(did);
+        const { scope } = await session.getTokenInfo();
+        if (
+          !scope
+            .split(" ")
+            .some(
+              (value) => value === `repo:${crystalPetCollection}` || value === "transition:generic",
+            )
+        )
+          throw new ChatPermissionRequiredError(
+            "Authorize Pokémon pet-history storage by signing in again.",
+          );
+        const agent = this.agentFactory(session);
+        for (let attempt = 0; attempt < 3; attempt++) {
+          let previous: any;
+          try {
+            previous = (
+              await agent.com.atproto.repo.getRecord({
+                repo: did,
+                collection: crystalPetCollection,
+                rkey: key,
+              })
+            ).data;
+          } catch (error) {
+            if ((error as { error?: string }).error !== "RecordNotFound") throw error;
+          }
+          const old = previous?.value;
+          if (
+            old &&
+            (old.pokemonId !== pokemonId ||
+              old.petterDid !== petterDid ||
+              !Number.isSafeInteger(old.count) ||
+              old.count < 1 ||
+              !Array.isArray(old.messages))
+          )
+            throw new Error("Invalid stored pet count");
+          if (
+            old?.messages.includes(uri) ||
+            (old?.messages.length >= 1000 && uri < [...old.messages].sort()[0])
+          )
+            return { count: old.count, duplicate: true };
+          const count = (old?.count ?? 0) + 1;
+          if (!Number.isSafeInteger(count)) throw new Error("Pet count limit reached");
+          try {
+            await agent.com.atproto.repo.putRecord({
+              repo: did,
+              collection: crystalPetCollection,
+              rkey: key,
+              swapRecord: previous?.cid ?? null,
+              record: {
+                $type: crystalPetCollection,
+                pokemonId,
+                petterDid,
+                count,
+                messages: [...(old?.messages ?? []), uri].slice(-1000),
+                updatedAt: new Date().toISOString(),
+              },
+            });
+            diagnostics.logger.log("info", "cloud.crystal.pet-count-saved", {
+              requestId: diagnostics.requestId,
+            });
+            return { count, duplicate: false };
+          } catch (error) {
+            if ((error as { error?: string }).error !== "InvalidSwap" || attempt === 2) throw error;
+          }
+        }
+        throw new Error("Pet count changed concurrently");
+      });
+    this.petWrites.set(lock, work);
+    try {
+      return await work;
+    } finally {
+      this.petPending--;
+      if (this.petWrites.get(lock) === work) this.petWrites.delete(lock);
+    }
+  }
   async sendChat(did: string, text: string, diagnostics: Diagnostics) {
     const session = await this.oauth.restore(did);
     const { scope } = await session.getTokenInfo();
@@ -186,7 +352,11 @@ export class PdsService {
         (
           await listAllRecords(
             (cursor) => load(collection, cursor),
-            collection === moduleCollections.customModule ? Infinity : 200,
+            collection === moduleCollections.customModule
+              ? Infinity
+              : collection === moduleCollections.crystalMedia
+                ? 251
+                : 200,
           )
         ).map(
           (item) =>
@@ -518,7 +688,9 @@ export class PdsService {
       const writes: ComAtprotoRepoApplyWrites.InputSchema["writes"] = records
         .filter(
           (record) =>
-            record.collection !== moduleCollections.customModule ||
+            ![moduleCollections.customModule, moduleCollections.crystalMedia].includes(
+              record.collection,
+            ) ||
             !snapshot.records.some(
               (old) =>
                 identity(old) === identity(record) &&
@@ -635,6 +807,8 @@ export class PdsService {
 }
 const didResolver = createDidResolver({});
 function hydrateCustomModuleMedia(config: CloudConfig, service: string, did: string) {
+  for (const media of config.pokemonCrystalMgbaMedia ?? [])
+    if (media.blob) media.url = blobUrl(service, did, media.blob);
   for (const module of config.customModules ?? [])
     for (const media of module.media ?? []) media.url = blobUrl(service, did, media.blob);
 }

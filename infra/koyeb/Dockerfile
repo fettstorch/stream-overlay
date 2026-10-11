@@ -5,6 +5,7 @@ COPY apps ./apps
 COPY modules ./modules
 COPY packages ./packages
 COPY lexicons ./lexicons
+COPY scripts/mgba-crystal.lua ./scripts/mgba-crystal.lua
 RUN bun install --frozen-lockfile
 
 # Opt-in target only: do not publish until upstream permission is documented.

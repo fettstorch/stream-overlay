@@ -289,8 +289,47 @@ Publish the updated Bot settings lexicon before rolling out routines to PDSs.
 
 The Streamface admin includes Emotes, Chat and Overlay Paint. Streamplace
 Pets is temporarily excluded from cloud builds pending upstream permission;
-its local integration remains available. Pokémon Blue and Crystal remain local-only. The local `bun run overlay`
+its local integration remains available. Pokémon Blue remains local-only; Crystal
+mGBA also has a cloud module. The local `bun run overlay`
 workflow and its existing OBS URLs are unchanged.
+
+### Cloud Pokémon Crystal mGBA
+
+Open **Pokémon Crystal mGBA** in the cloud Admin, download your private Lua
+script, and load it using mGBA **Tools → Scripting** with English Crystal
+USA/Europe Rev 1. Add the module's OBS URL as a browser source. No helper program
+or additional Lua installation is required. Downloading again revokes previous
+copies; **Revoke source** stops their updates.
+
+Species-to-artwork URL/blob mappings are saved to your PDS under
+`live.streamface.pokemonCrystalMgba.media`. Removing a mapping restores default
+artwork. HP, EXP, party membership, eggs and badges are validated and immediately
+relayed to connected overlays, never saved or cached by the server. Lua checks
+for changes every 30 game frames and resends unchanged state every two seconds
+so newly connected overlays receive it without server replay. Overlays clear
+their browser-local state after ten seconds without updates.
+
+Chatters can use `!pet <nickname>` in stream.place chat; the preview listens to
+the same real chat, and its Send button posts as your logged-in account. The
+overlay remembers each individual Pokémon's petters and counts in public PDS
+records under `live.streamface.pokemonCrystalMgba.petCount`, independently of
+artwork and module settings. Verified chat-record identities prevent preview
+and OBS from double-counting. Every two minutes, Pokémon can think of their
+favourite petter. Existing users must sign in again to grant the new collection
+permission. Pet history persists; current gameplay still does not.
+
+Artwork accepts image drops, direct HTTPS image URLs, or GIPHY sticker searches.
+
+The private ingest URL uses unencrypted HTTP (game data and the scoped source
+token are visible to network intermediaries). Keep the downloaded script private.
+OAuth/PDS credentials are never embedded. `POKEMON_INGEST_ORIGIN` can override the
+default HTTP version of `PUBLIC_ORIGIN`; it must be a plain HTTP origin that
+accepts POST without HTTPS redirects. Native mGBA socket connection attempts are
+blocking; a persistent connection and retry backoff reduce reconnects but cannot
+eliminate a pause during connection failure. Source hashes are stored with auth
+data; live-source leases contain only transient sequence/expiry metadata and
+assume one server instance. Publish the new lexicons and grant their collection
+permission before rolling this out; existing logins may need to sign in again.
 
 Pets attribution and the unresolved upstream redistribution permission are
 documented in `THIRD_PARTY_NOTICES.md`. Do not publish the bundled Pets code or

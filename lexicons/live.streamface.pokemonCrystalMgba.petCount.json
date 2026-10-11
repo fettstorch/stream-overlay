@@ -1,0 +1,26 @@
+{
+  "lexicon": 1,
+  "id": "live.streamface.pokemonCrystalMgba.petCount",
+  "description": "Per-individual Pokémon and petter counts. Repository identity is the streamer. Record key is SHA-256 of Pokémon identity and petter DID. No party, HP, EXP or badges are stored. Recent chat record keys prevent duplicate counting across overlays and restarts.",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "any",
+      "record": {
+        "type": "object",
+        "required": ["pokemonId", "petterDid", "count", "messages", "updatedAt"],
+        "properties": {
+          "pokemonId": { "type": "string", "maxLength": 9 },
+          "petterDid": { "type": "string", "format": "did" },
+          "count": { "type": "integer", "minimum": 1 },
+          "messages": {
+            "type": "array",
+            "maxLength": 1000,
+            "items": { "type": "string", "maxLength": 1024 }
+          },
+          "updatedAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

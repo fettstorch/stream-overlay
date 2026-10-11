@@ -1,0 +1,27 @@
+{
+  "lexicon": 1,
+  "id": "live.streamface.pokemonCrystalMgba.media",
+  "description": "Species-to-image mappings used only by the Pokémon Crystal mGBA overlay. The record key is the canonical decimal National Pokédex number from 1 to 251, enforced by the application. Repository identity determines the owner. Missing mappings use default artwork.",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "any",
+      "record": {
+        "type": "object",
+        "required": ["media", "createdAt", "updatedAt"],
+        "properties": {
+          "media": {
+            "type": "union",
+            "refs": [
+              "live.streamface.pokemonCrystalMgba.defs#externalMedia",
+              "live.streamface.pokemonCrystalMgba.defs#uploadedMedia"
+            ],
+            "closed": true
+          },
+          "createdAt": { "type": "string", "format": "datetime" },
+          "updatedAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

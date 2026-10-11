@@ -1,4 +1,13 @@
 import { expect, test } from "bun:test";
+test("Crystal thought interval persists and survives older clients", () => {
+  const config = { enabled: true, streamerDid: "did:plc:a", commands: [], revision: "new", pokemonCrystalMgbaThoughtIntervalSeconds: 45 };
+  const now = new Date().toISOString();
+  const records = serializeModuleRecords(config, [], now);
+  expect(parseModuleRecords(config.streamerDid, records).pokemonCrystalMgbaThoughtIntervalSeconds).toBe(45);
+  const { pokemonCrystalMgbaThoughtIntervalSeconds, ...older } = config;
+  expect(parseModuleRecords(config.streamerDid, serializeModuleRecords(older, records, now)).pokemonCrystalMgbaThoughtIntervalSeconds).toBe(45);
+  expect(() => serializeModuleRecords({ ...config, pokemonCrystalMgbaThoughtIntervalSeconds: 0 }, [], now)).toThrow();
+});
 import {
   CloudConfigConflictError,
   CloudConfigMissingError,
@@ -18,6 +27,40 @@ import { jsonToLex, lexToJson } from "@atproto/lexicon";
 
 const did = "did:plc:alice",
   timestamp = "2026-10-09T12:00:00.000Z";
+test("Crystal mappings use their own records, preserve older clients, and exclude gameplay", () => {
+  const records = serializeModuleRecords(
+    { ...config, pokemonCrystalMgbaMedia: [{ number: 25, url: "https://example.com/pika.gif" }] },
+    [],
+    timestamp,
+  );
+  const mappings = records.filter((record) => record.collection === moduleCollections.crystalMedia);
+  expect(mappings).toHaveLength(1);
+  expect(mappings[0].rkey).toBe("25");
+  expect(mappings[0].value.media.$type).toBe(
+    "live.streamface.pokemonCrystalMgba.defs#externalMedia",
+  );
+  expect(parseModuleRecords(did, records).pokemonCrystalMgbaMedia).toEqual([
+    { number: 25, url: "https://example.com/pika.gif" },
+  ]);
+  expect(
+    serializeModuleRecords(config, records, "2026-10-11T00:00:00.000Z").filter(
+      (record) => record.collection === moduleCollections.crystalMedia,
+    ),
+  ).toEqual(mappings);
+  expect(
+    serializeModuleRecords({ ...config, pokemonCrystalMgbaMedia: [] }, records, timestamp).filter(
+      (record) => record.collection === moduleCollections.crystalMedia,
+    ),
+  ).toEqual([]);
+  expect(() =>
+    serializeModuleRecords(
+      { ...config, pokemonCrystalMgbaMedia: [{ number: 252, url: "https://example.com/no.gif" }] },
+      [],
+      timestamp,
+    ),
+  ).toThrow();
+  expect(JSON.stringify(mappings)).not.toContain("team");
+});
 test("custom media persists native blob references without delivery URLs, and Vim preferences survive older clients", () => {
   const blob = {
     $type: "blob" as const,
@@ -80,6 +123,7 @@ test("public Custom Module media URLs resolve against the owning PDS", async () 
   const records = serializeModuleRecords(
     {
       ...config,
+      pokemonCrystalMgbaMedia: [{ number: 25, blob, url: "blob:preview" }],
       customModules: [
         {
           id: "one",
@@ -109,6 +153,13 @@ test("public Custom Module media URLs resolve against the owning PDS", async () 
     }) as typeof fetch,
   });
   const loaded = await pds.publicConfig(did);
+  const crystalUrl = new URL(loaded.pokemonCrystalMgbaMedia![0].url!);
+  expect(crystalUrl.origin).toBe("https://pds.example");
+  expect(crystalUrl.searchParams.get("cid")).toBe(blob.ref.$link);
+  const crystalRecord = records.find(
+    (record) => record.collection === moduleCollections.crystalMedia,
+  )!;
+  expect(crystalRecord.value.media.url).toBeUndefined();
   const url = new URL(loaded.customModules![0].media![0].url!);
   expect(url.origin).toBe("https://pds.example");
   expect(url.pathname).toBe("/xrpc/com.atproto.sync.getBlob");

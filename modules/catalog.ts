@@ -1,5 +1,6 @@
 import type { ModuleManifest } from "../packages/overlay-sdk/src/manifest.ts";
 import { chatManifest } from "./chat/src/manifest.ts";
+import { crystalMgbaManifest } from "./pokemon-crystal/src/manifest.ts";
 import { customModuleManifest } from "./custom-module/src/manifest.ts";
 import { botManifest } from "./bot/src/manifest.ts";
 import { overlayPaintManifest } from "./overlay-paint/src/manifest.ts";
@@ -10,6 +11,7 @@ import { streamplacePetsManifest } from "./streamplace-pets/src/manifest.ts";
 const availableCloudModules = [
   emoticonsManifest,
   chatManifest,
+  crystalMgbaManifest,
   botManifest,
   overlayPaintManifest,
   customModuleManifest,

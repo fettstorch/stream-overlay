@@ -22,6 +22,8 @@
     "@streamface/browser-runtime": "workspace:*",
     "@streamface/emoticons": "workspace:*",
     "@streamface/protocol": "workspace:*",
+    "@streamface/pokemon-model": "workspace:*",
+    "@streamface/pokemon-ui": "workspace:*",
     "@streamface/stream-chat": "workspace:*",
     "codemirror": "^6.0.2",
     "dompurify": "^3.4.16",

@@ -6,6 +6,7 @@ import { PokemonPetQueues, type PetAuthor } from "./pet-queue.ts";
 import { observeStreamChat } from "@streamface/stream-chat";
 import { parseThoughtInterval, type PokemonBlueConfiguration } from "./config.ts";
 import fallbackImage from "../../../assets/unknown-pokemon.svg";
+import { defaultPokemonImages } from "./images.ts";
 import petEffectImage from "../../../assets/pat-pat-pet-pet.gif";
 import heartsEffectImage from "../../../assets/hearts.gif";
 import thoughtBubbleImage from "../../../assets/thought-bubble.gif";
@@ -51,30 +52,7 @@ function diagnose(event: string, details: Record<string, unknown> = {}) {
   }).catch(() => {});
 }
 
-const images: Record<number, string> = {
-  3: "https://media.giphy.com/media/EJOdcxm52IWNq/giphy.gif",
-  16: "https://media.giphy.com/media/rWkzp0VTeIk1Dp1Xde/giphy.gif",
-  17: "https://media.giphy.com/media/V5keSBMbwbxtfTVnlW/giphy.gif",
-  25: "https://media.giphy.com/media/31vamYdZV5ISQ/giphy.gif",
-  31: "https://media.giphy.com/media/nzhNS6v9jKwy97m3EN/giphy.gif",
-  37: "https://media.giphy.com/media/eM3S83hIueaUEjbBYC/giphy.gif",
-  38: "https://media.giphy.com/media/iheXjyc9btNm0WrFgz/giphy.gif",
-  41: "https://media.giphy.com/media/9VTiqi6WucY7p0MpHs/giphy.gif",
-  61: "https://media.giphy.com/media/m0kJGZioi44vtTcKrZ/giphy.gif",
-  62: "https://media.giphy.com/media/v2Oo1HzfEr0nHHAM10/giphy.gif",
-  69: "https://media.giphy.com/media/mBp5qOyg2HjvlhGU09/giphy.gif",
-  83: "https://media.giphy.com/media/LVQ1HZOfl54YrODThX/giphy.gif",
-  92: "https://media.giphy.com/media/JPz67sLxvHNectaYtu/giphy.gif",
-  95: "https://media.giphy.com/media/JZdI75oZbhgSDWnJ4z/giphy.gif",
-  130: "https://media.giphy.com/media/CtTZ0k0UNLq084qRdj/giphy.gif",
-  147: "https://media.giphy.com/media/uuaImYFJ82LRARUq2t/giphy.gif",
-  148: "https://media.giphy.com/media/KaHrX0xJYqjdpKWwZa/giphy.gif",
-  149: "https://media.giphy.com/media/Th9vH3DGtIC4etgI3K/giphy.gif",
-  150: "https://media.giphy.com/media/86DkjBOTyznTsYU25o/giphy.gif",
-  155: "https://media.giphy.com/media/dK8pyFuspFMQZ5s04d/giphy.gif",
-  156: "https://media.giphy.com/media/ervv0T9p1RA3NIocmx/giphy.gif",
-  175: "https://media.giphy.com/media/xOZRXun0h9y8/giphy.gif",
-};
+const images = defaultPokemonImages;
 
 const badges: BadgeDefinition[] = [
   { id: "boulder", name: "Boulder Badge", image: boulderBadge },

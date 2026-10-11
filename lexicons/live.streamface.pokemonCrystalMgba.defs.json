@@ -1,0 +1,30 @@
+{
+  "lexicon": 1,
+  "id": "live.streamface.pokemonCrystalMgba.defs",
+  "description": "Media representations for the Pokémon Crystal mGBA overlay.",
+  "defs": {
+    "externalMedia": {
+      "type": "object",
+      "required": ["url"],
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048,
+          "description": "Direct HTTPS image URL, including animated images. HTTPS and playable image format are enforced by the application."
+        }
+      }
+    },
+    "uploadedMedia": {
+      "type": "object",
+      "required": ["blob"],
+      "properties": {
+        "blob": {
+          "type": "blob",
+          "accept": ["image/*"],
+          "maxSize": 10000000
+        }
+      }
+    }
+  }
+}
