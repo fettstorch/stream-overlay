@@ -138,7 +138,10 @@ test("sticker multipliers stay browser-local and are capped", async () => {
   await Bun.sleep(110);
   expect(effect.mock.calls.length).toBeGreaterThan(1);
   expect(effect.mock.calls.length).toBeLessThanOrEqual(30);
-  expect(effect.mock.calls.every(([event]) => event.author?.avatar === author.avatar)).toBe(true);
+  expect(effect.mock.calls[0][0].author).toEqual(author);
+  expect(effect.mock.calls.slice(1).every(([event]) => event.author === undefined)).toBe(true);
+  await runtime.message("2", "!rain", author);
+  expect(effect.mock.calls.at(-1)![0].author).toEqual(author);
 });
 
 test("disabled runtimes ignore commands", () => {
