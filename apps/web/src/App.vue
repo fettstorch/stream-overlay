@@ -678,9 +678,9 @@ onBeforeUnmount(() => {
 </template>
 
 <style>
-:root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #eaf0ff; background: #080b12; }
+:root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #171717; background: #fff; }
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; min-height: 100vh; background: radial-gradient(circle at 20% 0%, #1e2843 0, transparent 38%), #080b12; }
+body { margin: 0; min-width: 320px; min-height: 100vh; background: #fff; }
 main { width: min(1040px, calc(100% - 40px)); margin: 0 auto; padding: 64px 0 96px; }
 header { margin-bottom: 48px; }
 .eyebrow { margin: 0 0 8px; color: #88a6ff; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.18em; }
@@ -702,7 +702,7 @@ h2 { margin-bottom: 18px; font-size: 1rem; text-transform: uppercase; letter-spa
 .module-card.collapsed { cursor: pointer; }
 .module-icon-button svg.expanded { transform: rotate(180deg); }
 .module-card { display: inline-block; width: 100%; margin: 0 0 16px; break-inside: avoid; vertical-align: top; }
-.module-card, .settings { padding: 24px; border: 1px solid #28334b; border-radius: 18px; background: rgba(18, 24, 38, 0.88); box-shadow: 0 16px 48px rgba(0,0,0,.24); }
+.module-card, .settings { padding: 24px; }
 .stream-settings { margin-bottom: 44px; }
 .selected-streamer { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; background: #0b101c; }
 .selected-streamer img, .actor-suggestions img, .avatar-placeholder { width: 44px; height: 44px; flex: 0 0 44px; border-radius: 50%; object-fit: cover; background: #303a51; }
