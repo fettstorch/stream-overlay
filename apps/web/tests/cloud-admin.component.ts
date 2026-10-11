@@ -56,11 +56,14 @@ describe("Cloud Admin", () => {
     expect(wrapper.find(`[data-module="${id}"]`).exists()).toBe(false);
     confirm.mockRestore(); wrapper.unmount();
   });
-  test("shows the package version and creator in the page footer", () => {
+  test("shows the package version, public privacy notice, and creator in the page footer", () => {
     vi.stubGlobal("fetch", vi.fn(async () => response({}, 401)));
     const wrapper = mount(CloudAdmin);
-    expect(wrapper.get('footer').text()).toBe(`v${version} · created by @fettstorch.dev`);
-    expect(wrapper.get('footer a').attributes('href')).toBe('https://fettstorch.dev');
+    expect(wrapper.get('footer span').text()).toBe(`v${version} · created by @fettstorch.dev`);
+    expect(wrapper.get('.footer-privacy').text()).toBe('Privacy');
+    const links = wrapper.findAll('footer a');
+    expect(links[0]!.attributes('href')).toBe('https://fettstorch.dev');
+    expect(links[1]!.attributes('href')).toBe('/privacy');
     wrapper.unmount();
   });
   test("Testing offers simulations only for mapped clips and sends the event identity", async () => {

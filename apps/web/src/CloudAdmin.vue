@@ -1158,7 +1158,8 @@ onBeforeUnmount(() => {
     </template>
   </main>
   <footer class="site-footer">
-    v{{ version }} · created by <a href="https://fettstorch.dev">@fettstorch.dev</a>
+    <span>v{{ version }} · created by <a href="https://fettstorch.dev">@fettstorch.dev</a></span>
+    <a class="footer-privacy" href="/privacy">Privacy</a>
   </footer>
   <BrandMascot />
 </template>
@@ -1269,5 +1270,8 @@ main {
 }
 .site-footer a {
   color: inherit;
+}
+.footer-privacy {
+  display: block;
 }
 </style>

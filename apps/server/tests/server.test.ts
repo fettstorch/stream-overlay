@@ -28,11 +28,20 @@ function webRoot() {
   mkdirSync(join(root, "assets"));
   writeFileSync(join(root, "index.html"), "<h1>Admin</h1>");
   writeFileSync(join(root, "cloud-admin.html"), "<h1>Admin</h1>");
+  writeFileSync(join(root, "privacy.html"), "<h1>Privacy notice</h1>");
   writeFileSync(join(root, "assets/app.js"), "console.log('ready')");
   return root;
 }
 
 describe("cloud server boundary", () => {
+  test("serves the privacy notice without authentication", async () => {
+    const deps = dependencies(webRoot());
+    for (const path of ["/privacy", "/privacy/"]) {
+      const response = await handleRequest(new Request(`https://overlay.example${path}`), deps);
+      expect(response.status).toBe(200);
+      expect(await response.text()).toBe("<h1>Privacy notice</h1>");
+    }
+  });
   test("Crystal download is owner-only; native ingest is bounded, revocable and never calls PDS", async () => {
     const deps = dependencies(webRoot());
     deps.pds.publicConfig = async () => {

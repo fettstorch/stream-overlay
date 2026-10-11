@@ -66,6 +66,8 @@ function safeFile(pathname: string, webRoot: string, enablePets = false) {
   const pages: Record<string, string> = {
     "/": "cloud-admin.html",
     "/index.html": "cloud-admin.html",
+    "/privacy": "privacy.html",
+    "/privacy/": "privacy.html",
     ...getCloudOverlayPages(enablePets),
   };
   relative = pages[pathname] ?? relative;

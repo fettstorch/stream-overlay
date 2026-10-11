@@ -30,6 +30,7 @@ export default defineConfig(({ command }) => ({
       input: {
         index: resolve(import.meta.dirname, "index.html"),
         cloudAdmin: resolve(import.meta.dirname, "cloud-admin.html"),
+        privacy: resolve(import.meta.dirname, "privacy.html"),
         ...Object.fromEntries(
           Object.values(cloudOverlayPages).map((entry) => [
             entry.replace(/\.html$/, ""),
