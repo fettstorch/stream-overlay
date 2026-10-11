@@ -50,6 +50,15 @@
   opacity: .4;
   mask-image: radial-gradient(ellipse 55% 75% at 12% 88%, #000 0 25%, transparent 75%);
 }
+#app button > .button-press-shade {
+  translate: none;
+  /* Shift the source inside a stationary silhouette, rather than moving the
+     clipped output outside the button. Filter output is masked afterwards. */
+  border-image-outset: 0;
+  filter: url("#button-curved-dark");
+  -webkit-mask-box-image: url("./assets/branding/button-interior-mask.svg") 260 280 fill / 12px / 0 stretch;
+  mask-border: url("./assets/branding/button-interior-mask.svg") 260 280 fill / 12px / 0 stretch;
+}
 #app button:active:not(:disabled) > .button-hover-shade { opacity: 0; }
 #app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button)):active:not(:disabled)::before {
   --artwork-shadow: drop-shadow(0 1px 1px rgba(0, 0, 0, .18));

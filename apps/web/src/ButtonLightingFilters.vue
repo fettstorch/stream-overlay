@@ -10,15 +10,17 @@
         <feComposite in2="interior" operator="in" />
       </filter>
       <filter id="button-curved-dark" color-interpolation-filters="sRGB">
-        <feOffset in="SourceAlpha" dx="-3" dy="5" result="shifted" />
+        <feOffset in="SourceAlpha" dx="-2" dy="3" result="shifted" />
         <feComposite in="SourceAlpha" in2="shifted" operator="out" result="edge" />
-        <feGaussianBlur in="edge" stdDeviation=".6" result="soft" />
-        <feComposite in="soft" in2="SourceAlpha" operator="in" result="interior" />
+        <feMorphology in="edge" operator="dilate" radius="1" result="thickened" />
+        <feGaussianBlur in="thickened" stdDeviation=".6" result="soft" />
+        <feOffset in="soft" dx="1" dy="-2" result="positioned" />
+        <feComposite in="positioned" in2="SourceAlpha" operator="in" result="interior" />
         <feFlood flood-color="black" />
         <feComposite in2="interior" operator="in" />
       </filter>
       <filter id="button-curved-hover-dark" color-interpolation-filters="sRGB">
-        <feOffset in="SourceAlpha" dx="2" dy="-2" result="shifted" />
+        <feOffset in="SourceAlpha" dx="3" dy="-3" result="shifted" />
         <feComposite in="SourceAlpha" in2="shifted" operator="out" result="edge" />
         <feGaussianBlur in="edge" stdDeviation=".6" result="soft" />
         <feComposite in="soft" in2="SourceAlpha" operator="in" result="interior" />
