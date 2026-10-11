@@ -11,7 +11,7 @@ import {
   type CloudConfig,
   collections,
 } from "./pds.ts";
-import { Relay } from "./realtime.ts";
+import { Relay, relayMaxConnectionsPerAccount } from "./realtime.ts";
 import { safeError, StructuredLogger } from "./logger.ts";
 import { CloudPaint } from "./cloud-paint.ts";
 import { getStreamDimensions } from "../../../packages/stream-chat/src/stream-dimensions.ts";
@@ -935,7 +935,12 @@ export function createDependencies(env = process.env): Dependencies {
   );
   const oauth = createOAuth(origin, dataDir, scope);
   const bot = createBotAuth(env, logger);
-  const relay = new Relay(() => Date.now(), 3_600_000, 12, logger);
+  const relay = new Relay(
+    () => Date.now(),
+    3_600_000,
+    relayMaxConnectionsPerAccount(env.RELAY_MAX_CONNECTIONS_PER_ACCOUNT),
+    logger,
+  );
   const ingestOrigin = new URL(origin);
   ingestOrigin.protocol = "http:";
   return {
@@ -976,6 +981,7 @@ if (import.meta.main) {
     origin: deps.origin,
     logFile: deps.logger.filePath,
     petsEnabled: deps.enablePets,
+    relayMaxConnectionsPerAccount: deps.relay.maxConnections,
   });
   const server = Bun.serve<SocketData>({
     hostname: "0.0.0.0",

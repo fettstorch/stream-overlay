@@ -4,9 +4,17 @@ import type { StructuredLogger } from "./logger.ts";
 
 type Peer = { socket: ServerWebSocket<unknown>; did?: string; page?: string; channel?: "live"|"preview"; lastMessageAt: number; messages: number };
 type Account = { peers: Set<Peer>; snapshots: Map<string, RelaySnapshot>; lastMeaningfulAt: number; disconnectedAt?: number };
+export const DEFAULT_RELAY_MAX_CONNECTIONS_PER_ACCOUNT = 256;
+export function relayMaxConnectionsPerAccount(value?: string) {
+  if (value === undefined || value === "") return DEFAULT_RELAY_MAX_CONNECTIONS_PER_ACCOUNT;
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > 10_000)
+    throw new Error("RELAY_MAX_CONNECTIONS_PER_ACCOUNT must be an integer between 1 and 10000");
+  return parsed;
+}
 export class Relay {
   readonly accounts = new Map<string, Account>();
-  constructor(private now = () => Date.now(), private inactivityMs = 3_600_000, private maxConnections = 12, private logger?: StructuredLogger) {}
+  constructor(private now = () => Date.now(), private inactivityMs = 3_600_000, readonly maxConnections = DEFAULT_RELAY_MAX_CONNECTIONS_PER_ACCOUNT, private logger?: StructuredLogger) {}
   open(socket: ServerWebSocket<unknown>) { this.logger?.log("info", "cloud.relay.connection-opened"); return { socket, lastMessageAt: this.now(), messages: 0 } satisfies Peer; }
   message(peer: Peer, raw: string) {
     const now = this.now();

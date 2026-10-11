@@ -102,6 +102,7 @@ Required secrets/settings:
 
 - `PUBLIC_ORIGIN`: final HTTPS origin, with no trailing slash.
 - `SESSION_SECRET`: at least 32 random bytes, held only in Koyeb secrets.
+- `RELAY_MAX_CONNECTIONS_PER_ACCOUNT`: optional per-account WebSocket safety limit; defaults to `256`.
 - `LEXICON_NAMESPACE=live.streamface` (the default): the module schemas in `lexicons/`.
   Follow `lexicons/README.md` for publication and migration details.
 - `AUTH_DATA_DIR=/data/auth` and `PORT=8000`.

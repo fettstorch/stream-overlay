@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Relay } from "../src/realtime.ts";
+import { DEFAULT_RELAY_MAX_CONNECTIONS_PER_ACCOUNT, Relay, relayMaxConnectionsPerAccount } from "../src/realtime.ts";
 import { StructuredLogger } from "../src/logger.ts";
 class Socket { sent:string[]=[]; closed?:number; send(value:string){this.sent.push(value)} close(code:number){this.closed=code} }
 function startTransport(relay: Relay) {
@@ -19,6 +19,21 @@ function startTransport(relay: Relay) {
   }
 }
 describe("relay", () => {
+  test("allows many clients by default while keeping the safety limit configurable", () => {
+    expect(relayMaxConnectionsPerAccount()).toBe(DEFAULT_RELAY_MAX_CONNECTIONS_PER_ACCOUNT);
+    expect(relayMaxConnectionsPerAccount("64")).toBe(64);
+    expect(() => relayMaxConnectionsPerAccount("0")).toThrow();
+    expect(() => relayMaxConnectionsPerAccount("many")).toThrow();
+    const relay = new Relay();
+    const sockets = Array.from({ length: 32 }, () => new Socket());
+    sockets.forEach(socket => relay.message(relay.open(socket as any), JSON.stringify({ type: "hello", did: "did:plc:a", page: "effect", channel: "preview" })));
+    expect(sockets.every(socket => socket.closed === undefined)).toBe(true);
+    expect(relay.accounts.get("did:plc:a")?.peers.size).toBe(32);
+    const limited = new Relay(() => Date.now(), 1000, 2);
+    const limitedSockets = Array.from({ length: 3 }, () => new Socket());
+    limitedSockets.forEach(socket => limited.message(limited.open(socket as any), JSON.stringify({ type: "hello", did: "did:plc:a", page: "effect", channel: "preview" })));
+    expect(limitedSockets[2]!.closed).toBe(1008);
+  });
   test("relays preview Test cooldowns to preview listings with correlated diagnostics, not live OBS", () => {
     const lines: string[] = [], now = Date.now(), relay = new Relay(() => now, 1000, 12, new StructuredLogger(undefined, line => lines.push(line)));
     const effect = new Socket(), listing = new Socket(), live = new Socket();

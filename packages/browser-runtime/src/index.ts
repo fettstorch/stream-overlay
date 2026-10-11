@@ -8,8 +8,14 @@ export class RelayClient {
   private connect() {
     if (this.closed) return;
     const socket = new WebSocket(this.url); this.socket = socket;
-    socket.onopen = () => { this.delay = 500; this.lastPong = Date.now(); socket.send(JSON.stringify(this.hello)); this.republish?.(); clearInterval(this.heartbeat); this.heartbeat = setInterval(() => { if (Date.now() - this.lastPong > 75_000) return socket.close(); socket.send('{"type":"ping"}'); }, 25_000); };
-    socket.onmessage = event => { try { const message = JSON.parse(String(event.data)) as RelayServerMessage; if (message.type === "pong") this.lastPong = Date.now(); else this.receive(message); } catch {} };
-    socket.onclose = () => { if (this.socket !== socket || this.closed) return; clearInterval(this.heartbeat); this.timer = setTimeout(() => this.connect(), this.delay); this.delay = Math.min(15_000, this.delay * 2); };
+    socket.onopen = () => { this.lastPong = Date.now(); socket.send(JSON.stringify(this.hello)); this.republish?.(); clearInterval(this.heartbeat); this.heartbeat = setInterval(() => { if (Date.now() - this.lastPong > 75_000) return socket.close(); socket.send('{"type":"ping"}'); }, 25_000); };
+    socket.onmessage = event => { try { const message = JSON.parse(String(event.data)) as RelayServerMessage; this.delay = 500; if (message.type === "pong") this.lastPong = Date.now(); else this.receive(message); } catch {} };
+    socket.onclose = () => {
+      if (this.socket !== socket || this.closed) return;
+      clearInterval(this.heartbeat);
+      this.socket = undefined;
+      this.timer = setTimeout(() => this.connect(), this.delay);
+      this.delay = Math.min(15_000, this.delay * 2);
+    };
   }
 }
