@@ -10,13 +10,41 @@ import {
 import { defaultCustomModuleSettings } from "../../../modules/custom-module/src/config.ts";
 
 afterEach(() => vi.unstubAllGlobals());
+test("ZIP uploads use the isolated bundle preview, save one module, and discard restores the code editor", async () => {
+  const zipBlob = { $type: "blob", ref: { $link: "bafyzip" }, mimeType: "application/zip", size: 100 };
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json(zipBlob)));
+  const config = { enabled: true, streamerDid: "did:plc:test", revision: "new", commands: [], customModules: [{ ...defaultCustomModuleSettings, id: "zip", name: "App" }] };
+  const save = vi.fn(async () => true);
+  const wrapper = mount(CloudCustomModuleControls, { props: { config, moduleId: "zip", save } });
+  await wrapper.get('input[aria-label="ZIP app mode"]').setValue(true);
+  const input = wrapper.get('input[type="file"]');
+  Object.defineProperty(input.element, "files", { value: [new File(["zip data"], "app.zip", { type: "application/zip" })], configurable: true });
+  await input.trigger("change"); await flushPromises();
+  expect(wrapper.get("iframe.draft-overlay").attributes("src")).toMatch(/^\/api\/accounts\/did%3Aplc%3Atest\/custom-module-bundles\/bafyzip\/\?channel=/);
+  expect(wrapper.get("iframe.draft-overlay").attributes("sandbox")).toBe("allow-scripts");
+  expect(wrapper.get("iframe.draft-overlay").attributes("srcdoc")).toBeUndefined();
+  await wrapper.findAll("button").find(button => button.text() === "Save overlay")!.trigger("click"); await flushPromises();
+  expect(save).toHaveBeenCalledWith({ ...config, customModules: [{ ...config.customModules[0], javascript: "", bundle: { name: "app.zip", blob: zipBlob } }] });
+  await wrapper.findAll("button").find(button => button.text() === "Discard changes")!.trigger("click"); await flushPromises();
+  expect((wrapper.get('input[aria-label="ZIP app mode"]').element as HTMLInputElement).checked).toBe(false);
+  expect(wrapper.get("iframe.draft-overlay").attributes("src")).toBeUndefined();
+  expect(wrapper.classes()).not.toContain("module-section");
+  const zip = new File(["zip data"], "dropped.zip", { type: "application/zip" });
+  await wrapper.trigger("drop", { dataTransfer: { types: ["Files"], files: [zip] } }); await flushPromises();
+  expect(wrapper.get("iframe.draft-overlay").attributes("src")).toContain("custom-module-bundles/bafyzip/");
+  await wrapper.findAll("button").find(button => button.text() === "Discard changes")!.trigger("click"); await flushPromises();
+  wrapper.findComponent(CustomModulePreview).vm.$emit("mediaDrop", [zip], 10, 20);
+  await flushPromises();
+  expect(wrapper.get("iframe.draft-overlay").attributes("src")).toContain("custom-module-bundles/bafyzip/");
+  wrapper.unmount();
+});
 const blob = {
   $type: "blob" as const,
   ref: { $link: "bafkreigh2akiscaildc6rnag6ni5nrd6tmjuj6aqn5mltlhdp4dt2o5x4i" },
   mimeType: "image/png",
   size: 4,
 };
-test("only attached resources resolve and CSP only grants their origins plus our trusted script", () => {
+test("HTTPS images and attached resources resolve while scripts remain isolated", () => {
   const output = customModuleDocument({
     ...defaultCustomModuleSettings,
     html: '<img src="streamface-media:one"><img src="https://evil.test/image"><video src="streamface-media:video" autoplay muted loop></video><img src="streamface-media:local">',
@@ -28,14 +56,15 @@ test("only attached resources resolve and CSP only grants their origins plus our
   });
   const doc = new DOMParser().parseFromString(output, "text/html");
   expect(doc.querySelectorAll("img")[0].getAttribute("src")).toContain("https://pds.example/");
-  expect(doc.querySelectorAll("img")[1].hasAttribute("src")).toBe(false);
+  expect(doc.querySelectorAll("img")[1].getAttribute("src")).toBe("https://evil.test/image");
   expect(doc.querySelectorAll("img")[2].getAttribute("src")).toBe("blob:http://localhost/abc");
   expect(doc.querySelector("video")!.getAttribute("src")).toBe("https://pds.example/video");
   const policy = doc.querySelector("meta[http-equiv]")!.getAttribute("content")!;
   expect(policy).toContain("https://pds.example");
+  expect(policy).toContain("img-src data: blob: https:");
   expect(policy).not.toContain("evil.test");
   expect(policy).not.toContain("allow-same-origin");
-  expect(doc.querySelectorAll("script[nonce]")).toHaveLength(1);
+  expect(doc.querySelectorAll("script")).toHaveLength(1);
 });
 test("local previews accept matching image and video data, never authored or mismatched data URLs", () => {
   const output = customModuleDocument({
@@ -68,6 +97,13 @@ test("moving nested elements keeps their parent and unrelated source, including 
   expect(doc.querySelector("h1")!.parentElement!.tagName).toBe("SECTION");
   expect(next).toContain("<p>Other</p>");
   expect(() => moveCustomModuleElement(html, 100, "left: 1%")).toThrow();
+});
+test("moving an element preserves a leading JavaScript block and its body index", () => {
+  const html = '<script>window.overlayValue = 42;</script><div>Move me</div>';
+  const next = moveCustomModuleElement(html, 0, "left: 25%;");
+  expect(next).toContain('<script>window.overlayValue = 42;</script>');
+  const doc = new DOMParser().parseFromString(customModuleDocument({ ...defaultCustomModuleSettings, html: next }), "text/html");
+  expect(doc.querySelector('div[data-sf-index="0"]')?.getAttribute("style")).toContain("left: 25%");
 });
 test("preview accepts movement only from its own frame and current channel", () => {
   const html = "<h1>Title</h1>";
@@ -284,4 +320,47 @@ test("renaming preserves unsaved source and resolved media URLs do not keep a sa
       .attributes("disabled"),
   ).toBeDefined();
   wrapper.unmount();
+});
+
+test("moving from a scoped preview to its resize controls keeps them available", () => {
+  vi.useFakeTimers();
+  const root = document.createElement("div");
+  const layer = document.createElement("div");
+  layer.dataset.sfIndex = "0";
+  root.append(layer);
+  document.body.append(root);
+  const stop = customModuleInteractions("controls-hover", {}, {}, { root });
+  layer.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+  const resize = document.querySelector('[aria-label="Resize element"]')!;
+  root.dispatchEvent(new MouseEvent("pointerleave", { relatedTarget: resize }));
+  expect((resize.parentElement as HTMLElement).style.display).toBe("flex");
+  resize.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+  expect((resize.parentElement as HTMLElement).style.display).toBe("flex");
+  root.dispatchEvent(new MouseEvent("pointerleave", { relatedTarget: document.body }));
+  expect((resize.parentElement as HTMLElement).style.display).toBe("flex");
+  vi.advanceTimersByTime(1000);
+  expect((resize.parentElement as HTMLElement).style.display).toBe("none");
+  stop();
+  root.remove();
+  vi.useRealTimers();
+});
+
+test("crossing transparent gaps gives time to reach the controls and entering them cancels deselection", () => {
+  vi.useFakeTimers();
+  const root = document.createElement("div"), layer = document.createElement("div");
+  layer.dataset.sfIndex = "0"; root.append(layer); document.body.append(root);
+  const stop = customModuleInteractions("hover-grace", {}, {}, { root });
+  try {
+    layer.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+    const controls = document.querySelector('[aria-label="Resize element"]')!.parentElement!;
+    root.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+    vi.advanceTimersByTime(300);
+    expect(controls.style.display).toBe("flex");
+    controls.dispatchEvent(new MouseEvent("pointerenter"));
+    vi.advanceTimersByTime(500);
+    expect(controls.style.display).toBe("flex");
+    controls.dispatchEvent(new MouseEvent("pointerleave", { relatedTarget: document.body }));
+    vi.advanceTimersByTime(1000);
+    expect(controls.style.display).toBe("none");
+  } finally { stop(); root.remove(); vi.useRealTimers(); }
 });

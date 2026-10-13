@@ -7,6 +7,5 @@ export const overlayPaintManifest = {
   cloud: {
     enabledKey: "paint",
     interactivePreview: true,
-    pages: [{ path: "/paint/", entrypoint: "paint.html" }],
   },
 } as const satisfies ModuleManifest;

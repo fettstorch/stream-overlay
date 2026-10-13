@@ -19,6 +19,8 @@ import { STREAMFACE_NAMESPACE, moduleCollections } from "./module-records.ts";
 import { createBotAuth, type BotAuth } from "./bot-auth.ts";
 import { CloudBot, botSourceToken, validBotSourceToken } from "./cloud-bot.ts";
 import { CloudCrystal, crystalIngestOrigin } from "./cloud-crystal.ts";
+import { CustomBundleError } from "./custom-module-bundle.ts";
+import { customBundleResponse } from "./custom-module-bundle-response.ts";
 
 const defaultWebRoot = resolve(import.meta.dir, "../../web/dist");
 type Dependencies = {
@@ -50,6 +52,7 @@ function json(value: unknown, status = 200, headers: HeadersInit = {}) {
   });
 }
 function routeName(path: string) {
+  if (path.includes("/custom-module-bundles/")) return "accounts.custom-module-bundle";
   if (didFromPath(path, "pokemon-crystal-mgba/(script|ingest|pet|pet-counts)"))
     return "accounts.crystal";
   if (path === "/health") return "health";
@@ -117,6 +120,12 @@ function saveFailure(error: unknown) {
     return { error: "configuration-changed", message: error.message };
   const value = error as { status?: number; error?: string; message?: string };
   const detail = `${value?.error ?? ""} ${value?.message ?? ""}`.toLowerCase();
+  if (value?.status === 429 || /rate.?limit/.test(detail))
+    return {
+      error: "pds-rate-limited",
+      message:
+        "Your PDS is temporarily rate limiting configuration changes. Your saved settings are unchanged. Try again after the rate limit resets.",
+    };
   if (value?.error === "BlobNotFound")
     return {
       error: "pds-blob-missing",
@@ -148,6 +157,8 @@ function saveFailure(error: unknown) {
   };
 }
 function uploadFailure(error: unknown) {
+  if (error instanceof CustomBundleError)
+    return { status: 400, body: { error: "invalid-bundle", message: error.message } };
   const value = error as { status?: number; error?: string; message?: string };
   const detail = `${value?.error ?? ""} ${value?.message ?? ""}`.toLowerCase();
   if (
@@ -168,7 +179,7 @@ function uploadFailure(error: unknown) {
       body: {
         error: "unsupported-media",
         message:
-          "This media type is not supported. Choose an image, GIF, audio, MP4, MOV, or WebM file.",
+          "This file type is not supported. Choose media or a ZIP app.",
       },
     };
   if (
@@ -233,6 +244,20 @@ async function boundedBody(request: Request, maximum: number) {
 async function handleRequestInner(request: Request, deps: Dependencies, requestId: string) {
   const url = new URL(request.url);
   const path = url.pathname;
+  const bundleRoute = /^\/api\/accounts\/([^/]+)\/custom-module-bundles\/([a-zA-Z0-9]{1,200})\/(.*)$/.exec(path);
+  if (bundleRoute && (request.method === "GET" || request.method === "HEAD")) {
+    try {
+      const did = decodeURIComponent(bundleRoute[1]);
+      const asset = decodeURIComponent(bundleRoute[3]);
+      if (!/^did:[a-z0-9]+:[^/?#\s]+$/.test(did) || asset.includes("\\") || asset.includes("\0") || asset.split("/").some((part) => part === ".." || part === "."))
+        return json({ error: "invalid-bundle-path" }, 400);
+      const bundle = await deps.pds.customModuleBundle(did, bundleRoute[2], { logger: deps.logger, requestId });
+      return customBundleResponse(bundle, asset, request.method === "HEAD");
+    } catch (error) {
+      deps.logger.log("warn", "cloud.bundle.request-failed", { requestId, ...safeError(error) });
+      return json({ error: "bundle-unavailable", message: error instanceof CustomBundleError ? error.message : "The ZIP app could not be loaded from the PDS.", requestId }, 400);
+    }
+  }
   // A signed browser cookie can outlive the OAuth session on ephemeral disk.
   if (path === "/api/session" || (path.startsWith("/api/accounts/") && request.method !== "GET")) {
     const did = await readSessionCookie(request, deps.secret);
@@ -441,15 +466,16 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
       );
     }
   }
-  const botDid = didFromPath(path, "bot/(source|trigger|routine|lease)");
-  if (botDid && path.endsWith("/source") && request.method === "GET") {
-    if ((await readSessionCookie(request, deps.secret)) !== botDid)
+  const overlayDid = didFromPath(path, "overlay/source");
+  if (overlayDid && request.method === "GET") {
+    if ((await readSessionCookie(request, deps.secret)) !== overlayDid)
       return json({ error: "unauthorized" }, 401);
-    const source = new URL("/bot/", deps.origin);
-    source.searchParams.set("did", botDid);
-    source.searchParams.set("token", botSourceToken(botDid, deps.secret));
+    const source = new URL("/overlay/", deps.origin);
+    source.searchParams.set("did", overlayDid);
+    source.searchParams.set("token", botSourceToken(overlayDid, deps.secret));
     return json({ url: source.toString(), configured: Boolean(deps.bot) });
   }
+  const botDid = didFromPath(path, "bot/(trigger|routine|lease)");
   if (botDid && !path.endsWith("/source") && request.method === "POST") {
     if (!sameOrigin(request, deps.origin)) return json({ error: "invalid-origin" }, 403);
     try {
@@ -777,7 +803,14 @@ async function handleRequestInner(request: Request, deps: Dependencies, requestI
         ...safeError(error),
       });
       const failure = saveFailure(error);
-      return json({ ...failure, requestId }, failure.error === "configuration-changed" ? 409 : 400);
+      return json(
+        { ...failure, requestId },
+        failure.error === "configuration-changed"
+          ? 409
+          : failure.error === "pds-rate-limited"
+            ? 429
+            : 400,
+      );
     }
   }
   const uploadDid = didFromPath(path, "media");
@@ -926,7 +959,7 @@ export function createDependencies(env = process.env): Dependencies {
     .map((collection) => `repo:${collection}`)
     .join(
       " ",
-    )} repo:live.streamface.pokemonCrystalMgba.petCount repo:place.stream.chat.message blob:image/* blob:audio/* blob:video/*`;
+    )} repo:live.streamface.pokemonCrystalMgba.petCount repo:place.stream.chat.message blob:image/* blob:audio/* blob:video/* blob:application/zip`;
   const logger = new StructuredLogger(
     env.CLOUD_LOG_FILE ??
       (local && env.NODE_ENV !== "production"

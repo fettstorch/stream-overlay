@@ -24,10 +24,6 @@ export function getCloudModuleCatalog(enablePets = false) {
 }
 export const cloudModuleCatalog = getCloudModuleCatalog();
 export function getCloudOverlayPages(enablePets = false) {
-  return Object.fromEntries(
-    getCloudModuleCatalog(enablePets).flatMap((module) =>
-      module.cloud.pages.map((page) => [page.path, page.entrypoint]),
-    ),
-  );
+  return { "/overlay/": "overlay.html" };
 }
 export const cloudOverlayPages = getCloudOverlayPages();

@@ -1,23 +1,45 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { observeStreamChat, type StreamChatMessage } from "@streamface/stream-chat";
-import { chatBackground, chatMask, defaultChatConfiguration, parseChatConfiguration } from "./config";
-import { freezeLeavingMessage, messageDecayStyle, messageLifetimeMs, restoreLeavingMessage } from "./message-transition";
+import {
+  chatBackground,
+  chatMask,
+  defaultChatConfiguration,
+  parseChatConfiguration,
+} from "./config";
+import {
+  freezeLeavingMessage,
+  messageDecayStyle,
+  messageLifetimeMs,
+  restoreLeavingMessage,
+} from "./message-transition";
 
 const enabled = ref(false);
-const props = defineProps<{ source?: {
-  observe: typeof observeStreamChat;
-  subscribe: (receive: (state: { enabled: boolean; configuration: unknown; streamerDid: string }) => void) => () => void;
-} }>();
+const props = defineProps<{
+  source?: {
+    observe: typeof observeStreamChat;
+    subscribe: (
+      receive: (state: { enabled: boolean; configuration: unknown; streamerDid: string }) => void,
+    ) => () => void;
+  };
+}>();
 const configuration = ref(defaultChatConfiguration);
 // Transform the whole chat plane, separately from bubble entrance/move transforms.
 // A viewport-relative camera distance keeps perspective usable at different OBS sizes.
-const rotationStyle = computed(() => ({
-  transform: `perspective(${200 - configuration.value.perspectiveStrength * 1.7}vh) rotateX(${configuration.value.rotationX}deg) rotateY(${configuration.value.rotationY}deg)`,
-}));
+// One axis-angle tilt keeps both slider directions in the screen's XY plane.
+// Chained Euler rotations would rotate the second slider's axis with the first.
+const rotationStyle = computed(() => {
+  const { rotationX, rotationY, perspectiveStrength } = configuration.value;
+  const angle = Math.hypot(rotationX, rotationY);
+  return {
+    transform: `perspective(${200 - perspectiveStrength * 1.7}vh) rotate3d(${angle ? rotationX : 1}, ${rotationY}, 0, ${angle}deg)`,
+  };
+});
 const maskStyle = computed(() => ({
-  maskImage: chatMask(configuration.value.fadeOut), WebkitMaskImage: chatMask(configuration.value.fadeOut),
-  fontSize: `${configuration.value.fontSize}px`, "--message-background": chatBackground(configuration.value),
+  maskImage: chatMask(configuration.value.fadeOut),
+  WebkitMaskImage: chatMask(configuration.value.fadeOut),
+  fontSize: `${configuration.value.fontSize}px`,
+  "--message-background": chatBackground(configuration.value),
 }));
 const failedAvatars = ref(new Set<string>());
 function authorName(message: StreamChatMessage) {
@@ -33,7 +55,7 @@ let streamerDid: string | undefined;
 
 function removeMessage(id: string) {
   removalTimers.delete(id);
-  messages.value = messages.value.filter(message => message.id !== id);
+  messages.value = messages.value.filter((message) => message.id !== id);
 }
 
 function clearMessages() {
@@ -54,14 +76,21 @@ function setEnabled(next: boolean) {
   if (!next) return;
   const chat = props.source ? props.source.observe() : observeStreamChat();
   closeChat = chat.close;
-  unsubscribe = chat.messages.subscribe(message => {
+  unsubscribe = chat.messages.subscribe((message) => {
     if (!enabled.value || currentSession !== session) return;
     // Render plain text only, and ignore malformed payloads from the live feed.
-    if (!message || typeof message.id !== "string" || typeof message.text !== "string"
-      || typeof message.streamerDid !== "string" || typeof message.author?.did !== "string") return;
+    if (
+      !message ||
+      typeof message.id !== "string" ||
+      typeof message.text !== "string" ||
+      typeof message.streamerDid !== "string" ||
+      typeof message.author?.did !== "string"
+    )
+      return;
     if (streamerDid !== undefined && message.streamerDid !== streamerDid) return;
-    if (messages.value.length && messages.value[0]!.streamerDid !== message.streamerDid) clearMessages();
-    if (messages.value.some(previous => previous.id === message.id)) return;
+    if (messages.value.length && messages.value[0]!.streamerDid !== message.streamerDid)
+      clearMessages();
+    if (messages.value.some((previous) => previous.id === message.id)) return;
     const nextMessages = [...messages.value, message].slice(-50);
     for (const previous of messages.value) {
       if (!nextMessages.includes(previous)) {
@@ -70,14 +99,20 @@ function setEnabled(next: boolean) {
       }
     }
     messages.value = nextMessages;
-    removalTimers.set(message.id, setTimeout(() => removeMessage(message.id), messageLifetimeMs));
+    removalTimers.set(
+      message.id,
+      setTimeout(() => removeMessage(message.id), messageLifetimeMs),
+    );
   });
 }
 
 onMounted(() => {
   if (props.source) {
-    const dispose = props.source.subscribe(state => {
-      if (state.streamerDid !== streamerDid) { streamerDid = state.streamerDid; setEnabled(false); }
+    const dispose = props.source.subscribe((state) => {
+      if (state.streamerDid !== streamerDid) {
+        streamerDid = state.streamerDid;
+        setEnabled(false);
+      }
       const settings = parseChatConfiguration(state.configuration);
       if (settings) configuration.value = settings;
       setEnabled(state.enabled);
@@ -86,9 +121,13 @@ onMounted(() => {
     return;
   }
   status = new EventSource("/api/modules/chat/events");
-  status.onmessage = event => {
+  status.onmessage = (event) => {
     try {
-      const state = JSON.parse(event.data) as { enabled?: unknown; configuration?: unknown; streamerDid?: unknown };
+      const state = JSON.parse(event.data) as {
+        enabled?: unknown;
+        configuration?: unknown;
+        streamerDid?: unknown;
+      };
       if (typeof state.streamerDid === "string" && state.streamerDid !== streamerDid) {
         streamerDid = state.streamerDid;
         clearMessages();
@@ -96,7 +135,9 @@ onMounted(() => {
       const settings = parseChatConfiguration(state.configuration);
       if (settings) configuration.value = settings;
       if (typeof state.enabled === "boolean") setEnabled(state.enabled);
-    } catch { /* Wait for the next valid state. */ }
+    } catch {
+      /* Wait for the next valid state. */
+    }
   };
   status.onerror = () => setEnabled(false);
 });
@@ -109,39 +150,147 @@ onBeforeUnmount(() => {
 
 <template>
   <div v-if="enabled" class="chat-plane" :style="rotationStyle">
-  <ol class="chat-messages" :style="maskStyle" aria-label="Stream chat" aria-live="polite" aria-relevant="additions">
-    <TransitionGroup name="chat-bubble" @before-leave="freezeLeavingMessage" @leave-cancelled="restoreLeavingMessage">
-    <li v-for="message in messages" :key="message.id" class="chat-message" :style="messageDecayStyle">
-      <img v-if="message.author.avatar && !failedAvatars.has(message.author.avatar)" class="chat-avatar" :src="message.author.avatar" alt="" @error="failedAvatars.add(message.author.avatar!)">
-      <div v-else class="chat-avatar avatar-fallback" aria-hidden="true">{{ authorName(message).slice(0, 1).toUpperCase() }}</div>
-      <div class="chat-content">
-        <strong>{{ authorName(message) }}</strong>
-        <span>{{ message.text }}</span>
-      </div>
-    </li>
-    </TransitionGroup>
-  </ol>
+    <ol
+      class="chat-messages"
+      :style="maskStyle"
+      aria-label="Stream chat"
+      aria-live="polite"
+      aria-relevant="additions"
+    >
+      <TransitionGroup
+        name="chat-bubble"
+        @before-leave="freezeLeavingMessage"
+        @leave-cancelled="restoreLeavingMessage"
+      >
+        <li
+          v-for="message in messages"
+          :key="message.id"
+          class="chat-message"
+          :style="messageDecayStyle"
+        >
+          <img
+            v-if="message.author.avatar && !failedAvatars.has(message.author.avatar)"
+            class="chat-avatar"
+            :src="message.author.avatar"
+            alt=""
+            @error="failedAvatars.add(message.author.avatar!)"
+          />
+          <div v-else class="chat-avatar avatar-fallback" aria-hidden="true">
+            {{ authorName(message).slice(0, 1).toUpperCase() }}
+          </div>
+          <div class="chat-content">
+            <strong>{{ authorName(message) }}</strong>
+            <span>{{ message.text }}</span>
+          </div>
+        </li>
+      </TransitionGroup>
+    </ol>
   </div>
 </template>
 
 <style>
-html, body, #app { margin: 0; width: 100%; height: 100%; background: transparent; }
-* { box-sizing: border-box; }
 /* Keep transparent space outside the rotated plane for perspective expansion. */
-.chat-plane { position: fixed; inset: 25%; transform-origin: center center; }
-.chat-messages { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; gap: 8px; margin: 0; padding: 16px; overflow: hidden; list-style: none; font: 20px/1.4 system-ui, sans-serif; color: white; }
-.chat-message { flex: none; display: flex; align-items: flex-start; gap: .6em; max-width: 100%; padding: .4em .6em; background: var(--message-background); border-radius: 4px; overflow-wrap: anywhere; animation-name: chat-message-decay; animation-timing-function: linear; animation-fill-mode: forwards; }
-.chat-avatar { width: 2.4em; height: 2.4em; flex: 0 0 2.4em; object-fit: cover; border-radius: 50%; }
-.avatar-fallback { display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, .15); }
-.chat-content { min-width: 0; }
-.chat-message strong { display: block; font-size: .65em; line-height: 1.3; margin-bottom: .2em; }
-.chat-message .chat-content span { display: block; white-space: pre-wrap; }
-.chat-bubble-move, .chat-bubble-enter-active, .chat-bubble-leave-active { transition: transform 280ms ease, opacity 280ms ease; }
-.chat-bubble-enter-from { opacity: 0; transform: translateY(12px); }
-.chat-bubble-leave-to { opacity: 0; transform: translateY(-12px); }
-.chat-bubble-leave-active { position: absolute; pointer-events: none; }
-@keyframes chat-message-decay { from { opacity: 1; } to { opacity: 0; } }
+.chat-plane {
+  position: fixed;
+  inset: 25%;
+  transform-origin: center center;
+}
+.chat-messages {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 16px;
+  overflow: hidden;
+  list-style: none;
+  font:
+    20px/1.4 system-ui,
+    sans-serif;
+  color: white;
+}
+.chat-message {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6em;
+  max-width: 100%;
+  padding: 0.4em 0.6em;
+  background: var(--message-background);
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+  animation-name: chat-message-decay;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+.chat-avatar {
+  width: 2.4em;
+  height: 2.4em;
+  flex: 0 0 2.4em;
+  object-fit: cover;
+  border-radius: 50%;
+}
+.avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.15);
+}
+.chat-content {
+  min-width: 0;
+}
+.chat-message strong {
+  display: block;
+  font-size: 0.65em;
+  line-height: 1.3;
+  margin-bottom: 0.2em;
+}
+.chat-message .chat-content span {
+  display: block;
+  white-space: pre-wrap;
+}
+.chat-bubble-move,
+.chat-bubble-enter-active,
+.chat-bubble-leave-active {
+  transition:
+    transform 280ms ease,
+    opacity 280ms ease;
+}
+.chat-bubble-enter-from {
+  opacity: 0;
+  transform: translateY(12px);
+}
+.chat-bubble-leave-to {
+  opacity: 0;
+  transform: translateY(-12px);
+}
+.chat-bubble-leave-active {
+  position: absolute;
+  pointer-events: none;
+}
+@keyframes chat-message-decay {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
-  .chat-bubble-move, .chat-bubble-enter-active, .chat-bubble-leave-active { transition: none; }
+  .chat-bubble-move,
+  .chat-bubble-enter-active,
+  .chat-bubble-leave-active {
+    transition: none;
+  }
+}
+</style>
+
+<style>
+.overlay-layer .chat-plane {
+  position: absolute;
+  inset: 0;
 }
 </style>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, ref, reactive, watch } from "vue";
-import { RelayClient } from "@streamface/browser-runtime";
+import { computed, onMounted, onBeforeUnmount, ref, reactive, watch, inject } from "vue";
+import { overlayRuntimeKey } from "./shared-overlay-runtime.ts";
 import {
   PokemonTeam,
   BadgeStrip,
@@ -10,7 +10,7 @@ import {
 import type { PokemonSnapshot } from "@streamface/pokemon-model";
 import { crystalBadges } from "../../../modules/pokemon-crystal/src/badges.ts";
 import { PokemonPetQueues } from "../../../modules/pokemon-blue/src/pet-queue.ts";
-import { DirectStreamChatService } from "@streamface/stream-chat";
+
 import type { CloudConfig } from "./cloud-admin-types.ts";
 import fallback from "../../../assets/unknown-pokemon.svg";
 import hand from "../../../assets/pat-pat-pet-pet.gif";
@@ -18,7 +18,8 @@ import hearts from "../../../assets/hearts.gif";
 import bubble from "../../../assets/thought-bubble.gif";
 import { loadPublicActorProfile } from "./actor-search.ts";
 
-const did = new URLSearchParams(location.search).get("did") ?? "";
+const host = inject(overlayRuntimeKey)!;
+const did = host.did;
 const snapshot = ref<PokemonSnapshot>();
 const enabled = ref(false);
 const mappings = ref<NonNullable<CloudConfig["pokemonCrystalMgbaMedia"]>>([]);
@@ -42,9 +43,18 @@ function syncThoughtExpiry() {
   thoughtVisibleAt = undefined;
   if (!thought.value || activePets[thought.value.pokemonId]) return;
   thoughtVisibleAt = Date.now();
-  thoughtExpiry = setTimeout(() => { thought.value = undefined; }, Math.max(0, thoughtRemaining));
+  thoughtExpiry = setTimeout(
+    () => {
+      thought.value = undefined;
+    },
+    Math.max(0, thoughtRemaining),
+  );
 }
-watch(() => thought.value ? Boolean(activePets[thought.value.pokemonId]) : undefined, syncThoughtExpiry, { flush: "sync" });
+watch(
+  () => (thought.value ? Boolean(activePets[thought.value.pokemonId]) : undefined),
+  syncThoughtExpiry,
+  { flush: "sync" },
+);
 async function showThought() {
   if (disposed || thinking || thought.value || !snapshot.value?.party.length) return;
   thinking = true;
@@ -95,11 +105,14 @@ const images = computed(() => ({
     mappings.value.filter((item) => item.url).map((item) => [item.number, item.url!]),
   ),
 }));
-let relay: RelayClient | undefined;
+const relay = { send: host.send };
+let stopRelay: (() => void) | undefined;
+let stopConfig: (() => void) | undefined;
+let releaseChat: (() => void) | undefined;
 let expiry: ReturnType<typeof setTimeout> | undefined;
 let poll: ReturnType<typeof setInterval> | undefined;
 let disposed = false;
-const chat = new DirectStreamChatService();
+const chat = host.chat;
 const queues = new PokemonPetQueues(
   10000,
   (pokemonId, author) => {
@@ -122,42 +135,20 @@ function clearLive() {
   queues.updateParty([]);
   for (const key of Object.keys(activePets)) delete activePets[key];
 }
-let configRequest = 0;
-async function loadMappings() {
-  const request = ++configRequest;
-  try {
-    const response = await fetch(`/api/accounts/${encodeURIComponent(did)}/config?refresh=1`, {
-      cache: "no-store",
-    });
-    if (!response.ok) throw new Error("config-failed");
-    const config = (await response.json()) as CloudConfig;
-    if (!disposed && request === configRequest) {
-      enabled.value = config.pokemonCrystalMgbaEnabled ?? true;
-      if (!enabled.value) clearLive();
-      mappings.value = config.pokemonCrystalMgbaMedia ?? [];
-      const seconds = config.pokemonCrystalMgbaThoughtIntervalSeconds ?? 120;
-      if (seconds !== thoughtSeconds) { thoughtSeconds = seconds; setThoughtInterval(seconds); }
-    }
-  } catch {
-    if (disposed || request !== configRequest) return;
-    relay?.send({
-      type: "diagnostic",
-      event: "config-failed",
-      reason: "crystal.media-load-failed",
-    });
+function configure(config: CloudConfig) {
+  enabled.value = config.pokemonCrystalMgbaEnabled ?? true;
+  if (!enabled.value) clearLive();
+  mappings.value = config.pokemonCrystalMgbaMedia ?? [];
+  const seconds = config.pokemonCrystalMgbaThoughtIntervalSeconds ?? 120;
+  if (seconds !== thoughtSeconds) {
+    thoughtSeconds = seconds;
+    setThoughtInterval(seconds);
   }
 }
 onMounted(() => {
-  relay = new RelayClient(
-    `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/relay`,
-    {
-      type: "hello",
-      did,
-      page: "pokemon-crystal-mgba",
-      channel: new URLSearchParams(location.search).get("preview") === "1" ? "preview" : "live",
-    },
+  host.report("config-loaded", "crystal.mounted");
+  stopRelay = host.listen(
     (message) => {
-      if (message.type === "config-changed") void loadMappings();
       if (message.type !== "pokemon-crystal-mgba" || !enabled.value) return;
       snapshot.value = message.snapshot;
       witness = message.petWitness;
@@ -169,13 +160,11 @@ onMounted(() => {
     },
     () => {
       clearLive();
-      void loadMappings();
     },
   );
-  void loadMappings();
-  poll = setInterval(loadMappings, 60000);
+  stopConfig = host.subscribe(configure);
   {
-    chat.setStreamerDid(did);
+    releaseChat = host.acquireChat("pokemon-crystal-mgba");
     unsubscribe = chat.messages.subscribe((message) => {
       if (!enabled.value) return;
       const match = /^!pet\s+(.+)$/i.exec(message.text.trim());
@@ -185,12 +174,15 @@ onMounted(() => {
         : loadPublicActorProfile(message.author.did)
             .then((profile) => ({ ...message.author, avatar: profile.avatar }))
             .catch(() => {
-              relay?.send({ type: "diagnostic", event: "event-rejected", reason: "crystal.pet-author-load-failed" });
+              relay?.send({
+                type: "diagnostic",
+                event: "event-rejected",
+                reason: "crystal.pet-author-load-failed",
+              });
               return message.author;
             });
-      if (!queues.enqueue(match[1]!, author))
-        return;
-      if (!witness) return;
+      if (!queues.enqueue(match[1]!, author)) return;
+      if (!witness || host.preview) return;
       const uri = `at://${message.author.did}/place.stream.chat.message/${message.id.slice(message.author.did.length + 1)}`;
       void fetch(`/api/accounts/${encodeURIComponent(did)}/pokemon-crystal-mgba/pet`, {
         method: "POST",
@@ -209,7 +201,7 @@ onMounted(() => {
                   : "crystal.pet-save-failed",
               requestId: result.requestId,
             });
-            if (new URLSearchParams(location.search).get("preview") === "1")
+            if (host.preview)
               window.parent.postMessage(
                 {
                   type: "crystal-pet-save-failed",
@@ -231,14 +223,17 @@ onMounted(() => {
   thoughtTimer = setInterval(() => void showThought(), 120000);
 });
 onBeforeUnmount(() => {
+  host.report("config-loaded", "crystal.unmounted");
   disposed = true;
   clearTimeout(expiry);
   clearInterval(poll);
   clearInterval(thoughtTimer);
   clearTimeout(thoughtExpiry);
   unsubscribe?.();
-  chat.stop();
-  relay?.close();
+
+  stopRelay?.();
+  stopConfig?.();
+  releaseChat?.();
   clearLive();
 });
 </script>
@@ -259,15 +254,8 @@ onBeforeUnmount(() => {
   </main>
 </template>
 <style>
-html,
-body,
-#app {
-  margin: 0;
-  min-height: 100%;
-  background: transparent;
-}
 .crystal-cloud-overlay {
-  padding-block: clamp(48px, 6vh, 96px);
+  padding-block: 6%;
 }
 .crystal-cloud-overlay p {
   margin: 24px 7%;

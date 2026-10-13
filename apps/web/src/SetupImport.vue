@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, toRaw } from "vue";
+import { computed, onMounted, onBeforeUnmount, ref, toRaw, watch } from "vue";
 import { attachActorCombobox } from "./actor-combobox.ts";
 import { resolvePublicActor, searchPublicActors } from "./actor-search.ts";
 import type { CloudConfig } from "./cloud-admin-types.ts";
-import { mergeSetup, copySetupMedia } from "./setup-import.ts";
+import { mergeSetup, copySetupMedia, setupJavaScriptModules } from "./setup-import.ts";
 import { adminFetch } from "./cloud-admin-fetch.ts";
 const props = defineProps<{ did: string; config: CloudConfig; save: (config: CloudConfig) => Promise<boolean> }>();
 const handle = ref(""), busy = ref(false), message = ref("");
 const source = ref<CloudConfig>(), sourceHandle = ref("");
+const trustedSource = ref(false);
+const javaScriptModules = computed(() => source.value ? setupJavaScriptModules(source.value) : []);
+watch(source, () => { trustedSource.value = false; });
 const input = ref<HTMLInputElement>(), status = ref<HTMLElement>();
 let detach: ReturnType<typeof attachActorCombobox> | undefined;
 onMounted(() => { if (input.value && status.value) detach = attachActorCombobox({ input: input.value, status: status.value, searcher: searchPublicActors,
@@ -28,7 +31,7 @@ async function load(value = handle.value) {
   finally { busy.value = false; }
 }
 async function apply() {
-  if (!source.value) return;
+  if (!source.value || busy.value || (javaScriptModules.value.length && !trustedSource.value)) return;
   busy.value = true; message.value = "Copying media to your PDS…";
   try {
     const revision = props.config.revision;
@@ -57,7 +60,11 @@ async function apply() {
       <p>{{ source.commands.length }} Emote commands, {{ source.bot?.rules.length ?? 0 }} bot commands, {{ source.bot?.routines?.length ?? 0 }} routines.</p>
       <p>Matching command names and routine IDs will be replaced; unrelated commands and routines stay. Module settings, event mappings, roles and restrictions will be replaced with this account's settings. Review copied restrictions for your audience. Enabled bot routines may start posting immediately if your Bot source is connected.</p>
       <p>Your account, OBS URLs and deletion-confirmation preference stay unchanged. Uploaded media is copied to your PDS; external media links remain links.</p>
-      <button class="success-button" type="button" :disabled="busy" @click="apply"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Confirm import</span></button>
+      <div v-if="javaScriptModules.length" class="javascript-warning" role="alert">
+        <p>This setup contains custom JavaScript or ZIP apps in: {{ javaScriptModules.join(', ') }}. This code will run in your overlay and its previews. Only continue if you trust @{{ sourceHandle }}.</p>
+        <label><input v-model="trustedSource" type="checkbox" :disabled="busy"> I trust @{{ sourceHandle }} and want to copy their JavaScript.</label>
+      </div>
+      <button class="success-button" type="button" :disabled="busy || (javaScriptModules.length > 0 && !trustedSource)" @click="apply"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Confirm import</span></button>
       <button class="danger-button" type="button" :disabled="busy" @click="source = undefined"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Cancel</span></button>
     </div>
     <p v-if="message" role="status">{{ message }}</p>

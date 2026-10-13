@@ -1,5 +1,6 @@
 import { Agent, type ComAtprotoRepoApplyWrites } from "@atproto/api";
 import { createHash } from "node:crypto";
+import { CustomBundleCache, unpackCustomBundle } from "./custom-module-bundle.ts";
 import { lexToJson } from "@atproto/lexicon";
 import { createDidResolver, type NodeOAuthClient } from "@atproto/oauth-client-node";
 import { safeError, type StructuredLogger } from "./logger.ts";
@@ -10,6 +11,7 @@ import {
   parseModuleRecords,
   recordRevision,
   serializeModuleRecords,
+  sameRecordContent,
   type StoredRecord,
 } from "./module-records.ts";
 import {
@@ -47,6 +49,7 @@ export function normalizeMediaType(value: string) {
   const type = value.split(";", 1)[0].trim().toLowerCase();
   if (type === "image/jpg") return "image/jpeg";
   if (type === "application/ogg") return "audio/ogg";
+  if (type === "application/zip" || type === "application/x-zip-compressed") return "application/zip";
   return /^(image|audio|video)\/[a-z0-9.+-]+$/.test(type) ? type : undefined;
 }
 export function parseConfig(
@@ -118,6 +121,38 @@ export async function listAllRecords(
 }
 
 export class PdsService {
+  private bundles = new CustomBundleCache();
+  async customModuleBundle(did: string, cid: string, diagnostics?: Diagnostics) {
+    return this.bundles.get(`${did}/${cid}`, async () => {
+      const context = { requestId: diagnostics?.requestId, operation: "custom-module-bundle" };
+      diagnostics?.logger.log("info", "cloud.bundle.load-started", context);
+      try {
+        const service = await this.resolvePdsFn(did);
+        const url = new URL("/xrpc/com.atproto.sync.getBlob", service);
+        url.searchParams.set("did", did); url.searchParams.set("cid", cid);
+        const response = await this.fetchFn(url, { signal: AbortSignal.timeout(30_000), credentials: "omit" });
+        if (!response.ok || !response.body) throw new Error("The ZIP could not be downloaded from the PDS.");
+        const chunks: Uint8Array[] = []; let size = 0;
+        const reader = response.body.getReader();
+        try {
+          while (true) {
+            const { done, value } = await reader.read(); if (done) break;
+            size += value.byteLength;
+            if (size > 10_000_000) throw new Error("The ZIP exceeds 10 MB.");
+            chunks.push(value);
+          }
+        } finally { await reader.cancel(); }
+        const bytes = new Uint8Array(size); let offset = 0;
+        for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
+        const bundle = unpackCustomBundle(bytes);
+        diagnostics?.logger.log("info", "cloud.bundle.load-completed", { ...context, files: bundle.files.size, bytes: bundle.bytes });
+        return bundle;
+      } catch (error) {
+        diagnostics?.logger.log("error", "cloud.bundle.load-failed", { ...context, ...safeError(error) });
+        throw error;
+      }
+    });
+  }
   private cache = new Map<string, { config: CloudConfig; loadedAt: number; accessedAt: number }>();
   private remember(did: string, config: CloudConfig) {
     this.cleanup();
@@ -703,13 +738,9 @@ export class PdsService {
       const writes: ComAtprotoRepoApplyWrites.InputSchema["writes"] = records
         .filter(
           (record) =>
-            ![moduleCollections.customModule, moduleCollections.crystalMedia].includes(
-              record.collection,
-            ) ||
             !snapshot.records.some(
               (old) =>
-                identity(old) === identity(record) &&
-                old.value.updatedAt === record.value.updatedAt,
+                identity(old) === identity(record) && sameRecordContent(old.value, record.value),
             ),
         )
         .map((record) => ({
@@ -730,11 +761,12 @@ export class PdsService {
       if (writes.length > 200) throw new Error("Too many record writes");
       // Leave validation unset: Bluesky PDS only knows built-in schemas and does not
       // dynamically resolve custom lexicons yet. Local SDK validation is mandatory.
-      await agent.com.atproto.repo.applyWrites({
-        repo: did,
-        swapCommit: latest.data.cid,
-        writes,
-      });
+      if (writes.length)
+        await agent.com.atproto.repo.applyWrites({
+          repo: did,
+          swapCommit: latest.data.cid,
+          writes,
+        });
       const saved = parseModuleRecords(did, records);
       hydrateCustomModuleMedia(saved, service, did);
       for (const command of saved.commands)
@@ -744,6 +776,12 @@ export class PdsService {
       diagnostics?.logger.log("info", "cloud.pds.module-save-completed", {
         ...context,
         writes: writes.length,
+        created: writes.filter((write) => write.$type === "com.atproto.repo.applyWrites#create")
+          .length,
+        updated: writes.filter((write) => write.$type === "com.atproto.repo.applyWrites#update")
+          .length,
+        deleted: writes.filter((write) => write.$type === "com.atproto.repo.applyWrites#delete")
+          .length,
         migrated: snapshot.migrated,
         preferencesChanged:
           config.preferences !== undefined &&
@@ -774,6 +812,8 @@ export class PdsService {
     if (!bytes.byteLength) throw new Error("Empty media upload");
     if (bytes.byteLength > 10_000_000) throw new RangeError("Media is larger than 10 MB");
     if (!normalized) throw new TypeError("Unsupported media type");
+    const bundle = normalized === "application/zip" ? unpackCustomBundle(bytes) : undefined;
+    if (bundle) diagnostics?.logger.log("info", "cloud.bundle.validated", { requestId: diagnostics.requestId, files: bundle.files.size, bytes: bundle.bytes });
     diagnostics?.logger.log("info", "cloud.pds.session-restore-started", {
       requestId: diagnostics.requestId,
       operation: "upload",
@@ -801,6 +841,10 @@ export class PdsService {
     });
     try {
       const blob = (await agent.uploadBlob(bytes, { encoding: normalized })).data.blob;
+      // Newly uploaded PDS blobs may be temporary until a record references them.
+      // Keep this validated draft available to the preview before Save overlay.
+      const cid = (lexToJson(blob) as any).ref?.$link;
+      if (bundle && typeof cid === "string") this.bundles.remember(`${did}/${cid}`, bundle);
       diagnostics?.logger.log("info", "cloud.pds.upload-completed", {
         requestId: diagnostics.requestId,
         bytes: bytes.byteLength,
@@ -824,8 +868,10 @@ const didResolver = createDidResolver({});
 function hydrateCustomModuleMedia(config: CloudConfig, service: string, did: string) {
   for (const media of config.pokemonCrystalMgbaMedia ?? [])
     if (media.blob) media.url = blobUrl(service, did, media.blob);
-  for (const module of config.customModules ?? [])
+  for (const module of config.customModules ?? []) {
     for (const media of module.media ?? []) media.url = blobUrl(service, did, media.blob);
+    if (module.bundle) module.bundle.url = blobUrl(service, did, module.bundle.blob);
+  }
 }
 async function resolvePds(did: string) {
   const document = await didResolver.resolve(did as `did:${string}:${string}`);

@@ -104,23 +104,29 @@ describe("cloud server boundary", () => {
     ).toBe(200);
     expect((await ingest("{}")).status).toBe(403);
   });
-  test("serves new Emotes paths and legacy OBS aliases from the same pages", async () => {
+  test("serves one shared overlay and retires individual cloud pages", async () => {
     const root = webRoot();
-    writeFileSync(join(root, "effect.html"), "<h1>Emotes overlay</h1>");
-    writeFileSync(join(root, "board.html"), "<h1>Emotes listings</h1>");
+    writeFileSync(join(root, "overlay.html"), "<h1>Shared overlay</h1>");
     const deps = dependencies(root);
-    for (const [path, heading] of [
-      ["/emotes/", "Emotes overlay"],
-      ["/effect/", "Emotes overlay"],
-      ["/emote-listings/", "Emotes listings"],
-      ["/board/", "Emotes listings"],
+    const response = await handleRequest(
+      new Request("https://overlay.example/overlay/?did=did:plc:alice"),
+      deps,
+    );
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("<h1>Shared overlay</h1>");
+    for (const path of [
+      "/emotes/",
+      "/effect/",
+      "/emote-listings/",
+      "/board/",
+      "/chat/",
+      "/paint/",
+      "/bot/",
+      "/pokemon-crystal-mgba/",
     ]) {
-      const response = await handleRequest(
-        new Request(`https://overlay.example${path}?did=did:plc:alice`),
-        deps,
-      );
-      expect(response.status).toBe(200);
-      expect(await response.text()).toBe(`<h1>${heading}</h1>`);
+      expect(
+        (await handleRequest(new Request(`https://overlay.example${path}`), deps)).status,
+      ).toBe(404);
     }
   });
   test("user chat requires owner cookie and origin, validates text and explains permission failures", async () => {
@@ -156,19 +162,24 @@ describe("cloud server boundary", () => {
     expect(rejected.status).toBe(403);
     expect((await rejected.json()).error).toBe("chat-permission-required");
     expect(deps.oauth.clientMetadata.scope).toContain("repo:place.stream.chat.message");
+    expect(deps.oauth.clientMetadata.scope).toContain("blob:application/zip");
   });
   test("bot source URL is owner-only and trigger requires its scoped token", async () => {
     const deps = dependencies(webRoot());
     const root = "https://overlay.example/api/accounts/did:plc:alice/bot";
-    expect((await handleRequest(new Request(`${root}/source`), deps)).status).toBe(401);
+    expect(
+      (await handleRequest(new Request(`${root.replace(/bot$/, "overlay")}/source`), deps)).status,
+    ).toBe(401);
     const cookie = await sessionCookie("did:plc:alice", deps.secret);
     const source = await handleRequest(
-      new Request(`${root}/source`, { headers: { Cookie: `stream_overlay_session=${cookie}` } }),
+      new Request(`${root.replace(/bot$/, "overlay")}/source`, {
+        headers: { Cookie: `stream_overlay_session=${cookie}` },
+      }),
       deps,
     );
     expect(source.status).toBe(200);
     const url = new URL((await source.json()).url);
-    expect(url.pathname).toBe("/bot/");
+    expect(url.pathname).toBe("/overlay/");
     expect(url.searchParams.get("did")).toBe("did:plc:alice");
     expect(url.searchParams.get("token")).toHaveLength(64);
     expect(
@@ -282,7 +293,7 @@ describe("cloud server boundary", () => {
     const enabled = { ...deps, enablePets: true };
     expect(
       (await handleRequest(new Request("https://overlay.example/pets/"), enabled)).status,
-    ).toBe(200);
+    ).toBe(404);
     expect(
       (await handleRequest(new Request("https://overlay.example/pets/upstream/pets.js"), enabled))
         .status,

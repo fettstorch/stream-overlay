@@ -1,3 +1,4 @@
+import { validateOverlayLayout } from "../../../packages/protocol/src/overlay-layout.ts";
 import { createHash } from "node:crypto";
 import { Lexicons, jsonToLex, type LexiconDoc } from "@atproto/lexicon";
 import chatSchema from "../../../lexicons/live.streamface.chat.settings.json";
@@ -66,6 +67,22 @@ export const lexicons = new Lexicons([
   preferencesSchema,
 ] as LexiconDoc[]);
 export type StoredRecord = { collection: string; rkey: string; value: Record<string, any> };
+/** Compare persisted content independently of object key order and save timestamps. */
+export function sameRecordContent(a: Record<string, unknown>, b: Record<string, unknown>) {
+  const canonical = (value: unknown): unknown =>
+    Array.isArray(value)
+      ? value.map(canonical)
+      : value && typeof value === "object"
+        ? Object.fromEntries(
+            Object.entries(value)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([key, child]) => [key, canonical(child)]),
+          )
+        : value;
+  const { updatedAt: _a, ...left } = a;
+  const { updatedAt: _b, ...right } = b;
+  return JSON.stringify(canonical(left)) === JSON.stringify(canonical(right));
+}
 export function validateRecord(record: StoredRecord) {
   if (record.value.$type !== record.collection) throw new Error("Record collection mismatch");
   if (!/^[A-Za-z0-9._:~-]{1,128}$/.test(record.rkey) || [".", ".."].includes(record.rkey))
@@ -80,6 +97,11 @@ export function validateRecord(record: StoredRecord) {
   )
     throw new Error("Settings must use the self record key");
   lexicons.assertValidRecord(record.collection, jsonToLex(record.value));
+  if (
+    record.collection === moduleCollections.preferences &&
+    record.value.overlayLayout !== undefined
+  )
+    validateOverlayLayout(record.value.overlayLayout);
   if (record.collection === moduleCollections.crystalMedia) {
     if (!/^[1-9][0-9]{0,2}$/.test(record.rkey) || Number(record.rkey) > 251)
       throw new Error("Invalid Crystal species key");
@@ -272,6 +294,9 @@ export function parseModuleRecords(did: string, records: StoredRecord[]): CloudC
       ? {
           preferences: {
             confirmDeletion: get(moduleCollections.preferences)!.confirmDeletion,
+            ...(get(moduleCollections.preferences)!.overlayLayout !== undefined
+              ? { overlayLayout: get(moduleCollections.preferences)!.overlayLayout }
+              : {}),
             ...(get(moduleCollections.preferences)!.vimControls !== undefined
               ? { vimControls: get(moduleCollections.preferences)!.vimControls }
               : {}),
@@ -290,18 +315,17 @@ export function serializeModuleRecords(
     collection: string,
     rkey: string,
     fields: Record<string, unknown>,
-  ): StoredRecord => ({
-    collection,
-    rkey,
-    value: {
+  ): StoredRecord => {
+    const old = previous.find((item) => item.collection === collection && item.rkey === rkey);
+    const value = {
       $type: collection,
       ...fields,
-      createdAt:
-        previous.find((item) => item.collection === collection && item.rkey === rkey)?.value
-          .createdAt ?? updatedAt,
+      createdAt: old?.value.createdAt ?? updatedAt,
       updatedAt,
-    },
-  });
+    };
+    if (old && sameRecordContent(old.value, value)) value.updatedAt = old.value.updatedAt;
+    return { collection, rkey, value };
+  };
   const { fadeOut, ...chat } = appearance.chat;
   // Older clients must not erase moderation rules they do not understand.
   const moderation =
@@ -425,9 +449,6 @@ export function serializeModuleRecords(
         ? { $type: `${crystalMediaDefinitions}#uploadedMedia`, blob: item.blob }
         : { $type: `${crystalMediaDefinitions}#externalMedia`, url: item.url },
     });
-    const old = previous.find((r) => r.collection === next.collection && r.rkey === next.rkey);
-    if (old && JSON.stringify(old.value.media) === JSON.stringify(next.value.media))
-      next.value.updatedAt = old.value.updatedAt;
     records.push(next);
   }
   validateCustomModules(customModules);
@@ -436,17 +457,8 @@ export function serializeModuleRecords(
       name: module.name,
       ...customModuleSettings(module),
       ...(module.media ? { media: module.media.map(({ id, blob }) => ({ id, blob })) } : {}),
+      ...(module.bundle ? { bundle: { name: module.bundle.name, blob: module.bundle.blob } } : {}),
     });
-    const old = previous.find(
-      (item) => item.collection === next.collection && item.rkey === next.rkey,
-    );
-    if (
-      old &&
-      ["name", "enabled", "html", "css", "media"].every(
-        (key) => JSON.stringify(old.value[key]) === JSON.stringify(next.value[key]),
-      )
-    )
-      next.value.updatedAt = old.value.updatedAt;
     records.push(next);
   }
   const previousPreferences = previous.find(
@@ -459,6 +471,9 @@ export function serializeModuleRecords(
     records.push(
       record(moduleCollections.preferences, "self", {
         confirmDeletion: preferences.confirmDeletion,
+        ...(preferences.overlayLayout !== undefined
+          ? { overlayLayout: preferences.overlayLayout }
+          : {}),
         ...(preferences.vimControls !== undefined ? { vimControls: preferences.vimControls } : {}),
       }),
     );

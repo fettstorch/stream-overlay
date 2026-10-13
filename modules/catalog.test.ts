@@ -20,26 +20,15 @@ test("Pets is absent by default but retains its opt-in and local integration", (
   ]);
   expect(cloudOverlayPages["/pets/"]).toBeUndefined();
   expect(getCloudModuleCatalog(true).some((module) => module.id === "streamplace-pets")).toBe(true);
-  expect(getCloudOverlayPages(true)["/pets/"]).toBe("pets.html");
+  expect(getCloudOverlayPages(true)).toEqual({ "/overlay/": "overlay.html" });
   expect(modules.some((module) => module.id === "streamplace-pets")).toBe(true);
 });
 
 test("cloud catalog has unique identities and routes with real build entrypoints", () => {
   const ids = cloudModuleCatalog.map((module) => module.id);
   expect(new Set(ids).size).toBe(ids.length);
-  const pages = cloudModuleCatalog.flatMap((module) => module.cloud.pages);
-  expect(Object.keys(cloudOverlayPages)).toHaveLength(pages.length);
-  for (const page of pages) {
-    expect(page.path.startsWith("/") && page.path.endsWith("/")).toBe(true);
-    expect(existsSync(resolve(import.meta.dirname, "../apps/web", page.entrypoint))).toBe(true);
-  }
-});
-test("Emotes uses readable overlay URLs while preserving legacy OBS paths", () => {
-  expect(cloudModuleCatalog.find((module) => module.id === "emoticons")?.name).toBe("Emotes");
-  expect(cloudOverlayPages["/emotes/"]).toBe("effect.html");
-  expect(cloudOverlayPages["/emote-listings/"]).toBe("board.html");
-  expect(cloudOverlayPages["/effect/"]).toBe(cloudOverlayPages["/emotes/"]);
-  expect(cloudOverlayPages["/board/"]).toBe(cloudOverlayPages["/emote-listings/"]);
+  expect(cloudOverlayPages).toEqual({ "/overlay/": "overlay.html" });
+  expect(existsSync(resolve(import.meta.dirname, "../apps/web/overlay.html"))).toBe(true);
 });
 test("local adapters retain catalog identities and stable OBS routes", () => {
   for (const manifest of cloudModuleCatalog) {
@@ -49,9 +38,6 @@ test("local adapters retain catalog identities and stable OBS routes", () => {
       manifest.id === "custom-module" ||
       manifest.id === "pokemon-crystal-mgba"
     ) {
-      expect(cloudOverlayPages[manifest.cloud.pages[0].path]).toBe(
-        manifest.cloud.pages[0].entrypoint,
-      );
       continue;
     }
     const local = modules.find((module) => module.id === manifest.id);

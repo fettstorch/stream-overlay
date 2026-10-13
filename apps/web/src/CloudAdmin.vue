@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import ChatPreviewFrame from "./ChatPreviewFrame.vue";
+import { overlayPlacement } from "../../../packages/protocol/src/overlay-layout.ts";
+import type { OverlayLayout } from "../../../packages/protocol/src/overlay-layout.ts";
+import OverlayLayoutEditor from "./OverlayLayoutEditor.vue";
 import BrandWordmark from "./BrandWordmark.vue";
 import ThemeToggle from "./ThemeToggle.vue";
 import pencilIcon from "./assets/custom-module-pencil.png";
@@ -90,52 +94,41 @@ const dimensionsDetected = ref(false);
 let dimensionsTimer: ReturnType<typeof setInterval> | undefined;
 let disposed = false;
 function obsInstructions(moduleId: string) {
-  if (moduleId === "pokemon-crystal-mgba")
-    return [
-      "Add this as a compact, transparent OBS browser source beside your gameplay—not a full-screen overlay.",
-      "Start at 640 × 720 px, then adjust the source dimensions and position to fit your stream layout.",
-      "Leave room around the party for pet animations and thought bubbles.",
-    ];
-  if (moduleId.startsWith("custom:")) {
-    return [
-      "The overlay fills the OBS browser source at whatever dimensions you choose.",
-      "The source shows your saved HTML/CSS on a transparent canvas.",
-    ];
-  }
-  if (moduleId === "bot")
-    return [
-      "Add the private Bot URL as a transparent OBS browser source. Any size works.",
-      "The bot reads chat only while that source is running. Keep its URL private.",
-    ];
-  const { width, height } = dimensions.value;
-  const size =
-    moduleId === "chat"
-      ? `Set the height to ${height} px; choose the width for your chat column.`
-      : `Set the browser source to ${width} × ${height} px to cover your stream.`;
   return [
-    size,
-    dimensionsDetected.value
-      ? "Dimensions match your stream.place stream."
-      : "1920 × 1080 fallback — stream dimensions are not available yet.",
-    ...(moduleId === "emoticons"
-      ? [
-          "Add the command listing as a separate Browser Source. Start at 420 × 600 px and size it independently.",
-        ]
-      : []),
+    "Enable this module to show it in your shared overlay.",
+    "Arrange its position and size in the overlay layout above.",
   ];
 }
-let chatPreviewFrame: HTMLIFrameElement | undefined;
-let chatPreviewConfiguration: ChatConfiguration | undefined;
-function updateChatPreview(configuration: ChatConfiguration) {
-  chatPreviewConfiguration = configuration;
-  chatPreviewFrame?.contentWindow?.postMessage(
-    { type: "chat-preview-configuration", configuration },
-    location.origin,
-  );
+const sourceUrl = ref("");
+const displaySourceUrl = computed(() => sourceUrl.value.replace(/([?&]token=)[^&#]*/gi, "$1…"));
+function openSource() {
+  window.open(sourceUrl.value, "_blank", "noopener,noreferrer");
 }
-function chatPreviewLoaded(event: Event) {
-  chatPreviewFrame = event.target as HTMLIFrameElement;
-  if (chatPreviewConfiguration) updateChatPreview(chatPreviewConfiguration);
+const sourceMessage = ref("");
+async function loadSource() {
+  sourceUrl.value = "";
+  sourceMessage.value = "";
+  try {
+    const response = await adminFetch(
+      `/api/accounts/${encodeURIComponent(did.value)}/overlay/source`,
+    );
+    if (!response.ok) throw new Error();
+    const data = (await response.json()) as { url?: string };
+    if (!data.url) throw new Error();
+    sourceUrl.value = data.url;
+  } catch {
+    sourceMessage.value = "Could not load your overlay URL.";
+  }
+}
+const sharedPreviewUrl = computed(() => {
+  const url = new URL(cloudUrl("/overlay/"));
+  url.searchParams.set("preview", "1");
+  return url.toString();
+});
+const chatPreviewConfiguration = ref<ChatConfiguration>();
+const previewLayout = ref<OverlayLayout>();
+function updateChatPreview(configuration: ChatConfiguration) {
+  chatPreviewConfiguration.value = configuration;
 }
 const effectPreviewFrame = ref<HTMLIFrameElement>();
 const listingPreviewFrame = ref<HTMLIFrameElement>();
@@ -195,18 +188,9 @@ const cloudModules = computed<CloudModule[]>(() => [
     name: module.name,
     cloud: {
       ...customModuleManifest.cloud,
-      pages: [
-        {
-          path: `/custom-module/?module=${encodeURIComponent(module.id)}`,
-          entrypoint: "custom-module.html",
-        },
-      ],
     },
   })),
 ]);
-const paths = computed<Record<string, string>>(() =>
-  Object.fromEntries(cloudModules.value.map((module) => [module.id, module.cloud.pages[0].path])),
-);
 async function createCustomModule() {
   if (!config.value) return;
   const module = {
@@ -261,11 +245,79 @@ function moduleEnabled(id: string) {
       ? (config.value.bot?.enabled ?? false)
       : moduleSettings(config.value).modules[key];
 }
+const layoutModules = computed(() =>
+  cloudModules.value.map((module) => ({
+    id: module.id,
+    name: module.name,
+    enabled: moduleEnabled(module.id),
+  })),
+);
+function overlayModule(id: string) {
+  return cloudModules.value.find(
+    (module) => module.id === (id === "emoticons-board" ? "emoticons" : id),
+  );
+}
+const overlayModuleMessage = ref("");
+function toggleOverlayModule(id: string, event: Event) {
+  overlayModuleMessage.value = "";
+  if (id === "emoticons-board") {
+    if (!config.value || !config.value.enabled) return;
+    const input = event.target as HTMLInputElement;
+    const layout = config.value.preferences?.overlayLayout ?? [];
+    const candidate = {
+      ...config.value,
+      preferences: {
+        confirmDeletion: config.value.preferences?.confirmDeletion ?? true,
+        ...config.value.preferences,
+        overlayLayout: [
+          ...layout.filter((item) => item.id !== id),
+          { ...overlayPlacement(id, layout), hidden: !input.checked },
+        ],
+      },
+    };
+    void saveConfiguration(candidate, undefined, "emoticons").then((saved) => {
+      overlayModuleMessage.value = moduleMessages.value.emoticons ?? "";
+      if (!saved)
+        input.checked =
+          !!config.value?.enabled &&
+          !overlayPlacement(id, config.value?.preferences?.overlayLayout).hidden;
+    });
+    return;
+  }
+  const module = overlayModule(id);
+  if (module)
+    void toggleEnabled(module, event).then(() => {
+      overlayModuleMessage.value = moduleMessages.value[module.id] ?? "";
+    });
+}
+async function editOverlayModule(id: string) {
+  const module = overlayModule(id);
+  if (!module) return;
+  moduleQuery.value = "";
+  selectedBadge.value = null;
+  if (id === "emoticons-board") emoticonTab.value = "commands";
+  if (!isExpanded(module)) toggleDetails(module);
+  await nextTick();
+  const body = document.getElementById(`module-body-${module.id}`);
+  const card = body?.closest("article");
+  if (!card) return;
+  await Promise.allSettled(
+    [...(card.getAnimations?.() ?? []), ...(body?.getAnimations?.() ?? [])].map(
+      (animation) => animation.finished,
+    ),
+  );
+  if (disposed || !card.isConnected) return;
+  card.scrollIntoView({
+    block: "start",
+    behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+  });
+}
 function previewUrl(id: string) {
-  const url = new URL(cloudUrl(paths.value[id]));
+  const url = new URL(cloudUrl("/overlay/"));
   url.searchParams.set("preview", "1");
-  const module: CloudModule | undefined = cloudModuleCatalog.find((module) => module.id === id);
-  if (module?.cloud.interactivePreview) url.searchParams.set("interactive", "1");
+  url.searchParams.set("only", id);
+  url.searchParams.set("fit", "1");
+  if (id === "overlay-paint") url.searchParams.set("interactive", "1");
   return url.toString();
 }
 const streamUrl = computed(() =>
@@ -338,9 +390,7 @@ async function cardDrop(module: CloudModule, event: DragEvent) {
   } else if (result.message) moduleMessages.value[module.id] = result.message;
 }
 
-const effectUrl = computed(() => cloudUrl("/emotes/"));
-const boardUrl = computed(() => cloudUrl("/emote-listings/"));
-const listingPreviewUrl = computed(() => `${boardUrl.value}&preview=1`);
+const listingPreviewUrl = computed(() => previewUrl("emoticons-board"));
 function cloudUrl(path: string) {
   const url = new URL(path, location.origin);
   if (did.value) url.searchParams.set("did", did.value);
@@ -393,9 +443,10 @@ async function loadConfiguration() {
 }
 async function refreshStream() {
   if (!config.value) return;
+  const accountDid = did.value;
   let result: { width: number; height: number } | null = null;
   try {
-    const response = await fetch(`/api/accounts/${encodeURIComponent(did.value)}/dimensions`, {
+    const response = await fetch(`/api/accounts/${encodeURIComponent(accountDid)}/dimensions`, {
       cache: "no-store",
     });
     if (response.ok) {
@@ -412,9 +463,11 @@ async function refreshStream() {
   } catch {
     /* Use the documented fallback until the stream is available. */
   }
-  if (disposed) return;
-  dimensionsDetected.value = result !== null;
-  dimensions.value = result ?? { width: 1920, height: 1080 };
+  if (disposed || did.value !== accountDid) return;
+  if (result) {
+    dimensionsDetected.value = true;
+    dimensions.value = result;
+  }
 }
 async function saveConfiguration(
   candidate: CloudConfig,
@@ -486,20 +539,16 @@ async function toggleEnabled(module: CloudModule, event: Event) {
   if (!(await saveConfiguration(candidate, undefined, module.id)))
     input.checked = moduleEnabled(module.id);
 }
-async function copyUrl(kind: string) {
+async function copyUrl() {
   try {
-    await navigator.clipboard.writeText(
-      cloudUrl(
-        kind === "board" ? "/emote-listings/" : kind === "effect" ? "/emotes/" : paths.value[kind],
-      ),
-    );
-    copied.value = kind;
+    await navigator.clipboard.writeText(sourceUrl.value);
+    copied.value = "overlay";
     clearTimeout(copyTimer);
     copyTimer = setTimeout(() => {
       copied.value = null;
     }, 1800);
   } catch {
-    copied.value = null;
+    sourceMessage.value = "Could not copy the URL.";
   }
 }
 function login(event: Event) {
@@ -538,7 +587,7 @@ async function load() {
     }
     did.value = ((await response.json()) as { did: string }).did;
     sessionState.value = "authenticated";
-    await Promise.all([loadProfile(), loadConfiguration()]);
+    await Promise.all([loadProfile(), loadConfiguration(), loadSource()]);
     await nextTick();
     await refreshStream();
     if (!disposed) dimensionsTimer = setInterval(() => void refreshStream(), 30_000);
@@ -575,8 +624,7 @@ onBeforeUnmount(() => {
       <ThemeToggle />
       <BrandWordmark />
       <p class="intro">
-        Manage your <StreamplaceBrand /> stream overlays from anywhere and copy their stable URLs
-        into your OBS’s browser sources.
+        Manage your <StreamplaceBrand /> modules from anywhere with one shared OBS overlay.
       </p>
     </header>
     <section v-if="sessionState === 'loading'" class="settings loading-card" aria-live="polite">
@@ -711,15 +759,6 @@ onBeforeUnmount(() => {
           ><span class="button-content">Log out</span>
         </button>
       </section>
-      <section class="settings obs-guidance" aria-labelledby="obs-guidance-title">
-        <h2 id="obs-guidance-title">Use your overlays in OBS</h2>
-        <p>
-          This service provides overlay URLs to add as Browser Sources in OBS. Before setting up a
-          module, carefully read its instructions using the <strong>i</strong> button in the
-          top-right corner for sizing and any module-specific setup.
-        </p>
-      </section>
-      <p v-if="configurationMessage" role="status">{{ configurationMessage }}</p>
       <CollapsibleSection v-if="config" title="Quickstart" class="shadowed-section">
         <SetupImport
           :did="did"
@@ -745,6 +784,62 @@ onBeforeUnmount(() => {
           Your browser does not support video playback.
         </video>
       </CollapsibleSection>
+      <CollapsibleSection
+        title="Your Overlay"
+        initially-open
+        class="settings obs-guidance shadowed-section"
+      >
+        <p>
+          Add this URL as one OBS Browser Source. Enable modules below and arrange them in the
+          overlay preview.
+        </p>
+        <p>
+          Set the source to {{ dimensions.width }} × {{ dimensions.height }} px<span
+            v-if="!dimensionsDetected"
+          >
+            (default until your stream size is detected)</span
+          >. Keep the URL private: it also authorizes your bot. Leave “Shutdown source when not
+          visible” unchecked to keep it running across scenes.
+        </p>
+        <div v-if="sourceUrl" class="overlay-url">
+          <code>{{ displaySourceUrl }}</code>
+          <button
+            type="button"
+            class="open-url-button"
+            @click="openSource"
+            aria-label="Open shared overlay"
+          >
+            <span class="external-link-icon" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            class="copy-button"
+            :class="{ copied: copied === 'overlay' }"
+            aria-label="Copy shared overlay URL"
+            @click="copyUrl"
+          >
+            <span class="copy-icon" aria-hidden="true" />
+          </button>
+        </div>
+        <p v-if="sourceMessage" role="status">
+          {{ sourceMessage }} <button type="button" @click="loadSource">Retry</button>
+        </p>
+        <OverlayLayoutEditor
+          v-if="config"
+          :config="config"
+          :preview-url="sharedPreviewUrl"
+          :chat-configuration="chatPreviewConfiguration"
+          @layout-change="previewLayout = $event"
+          :dimensions="dimensions"
+          :modules="layoutModules"
+          :saving="saving"
+          :module-message="overlayModuleMessage"
+          @toggle-module="toggleOverlayModule"
+          @edit-module="editOverlayModule"
+          :save="(candidate) => saveConfiguration(candidate, undefined, 'overlay-layout')"
+        />
+      </CollapsibleSection>
+      <p v-if="configurationMessage" role="status">{{ configurationMessage }}</p>
       <section>
         <div class="modules-heading">
           <h2>Modules</h2>
@@ -804,13 +899,13 @@ onBeforeUnmount(() => {
             @drop="cardDrop(module, $event)"
           >
             <div
-              v-if="cardDragDepth[module.id] > 0 && module.id === 'emoticons'"
+              v-if="cardDragDepth[module.id] > 0 && (module.id === 'emoticons' || module.id.startsWith('custom:'))"
               class="module-drop-overlay"
               role="status"
             >
               {{
                 module.id.startsWith("custom:")
-                  ? "Drop media onto the overlay"
+                  ? "Drop a ZIP app or media onto this module"
                   : "Drop media to create a command"
               }}
             </div>
@@ -928,91 +1023,7 @@ onBeforeUnmount(() => {
                   >
                 </p>
                 <p v-else>{{ module.description }}</p>
-                <template v-if="module.id !== 'emoticons' && module.id !== 'bot'">
-                  <section class="module-commands"><h4>OBS URL</h4></section>
-                  <div class="overlay-url">
-                    <code>{{ cloudUrl(paths[module.id]) }}</code>
-                    <a
-                      class="open-url-button"
-                      :href="cloudUrl(paths[module.id])"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      :aria-label="`Open ${module.name} OBS URL`"
-                      ><span class="external-link-icon" aria-hidden="true"
-                    /></a>
-                    <button
-                      type="button"
-                      class="copy-button"
-                      :class="{ copied: copied === module.id }"
-                      :aria-label="`Copy ${module.name} OBS URL`"
-                      @click="copyUrl(module.id)"
-                    >
-                      <span class="copy-icon" aria-hidden="true" />
-                    </button>
-                  </div>
-                </template>
                 <template v-if="module.id === 'emoticons'">
-                  <section class="module-commands overlay-url-heading">
-                    <h4>{{ module.id === "emoticons" ? "Emotes OBS URL" : "OBS URL" }}</h4>
-                    <ModuleHelp
-                      v-if="module.id === 'emoticons'"
-                      id="emoticons-effects-url"
-                      name="Emotes OBS URL"
-                      align="start"
-                      description="This is the overlay for the actual clips/gifs & stickers. Ideally put this in a browser source that spans your whole stream."
-                    />
-                  </section>
-                  <div class="overlay-url">
-                    <code>{{ cloudUrl(paths[module.id]) }}</code
-                    ><a
-                      class="open-url-button"
-                      :href="cloudUrl(paths[module.id])"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      :aria-label="`Open ${module.name} OBS URL`"
-                      ><span class="external-link-icon" aria-hidden="true" /></a
-                    ><button
-                      type="button"
-                      class="copy-button"
-                      :class="{
-                        copied:
-                          copied === module.id ||
-                          (module.id === 'emoticons' && copied === 'effect'),
-                      }"
-                      :aria-label="`Copy ${module.name} OBS URL`"
-                      @click="copyUrl(module.id === 'emoticons' ? 'effect' : module.id)"
-                    >
-                      <span class="copy-icon" aria-hidden="true" />
-                    </button>
-                  </div>
-                  <section class="module-commands overlay-url-heading listing-url-heading">
-                    <h4>Command listing OBS URL</h4>
-                    <ModuleHelp
-                      id="emoticons-listing-url"
-                      name="Command listing OBS URL"
-                      align="start"
-                      description="This is a listing of your commands for your audience including cooldowns for your clips."
-                    />
-                  </section>
-                  <div class="overlay-url board-url">
-                    <code>{{ boardUrl }}</code
-                    ><a
-                      class="open-url-button"
-                      :href="boardUrl"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-label="Open Emotes command listing OBS URL"
-                      ><span class="external-link-icon" aria-hidden="true" /></a
-                    ><button
-                      type="button"
-                      class="copy-button"
-                      :class="{ copied: copied === 'board' }"
-                      aria-label="Copy Emotes command listing OBS URL"
-                      @click="copyUrl('board')"
-                    >
-                      <span class="copy-icon" aria-hidden="true" />
-                    </button>
-                  </div>
                   <DrawnTabs v-model="emoticonTab" :tabs="emoticonTabs" label="Emote tools">
                     <div
                       class="emoticon-tab-content"
@@ -1120,15 +1131,16 @@ onBeforeUnmount(() => {
                     :save="(candidate) => saveConfiguration(candidate, undefined, module.id)"
                   />
                 </DrawnTabs>
-                <CloudCustomModuleControls
-                  v-else-if="module.id.startsWith('custom:')"
-                  :module-id="module.id.slice(7)"
-                  :ref="(el) => setModuleControls(module.id, el)"
-                  :config="config"
-                  :preview-aspect-ratio="dimensions.width / dimensions.height"
-                  :save="(candidate) => saveConfiguration(candidate, undefined, module.id)"
-                  @media-drop="cardDragDepth[module.id] = 0"
-                />
+                <div v-else-if="module.id.startsWith('custom:')">
+                  <CloudCustomModuleControls
+                    :module-id="module.id.slice(7)"
+                    :ref="(el) => setModuleControls(module.id, el)"
+                    :config="config"
+                    :preview-aspect-ratio="dimensions.width / dimensions.height"
+                    :save="(candidate) => saveConfiguration(candidate, undefined, module.id)"
+                    @media-drop="cardDragDepth[module.id] = 0"
+                  />
+                </div>
                 <CloudModuleControls
                   v-else
                   :module-id="module.id"
@@ -1170,11 +1182,18 @@ onBeforeUnmount(() => {
                     class="preview-background"
                     allow="autoplay"
                   />
+                  <ChatPreviewFrame
+                    v-if="module.id === 'chat'"
+                    :src="previewUrl(module.id)"
+                    :dimensions="dimensions"
+                    :configuration="chatPreviewConfiguration"
+                    :layout="previewLayout ?? config?.preferences?.overlayLayout"
+                  />
                   <iframe
+                    v-else
                     :src="previewUrl(module.id)"
                     :title="`${module.name} preview`"
                     allow="autoplay"
-                    @load="module.id === 'chat' && chatPreviewLoaded($event)"
                   />
                 </div>
               </div>

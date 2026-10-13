@@ -158,6 +158,7 @@ test("public Custom Module media URLs resolve against the owning PDS", async () 
           html: '<img src="streamface-media:pic">',
           css: "",
           media: [{ id: "pic", blob }],
+          bundle: { name: "app.zip", blob: { ...blob, mimeType: "application/zip" }, url: "https://not-persisted.test/zip" },
         },
       ],
     },
@@ -191,6 +192,10 @@ test("public Custom Module media URLs resolve against the owning PDS", async () 
   expect(url.pathname).toBe("/xrpc/com.atproto.sync.getBlob");
   expect(url.searchParams.get("did")).toBe(did);
   expect(url.searchParams.get("cid")).toBe(blob.ref.$link);
+  const bundleUrl = new URL(loaded.customModules![0].bundle!.url!);
+  expect(bundleUrl.origin).toBe("https://pds.example");
+  expect(bundleUrl.searchParams.get("cid")).toBe(blob.ref.$link);
+  expect(records.find((record) => record.collection === moduleCollections.customModule)!.value.bundle.url).toBeUndefined();
 });
 test("Custom Module roundtrips and older clients do not erase its source", () => {
   const customModule = {
@@ -199,6 +204,8 @@ test("Custom Module roundtrips and older clients do not erase its source", () =>
     enabled: true,
     html: "<h1>My room</h1>",
     css: "h1 { color: red }",
+    javascript: 'document.querySelector("h1").textContent = "Welcome";',
+    bundle: { name: "app.zip", blob: { $type: "blob" as const, ref: { $link: "bafkreigh2akiscaildc6rnag6ni5nrd6tmjuj6aqn5mltlhdp4dt2o5x4i" }, mimeType: "application/zip", size: 100 } },
   };
   const records = serializeModuleRecords(
     { ...config, customModules: [customModule] },
@@ -228,6 +235,7 @@ test("Custom Module roundtrips and older clients do not erase its source", () =>
       timestamp,
     ),
   ).toThrow();
+  expect(() => serializeModuleRecords({ ...config, customModules: [{ ...customModule, javascript: "x".repeat(50001) }] }, [], timestamp)).toThrow();
   const legacy = records.find((record) => record.collection === moduleCollections.customModule)!;
   legacy.value.width = 1280;
   legacy.value.height = 720;
@@ -652,4 +660,46 @@ test("legacy read is non-mutating; save migrates atomically and rejects stale up
   records[4].value.command = "outside-edit";
   await expect(service.save(did, saved)).rejects.toBeInstanceOf(CloudConfigConflictError);
   expect(calls).toHaveLength(1);
+});
+
+test("overlay layout persists through PDS records and older preference edits", () => {
+  const layout = [
+    { id: "pokemon-crystal-mgba", x: 1000, y: 1000, width: 3000, height: 7000, order: 12 },
+  ];
+  const input = {
+    enabled: true,
+    streamerDid: did,
+    commands: [],
+    revision: "new",
+    preferences: { confirmDeletion: true, overlayLayout: layout },
+  };
+  const records = serializeModuleRecords(input, [], timestamp);
+  expect(parseModuleRecords(did, records).preferences?.overlayLayout).toEqual(layout);
+  const older = { ...input, preferences: { confirmDeletion: false } };
+  expect(
+    parseModuleRecords(did, serializeModuleRecords(older, records, timestamp)).preferences,
+  ).toEqual({ confirmDeletion: false, overlayLayout: layout });
+  for (const invalid of [
+    [{ ...layout[0], width: 10001 }],
+    [{ ...layout[0], x: 8000 }],
+    [layout[0], layout[0]],
+    [{ ...layout[0], x: NaN }],
+  ]) {
+    expect(() =>
+      serializeModuleRecords(
+        { ...input, preferences: { confirmDeletion: true, overlayLayout: invalid } },
+        [],
+        timestamp,
+      ),
+    ).toThrow();
+  }
+});
+
+test("an Emotes toggle changes only its own record and a no-op preserves every timestamp", () => {
+  const first = "2026-10-15T10:00:00.000Z", second = "2026-10-15T10:01:00.000Z";
+  const original = serializeModuleRecords(config, [], first);
+  const same = serializeModuleRecords(config, original, second);
+  expect(same.every(record => record.value.updatedAt === first)).toBe(true);
+  const toggled = serializeModuleRecords({...config, enabled: !config.enabled}, original, second);
+  expect(toggled.filter(record => record.value.updatedAt === second).map(record => record.collection)).toEqual([moduleCollections.emoticons]);
 });

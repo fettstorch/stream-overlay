@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref } from "vue";
 import type { CustomModuleSettings } from "../../../modules/custom-module/src/config.ts";
+import { customModuleBundlePath } from "../../../modules/custom-module/src/config.ts";
 import { customModuleDocument, customModuleSandbox } from "./custom-module-document.ts";
 import { moveCustomModuleElement } from "./custom-module-interactions.ts";
 const props = defineProps<{
   settings: CustomModuleSettings;
   streamUrl?: string;
   aspectRatio?: number;
+  did?: string;
 }>();
 const emit = defineEmits<{
   html: [value: string];
@@ -64,6 +66,7 @@ function drop(event: DragEvent) {
 }
 const document = computed(() => {
   try {
+    if (props.settings.bundle) return { html: undefined, error: "" };
     return { html: customModuleDocument(props.settings, channel, locks), error: "" };
   } catch (error) {
     return { html: "", error: error instanceof Error ? error.message : "Preview unavailable." };
@@ -93,9 +96,12 @@ const document = computed(() => {
       ref="frame"
       allow="autoplay"
       :sandbox="customModuleSandbox"
+      data-overlay-content-frame
+      :src="settings.bundle && did ? `${customModuleBundlePath(did, settings.bundle)}?channel=${channel}` : undefined"
       :srcdoc="document.html"
       title="Custom Module draft preview"
       referrerpolicy="no-referrer"
+      @error="emit('error', 'The ZIP app could not be loaded.')"
     />
   </div>
 </template>

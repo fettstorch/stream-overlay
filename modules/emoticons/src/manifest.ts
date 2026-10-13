@@ -7,12 +7,5 @@ export const emoticonsManifest = {
     "Let users in chat trigger clips/gifs & stickers using !<command>. Create and live test those commands here.",
   cloud: {
     enabledKey: "emoticons",
-    pages: [
-      { path: "/emotes/", entrypoint: "effect.html" },
-      { path: "/emote-listings/", entrypoint: "board.html" },
-      // Retain existing OBS browser sources without a redirect or URL migration.
-      { path: "/effect/", entrypoint: "effect.html" },
-      { path: "/board/", entrypoint: "board.html" },
-    ],
   },
 } as const satisfies ModuleManifest;

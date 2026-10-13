@@ -2,6 +2,8 @@ export type CustomModuleSettings = {
   enabled: boolean;
   html: string;
   css: string;
+  javascript?: string;
+  bundle?: CustomModuleBundle;
   media?: CustomModuleMedia[];
 };
 export type CustomModuleMedia = {
@@ -11,6 +13,15 @@ export type CustomModuleMedia = {
   url?: string;
 };
 export type CustomModule = CustomModuleSettings & { id: string; name: string };
+export type CustomModuleBundle = {
+  name: string;
+  blob: CustomModuleMedia["blob"];
+  /** Resolved ZIP download URL; never persisted. */
+  url?: string;
+};
+export function customModuleBundlePath(did: string, bundle: CustomModuleBundle) {
+  return `/api/accounts/${encodeURIComponent(did)}/custom-module-bundles/${encodeURIComponent(bundle.blob.ref.$link)}/`;
+}
 
 export function validateCustomModules(value: unknown): asserts value is CustomModule[] {
   if (!Array.isArray(value)) throw new Error("Invalid custom modules");
@@ -82,6 +93,8 @@ export function customModuleSettings(value: CustomModuleSettings): CustomModuleS
         ? defaultCustomModuleSettings.css
         : value.css,
     ...(value.media ? { media: value.media } : {}),
+    ...(value.javascript !== undefined ? { javascript: value.javascript } : {}),
+    ...(value.bundle ? { bundle: value.bundle } : {}),
   };
 }
 
@@ -92,7 +105,8 @@ export function validateCustomModuleSettings(
   if (!value || typeof value !== "object") throw new Error("Invalid Custom Module settings");
   const settings = value as CustomModuleSettings;
   if (typeof settings.enabled !== "boolean") throw new Error("Invalid Custom Module enabled state");
-  for (const field of ["html", "css"] as const) {
+  for (const field of ["html", "css", "javascript"] as const) {
+    if (field === "javascript" && settings[field] === undefined) continue;
     if (
       typeof settings[field] !== "string" ||
       new TextEncoder().encode(settings[field]).length > customModuleSourceLimit
@@ -122,5 +136,14 @@ export function validateCustomModuleSettings(
         throw new Error("Invalid Custom Module media attachment");
       ids.add(item.id);
     }
+  }
+  if (settings.bundle !== undefined) {
+    const bundle = settings.bundle;
+    if (!bundle || typeof bundle.name !== "string" || !bundle.name.trim() ||
+      new TextEncoder().encode(bundle.name).length > 200 ||
+      bundle.blob?.$type !== "blob" || bundle.blob.mimeType !== "application/zip" ||
+      typeof bundle.blob.ref?.$link !== "string" || !/^[a-zA-Z0-9]+$/.test(bundle.blob.ref.$link) ||
+      !Number.isInteger(bundle.blob.size) || bundle.blob.size <= 0 || bundle.blob.size > 10_000_000)
+      throw new Error("Invalid Custom Module ZIP bundle");
   }
 }

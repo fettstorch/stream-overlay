@@ -9,9 +9,13 @@ import {
 } from "../../../modules/custom-module/src/config.ts";
 import type { CloudConfig } from "./cloud-admin-types.ts";
 import CustomModulePreview from "./CustomModulePreview.vue";
+import AppButton from "./AppButton.vue";
 import { adminFetch } from "./cloud-admin-fetch.ts";
 import type { CustomModuleMedia } from "../../../modules/custom-module/src/config.ts";
 const CodeEditor = defineAsyncComponent(() => import("./CodeEditor.vue"));
+function editorSettings(settings: Parameters<typeof customModuleSettings>[0]) {
+  return { ...customModuleSettings(settings), javascript: settings.javascript ?? "" };
+}
 const props = defineProps<{
   config: CloudConfig;
   moduleId: string;
@@ -23,7 +27,7 @@ const savedModule = computed(() =>
   props.config.customModules?.find((module) => module.id === props.moduleId),
 );
 const draft = ref({
-  ...customModuleSettings(savedModule.value ?? defaultCustomModuleSettings),
+  ...editorSettings(savedModule.value ?? defaultCustomModuleSettings),
   name: savedModule.value?.name ?? "Custom Module",
 });
 const message = ref("");
@@ -31,6 +35,46 @@ const saving = ref(false);
 const savedFeedback = ref(false);
 let savedFeedbackTimer: ReturnType<typeof setTimeout> | undefined;
 const uploading = ref(false);
+const sourceMode = ref(savedModule.value?.bundle ? "zip" : "code");
+const bundleInput = ref<HTMLInputElement>();
+let draftBundleFile: File | undefined;
+watch(sourceMode, (mode) => { if (mode === "code") delete draft.value.bundle; });
+async function uploadBundle(file?: File) {
+  if (!file || uploading.value || saving.value) return;
+  sourceMode.value = "zip";
+  emit("mediaDrop");
+  uploading.value = true; message.value = `Uploading ${file.name} to your PDS…`;
+  try {
+    if (!file.size || file.size > 10_000_000) throw new Error("ZIP apps must be between 1 byte and 10 MB.");
+    if (new TextEncoder().encode(file.name).length > 200) throw new Error("Use a ZIP filename shorter than 200 bytes.");
+    const blob = await uploadFile(file, "application/zip");
+    if (disposed) return;
+    draft.value.bundle = { name: file.name, blob };
+    draftBundleFile = file;
+    message.value = "ZIP app added to the draft. Save overlay to keep it.";
+  } catch (error) {
+    message.value = error instanceof Error ? error.message : "Could not upload the ZIP app.";
+  } finally { uploading.value = false; }
+}
+async function selectedBundle(event: Event) {
+  const input = event.target as HTMLInputElement;
+  await uploadBundle(input.files?.[0]);
+  input.value = "";
+}
+async function dropFiles(files: File[], x = 50, y = 50) {
+  const zip = files.find((file) => /\.zip$/i.test(file.name));
+  if (zip) await uploadBundle(zip);
+  else await dropMedia(files, x, y);
+}
+function dragFiles(event: DragEvent) {
+  if (Array.from(event.dataTransfer?.types ?? []).includes("Files")) event.preventDefault();
+}
+async function dropEditorFiles(event: DragEvent) {
+  const files = Array.from(event.dataTransfer?.files ?? []);
+  if (!files.length) return;
+  event.preventDefault(); event.stopPropagation();
+  await dropFiles(files);
+}
 const draftFiles = new Map<string, File>();
 let disposed = false;
 onBeforeUnmount(() => {
@@ -126,8 +170,8 @@ async function dropMedia(files: File[], x = 50, y = 50) {
 async function acceptCardDrop(files: FileList | null | undefined) {
   const list = Array.from(files ?? []);
   if (!list.length) return { accepted: false };
-  await dropMedia(list);
-  return { accepted: list.some((file) => mediaType(file)), message: message.value };
+  await dropFiles(list);
+  return { accepted: list.some((file) => /\.zip$/i.test(file.name) || mediaType(file)), message: message.value };
 }
 defineExpose({ acceptCardDrop });
 const showStream = ref(false);
@@ -144,7 +188,7 @@ const dirty = computed(
   () =>
     contentKey(draft.value) !==
     contentKey({
-      ...customModuleSettings(savedModule.value ?? defaultCustomModuleSettings),
+      ...editorSettings(savedModule.value ?? defaultCustomModuleSettings),
       name: savedModule.value?.name ?? "Custom Module",
     }),
 );
@@ -153,16 +197,17 @@ watch(
   (value, previous) => {
     // Preserve unsaved editor text when another module is saved or this is toggled.
     const before = {
-      ...customModuleSettings(previous ?? defaultCustomModuleSettings),
+      ...editorSettings(previous ?? defaultCustomModuleSettings),
       name: previous?.name ?? "Custom Module",
     };
     const { enabled: oldEnabled, ...oldContent } = before;
     const { enabled: draftEnabled, ...draftContent } = draft.value;
     if (contentKey(oldContent) === contentKey(draftContent)) {
       draft.value = {
-        ...customModuleSettings(value ?? defaultCustomModuleSettings),
+        ...editorSettings(value ?? defaultCustomModuleSettings),
         name: value?.name ?? "Custom Module",
       };
+      sourceMode.value = value?.bundle ? "zip" : "code";
       return;
     }
     draft.value.enabled = value?.enabled ?? false;
@@ -173,6 +218,7 @@ async function save() {
   if (saving.value || uploading.value || !dirty.value) return;
   message.value = "";
   try {
+    if (sourceMode.value === "zip" && !draft.value.bundle) throw new Error("Choose a ZIP app before saving.");
     validateCustomModuleSettings(draft.value);
     validateCustomModules([{ ...draft.value, id: props.moduleId }]);
     saving.value = true;
@@ -191,6 +237,8 @@ async function save() {
       const file = draftFiles.get(media.id);
       if (file) media.blob = await uploadFile(file, mediaType(file)!);
     }
+    if (draft.value.bundle && draftBundleFile)
+      draft.value.bundle.blob = await uploadFile(draftBundleFile, "application/zip");
     if (
       await props.save({
         ...props.config,
@@ -208,6 +256,7 @@ async function save() {
       })
     ) {
       draftFiles.clear();
+      draftBundleFile = undefined;
       savedFeedback.value = true;
       savedFeedbackTimer = setTimeout(() => { savedFeedback.value = false; }, 1800);
       message.value = "Custom Module saved. Connected overlays update automatically.";
@@ -220,26 +269,47 @@ async function save() {
 }
 function reset() {
   draftFiles.clear();
+  draftBundleFile = undefined;
   draft.value = {
-    ...customModuleSettings(savedModule.value ?? defaultCustomModuleSettings),
+    ...editorSettings(savedModule.value ?? defaultCustomModuleSettings),
     name: savedModule.value?.name ?? "Custom Module",
   };
+  sourceMode.value = savedModule.value?.bundle ? "zip" : "code";
   message.value = "";
 }
 </script>
 <template>
-  <section
-    class="module-section editor-fields custom-module-editor"
+  <div
+    class="editor-fields custom-module-editor"
     aria-label="Custom Module editor"
+    @dragover="dragFiles"
+    @drop="dropEditorFiles"
   >
-    <p>
-      <span class="html-label">HTML</span> and <span class="css-label">CSS</span> only.
-      Drop images or videos onto the preview to upload them to your PDS. Scripts,
-      embeds and links are blocked. Use the <span class="css-label">CSS</span> field for styles and animations. Each field supports
+    <p v-if="sourceMode === 'code'">
+      Use <span class="html-label">HTML</span>, <span class="css-label">CSS</span> and JavaScript.
+      Use the JavaScript field for scripts; it runs after your HTML is rendered.
+      Drop images or videos onto the preview to upload them to your PDS. Use the <span class="css-label">CSS</span> field for styles and animations. Each field supports
       up to
       {{ customModuleSourceLimit / 1000 }} KB.
     </p>
-    <div class="custom-module-sources">
+    <div class="command-mode-selector">
+      <strong :class="{ 'mode-selected': sourceMode === 'code' }">Code</strong>
+      <label class="switch choice-switch">
+        <input type="checkbox" aria-label="ZIP app mode" :checked="sourceMode === 'zip'" :disabled="saving || uploading"
+          @change="sourceMode = ($event.target as HTMLInputElement).checked ? 'zip' : 'code'">
+        <span aria-hidden="true" />
+      </label>
+      <strong :class="{ 'mode-selected': sourceMode === 'zip' }">ZIP app</strong>
+    </div>
+    <div v-if="sourceMode === 'zip'" class="editor-fields">
+      <p>Drop a ZIP here or choose a file. Include index.html and the built app's assets.</p>
+      <p>For Vite, set <code>base: './'</code> in vite.config so asset URLs point inside your app rather than the website root.</p>
+      <small>Maximum 10 MB zipped, 50 MB unpacked, 1,000 files.</small>
+      <input ref="bundleInput" hidden type="file" accept=".zip,application/zip" :disabled="saving || uploading" @change="selectedBundle">
+      <AppButton class="zip-upload-button" :disabled="saving || uploading" @click="bundleInput?.click()">{{ uploading ? 'Uploading…' : draft.bundle ? 'Replace ZIP app' : 'Choose ZIP app' }}</AppButton>
+      <small v-if="draft.bundle">{{ draft.bundle.name }}</small>
+    </div>
+    <div v-else class="custom-module-sources">
       <div class="source-field">
         <span class="html-label">HTML</span
         ><CodeEditor
@@ -260,6 +330,16 @@ function reset() {
           @save="save"
         />
       </div>
+      <div class="source-field">
+        <span class="javascript-label">JavaScript</span>
+        <CodeEditor
+          v-model="draft.javascript"
+          language="javascript"
+          label="Custom Module JavaScript"
+          :vim-mode="vimMode"
+          @save="save"
+        />
+      </div>
     </div>
     <div class="editor-actions">
       <button class="save-overlay-button success-button" type="button" :aria-busy="saving" :data-save-state="savedFeedback && !dirty ? 'saved' : undefined" :disabled="saving || uploading || !dirty" @click="save">
@@ -271,6 +351,7 @@ function reset() {
     <p v-if="message" role="status">{{ message }}</p>
     <div class="editor-preview">
     <CustomModulePreview
+      :did="config.streamerDid"
       :settings="draft"
       :stream-url="streamUrl"
       :aspect-ratio="previewAspectRatio"
@@ -279,7 +360,7 @@ function reset() {
           if (!saving && !uploading) draft.html = html;
         }
       "
-      @media-drop="dropMedia"
+      @media-drop="dropFiles"
       @error="message = $event"
     />
     </div>
@@ -292,12 +373,13 @@ function reset() {
           aria-label="Show my stream behind the preview" /><span
       /></label>
     </div>
-  </section>
+  </div>
 </template>
 <style scoped>
 .custom-module-editor {
   min-width: 0;
 }
+.zip-upload-button { justify-self: start; }
 .editor-preview {
   margin-top: 32px;
 }
@@ -307,6 +389,8 @@ function reset() {
 .css-label {
   color: #1769c2;
 }
+.javascript-label { color: #886000; }
+:global(html[data-theme="dark"] .javascript-label) { color: #f5df55; }
 :global(html[data-theme="dark"] .html-label) {
   color: #f5c542;
 }
@@ -314,8 +398,7 @@ function reset() {
   color: #69b5ff;
 }
 .custom-module-sources {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
   gap: 16px;
   margin-block: 16px;
 }
@@ -325,6 +408,27 @@ label,
   flex-direction: column;
   gap: 8px;
   font-weight: 700;
+}
+.source-field {
+  flex: 1 1 0;
+  min-width: 0;
+  transition: flex-grow 180ms ease;
+}
+@media (min-width: 701px) {
+  .source-field:focus-within {
+    flex-grow: 4;
+  }
+}
+@media (min-width: 701px) and (hover: hover) {
+  .custom-module-sources:has(> .source-field:hover) > .source-field {
+    flex-grow: 1;
+  }
+  .custom-module-sources:has(> .source-field:hover) > .source-field:hover {
+    flex-grow: 4;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .source-field { transition: none; }
 }
 .editor-actions {
   display: flex;
@@ -340,7 +444,7 @@ label,
 }
 @media (max-width: 700px) {
   .custom-module-sources {
-    grid-template-columns: 1fr;
+    flex-direction: column;
   }
 }
 </style>

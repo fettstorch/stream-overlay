@@ -5,12 +5,13 @@ import { Compartment, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { html } from "@codemirror/lang-html";
 import { css } from "@codemirror/lang-css";
+import { javascript } from "@codemirror/lang-javascript";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { getCM, vim } from "@replit/codemirror-vim";
 
 const props = defineProps<{
   modelValue: string;
-  language: "html" | "css";
+  language: "html" | "css" | "javascript";
   label: string;
   vimMode?: boolean;
 }>();
@@ -36,7 +37,7 @@ onMounted(() => {
       extensions: [
         keybindings.of(props.vimMode ? vim() : []),
         basicSetup,
-        props.language === "html" ? html({ matchClosingTags: true }) : css(),
+        props.language === "html" ? html({ matchClosingTags: true }) : props.language === "javascript" ? javascript() : css(),
         EditorView.lineWrapping,
         EditorView.contentAttributes.of({
           "aria-label": props.label,

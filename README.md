@@ -61,7 +61,7 @@ modules/streamplace-pets  Adapter for the upstream submodule
 modules/overlay-paint     Shared temporary canvas, served by the host
 modules/chat              Stream.place chat display, served by the host
 modules/emoticons         Clips/stickers, command validation and browser runtime
-modules/custom-module       Declarative HTML/CSS cloud overlay and storage validation
+modules/custom-module       HTML/CSS/JavaScript cloud overlay and storage validation
 modules/catalog.ts        Shared cloud module metadata, routes and build entries
 packages/overlay-sdk      Shared module contracts
 packages/stream-chat      Shared live/sample chat sources and stream measurements
@@ -297,7 +297,7 @@ workflow and its existing OBS URLs are unchanged.
 
 Open **Pokémon Crystal mGBA** in the cloud Admin, download your private Lua
 script, and load it using mGBA **Tools → Scripting** with English Crystal
-USA/Europe Rev 1. Add the module's OBS URL as a browser source. No helper program
+USA/Europe Rev 1. Enable the module in your shared overlay. No helper program
 or additional Lua installation is required. Downloading again revokes previous
 copies; **Revoke source** stops their updates.
 
@@ -313,8 +313,8 @@ Chatters can use `!pet <nickname>` in stream.place chat; the preview listens to
 the same real chat, and its Send button posts as your logged-in account. The
 overlay remembers each individual Pokémon's petters and counts in public PDS
 records under `live.streamface.pokemonCrystalMgba.petCount`, independently of
-artwork and module settings. Verified chat-record identities prevent preview
-and OBS from double-counting. Every two minutes, Pokémon can think of their
+artwork and module settings. Previews animate petting without writing pet history; the live OBS source
+persists verified chat-record identities. Every two minutes, Pokémon can think of their
 favourite petter. Existing users must sign in again to grant the new collection
 permission. Pet history persists; current gameplay still does not.
 
@@ -335,19 +335,23 @@ Pets attribution and the unresolved upstream redistribution permission are
 documented in `THIRD_PARTY_NOTICES.md`. Do not publish the bundled Pets code or
 cloud image until that release blocker is resolved with the upstream authors.
 
-Cloud OBS sources use your account DID in `?did=`:
+Cloud modules share one transparent OBS Browser Source at `/overlay/`.
+Copy its private URL from **Your overlay** above the modules. Match the browser
+source dimensions to your stream and leave **Shutdown source when not visible**
+unchecked if the bot should keep running across scenes. The URL includes a scoped
+bot credential; do not share it.
 
-| Source                | Path               |
-| --------------------- | ------------------ |
-| Emote effects         | `/emotes/`         |
-| Emote command listing | `/emote-listings/` |
-| Chat                  | `/chat/`           |
-| Overlay Paint         | `/paint/`          |
-| Streamplace Pets      | `/pets/`           |
+Module toggles mount and unmount features in that page. Use **Overlay layout**
+to drag and resize Chat, Pokémon, Custom Modules and Pets, and to set layer order.
+Emotes and Paint fill the canvas. The Emotes command listing can be enabled in
+this editor. Save the layout to apply it to OBS; positions and sizes are relative
+to the source dimensions and are stored in the public preferences PDS record.
 
-The old `/effect/` and `/board/` paths remain working aliases for existing OBS
-sources. Published `live.streamface.emoticons.*` record IDs and existing storage
-paths remain unchanged; “Emotes” is the user-facing module name.
+Individual cloud overlay pages have been removed. Module previews use the shared
+page with `preview=1&only=<module-id>&fit=1`; these filters never change saved
+toggles. Preview Bot actions and pet-history writes are disabled. Custom HTML
+retains its sandbox and upstream Pets retains its embedded runtime. The stable
+local OBS URLs and `bun run overlay` workflow remain unchanged.
 
 Emotes has Testing, Commands, Events and Moderation tabs. Events maps teleport
 arrivals and stream starts to existing clip commands (not stickers). Each mapping
@@ -475,7 +479,7 @@ are not logged by this module.
 ## Custom Modules (cloud)
 
 Create any number of named Custom Modules. Each appears alongside the built-in
-modules with a Custom Module label, separate HTML/CSS editors and a transparent draft preview.
+modules with a Custom Module label, separate HTML/CSS/JavaScript editors and a transparent draft preview.
 Each has a saved OBS source at `/custom-module/?did=<your DID>&module=<record key>`. Set the browser source
 dimensions as needed; the overlay fills the available viewport. Use percentages,
 flex/grid layouts and relative units for responsive content. Draft changes
@@ -493,11 +497,22 @@ The first drag makes the element absolutely positioned and preserves its visible
 moving a container also moves its children. OBS supports the same interactions, but
 changes made there are temporary and are not saved to the PDS.
 
-User JavaScript, embedded pages, navigation and arbitrary external resources remain blocked.
-Templates are sanitized on every render and isolated in an opaque-origin iframe with
-only `allow-scripts` for our nonce-authorized interaction script and a Streamface-owned
-restrictive Content Security Policy. User-authored scripts cannot run. CSS cannot escape
-into the configurator. Imported Quickstart setups pass through the same boundary.
+Use the JavaScript editor for code that runs after the module's HTML is rendered.
+Existing `<script>` tags in the HTML editor, inline event handlers and
+HTTPS script URLs are supported, as are HTTPS images. JavaScript runs in both the
+draft preview and the shared overlay. Templates remain isolated in an opaque-origin
+iframe with `allow-scripts`; embedded pages and navigation remain blocked. Scripts
+can use HTTPS requests and secure WebSockets but cannot access the configurator's
+DOM or credentials. Quickstart detects JavaScript in copied Custom Modules,
+including disabled ones, and requires a trust acknowledgement before copying.
+Choose **ZIP app** to upload a built static app as one PDS blob (10 MB compressed,
+50 MB unpacked, up to 1,000 files). Include `index.html` and its assets in the ZIP;
+an enclosing `dist/` folder is also accepted. For Vite, configure `base: './'` and
+zip the build output. The existing server fetches the ZIP from the PDS and serves
+its files from a bounded memory cache; it never extracts files to disk. Relative
+imports, lazy chunks, styles, fonts and images keep their normal paths. Use hash
+routing if the app needs client-side navigation. ZIP apps use the same isolated
+iframe as code modules and always require the Quickstart trust acknowledgement.
 Each source field is limited to 50 KB. Legacy canvas dimensions are ignored and
 omitted from new saves; custom CSS is preserved.
 

@@ -1,6 +1,20 @@
 import type { CloudConfig, CloudMedia } from "./cloud-admin-types.ts";
 import { adminFetch } from "./cloud-admin-fetch.ts";
 
+/** Include disabled modules: their code can run as soon as they are enabled. */
+export function setupJavaScriptModules(config: CloudConfig): string[] {
+  function containsJavaScript(root: ParentNode): boolean {
+    return Array.from(root.querySelectorAll("*")).some((element) =>
+      element.tagName === "SCRIPT" ||
+      Array.from(element.attributes).some((attribute) => /^on/i.test(attribute.name)) ||
+      (element instanceof HTMLTemplateElement && containsJavaScript(element.content)),
+    );
+  }
+  return (config.customModules ?? [])
+    .filter((module) => module.bundle || module.javascript?.trim() || containsJavaScript(new DOMParser().parseFromString(module.html, "text/html")))
+    .map((module) => module.name);
+}
+
 /** Keep destination identity/revision and remap source command IDs after merging by name. */
 export function mergeSetup(target: CloudConfig, source: CloudConfig): CloudConfig {
   const result = structuredClone(source);
@@ -56,6 +70,7 @@ export async function copySetupMedia(config: CloudConfig, did: string): Promise<
       ),
     ),
     ...(result.customModules ?? []).flatMap((module) => module.media ?? []),
+    ...(result.customModules ?? []).flatMap((module) => module.bundle ? [module.bundle] : []),
   ];
   for (const media of mediaTargets) {
     if (!media?.blob) continue;

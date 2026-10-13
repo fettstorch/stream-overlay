@@ -1,15 +1,42 @@
 /** Trusted interaction code shared by the sandboxed preview and OBS document. */
-export function customModuleInteractions(channel: string, icons: { scale?: string; lock?: string } = {}, locks: Record<number, boolean> = {}) {
+export function customModuleInteractions(
+  channel: string,
+  icons: { scale?: string; lock?: string } = {},
+  locks: Record<number, boolean> = {},
+  options?: {
+    root: HTMLElement;
+    constrain?: boolean;
+    resolveTarget?: (event: MouseEvent) => Promise<HTMLElement | null>;
+    onSelect?: (index: number) => void;
+    onChange?: (index: number, style: string) => void;
+    onMove?: (index: number, style: string) => void;
+  },
+) {
   const controller = new AbortController();
   const listen = <K extends keyof DocumentEventMap>(
     type: K,
     handler: (event: DocumentEventMap[K]) => void,
     capture = false,
   ) =>
-    document.addEventListener(type, handler as EventListener, {
-      signal: controller.signal,
-      capture,
-    });
+    document.addEventListener(
+      type,
+      ((event: Event) => {
+        if (
+          options &&
+          !drag &&
+          !(
+            event.target instanceof Node &&
+            (options.root.contains(event.target) || controls.contains(event.target))
+          )
+        )
+          return;
+        handler(event as DocumentEventMap[K]);
+      }) as EventListener,
+      {
+        signal: controller.signal,
+        capture,
+      },
+    );
   const reportMedia = (event: Event) => {
     const element = event.target;
     if (!(element instanceof HTMLImageElement || element instanceof HTMLVideoElement)) return;
@@ -30,12 +57,14 @@ export function customModuleInteractions(channel: string, icons: { scale?: strin
   document.body.append(box);
   let hovered: HTMLElement | undefined;
   const controls = document.createElement("div");
-  controls.style.cssText = "position:fixed;display:none;gap:4px;z-index:2147483647;pointer-events:auto";
+  controls.style.cssText =
+    "position:fixed;display:none;gap:4px;z-index:2147483647;pointer-events:auto";
   const control = (name: string, icon?: string) => {
     const button = document.createElement("button");
     button.type = "button";
     button.setAttribute("aria-label", name);
-    button.style.cssText = "width:28px;height:28px;padding:3px;border:1px solid #69b5ff;border-radius:4px;background:white;cursor:pointer;touch-action:none";
+    button.style.cssText =
+      "width:28px;height:28px;padding:3px;border:1px solid #69b5ff;border-radius:4px;background:white;cursor:pointer;touch-action:none";
     if (icon) button.style.backgroundImage = `url("${icon}")`;
     button.style.backgroundSize = "contain";
     button.style.backgroundRepeat = "no-repeat";
@@ -53,17 +82,52 @@ export function customModuleInteractions(channel: string, icons: { scale?: strin
     lock.setAttribute("aria-pressed", String(locked));
     lock.title = locked ? "Aspect ratio locked" : "Aspect ratio unlocked";
   };
-  lock.addEventListener("click", () => {
-    if (!hovered) return;
-    const index = Number(hovered.dataset.sfIndex);
-    locks[index] = locks[index] === false;
-    updateLock();
-    parent.postMessage({ type: "custom-module-lock", channel, index, locked: locks[index] }, "*");
-  }, { signal: controller.signal });
-  const target = (event: MouseEvent) =>
+  lock.addEventListener(
+    "click",
+    () => {
+      if (!hovered) return;
+      const index = Number(hovered.dataset.sfIndex);
+      locks[index] = locks[index] === false;
+      updateLock();
+      if (!options)
+        parent.postMessage(
+          { type: "custom-module-lock", channel, index, locked: locks[index] },
+          "*",
+        );
+    },
+    { signal: controller.signal },
+  );
+  const nativeTarget = (event: MouseEvent) =>
     event.target instanceof HTMLElement && event.target.closest<HTMLElement>("[data-sf-index]");
+  const target = (event: MouseEvent) =>
+    options?.resolveTarget ? options.resolveTarget(event) : nativeTarget(event);
+  let hoverRequest = 0;
+  let startRequest = 0;
+  let hideTimer: ReturnType<typeof setTimeout> | undefined;
+  const cancelHide = () => {
+    clearTimeout(hideTimer);
+    hideTimer = undefined;
+  };
+  const hide = () => {
+    cancelHide();
+    hoverRequest++;
+    hovered = undefined;
+    options?.onSelect?.(-1);
+    box.style.display = "none";
+    controls.style.display = "none";
+  };
+  const scheduleHide = () => {
+    if (hideTimer === undefined && hovered) hideTimer = setTimeout(hide, 1000);
+  };
+  const retainHover = () => {
+    hoverRequest++;
+    cancelHide();
+  };
+  controls.addEventListener("pointerenter", retainHover, { signal: controller.signal });
   const outline = (element: HTMLElement) => {
+    cancelHide();
     hovered = element;
+    options?.onSelect?.(Number(element.dataset.sfIndex));
     const rect = element.getBoundingClientRect();
     Object.assign(box.style, {
       display: "block",
@@ -91,12 +155,18 @@ export function customModuleInteractions(channel: string, icons: { scale?: strin
         locked: boolean;
       }
     | undefined;
-  const move = (event: MouseEvent) => {
+  const move = async (event: MouseEvent) => {
     if (!drag) {
-      if (event.target instanceof Node && controls.contains(event.target)) return;
-      const element = target(event);
+      if (event.target instanceof Node && controls.contains(event.target)) {
+        retainHover();
+        return;
+      }
+      const request = ++hoverRequest;
+      const result = target(event);
+      const element = result instanceof Promise ? await result : result;
+      if (request !== hoverRequest || drag) return;
       if (element) outline(element);
-      else { box.style.display = "none"; controls.style.display = "none"; }
+      else scheduleHide();
       return;
     }
     const dx = event.clientX - drag.x,
@@ -117,11 +187,16 @@ export function customModuleInteractions(channel: string, icons: { scale?: strin
       height = parent.clientHeight || innerHeight;
     const percentage = (value: number, size: number, preserveSize = false) =>
       `${(preserveSize ? Math.ceil : Math.round)((value / size) * 10000) / 100}%`;
-    let nextWidth = drag.width, nextHeight = drag.height;
+    let nextWidth = drag.width,
+      nextHeight = drag.height;
     if (drag.resizing) {
       if (drag.locked) {
-        const scale = Math.max(8 / Math.max(1, drag.width), 8 / Math.max(1, drag.height),
-          1 + (dx * drag.width + dy * drag.height) / Math.max(1, drag.width ** 2 + drag.height ** 2));
+        const scale = Math.max(
+          8 / Math.max(1, drag.width),
+          8 / Math.max(1, drag.height),
+          1 +
+            (dx * drag.width + dy * drag.height) / Math.max(1, drag.width ** 2 + drag.height ** 2),
+        );
         nextWidth *= scale;
         nextHeight *= scale;
       } else {
@@ -129,29 +204,44 @@ export function customModuleInteractions(channel: string, icons: { scale?: strin
         nextHeight = Math.max(8, drag.height + dy);
       }
     }
-    element.style.setProperty(
-      "left",
-      percentage(drag.left + (drag.resizing ? 0 : dx) - rect.left - parent.clientLeft + parent.scrollLeft, width),
-      "important",
-    );
-    element.style.setProperty(
-      "top",
-      percentage(drag.top + (drag.resizing ? 0 : dy) - rect.top - parent.clientTop + parent.scrollTop, height),
-      "important",
-    );
+    let nextLeft =
+      drag.left + (drag.resizing ? 0 : dx) - rect.left - parent.clientLeft + parent.scrollLeft;
+    let nextTop =
+      drag.top + (drag.resizing ? 0 : dy) - rect.top - parent.clientTop + parent.scrollTop;
+    if (options?.constrain) {
+      if (drag.resizing && drag.locked) {
+        const limit = Math.min(1, (width - nextLeft) / nextWidth, (height - nextTop) / nextHeight);
+        nextWidth *= limit;
+        nextHeight *= limit;
+      } else {
+        nextWidth = Math.min(nextWidth, width - nextLeft);
+        nextHeight = Math.min(nextHeight, height - nextTop);
+      }
+      nextLeft = Math.max(0, Math.min(width - nextWidth, nextLeft));
+      nextTop = Math.max(0, Math.min(height - nextHeight, nextTop));
+    }
+    element.style.setProperty("left", percentage(nextLeft, width), "important");
+    element.style.setProperty("top", percentage(nextTop, height), "important");
     element.style.setProperty("width", percentage(nextWidth, width, true), "important");
     element.style.setProperty("height", percentage(nextHeight, height, true), "important");
     drag.moved = true;
+    options?.onChange?.(Number(element.dataset.sfIndex), element.getAttribute("style") ?? "");
     outline(element);
   };
   listen("pointermove", move);
   listen("mousemove", move);
-  const start = (event: MouseEvent) => {
+  const start = async (event: MouseEvent) => {
     if (drag) return;
+    cancelHide();
     const resizing = event.target instanceof Node && resize.contains(event.target);
     if (event.target instanceof Node && lock.contains(event.target)) return;
-    const element = resizing ? hovered : target(event);
-    if (!element || event.button !== 0) return;
+    if (event.button !== 0) return;
+    event.preventDefault();
+    const request = ++startRequest;
+    const result = resizing ? hovered : target(event);
+    const element = result instanceof Promise ? await result : result;
+    if (request !== startRequest || !element || (options && element.closest("[inert]"))) return;
+    outline(element);
     const rect = element.getBoundingClientRect();
     drag = {
       element,
@@ -172,7 +262,13 @@ export function customModuleInteractions(channel: string, icons: { scale?: strin
   listen("pointerdown", start);
   listen("mousedown", start);
   const finish = () => {
-    if (drag?.moved)
+    startRequest++;
+    if (drag?.moved && options)
+      options.onMove?.(
+        Number(drag.element.dataset.sfIndex),
+        drag.element.getAttribute("style") ?? "",
+      );
+    else if (drag?.moved)
       parent.postMessage(
         {
           type: "custom-module-move",
@@ -187,9 +283,15 @@ export function customModuleInteractions(channel: string, icons: { scale?: strin
   listen("pointerup", finish);
   listen("mouseup", finish);
   listen("pointercancel", finish);
-  listen("pointerleave", () => {
-    if (!drag) box.style.display = "none";
-    if (!drag) controls.style.display = "none";
+  listen("pointerleave", (event) => {
+    if (
+      !drag &&
+      !(
+        event.relatedTarget instanceof Node &&
+        (controls.contains(event.relatedTarget) || options?.root.contains(event.relatedTarget))
+      )
+    )
+      scheduleHide();
   });
   listen("dragstart", (event) => {
     if (event.target instanceof HTMLElement && event.target.closest("[data-sf-index]"))
@@ -213,11 +315,46 @@ export function customModuleInteractions(channel: string, icons: { scale?: strin
         "*",
       );
   });
-  return () => {
-    controller.abort();
-    box.remove();
-    controls.remove();
-  };
+  options?.root.addEventListener(
+    "pointerleave",
+    (event) => {
+      if (!drag && !(event.relatedTarget instanceof Node && controls.contains(event.relatedTarget)))
+        scheduleHide();
+    },
+    { signal: controller.signal },
+  );
+  controls.addEventListener(
+    "pointerleave",
+    (event) => {
+      if (
+        !drag &&
+        !(event.relatedTarget instanceof Node && options?.root.contains(event.relatedTarget))
+      )
+        scheduleHide();
+    },
+    { signal: controller.signal },
+  );
+  if (options)
+    document.addEventListener(
+      "scroll",
+      () => {
+        if (!drag) {
+          hide();
+        }
+      },
+      { capture: true, signal: controller.signal },
+    );
+  return Object.assign(
+    () => {
+      hoverRequest++;
+      startRequest++;
+      cancelHide();
+      controller.abort();
+      box.remove();
+      controls.remove();
+    },
+    { select: outline },
+  );
 }
 
 /** Change only positioning in authored HTML; never copy sandbox HTML back into the editor. */
@@ -244,5 +381,5 @@ export function moveCustomModuleElement(html: string, index: number, style: stri
     const value = next.style.getPropertyValue(property);
     if (value) target.style.setProperty(property, value, next.style.getPropertyPriority(property));
   }
-  return doc.body.innerHTML;
+  return Array.from(doc.head.querySelectorAll("script"), (script) => script.outerHTML).join("") + doc.body.innerHTML;
 }

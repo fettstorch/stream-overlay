@@ -4,6 +4,6 @@ export const botManifest = {
   id: "bot",
   name: "Bot",
   description:
-    "Map chat commands to replies from Streamface. Keep the transparent Bot browser source running in OBS.",
-  cloud: { enabledKey: "bot", pages: [{ path: "/bot/", entrypoint: "bot.html" }] },
+    "Map chat commands to replies from Streamface. Keep your shared overlay running in OBS.",
+  cloud: { enabledKey: "bot" },
 } as const satisfies ModuleManifest;

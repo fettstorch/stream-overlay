@@ -44,13 +44,16 @@ the server enforces Bot roles. Publish updated settings schemas before rollout.
 ## Custom Module
 
 `live.streamface.custommodule` contains one record per custom module with an arbitrary
-stable record key, a `name` (1–200 UTF-8 bytes), `enabled`, HTML/CSS source
-(at most 50,000 UTF-8 bytes each), and creation/update timestamps. There is no module-count
+stable record key, a `name` (1–200 UTF-8 bytes), `enabled`, HTML/CSS source,
+optional `javascript` source (at most 50,000 UTF-8 bytes each), and creation/update timestamps.
+An optional `bundle` contains a ZIP filename and an `application/zip` PDS blob
+reference (at most 10 MB); resolved download URLs are never persisted. There is no module-count
 limit in the app. Renaming preserves the record key and OBS URL.
 Optional legacy canvas width/height fields are ignored and omitted
 from new saves; the overlay fills its viewport. Source is public and untrusted;
-validation bounds storage, while each renderer sanitizes it and enforces a
-script-disabled, opaque-origin sandbox and restrictive resource policy.
+validation bounds storage, while each renderer enforces an opaque-origin sandbox.
+Authored JavaScript and ZIP apps can run scripts; Quickstart requires a trust
+acknowledgement before copying either kind of executable custom module.
 Clients preserve all records when `customModules` is omitted; an explicit empty array
 deletes them. The retired singleton collection is read as `legacy-self` / “My overlay”
 and replaced by the new record on the next authenticated save. Its old OBS URL remains

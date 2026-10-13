@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import sendIcon from "./assets/branding/controls/send.png";
 import DrawnTabs from "./DrawnTabs.vue";
 import BotRoutines from "./BotRoutines.vue";
@@ -13,10 +13,13 @@ const props = defineProps<{
   avatar?: string;
 }>();
 const avatarFailed = ref(false);
-watch(() => props.avatar, () => { avatarFailed.value = false; });
-const sourceUrl = ref(""),
-  configured = ref(false),
-  busy = ref(false),
+watch(
+  () => props.avatar,
+  () => {
+    avatarFailed.value = false;
+  },
+);
+const busy = ref(false),
   message = ref("");
 const command = ref(""),
   response = ref(""),
@@ -24,25 +27,43 @@ const command = ref(""),
   editing = ref<string>();
 const commandInput = ref<HTMLInputElement>();
 const tab = ref("commands");
-const chatText = ref(""), chatSending = ref(false), chatStatus = ref(""), chatPermissionRequired = ref(false);
+const chatText = ref(""),
+  chatSending = ref(false),
+  chatStatus = ref(""),
+  chatPermissionRequired = ref(false);
 async function sendChat() {
   if (chatSending.value || !chatText.value.trim()) return;
-  chatSending.value = true; chatStatus.value = ""; chatPermissionRequired.value = false;
+  chatSending.value = true;
+  chatStatus.value = "";
+  chatPermissionRequired.value = false;
   try {
-    const result = await adminFetch(`/api/accounts/${encodeURIComponent(props.config.streamerDid)}/chat/message`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: chatText.value }),
-    });
+    const result = await adminFetch(
+      `/api/accounts/${encodeURIComponent(props.config.streamerDid)}/chat/message`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: chatText.value }),
+      },
+    );
     const data = await result.json();
     if (!result.ok) {
       chatPermissionRequired.value = data.error === "chat-permission-required";
       throw new Error(data.message ?? "Could not send your message.");
     }
-    chatText.value = ""; chatStatus.value = "Message sent to your stream chat.";
+    chatText.value = "";
+    chatStatus.value = "Message sent to your stream chat.";
   } catch (error) {
-    chatStatus.value = error instanceof Error ? error.message : "Could not confirm sending. Check chat before retrying.";
-  } finally { chatSending.value = false; }
+    chatStatus.value =
+      error instanceof Error
+        ? error.message
+        : "Could not confirm sending. Check chat before retrying.";
+  } finally {
+    chatSending.value = false;
+  }
 }
-const chatUrl = computed(() => `https://stream.place/chat-popout/${encodeURIComponent(props.config.streamerDid)}`);
+const chatUrl = computed(
+  () => `https://stream.place/chat-popout/${encodeURIComponent(props.config.streamerDid)}`,
+);
 const tabs = [
   { id: "commands", label: "Testing" },
   { id: "create", label: "Commands" },
@@ -66,19 +87,6 @@ async function saveModeration(candidate: CloudConfig) {
     },
   });
 }
-onMounted(async () => {
-  try {
-    const result = await adminFetch(
-      `/api/accounts/${encodeURIComponent(props.config.streamerDid)}/bot/source`,
-    );
-    if (!result.ok) throw new Error();
-    const data = await result.json();
-    sourceUrl.value = data.url;
-    configured.value = data.configured;
-  } catch {
-    message.value = "Could not load the private Bot browser source URL.";
-  }
-});
 function reset() {
   command.value = "";
   response.value = "";
@@ -119,75 +127,100 @@ async function add() {
   ];
   await persist(rules);
 }
-async function copy() {
-  try {
-    await navigator.clipboard.writeText(sourceUrl.value);
-    message.value = "Private OBS URL copied.";
-  } catch {
-    message.value = "Could not copy the URL.";
-  }
-}
 </script>
 <template>
-  <section class="module-section">
-    <h4>Bot OBS URL</h4>
-    <p>
-      Keep this transparent browser source running in OBS. Any size works. Disable “Shutdown source
-      when not visible” if replies should continue when switching scenes.
-    </p>
-    <p>
-      Keep the URL private — it authorizes this stream's bot source. Rules and reply texts are
-      public PDS data.
-    </p>
-    <p v-if="!configured" role="status">
-      The server's Streamface bot account is not configured yet.
-    </p>
-    <button :disabled="!sourceUrl" @click="copy"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Copy private OBS URL</span></button>
-  </section>
+  <p>The bot runs while your shared OBS overlay is open. Use the overlay URL above.</p>
   <DrawnTabs v-model="tab" :tabs="tabs" label="Bot commands">
-    <section v-show="tab === 'commands'" :inert="tab !== 'commands' || undefined" class="module-section bot-tab-content">
+    <section
+      v-show="tab === 'commands'"
+      :inert="tab !== 'commands' || undefined"
+      class="module-section bot-tab-content"
+    >
       <div class="bot-commands-layout">
-      <div class="bot-chat">
-        <div v-if="tab === 'commands'" class="bot-chat-viewport">
-          <iframe :src="chatUrl" title="Your Streamplace chat" referrerpolicy="no-referrer" />
+        <div class="bot-chat">
+          <div v-if="tab === 'commands'" class="bot-chat-viewport">
+            <iframe :src="chatUrl" title="Your Streamplace chat" referrerpolicy="no-referrer" />
+          </div>
+          <form class="bot-chat-composer editor-fields" @submit.prevent="sendChat">
+            <div class="bot-chat-input-row">
+              <img
+                v-if="avatar && !avatarFailed"
+                class="chat-avatar"
+                :src="avatar"
+                alt="Your profile picture"
+                @error="avatarFailed = true"
+              />
+              <span
+                v-else
+                class="chat-avatar avatar-placeholder"
+                role="img"
+                aria-label="Profile picture unavailable"
+              />
+              <input
+                v-model="chatText"
+                aria-label="Chat message"
+                placeholder="Type a chat message or !command"
+                maxlength="3000"
+                required
+                :disabled="chatSending"
+              />
+              <button
+                v-if="chatText.trim()"
+                class="chat-send"
+                type="submit"
+                :disabled="chatSending"
+                :aria-label="chatSending ? 'Sending message' : 'Send message'"
+              >
+                <span class="button-press-shade" aria-hidden="true"></span
+                ><span class="button-hover-shade" aria-hidden="true"></span
+                ><img :src="sendIcon" alt="" />
+              </button>
+            </div>
+            <p v-if="chatStatus" role="status">{{ chatStatus }}</p>
+            <a
+              v-if="chatPermissionRequired"
+              :href="`/oauth/login?handle=${encodeURIComponent(config.streamerDid)}`"
+              >Authorize chat posting</a
+            >
+          </form>
+          <p v-if="!config.bot?.enabled" class="settings-hint">
+            Enable the Bot module to respond to commands here.
+          </p>
         </div>
-        <form class="bot-chat-composer editor-fields" @submit.prevent="sendChat">
-          <div class="bot-chat-input-row">
-            <img v-if="avatar && !avatarFailed" class="chat-avatar" :src="avatar" alt="Your profile picture" @error="avatarFailed = true" />
-            <span v-else class="chat-avatar avatar-placeholder" role="img" aria-label="Profile picture unavailable" />
-            <input v-model="chatText" aria-label="Chat message" placeholder="Type a chat message or !command" maxlength="3000" required :disabled="chatSending" />
-            <button v-if="chatText.trim()" class="chat-send" type="submit" :disabled="chatSending" :aria-label="chatSending ? 'Sending message' : 'Send message'">
-              <span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><img :src="sendIcon" alt="" />
-            </button>
-          </div>
-          <p v-if="chatStatus" role="status">{{ chatStatus }}</p>
-          <a v-if="chatPermissionRequired" :href="`/oauth/login?handle=${encodeURIComponent(config.streamerDid)}`">Authorize chat posting</a>
-        </form>
-        <p v-if="!config.bot?.enabled" class="settings-hint">Enable the Bot module to respond to commands here.</p>
-      </div>
-      <div>
-      <h4>Commands</h4>
-      <ul class="command-list striped-list" aria-label="Commands overview">
-        <li v-for="rule in config.bot?.rules ?? []" :key="rule.command" class="bot-rule">
-          <div><strong>!{{ rule.command }}</strong><p>{{ rule.response }}</p><small>{{ rule.cooldownSeconds }}s cooldown</small></div>
-        </li>
-      </ul>
-      <p v-if="!config.bot?.rules.length">No bot commands yet.</p>
-      <h4 class="routine-overview-heading">Routines</h4>
-      <ul class="command-list striped-list" aria-label="Routines overview">
-        <li v-for="routine in config.bot?.routines ?? []" :key="routine.id" class="bot-rule">
-          <div>
-            <strong>Every {{ routine.intervalSeconds / 60 }} {{ routine.intervalSeconds === 60 ? 'minute' : 'minutes' }}</strong>
-            <p>{{ routine.response }}</p>
-            <small>{{ routine.enabled ? 'Enabled' : 'Paused' }}</small>
-          </div>
-        </li>
-      </ul>
-      <p v-if="!config.bot?.routines?.length">No routines yet.</p>
-      </div>
+        <div>
+          <h4>Commands</h4>
+          <ul class="command-list striped-list" aria-label="Commands overview">
+            <li v-for="rule in config.bot?.rules ?? []" :key="rule.command" class="bot-rule">
+              <div>
+                <strong>!{{ rule.command }}</strong>
+                <p>{{ rule.response }}</p>
+                <small>{{ rule.cooldownSeconds }}s cooldown</small>
+              </div>
+            </li>
+          </ul>
+          <p v-if="!config.bot?.rules.length">No bot commands yet.</p>
+          <h4 class="routine-overview-heading">Routines</h4>
+          <ul class="command-list striped-list" aria-label="Routines overview">
+            <li v-for="routine in config.bot?.routines ?? []" :key="routine.id" class="bot-rule">
+              <div>
+                <strong
+                  >Every {{ routine.intervalSeconds / 60 }}
+                  {{ routine.intervalSeconds === 60 ? "minute" : "minutes" }}</strong
+                >
+                <p>{{ routine.response }}</p>
+                <small>{{ routine.enabled ? "Enabled" : "Paused" }}</small>
+              </div>
+            </li>
+          </ul>
+          <p v-if="!config.bot?.routines?.length">No routines yet.</p>
+        </div>
       </div>
     </section>
-    <section v-show="tab === 'create'" :inert="tab !== 'create' || undefined" class="module-section bot-tab-content command-management">
+    <section
+      v-show="tab === 'create'"
+      :inert="tab !== 'create' || undefined"
+      class="module-section bot-tab-content command-management"
+    >
       <ul class="command-list striped-list" aria-label="Manage commands">
         <li v-for="rule in config.bot?.rules ?? []" :key="rule.command" class="bot-rule">
           <div>
@@ -195,20 +228,32 @@ async function copy() {
             <p>{{ rule.response }}</p>
             <small>{{ rule.cooldownSeconds }}s cooldown</small>
           </div>
-          <button :disabled="busy" @click="edit(rule)"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Edit</span></button>
-          <button class="danger-button"
+          <button :disabled="busy" @click="edit(rule)">
+            <span class="button-press-shade" aria-hidden="true"></span
+            ><span class="button-hover-shade" aria-hidden="true"></span
+            ><span class="button-content">Edit</span>
+          </button>
+          <button
+            class="danger-button"
             :disabled="busy"
             @click="
               persist((config.bot?.rules ?? []).filter((item) => item.command !== rule.command))
             "
-          ><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">
-            Remove
-          </span></button>
+          >
+            <span class="button-press-shade" aria-hidden="true"></span
+            ><span class="button-hover-shade" aria-hidden="true"></span
+            ><span class="button-content"> Remove </span>
+          </button>
         </li>
       </ul>
       <p v-if="!config.bot?.rules.length">No bot commands yet.</p>
     </section>
-    <form v-show="tab === 'create'" :inert="tab !== 'create' || undefined" class="module-section bot-tab-content editor-fields" @submit.prevent="add">
+    <form
+      v-show="tab === 'create'"
+      :inert="tab !== 'create' || undefined"
+      class="module-section bot-tab-content editor-fields"
+      @submit.prevent="add"
+    >
       <h4 v-if="editing">Edit command</h4>
       <label
         >Command<input
@@ -240,8 +285,16 @@ async function copy() {
       <p>
         The cooldown is shared by everyone using this command. Streamface ignores its own messages.
       </p>
-      <button class="success-button" type="submit" :disabled="busy"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">{{ busy ? "Saving…" : "Save command" }}</span></button>
-      <button class="danger-button" type="button" :disabled="busy" @click="reset"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Cancel</span></button>
+      <button class="success-button" type="submit" :disabled="busy">
+        <span class="button-press-shade" aria-hidden="true"></span
+        ><span class="button-hover-shade" aria-hidden="true"></span
+        ><span class="button-content">{{ busy ? "Saving…" : "Save command" }}</span>
+      </button>
+      <button class="danger-button" type="button" :disabled="busy" @click="reset">
+        <span class="button-press-shade" aria-hidden="true"></span
+        ><span class="button-hover-shade" aria-hidden="true"></span
+        ><span class="button-content">Cancel</span>
+      </button>
     </form>
     <EmoticonModeration
       v-if="tab === 'moderation'"
@@ -252,8 +305,7 @@ async function copy() {
     />
     <BotRoutines v-if="tab === 'routines'" :config="config" :save="save" />
   </DrawnTabs>
-  <iframe v-if="sourceUrl && configured && config.bot?.enabled"
-    :src="sourceUrl" title="Bot chat listener" hidden aria-hidden="true" tabindex="-1" referrerpolicy="no-referrer" />
+
   <p v-if="message" role="status">{{ message }}</p>
 </template>
 <style scoped>
@@ -261,23 +313,76 @@ async function copy() {
   margin: 0;
   padding: 0;
 }
-.command-management { margin-bottom: 24px; }
-.routine-overview-heading { margin-top: 24px; }
-.bot-commands-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
-.bot-chat { min-width: 0; }
-.bot-chat-viewport { height: 480px; overflow: hidden; }
+.command-management {
+  margin-bottom: 24px;
+}
+.routine-overview-heading {
+  margin-top: 24px;
+}
+.bot-commands-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+}
+.bot-chat {
+  min-width: 0;
+}
+.bot-chat-viewport {
+  height: 480px;
+  overflow: hidden;
+}
 /* Keep Streamplace's bottom sign-in/composer area outside our visible viewport. */
-.bot-chat-viewport > iframe { display: block; width: 100%; height: calc(100% + 64px); border: 0; background: white; }
-.bot-chat > iframe[hidden] { display: none; }
-.bot-chat .settings-hint { margin-top: 12px; }
-.bot-chat-composer { display: grid; gap: 10px; margin-top: 12px; }
-.bot-chat-input-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.chat-avatar { width: 40px; height: 40px; flex: 0 0 40px; border-radius: 50%; object-fit: cover; }
-.bot-chat-input-row > input { flex: 1; min-width: 0; }
-#app .chat-send { flex: 0 0 44px; width: 44px; height: 44px; padding: 9px; }
-.chat-send img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.bot-chat-viewport > iframe {
+  display: block;
+  width: 100%;
+  height: calc(100% + 64px);
+  border: 0;
+  background: white;
+}
+.bot-chat > iframe[hidden] {
+  display: none;
+}
+.bot-chat .settings-hint {
+  margin-top: 12px;
+}
+.bot-chat-composer {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+.bot-chat-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.chat-avatar {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.bot-chat-input-row > input {
+  flex: 1;
+  min-width: 0;
+}
+#app .chat-send {
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  padding: 9px;
+}
+.chat-send img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
 @media (min-width: 900px) {
-  .bot-commands-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .bot-commands-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
 }
 #app .bot-tab-content::before {
   display: none;

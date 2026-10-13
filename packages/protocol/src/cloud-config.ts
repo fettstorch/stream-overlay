@@ -18,5 +18,9 @@ export type CloudConfig = CloudModuleSettings & {
   moderation?: EmoticonModerationRule[];
   roles?: import("../../../modules/emoticons/src/roles.ts").CommandRoles;
   revision: string;
-  preferences?: { confirmDeletion: boolean; vimControls?: boolean };
+  preferences?: {
+    confirmDeletion: boolean;
+    vimControls?: boolean;
+    overlayLayout?: import("./overlay-layout.ts").OverlayLayout;
+  };
 };

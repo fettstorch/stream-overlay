@@ -7,22 +7,26 @@ import { defaultCustomModuleSettings } from "../../../modules/custom-module/src/
 import { mergeSetup } from "../src/setup-import.ts";
 import { EditorView } from "@codemirror/view";
 import { getCM, Vim } from "@replit/codemirror-vim";
+import { JSDOM } from "jsdom";
 
-test("untrusted HTML cannot add executable or navigable content to the sandbox", () => {
+test("authored scripts and handlers are allowed while navigation and embeds stay sandboxed", () => {
   const html = `<div id="room" style="color:red">Hello</div><script>alert(1)</script><img src="https://evil.test/track" onerror="alert(1)"><iframe srcdoc="<script>alert(1)</script>"></iframe><svg onload="alert(1)"><script>alert(1)</script></svg><form action="https://evil.test"><input autofocus></form><a href="javascript:alert(1)">Link</a><meta http-equiv="refresh" content="0;url=https://evil.test"><base href="https://evil.test"><object data="https://evil.test"></object><style>@import 'https://evil.test';</style>`;
   const output = customModuleDocument({ ...defaultCustomModuleSettings, html });
   const doc = new DOMParser().parseFromString(output, "text/html");
   expect(doc.querySelector("div")?.textContent).toBe("Hello");
   expect(doc.querySelector("div")?.getAttribute("style")).toBe("color:red");
   expect(
-    doc.querySelectorAll("script:not([nonce]), iframe, svg, form, input, a, base, object"),
+    doc.querySelectorAll("iframe, svg, form, input, a, base, object"),
   ).toHaveLength(0);
-  expect(doc.querySelectorAll("script[nonce]")).toHaveLength(1);
-  expect(doc.querySelector("script")!.textContent).not.toContain("alert(1)");
-  expect(doc.querySelectorAll("[onerror], [onload], [src], [href]")).toHaveLength(0);
+  expect(doc.querySelectorAll("script")).toHaveLength(2);
+  expect(doc.querySelector("script")!.textContent).toBe("alert(1)");
+  expect(doc.querySelector("img")?.getAttribute("onerror")).toBe("alert(1)");
+  expect(doc.querySelectorAll("[href]")).toHaveLength(0);
+  expect(doc.querySelector("img")?.getAttribute("src")).toBe("https://evil.test/track");
+  expect(doc.querySelector("meta[http-equiv]")?.getAttribute("content")).toContain("img-src data: blob: https:");
   expect(doc.querySelectorAll("meta[http-equiv]")).toHaveLength(1);
   expect(doc.querySelector("meta[http-equiv]")?.getAttribute("content")).toContain(
-    `script-src 'nonce-${doc.querySelector("script")!.getAttribute("nonce")}'`,
+    "script-src 'unsafe-inline' https:",
   );
 });
 
@@ -34,9 +38,24 @@ test("CSS cannot break out of the style element or replace the resource policy",
   expect(doc.querySelector("script")!.textContent).not.toContain("alert(1)");
   expect(doc.querySelectorAll("meta[http-equiv]")).toHaveLength(1);
   expect(customModulePolicy).toContain("default-src 'none'");
-  expect(customModulePolicy).toContain("script-src 'none'");
-  expect(customModulePolicy).toContain("connect-src 'none'");
-  expect(customModulePolicy).not.toContain("https:");
+  expect(customModulePolicy).toContain("script-src 'unsafe-inline' https:");
+  expect(customModulePolicy).toContain("connect-src https: wss:");
+  expect(customModulePolicy).toContain("frame-src 'none'");
+});
+
+test("inline JavaScript and event handlers execute in the generated overlay document", () => {
+  const html = `<script>window.initialValue = 41;</script><button onclick="this.textContent = window.initialValue + 1">Run</button><script src="https://cdn.example/overlay.js" defer></script>`;
+  const output = customModuleDocument({ ...defaultCustomModuleSettings, html });
+  const runtime = new JSDOM(output, { runScripts: "dangerously" });
+  try {
+    const button = runtime.window.document.querySelector("button")!;
+    button.click();
+    expect(button.textContent).toBe("42");
+    expect(runtime.window.document.querySelector('script[src]')?.getAttribute("src")).toBe("https://cdn.example/overlay.js");
+    expect(runtime.window.document.querySelector('script[src]')?.hasAttribute("defer")).toBe(true);
+  } finally {
+    runtime.window.close();
+  }
 });
 
 test("preview always has a restrictive sandbox and never renders content into the app DOM", () => {
@@ -79,7 +98,7 @@ test("draft editing previews immediately, saves explicitly, and discard restores
   expect(save).toHaveBeenCalledWith({
     ...config,
     customModules: [
-      { ...defaultCustomModuleSettings, id: "one", name: "Score", html: "<h1>Draft</h1>" },
+      { ...defaultCustomModuleSettings, id: "one", name: "Score", html: "<h1>Draft</h1>", javascript: "" },
     ],
   });
   await wrapper
@@ -90,7 +109,7 @@ test("draft editing previews immediately, saves explicitly, and discard restores
   wrapper.unmount();
 });
 
-test("Vim write in either source saves the current module's complete draft", async () => {
+test("Vim write in each source saves the current module's complete draft", async () => {
   const config = {
     enabled: true,
     streamerDid: "did:plc:alice",
@@ -118,29 +137,45 @@ test("Vim write in either source saves the current module's complete draft", asy
   const cssEditor = EditorView.findFromDOM(
     wrapper.get('[aria-label="Custom Module CSS"]').element as HTMLElement,
   )!;
+  const javascriptEditor = EditorView.findFromDOM(
+    wrapper.get('[aria-label="Custom Module JavaScript"]').element as HTMLElement,
+  )!;
   htmlEditor.dispatch({
     changes: { from: 0, to: htmlEditor.state.doc.length, insert: "<h1>Saved</h1>" },
   });
   cssEditor.dispatch({
     changes: { from: 0, to: cssEditor.state.doc.length, insert: "h1 { color: red; }" },
   });
-  for (const editor of [htmlEditor, cssEditor]) {
+  const javascript = 'document.querySelector("h1").textContent = "Updated";';
+  javascriptEditor.dispatch({ changes: { from: 0, to: javascriptEditor.state.doc.length, insert: javascript } });
+  await flushPromises();
+  expect(wrapper.get("iframe").attributes("srcdoc").includes("Updated")).toBe(true);
+  for (const [index, editor] of [htmlEditor, cssEditor, javascriptEditor].entries()) {
     Vim.handleEx(getCM(editor)!, "w");
-    expect(save).toHaveBeenCalledTimes(editor === htmlEditor ? 1 : 2);
+    expect(save).toHaveBeenCalledTimes(index + 1);
     expect(save).toHaveBeenLastCalledWith({
       ...config,
       customModules: [
-        { ...config.customModules[0], html: "<h1>Saved</h1>", css: "h1 { color: red; }" },
+        { ...config.customModules[0], html: "<h1>Saved</h1>", css: "h1 { color: red; }", javascript },
         config.customModules[1],
       ],
     });
     Vim.handleEx(getCM(editor)!, "w");
-    expect(save).toHaveBeenCalledTimes(editor === htmlEditor ? 1 : 2);
+    expect(save).toHaveBeenCalledTimes(index + 1);
     finishSave(true);
     await flushPromises();
     expect(wrapper.get('[role="status"]').text()).toContain("Custom Module saved");
   }
   wrapper.unmount();
+});
+
+test("the JavaScript field runs after HTML and preserves closing script strings", () => {
+  const output = customModuleDocument({ ...defaultCustomModuleSettings, html: '<p id="result"></p>', javascript: 'document.querySelector("#result").textContent = "</script><p>still a string</p>";' });
+  const runtime = new JSDOM(output, { runScripts: "dangerously" });
+  try {
+    expect(runtime.window.document.querySelector("#result")?.textContent).toBe("</script><p>still a string</p>");
+    expect(runtime.window.document.querySelectorAll("p")).toHaveLength(1);
+  } finally { runtime.window.close(); }
 });
 
 test("copied Custom Module source is isolated again at render time", () => {
@@ -161,7 +196,7 @@ test("copied Custom Module source is isolated again at render time", () => {
   expect(imported.customModules?.[0].html).toContain("script");
   expect(imported.customModules?.[0].id).not.toBe("one");
   const rendered = customModuleDocument(imported.customModules![0]);
-  expect(rendered).not.toContain("alert(1)");
+  expect(rendered).toContain("alert(1)");
   expect(rendered).toContain("Copied");
 });
 

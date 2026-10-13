@@ -4,5 +4,5 @@ export const chatManifest = {
   id: "chat",
   name: "Chat",
   description: "Live chat with avatars, appearance controls and message decay.",
-  cloud: { enabledKey: "chat", pages: [{ path: "/chat/", entrypoint: "chat.html" }] },
+  cloud: { enabledKey: "chat" },
 } as const satisfies ModuleManifest;

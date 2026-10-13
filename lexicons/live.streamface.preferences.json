@@ -10,10 +10,66 @@
         "type": "object",
         "required": ["confirmDeletion", "createdAt", "updatedAt"],
         "properties": {
-          "confirmDeletion": { "type": "boolean" },
-          "vimControls": { "type": "boolean" },
-          "createdAt": { "type": "string", "format": "datetime" },
-          "updatedAt": { "type": "string", "format": "datetime" }
+          "confirmDeletion": {
+            "type": "boolean"
+          },
+          "vimControls": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "datetime"
+          },
+          "overlayLayout": {
+            "type": "array",
+            "maxLength": 100,
+            "items": {
+              "type": "ref",
+              "ref": "#placement"
+            }
+          }
+        }
+      }
+    },
+    "placement": {
+      "type": "object",
+      "required": ["id", "x", "y", "width", "height", "order"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "x": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "y": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 10000
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 10000
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "hidden": {
+          "type": "boolean"
         }
       }
     }

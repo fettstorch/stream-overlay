@@ -1,6 +1,6 @@
 /* Keep the supplied ink frame as a nine-slice decorative layer. Icon-only
    controls and actor-search results retain their purpose-specific styling. */
-#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button)) {
+#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .open-url-button, .info-button, .profile-retry, .actor-suggestions button)) {
   position: relative;
   isolation: isolate;
   border: 0;
@@ -13,7 +13,7 @@
   font-weight: 650;
   cursor: pointer;
 }
-#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button))::before {
+#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .open-url-button, .info-button, .profile-retry, .actor-suggestions button))::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -24,8 +24,8 @@
   --artwork-shadow: drop-shadow(0 3px 2.5px rgba(0, 0, 0, .22));
   filter: var(--artwork-shadow);
 }
-#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button))::after,
-#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button)) > :is(.button-press-shade, .button-hover-shade) {
+#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .open-url-button, .info-button, .profile-retry, .actor-suggestions button))::after,
+#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .open-url-button, .info-button, .profile-retry, .actor-suggestions button)) > :is(.button-press-shade, .button-hover-shade) {
   content: "";
   position: absolute;
   inset: 0;
@@ -35,13 +35,13 @@
   opacity: 0;
   transition: opacity 180ms ease;
 }
-#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button))::after {
+#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .open-url-button, .info-button, .profile-retry, .actor-suggestions button))::after {
   filter: url("#button-curved-light");
   opacity: .65;
   /* A localized specular glint, not a continuous illuminated outline. */
   mask-image: radial-gradient(ellipse 55% 75% at 88% 12%, #000 0 25%, transparent 75%);
 }
-#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button)) > .button-press-shade {
+#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .open-url-button, .info-button, .profile-retry, .actor-suggestions button)) > .button-press-shade {
   filter: url("#button-curved-dark");
   transform: none;
 }
@@ -60,11 +60,11 @@
   mask-border: url("./assets/branding/button-interior-mask.svg") 260 280 fill / 12px / 0 stretch;
 }
 #app button:active:not(:disabled) > .button-hover-shade { opacity: 0; }
-#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button)):active:not(:disabled)::before {
+#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .open-url-button, .info-button, .profile-retry, .actor-suggestions button)):active:not(:disabled)::before {
   --artwork-shadow: drop-shadow(0 1px 1px rgba(0, 0, 0, .18));
 }
-#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button)):active:not(:disabled) > .button-press-shade { opacity: .4; }
-#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button)):active:not(:disabled)::after {
+#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .open-url-button, .info-button, .profile-retry, .actor-suggestions button)):active:not(:disabled) > .button-press-shade { opacity: .4; }
+#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .open-url-button, .info-button, .profile-retry, .actor-suggestions button)):active:not(:disabled)::after {
   opacity: 0;
   animation: button-light-release 180ms ease-out both;
 }
@@ -73,17 +73,17 @@
   65% { opacity: 0; }
   to { opacity: 0; filter: url("#button-curved-light") blur(1px); }
 }
-#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button)) > :not(.button-press-shade, .button-hover-shade) {
+#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .open-url-button, .info-button, .profile-retry, .actor-suggestions button)) > :not(.button-press-shade, .button-hover-shade) {
   transition: transform 100ms ease;
   transform-origin: center;
 }
 #app button .button-content { display: inline-block; }
-#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button)):active:not(:disabled) > :not(.button-press-shade, .button-hover-shade) {
+#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .open-url-button, .info-button, .profile-retry, .actor-suggestions button)):active:not(:disabled) > :not(.button-press-shade, .button-hover-shade) {
   transform: translate(-1px, 1px) scale(.97);
 }
 #app button[data-save-state="saved"] { color: #19733b; opacity: 1; }
 html[data-theme="dark"] #app button[data-save-state="saved"] { color: #70e7a1; }
-#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button)):focus-visible {
+#app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .open-url-button, .info-button, .profile-retry, .actor-suggestions button)):focus-visible {
   outline: 3px solid #526baf;
   outline-offset: 3px;
 }
@@ -94,19 +94,19 @@ html[data-theme="dark"] #app button[data-save-state="saved"] { color: #70e7a1; }
 #app button.atproto-button { --button-artwork: url("./assets/branding/button-frame-blue.svg"); }
 #app button.danger-button { --button-artwork: url("./assets/branding/button-frame-red.svg"); }
 #app button.success-button { --button-artwork: url("./assets/branding/button-frame-green.svg"); }
-html[data-theme] #app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button))::before {
+html[data-theme] #app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .open-url-button, .info-button, .profile-retry, .actor-suggestions button))::before {
   filter: var(--artwork-shadow);
 }
-html[data-theme] #app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button)) {
+html[data-theme] #app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .open-url-button, .info-button, .profile-retry, .actor-suggestions button)) {
   color: #171717;
 }
 /* Match the Pokémon badge's warm yellow in dark mode without changing
    the supplied ink frame, lighting or semantic action-button colors. */
-html[data-theme="dark"] #app button:not(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button, .atproto-button, .danger-button, .success-button, .module-badge),
-html[data-theme="dark"] #app button:not(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button, .atproto-button, .danger-button, .success-button, .module-badge) .button-content {
+html[data-theme="dark"] #app button:not(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .open-url-button, .info-button, .profile-retry, .actor-suggestions button, .atproto-button, .danger-button, .success-button, .module-badge),
+html[data-theme="dark"] #app button:not(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .open-url-button, .info-button, .profile-retry, .actor-suggestions button, .atproto-button, .danger-button, .success-button, .module-badge) .button-content {
   color: #fff;
 }
-html[data-theme="dark"] #app button:not(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button, .atproto-button, .danger-button, .success-button, .module-badge)::before {
+html[data-theme="dark"] #app button:not(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .open-url-button, .info-button, .profile-retry, .actor-suggestions button, .atproto-button, .danger-button, .success-button, .module-badge)::before {
   filter: url("#button-warm-yellow") var(--artwork-shadow);
 }
 html[data-theme] #app button:is(.atproto-button, .danger-button, .success-button),
@@ -122,5 +122,5 @@ html[data-theme] #app button:is(.atproto-button, .danger-button, .success-button
   #app button, #app button::before, #app button::after { transition: none; }
   #app button::after { animation: none !important; }
   #app button > * { transition: none; }
-  #app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .info-button, .profile-retry, .actor-suggestions button)):active:not(:disabled) > * { transform: none; }
+  #app button:not(:where(.drawn-tab, .module-icon-button, .collapsible-toggle, .copy-button, .open-url-button, .info-button, .profile-retry, .actor-suggestions button)):active:not(:disabled) > * { transform: none; }
 }

@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { mergeSetup, copySetupMedia } from "../src/setup-import.ts";
+import { mergeSetup, copySetupMedia, setupJavaScriptModules } from "../src/setup-import.ts";
 import type { CloudConfig } from "../src/cloud-admin-types.ts";
 import { mount, flushPromises } from "@vue/test-utils";
 import SetupImport from "../src/SetupImport.vue";
@@ -14,6 +14,42 @@ const source: CloudConfig = { enabled: true, streamerDid: "did:plc:source", revi
   moderation: [{ did: "did:plc:blocked", blocked: true, cooldownSeconds: 0 }],
   bot: { enabled: true, rules: [{ command: "wave", response: "New", cooldownSeconds: 10 }], routines: [{ id: "same", response: "New", intervalSeconds: 300, enabled: true }] } };
 afterEach(() => vi.unstubAllGlobals());
+test("detects scripts and event handlers, including disabled modules and template content", () => {
+  const module = { id: "one", name: "Test", enabled: false, html: "", css: "" };
+  for (const html of ['<script>run()</script>', '<SCRIPT SRC="https://example.test/code.js"></SCRIPT>', '<img ONLOAD="run()">', '<template><button onclick="run()">Go</button></template>']) {
+    expect(setupJavaScriptModules({ ...source, customModules: [{ ...module, html }] })).toEqual(["Test"]);
+  }
+  expect(setupJavaScriptModules({ ...source, customModules: [{ ...module, html: '<p>JavaScript tutorial: &lt;script&gt;</p><!-- <script> -->', css: 'p { color: red; }' }] })).toEqual([]);
+  expect(setupJavaScriptModules({ ...source, customModules: [{ ...module, javascript: "window.scene = true;" }] })).toEqual(["Test"]);
+  expect(setupJavaScriptModules({ ...source, customModules: [{ ...module, javascript: " \n" }] })).toEqual([]);
+  expect(setupJavaScriptModules({ ...source, customModules: [{ ...module, bundle: { name: "app.zip", blob: { $type: "blob", ref: { $link: "bafyzip" }, mimeType: "application/zip", size: 100 } } }] })).toEqual(["Test"]);
+});
+
+test("JavaScript imports require trust before copying and reset trust on another review", async () => {
+  const javascriptSource = { ...source, customModules: [{ id: "script", name: "Animated scene", enabled: false, html: '<p>Scene</p>', css: "", javascript: 'window.scene = true;' }] };
+  const fetch = vi.fn(async () => Response.json(javascriptSource));
+  vi.stubGlobal("fetch", fetch);
+  const save = vi.fn(async () => true);
+  const wrapper = mount(SetupImport, { props: { did: target.streamerDid, config: target, save } });
+  await wrapper.get('button').trigger('click'); await flushPromises();
+  expect(wrapper.get('[role="alert"]').text()).toContain("Only continue if you trust @fettstorch.dev");
+  expect(wrapper.get('[role="alert"]').text()).toContain("Animated scene");
+  const confirm = () => wrapper.findAll('button').find(button => button.text() === "Confirm import")!;
+  expect(confirm().attributes('disabled')).toBeDefined();
+  await confirm().trigger('click'); await flushPromises();
+  expect(save).not.toHaveBeenCalled();
+  expect(fetch).toHaveBeenCalledOnce();
+  await wrapper.get('input[type="checkbox"]').setValue(true);
+  expect(confirm().attributes('disabled')).toBeUndefined();
+  await wrapper.get('button').trigger('click'); await flushPromises();
+  expect((wrapper.get('input[type="checkbox"]').element as HTMLInputElement).checked).toBe(false);
+  expect(confirm().attributes('disabled')).toBeDefined();
+  await wrapper.get('input[type="checkbox"]').setValue(true);
+  await confirm().trigger('click'); await flushPromises();
+  expect(save).toHaveBeenCalledOnce();
+  expect(save.mock.calls[0]?.[0].customModules?.[0].javascript).toBe("window.scene = true;");
+  wrapper.unmount();
+});
 test("imports settings, replaces collisions, preserves unrelated commands and destination identity", () => {
   const merged = mergeSetup(target, source);
   expect(merged.streamerDid).toBe(target.streamerDid);
@@ -40,14 +76,15 @@ test("copies shared uploaded media once and preserves URLs and Giphy IDs", async
   vi.stubGlobal("fetch", fetch);
   const config = { ...source, commands: [{ ...command, image: { blob, url: "https://pds.example/blob" } },
     { ...command, id: "second", image: { blob, url: "https://pds.example/blob" }, video: { url: "https://example.test/a.mp4" } },
-    { ...command, id: "gif", image: { giphyId: "abc" } }], customModules: [{ id: "module", name: "Module", enabled: false, html: '<img src="streamface-media:pic">', css: "", media: [{ id: "pic", blob, url: "https://pds.example/blob" }] }] };
+    { ...command, id: "gif", image: { giphyId: "abc" } }], customModules: [{ id: "module", name: "Module", enabled: false, html: '<img src="streamface-media:pic">', css: "", media: [{ id: "pic", blob, url: "https://pds.example/blob" }], bundle: { name: "app.zip", blob: { ...blob, mimeType: "application/zip" }, url: "https://pds.example/app.zip" } }] };
   const copied = await copySetupMedia(config, target.streamerDid);
-  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(fetch).toHaveBeenCalledTimes(4);
   expect(copied.commands[0].image).toEqual({ blob: newBlob });
   expect(copied.commands[1].image).toEqual({ blob: newBlob });
   expect(copied.commands[1].video).toEqual(config.commands[1].video);
   expect(copied.commands[2].image).toEqual({ giphyId: "abc" });
   expect(copied.customModules?.[0].media).toEqual([{ id: "pic", blob: newBlob }]);
+  expect(copied.customModules?.[0].bundle).toEqual({ name: "app.zip", blob: newBlob });
   expect(config.commands[0].image?.blob?.ref.$link).toBe("sourcecid");
 });
 test("failed media copies never return a candidate containing foreign blob references", async () => {

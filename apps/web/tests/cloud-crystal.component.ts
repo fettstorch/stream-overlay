@@ -1,5 +1,10 @@
 import { afterEach, expect, test, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
+import {
+  createSharedOverlayRuntime,
+  overlayRuntimeKey,
+  type SharedOverlayRuntime,
+} from "../src/shared-overlay-runtime.ts";
 import Overlay from "../src/CloudCrystalOverlay.vue";
 import Controls from "../src/CloudCrystalControls.vue";
 import ChatTest from "../src/CrystalChatTest.vue";
@@ -8,7 +13,10 @@ import DeleteConfirmation from "../src/DeleteConfirmation.vue";
 import placeholder from "../../../assets/unknown-pokemon.svg";
 const chat = vi.hoisted(() => ({ receive: undefined as any }));
 vi.mock("../src/actor-search.ts", () => ({
-  loadPublicActorProfile: vi.fn(async (did: string) => ({ did, avatar: "https://example.test/avatar.png" })),
+  loadPublicActorProfile: vi.fn(async (did: string) => ({
+    did,
+    avatar: "https://example.test/avatar.png",
+  })),
 }));
 const giphy = vi.hoisted(() => ({
   searchGiphy: vi.fn(async () => [
@@ -39,7 +47,8 @@ vi.mock("@streamface/browser-runtime", () => ({
     close = relay.close;
   },
 }));
-vi.mock("@streamface/stream-chat", () => ({
+vi.mock("@streamface/stream-chat", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@streamface/stream-chat")>()),
   DirectStreamChatService: class {
     messages = {
       subscribe: (receive: any) => {
@@ -51,9 +60,21 @@ vi.mock("@streamface/stream-chat", () => ({
     stop() {}
   },
 }));
+let host: SharedOverlayRuntime | undefined;
+function mountOverlay() {
+  const params = new URLSearchParams(location.search);
+  host = createSharedOverlayRuntime(
+    params.get("did") ?? "did:plc:a",
+    params.get("preview") === "1",
+    ["pokemon-crystal-mgba"],
+  );
+  return mount(Overlay, { global: { provide: { [overlayRuntimeKey as symbol]: host } } });
+}
 let wrapper: ReturnType<typeof mount> | undefined;
 afterEach(() => {
   wrapper?.unmount();
+  host?.close();
+  host = undefined;
   wrapper = undefined;
   vi.useRealTimers();
   vi.unstubAllGlobals();
@@ -85,10 +106,14 @@ test("Crystal overlay receives rapid HP updates, refreshes artwork, and clears s
     "fetch",
     vi.fn(async () => Response.json({ pokemonCrystalMgbaMedia: media })),
   );
-  wrapper = mount(Overlay);
+  wrapper = mountOverlay();
   await flushPromises();
   expect(relay.hello).toHaveBeenCalledWith(
-    expect.objectContaining({ page: "pokemon-crystal-mgba", channel: "preview" }),
+    expect.objectContaining({
+      page: "overlay",
+      modules: ["pokemon-crystal-mgba"],
+      channel: "preview",
+    }),
   );
   expect(wrapper.find(".crystal-cloud-overlay").exists()).toBe(false);
   relay.receive({ type: "pokemon-crystal-mgba", snapshot: snapshot(20) });
@@ -112,8 +137,11 @@ test("Crystal overlay receives rapid HP updates, refreshes artwork, and clears s
 });
 test("Crystal overlay stays empty and ignores chat while disabled", async () => {
   history.replaceState({}, "", "/pokemon-crystal-mgba/?did=did:plc:a&preview=1");
-  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ pokemonCrystalMgbaEnabled: false })));
-  wrapper = mount(Overlay);
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => Response.json({ pokemonCrystalMgbaEnabled: false })),
+  );
+  wrapper = mountOverlay();
   await flushPromises();
   relay.receive({ type: "pokemon-crystal-mgba", snapshot: snapshot(20) });
   chat.receive({ text: "!pet PIKA", author: { did: "did:plc:b" } });
@@ -123,9 +151,14 @@ test("Crystal overlay stays empty and ignores chat while disabled", async () => 
 test("Crystal waits for configuration and remains disabled when loading fails", async () => {
   history.replaceState({}, "", "/pokemon-crystal-mgba/?did=did:plc:a&preview=1");
   let resolve!: (response: Response) => void;
-  const fetchMock = vi.fn(() => new Promise<Response>(done => { resolve = done; }));
+  const fetchMock = vi.fn(
+    () =>
+      new Promise<Response>((done) => {
+        resolve = done;
+      }),
+  );
   vi.stubGlobal("fetch", fetchMock);
-  wrapper = mount(Overlay);
+  wrapper = mountOverlay();
   relay.receive({ type: "pokemon-crystal-mgba", snapshot: snapshot(20) });
   chat.receive({ text: "!pet PIKA", author: { did: "did:plc:b" } });
   await flushPromises();
@@ -140,8 +173,16 @@ test("Crystal waits for configuration and remains disabled when loading fails", 
 test("an older config response cannot reactivate Crystal after disabling", async () => {
   history.replaceState({}, "", "/pokemon-crystal-mgba/?did=did:plc:a&preview=1");
   const requests: ((response: Response) => void)[] = [];
-  vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(resolve => { requests.push(resolve); })));
-  wrapper = mount(Overlay);
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          requests.push(resolve);
+        }),
+    ),
+  );
+  wrapper = mountOverlay();
   requests[0]!(Response.json({ pokemonCrystalMgbaEnabled: true }));
   await flushPromises();
   relay.receive({ type: "pokemon-crystal-mgba", snapshot: snapshot(20) });
@@ -197,15 +238,25 @@ test("Crystal controls save only artwork mappings and restore defaults", async (
 });
 test("live party artwork selects the species automatically and clears stale party data", async () => {
   vi.useFakeTimers();
-  wrapper = mount(Controls, { props: { panel: "artwork", config: { streamerDid: "did:plc:a", enabled: true, commands: [] }, save: vi.fn(async () => true) } });
+  wrapper = mount(Controls, {
+    props: {
+      panel: "artwork",
+      config: { streamerDid: "did:plc:a", enabled: true, commands: [] },
+      save: vi.fn(async () => true),
+    },
+  });
   relay.receive({ type: "pokemon-crystal-mgba", snapshot: snapshot(20) });
   await flushPromises();
   expect(wrapper.get(".party-artwork-card").text()).toContain("PIKA");
   expect(wrapper.get(".party-artwork-card img").attributes("src")).toBe(placeholder);
-  expect(wrapper.get('input[type="number"]').element.parentElement!.parentElement!.style.display).toBe("none");
+  expect(
+    wrapper.get('input[type="number"]').element.parentElement!.parentElement!.style.display,
+  ).toBe("none");
   await wrapper.get(".party-artwork-card button").trigger("click");
   expect((wrapper.get('input[type="number"]').element as HTMLInputElement).value).toBe("25");
-  expect(wrapper.get('input[type="number"]').element.parentElement!.parentElement!.style.display).not.toBe("none");
+  expect(
+    wrapper.get('input[type="number"]').element.parentElement!.parentElement!.style.display,
+  ).not.toBe("none");
   await vi.advanceTimersByTimeAsync(10001);
   expect(wrapper.find(".party-artwork-card").exists()).toBe(false);
 });
@@ -240,11 +291,9 @@ test("Crystal artwork searches stickers, applies direct media and accepts file d
       pokemonCrystalMgbaMedia: [{ number: 25, url: "https://example.test/pikachu.gif" }],
     }),
   );
-  await wrapper
-    .get(".artwork-drop")
-    .trigger("drop", {
-      dataTransfer: { files: [new File(["GIF8"], "pika.gif", { type: "image/gif" })] },
-    });
+  await wrapper.get(".artwork-drop").trigger("drop", {
+    dataTransfer: { files: [new File(["GIF8"], "pika.gif", { type: "image/gif" })] },
+  });
   await flushPromises();
   expect(save).toHaveBeenLastCalledWith(
     expect.objectContaining({ pokemonCrystalMgbaMedia: [{ number: 25, blob }] }),
@@ -252,14 +301,32 @@ test("Crystal artwork searches stickers, applies direct media and accepts file d
 });
 test("sticker batches advance and a new query resets pagination", async () => {
   vi.useFakeTimers();
-  vi.stubGlobal("fetch", vi.fn(async () => Response.json({})));
-  giphy.searchGiphy.mockResolvedValueOnce(Array.from({ length: 18 }, (_, index) => ({ id: String(index), title: "Sticker", preview: "https://example.test/preview.gif", url: "https://example.test/sticker.gif" })));
-  wrapper = mount(Controls, { props: { config: { streamerDid: "did:plc:a", enabled: true, commands: [] }, save: vi.fn(async () => true) } });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => Response.json({})),
+  );
+  giphy.searchGiphy.mockResolvedValueOnce(
+    Array.from({ length: 18 }, (_, index) => ({
+      id: String(index),
+      title: "Sticker",
+      preview: "https://example.test/preview.gif",
+      url: "https://example.test/sticker.gif",
+    })),
+  );
+  wrapper = mount(Controls, {
+    props: {
+      config: { streamerDid: "did:plc:a", enabled: true, commands: [] },
+      save: vi.fn(async () => true),
+    },
+  });
   const input = wrapper.get('input[placeholder="https://… or pikachu"]');
   await input.setValue("pikachu");
   await vi.advanceTimersByTimeAsync(401);
   await flushPromises();
-  await wrapper.findAll("button").find(button => button.text() === "Next batch")!.trigger("click");
+  await wrapper
+    .findAll("button")
+    .find((button) => button.text() === "Next batch")!
+    .trigger("click");
   await flushPromises();
   expect(giphy.searchGiphy).toHaveBeenLastCalledWith("pikachu", "stickers", 18);
   await input.setValue("eevee");
@@ -267,11 +334,11 @@ test("sticker batches advance and a new query resets pagination", async () => {
   await flushPromises();
   expect(giphy.searchGiphy).toHaveBeenLastCalledWith("eevee", "stickers");
 });
-test("preview listens to real chat and submits a signed party witness for pet history", async () => {
-  history.replaceState({}, "", "/pokemon-crystal-mgba/?did=did:plc:a&preview=1");
+test("live overlay listens to real chat and submits a signed party witness for pet history", async () => {
+  history.replaceState({}, "", "/pokemon-crystal-mgba/?did=did:plc:a");
   const fetcher = vi.fn(async () => Response.json({}));
   vi.stubGlobal("fetch", fetcher);
-  wrapper = mount(Overlay);
+  wrapper = mountOverlay();
   await flushPromises();
   relay.receive({
     type: "pokemon-crystal-mgba",
@@ -298,10 +365,20 @@ test("preview listens to real chat and submits a signed party witness for pet hi
 });
 test("thoughts rotate through the party and pause their visible lifetime during pets", async () => {
   vi.useFakeTimers();
-  vi.stubGlobal("fetch", vi.fn(async (input) => Response.json(String(input).includes("pet-counts")
-    ? [{ pokemonId: "0001-0002", petterDid: "did:plc:petter", count: 2 }, { pokemonId: "second", petterDid: "did:plc:other", count: 1 }]
-    : {})));
-  wrapper = mount(Overlay);
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input) =>
+      Response.json(
+        String(input).includes("pet-counts")
+          ? [
+              { pokemonId: "0001-0002", petterDid: "did:plc:petter", count: 2 },
+              { pokemonId: "second", petterDid: "did:plc:other", count: 1 },
+            ]
+          : {},
+      ),
+    ),
+  );
+  wrapper = mountOverlay();
   const team = snapshot(20);
   team.party.push({ ...team.party[0]!, id: "second", name: "SECOND" });
   const refresh = () => relay.receive({ type: "pokemon-crystal-mgba", snapshot: team });
@@ -310,9 +387,15 @@ test("thoughts rotate through the party and pause their visible lifetime during 
   try {
     await vi.advanceTimersByTimeAsync(120000);
     await flushPromises();
-    expect(wrapper.get(".pokemon-thought").element.closest("figure")?.textContent).toContain("PIKA");
+    expect(wrapper.get(".pokemon-thought").element.closest("figure")?.textContent).toContain(
+      "PIKA",
+    );
     await vi.advanceTimersByTimeAsync(5000);
-    chat.receive({ id: "did:plc:petter:thought", text: "!pet PIKA", author: { did: "did:plc:petter" } });
+    chat.receive({
+      id: "did:plc:petter:thought",
+      text: "!pet PIKA",
+      author: { did: "did:plc:petter" },
+    });
     await flushPromises();
     expect(wrapper.find(".pokemon-thought").exists()).toBe(false);
     await vi.advanceTimersByTimeAsync(10000);
@@ -321,25 +404,55 @@ test("thoughts rotate through the party and pause their visible lifetime during 
     expect(wrapper.find(".pokemon-thought").exists()).toBe(false);
     await vi.advanceTimersByTimeAsync(100000);
     await flushPromises();
-    expect(wrapper.get(".pokemon-thought").element.closest("figure")?.textContent).toContain("SECOND");
-  } finally { clearInterval(live); }
+    expect(wrapper.get(".pokemon-thought").element.closest("figure")?.textContent).toContain(
+      "SECOND",
+    );
+  } finally {
+    clearInterval(live);
+  }
 });
 test("pet deletion uses shared confirmation and preserves account preferences", async () => {
-  const fetcher = vi.fn(async (_input: unknown, init?: RequestInit) => Response.json(init?.method === "DELETE" ? { removed: 1 } : [{ pokemonId: "0001-0002", petterDid: "did:plc:petter", count: 2 }]));
+  const fetcher = vi.fn(async (_input: unknown, init?: RequestInit) =>
+    Response.json(
+      init?.method === "DELETE"
+        ? { removed: 1 }
+        : [{ pokemonId: "0001-0002", petterDid: "did:plc:petter", count: 2 }],
+    ),
+  );
   vi.stubGlobal("fetch", fetcher);
-  const config = { enabled: true, streamerDid: "did:plc:a", commands: [], revision: "new", preferences: { confirmDeletion: true, vimControls: true } };
+  const config = {
+    enabled: true,
+    streamerDid: "did:plc:a",
+    commands: [],
+    revision: "new",
+    preferences: { confirmDeletion: true, vimControls: true },
+  };
   const save = vi.fn(async () => true);
-  wrapper = mount(PettingControls, { props: { config, save }, global: { stubs: { DeleteConfirmation: true } } });
+  wrapper = mount(PettingControls, {
+    props: { config, save },
+    global: { stubs: { DeleteConfirmation: true } },
+  });
   await flushPromises();
-  await wrapper.findAll("button").find(button => button.text() === "Remove")!.trigger("click");
+  await wrapper
+    .findAll("button")
+    .find((button) => button.text() === "Remove")!
+    .trigger("click");
   expect(wrapper.findComponent(DeleteConfirmation).exists()).toBe(true);
   expect(fetcher.mock.calls.some(([, init]) => init?.method === "DELETE")).toBe(false);
   wrapper.findComponent(DeleteConfirmation).vm.$emit("confirm", true);
   await flushPromises();
-  expect(save).toHaveBeenCalledWith({ ...config, preferences: { confirmDeletion: false, vimControls: true } });
+  expect(save).toHaveBeenCalledWith({
+    ...config,
+    preferences: { confirmDeletion: false, vimControls: true },
+  });
   expect(fetcher.mock.calls.some(([, init]) => init?.method === "DELETE")).toBe(true);
-  await wrapper.setProps({ config: { ...config, preferences: { ...config.preferences, confirmDeletion: false } } });
-  await wrapper.findAll("button").find(button => button.text() === "Reset all pet counts")!.trigger("click");
+  await wrapper.setProps({
+    config: { ...config, preferences: { ...config.preferences, confirmDeletion: false } },
+  });
+  await wrapper
+    .findAll("button")
+    .find((button) => button.text() === "Reset all pet counts")!
+    .trigger("click");
   await flushPromises();
   expect(wrapper.findComponent(DeleteConfirmation).exists()).toBe(false);
   expect(fetcher.mock.calls.filter(([, init]) => init?.method === "DELETE")).toHaveLength(2);

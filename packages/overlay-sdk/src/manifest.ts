@@ -6,7 +6,6 @@ export interface ModuleManifest {
   badges?: readonly ("commands" | "overlay" | "game" | "pokemon")[];
   cloud: {
     enabledKey: string;
-    pages: ReadonlyArray<{ path: string; entrypoint: string }>;
     interactivePreview?: boolean;
   };
 }
