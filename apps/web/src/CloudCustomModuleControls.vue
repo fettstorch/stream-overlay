@@ -38,7 +38,7 @@ const savingDisplayMode = ref(false);
 const displayModeMessage = ref("");
 async function changeDisplayMode(event: Event) {
   const input = event.target as HTMLInputElement;
-  if (savingDisplayMode.value || saving.value) return;
+  if (savingDisplayMode.value || saving.value || uploading.value) return;
   const next = input.checked ? "page" : "overlay";
   savingDisplayMode.value = true;
   displayModeMessage.value = "";
@@ -82,10 +82,9 @@ let savedFeedbackTimer: ReturnType<typeof setTimeout> | undefined;
 const uploading = ref(false);
 const sourceMode = ref(savedModule.value?.bundle ? "zip" : "code");
 const bundleInput = ref<HTMLInputElement>();
-let draftBundleFile: File | undefined;
 watch(sourceMode, (mode) => { if (mode === "code") delete draft.value.bundle; });
 async function uploadBundle(file?: File) {
-  if (!file || uploading.value || saving.value) return;
+  if (!file || uploading.value || saving.value || savingDisplayMode.value) return;
   sourceMode.value = "zip";
   emit("mediaDrop");
   uploading.value = true; message.value = `Uploading ${file.name} to your PDS…`;
@@ -94,9 +93,19 @@ async function uploadBundle(file?: File) {
     if (new TextEncoder().encode(file.name).length > 200) throw new Error("Use a ZIP filename shorter than 200 bytes.");
     const blob = await uploadFile(file, "application/zip");
     if (disposed) return;
-    draft.value.bundle = { name: file.name, blob };
-    draftBundleFile = file;
-    message.value = "ZIP app added to the draft. Save overlay to keep it.";
+    const bundle = { name: file.name, blob };
+    message.value = "Saving ZIP app…";
+    // ZIP uploads save only the bundle; pending code edits stay local.
+    const saved = await props.save({
+      ...props.config,
+      customModules: props.config.customModules?.map((module) =>
+        module.id === props.moduleId ? { ...module, bundle } : module,
+      ),
+    });
+    if (disposed) return;
+    if (!saved) throw new Error("Could not save the ZIP app. Your previous module remains active.");
+    draft.value.bundle = bundle;
+    message.value = "ZIP app saved. Connected overlays update automatically.";
   } catch (error) {
     message.value = error instanceof Error ? error.message : "Could not upload the ZIP app.";
   } finally { uploading.value = false; }
@@ -239,15 +248,14 @@ watch(
     // Metadata saves must preserve unsaved source edits.
     if (contentKey(editorSettings(previous ?? defaultCustomModuleSettings)) === contentKey(draft.value)) {
       draft.value = editorSettings(value ?? defaultCustomModuleSettings);
-      sourceMode.value = value?.bundle ? "zip" : "code";
+      if (!uploading.value) sourceMode.value = value?.bundle ? "zip" : "code";
     }
   },
 );
 async function save() {
-  if (saving.value || savingDisplayMode.value || uploading.value || !dirty.value) return;
+  if (sourceMode.value !== "code" || saving.value || savingDisplayMode.value || uploading.value || !dirty.value) return;
   message.value = "";
   try {
-    if (sourceMode.value === "zip" && !draft.value.bundle) throw new Error("Choose a ZIP app before saving.");
     validateCustomModuleSettings(previewSettings.value);
     validateCustomModules([{ ...savedModule.value, ...draft.value, id: props.moduleId }]);
     saving.value = true;
@@ -266,8 +274,6 @@ async function save() {
       const file = draftFiles.get(media.id);
       if (file) media.blob = await uploadFile(file, mediaType(file)!);
     }
-    if (draft.value.bundle && draftBundleFile)
-      draft.value.bundle.blob = await uploadFile(draftBundleFile, "application/zip");
     if (
       await props.save({
         ...props.config,
@@ -285,7 +291,6 @@ async function save() {
       })
     ) {
       draftFiles.clear();
-      draftBundleFile = undefined;
       savedFeedback.value = true;
       savedFeedbackTimer = setTimeout(() => { savedFeedback.value = false; }, 1800);
       message.value = "Custom Module saved. Connected overlays update automatically.";
@@ -298,7 +303,6 @@ async function save() {
 }
 function reset() {
   draftFiles.clear();
-  draftBundleFile = undefined;
   draft.value = editorSettings(savedModule.value ?? defaultCustomModuleSettings);
   sourceMode.value = savedModule.value?.bundle ? "zip" : "code";
   message.value = "";
@@ -318,7 +322,7 @@ function reset() {
           type="checkbox"
           aria-label="Own page mode"
           :checked="displayMode === 'page'"
-          :disabled="saving || savingDisplayMode"
+          :disabled="saving || savingDisplayMode || uploading"
           :aria-busy="savingDisplayMode"
           @change="changeDisplayMode"
         >
@@ -362,7 +366,16 @@ function reset() {
     </div>
     <div v-if="sourceMode === 'zip'" class="editor-fields">
       <p>Drop a ZIP here or choose a file. Include index.html and the built app's assets.</p>
-      <p>For Vite, set <code>base: './'</code> in vite.config so asset URLs point inside your app rather than the website root.</p>
+      <aside class="module-section vite-info" aria-label="Vite build information">
+        <span class="vite-info-icon" aria-hidden="true"><span class="info-icon" /></span>
+        <div>
+          <p>Vite defaults to:</p>
+          <pre><code>base: '/'</code></pre>
+          <p>In <code>vite.config</code>, use:</p>
+          <pre><code>base: './'</code></pre>
+          <p>This loads assets from inside your uploaded app.</p>
+        </div>
+      </aside>
       <small>Maximum 10 MB zipped, 50 MB unpacked, 1,000 files.</small>
       <input ref="bundleInput" hidden type="file" accept=".zip,application/zip" :disabled="saving || uploading" @change="selectedBundle">
       <AppButton class="zip-upload-button" :disabled="saving || uploading" @click="bundleInput?.click()">{{ uploading ? 'Uploading…' : draft.bundle ? 'Replace ZIP app' : 'Choose ZIP app' }}</AppButton>
@@ -400,7 +413,7 @@ function reset() {
         />
       </div>
     </div>
-    <div class="editor-actions">
+    <div v-if="sourceMode === 'code'" class="editor-actions">
       <button class="save-overlay-button success-button" type="button" :aria-busy="saving" :data-save-state="savedFeedback && !dirty ? 'saved' : undefined" :disabled="saving || savingDisplayMode || uploading || !dirty" @click="save">
         <span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">{{ saving ? 'Saving…' : savedFeedback && !dirty ? '✓ Saved' : 'Save overlay' }}</span></button
       ><button class="danger-button" type="button" :disabled="saving || savingDisplayMode || uploading || !dirty" @click="reset"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">
@@ -439,6 +452,31 @@ function reset() {
   min-width: 0;
 }
 .zip-upload-button { justify-self: start; }
+.vite-info {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  padding: 16px;
+  margin-block: 12px;
+  font-size: .84rem;
+  line-height: 1.5;
+}
+.vite-info p { margin: 0; }
+.vite-info pre {
+  margin: 6px 0 10px;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #eee;
+  font: inherit;
+  overflow-x: auto;
+}
+.vite-info pre code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+:global(html[data-theme="dark"]) .vite-info pre {
+  border-color: #555;
+  background: #222;
+}
+.vite-info-icon { width: 22px; height: 22px; }
 .editor-preview {
   margin-top: 32px;
 }

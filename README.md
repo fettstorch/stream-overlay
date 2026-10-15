@@ -505,8 +505,9 @@ iframe with `allow-scripts`; embedded pages and navigation remain blocked. Scrip
 can use HTTPS requests and secure WebSockets but cannot access the configurator's
 DOM or credentials. Quickstart detects JavaScript in copied Custom Modules,
 including disabled ones, and requires a trust acknowledgement before copying.
-Choose **ZIP app** to upload a built static app as one PDS blob (10 MB compressed,
-50 MB unpacked, up to 1,000 files). Include `index.html` and its assets in the ZIP;
+Choose **ZIP app** to upload a built static app as one PDS blob (up to 10 MB compressed).
+ZIP uploads save automatically; Save and Discard apply only to Code mode.
+The unpacked app can contain up to 50 MB and 1,000 files. Include `index.html` and its assets in the ZIP;
 an enclosing `dist/` folder is also accepted. For Vite, configure `base: './'` and
 zip the build output. The existing server fetches the ZIP from the PDS and serves
 its files from a bounded memory cache; it never extracts files to disk. Relative

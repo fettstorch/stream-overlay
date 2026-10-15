@@ -10,7 +10,7 @@ import {
 import { defaultCustomModuleSettings } from "../../../modules/custom-module/src/config.ts";
 
 afterEach(() => vi.unstubAllGlobals());
-test("ZIP uploads use the isolated bundle preview, save one module, and discard restores the code editor", async () => {
+test("ZIP uploads save immediately and use the isolated bundle preview without code save controls", async () => {
   const zipBlob = { $type: "blob", ref: { $link: "bafyzip" }, mimeType: "application/zip", size: 100 };
   vi.stubGlobal("fetch", vi.fn(async () => Response.json(zipBlob)));
   const config = { enabled: true, streamerDid: "did:plc:test", revision: "new", commands: [], customModules: [{ ...defaultCustomModuleSettings, id: "zip", name: "App" }] };
@@ -23,16 +23,17 @@ test("ZIP uploads use the isolated bundle preview, save one module, and discard 
   expect(wrapper.get("iframe.draft-overlay").attributes("src")).toMatch(/^\/api\/accounts\/did%3Aplc%3Atest\/custom-module-bundles\/bafyzip\/\?channel=/);
   expect(wrapper.get("iframe.draft-overlay").attributes("sandbox")).toBe("allow-scripts");
   expect(wrapper.get("iframe.draft-overlay").attributes("srcdoc")).toBeUndefined();
-  await wrapper.findAll("button").find(button => button.text() === "Save overlay")!.trigger("click"); await flushPromises();
-  expect(save).toHaveBeenCalledWith({ ...config, customModules: [{ ...config.customModules[0], javascript: "", bundle: { name: "app.zip", blob: zipBlob } }] });
-  await wrapper.findAll("button").find(button => button.text() === "Discard changes")!.trigger("click"); await flushPromises();
+  expect(wrapper.find(".editor-actions").exists()).toBe(false);
+  expect(save).toHaveBeenCalledOnce();
+  expect(save).toHaveBeenCalledWith({ ...config, customModules: [{ ...config.customModules[0], bundle: { name: "app.zip", blob: zipBlob } }] });
+  await wrapper.get('input[aria-label="ZIP app mode"]').setValue(false);
   expect((wrapper.get('input[aria-label="ZIP app mode"]').element as HTMLInputElement).checked).toBe(false);
   expect(wrapper.get("iframe.draft-overlay").attributes("src")).toBeUndefined();
   expect(wrapper.classes()).not.toContain("module-section");
   const zip = new File(["zip data"], "dropped.zip", { type: "application/zip" });
   await wrapper.trigger("drop", { dataTransfer: { types: ["Files"], files: [zip] } }); await flushPromises();
   expect(wrapper.get("iframe.draft-overlay").attributes("src")).toContain("custom-module-bundles/bafyzip/");
-  await wrapper.findAll("button").find(button => button.text() === "Discard changes")!.trigger("click"); await flushPromises();
+  await wrapper.get('input[aria-label="ZIP app mode"]').setValue(false);
   wrapper.findComponent(CustomModulePreview).vm.$emit("mediaDrop", [zip], 10, 20);
   await flushPromises();
   expect(wrapper.get("iframe.draft-overlay").attributes("src")).toContain("custom-module-bundles/bafyzip/");
