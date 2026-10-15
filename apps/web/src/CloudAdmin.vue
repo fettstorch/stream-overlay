@@ -1266,8 +1266,8 @@ onBeforeUnmount(() => {
   --badge-fill: #fff0c7;
 }
 .module-badge[data-badge="custom"] {
-  --badge-border: #98503b;
-  --badge-fill: #fce4da;
+  --badge-border: #595959;
+  --badge-fill: #e8e8e8;
 }
 .module-badge,
 :global(html[data-theme] #app button.module-badge) {
