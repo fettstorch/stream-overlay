@@ -49,7 +49,8 @@ export function normalizeMediaType(value: string) {
   const type = value.split(";", 1)[0].trim().toLowerCase();
   if (type === "image/jpg") return "image/jpeg";
   if (type === "application/ogg") return "audio/ogg";
-  if (type === "application/zip" || type === "application/x-zip-compressed") return "application/zip";
+  if (type === "application/zip" || type === "application/x-zip-compressed")
+    return "application/zip";
   return /^(image|audio|video)\/[a-z0-9.+-]+$/.test(type) ? type : undefined;
 }
 export function parseConfig(
@@ -129,26 +130,46 @@ export class PdsService {
       try {
         const service = await this.resolvePdsFn(did);
         const url = new URL("/xrpc/com.atproto.sync.getBlob", service);
-        url.searchParams.set("did", did); url.searchParams.set("cid", cid);
-        const response = await this.fetchFn(url, { signal: AbortSignal.timeout(30_000), credentials: "omit" });
-        if (!response.ok || !response.body) throw new Error("The ZIP could not be downloaded from the PDS.");
-        const chunks: Uint8Array[] = []; let size = 0;
+        url.searchParams.set("did", did);
+        url.searchParams.set("cid", cid);
+        const response = await this.fetchFn(url, {
+          signal: AbortSignal.timeout(30_000),
+          credentials: "omit",
+        });
+        if (!response.ok || !response.body)
+          throw new Error("The ZIP could not be downloaded from the PDS.");
+        const chunks: Uint8Array[] = [];
+        let size = 0;
         const reader = response.body.getReader();
         try {
           while (true) {
-            const { done, value } = await reader.read(); if (done) break;
+            const { done, value } = await reader.read();
+            if (done) break;
             size += value.byteLength;
             if (size > 10_000_000) throw new Error("The ZIP exceeds 10 MB.");
             chunks.push(value);
           }
-        } finally { await reader.cancel(); }
-        const bytes = new Uint8Array(size); let offset = 0;
-        for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
+        } finally {
+          await reader.cancel();
+        }
+        const bytes = new Uint8Array(size);
+        let offset = 0;
+        for (const chunk of chunks) {
+          bytes.set(chunk, offset);
+          offset += chunk.length;
+        }
         const bundle = unpackCustomBundle(bytes);
-        diagnostics?.logger.log("info", "cloud.bundle.load-completed", { ...context, files: bundle.files.size, bytes: bundle.bytes });
+        diagnostics?.logger.log("info", "cloud.bundle.load-completed", {
+          ...context,
+          files: bundle.files.size,
+          bytes: bundle.bytes,
+        });
         return bundle;
       } catch (error) {
-        diagnostics?.logger.log("error", "cloud.bundle.load-failed", { ...context, ...safeError(error) });
+        diagnostics?.logger.log("error", "cloud.bundle.load-failed", {
+          ...context,
+          ...safeError(error),
+        });
         throw error;
       }
     });
@@ -813,7 +834,12 @@ export class PdsService {
     if (bytes.byteLength > 10_000_000) throw new RangeError("Media is larger than 10 MB");
     if (!normalized) throw new TypeError("Unsupported media type");
     const bundle = normalized === "application/zip" ? unpackCustomBundle(bytes) : undefined;
-    if (bundle) diagnostics?.logger.log("info", "cloud.bundle.validated", { requestId: diagnostics.requestId, files: bundle.files.size, bytes: bundle.bytes });
+    if (bundle)
+      diagnostics?.logger.log("info", "cloud.bundle.validated", {
+        requestId: diagnostics.requestId,
+        files: bundle.files.size,
+        bytes: bundle.bytes,
+      });
     diagnostics?.logger.log("info", "cloud.pds.session-restore-started", {
       requestId: diagnostics.requestId,
       operation: "upload",

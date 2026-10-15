@@ -178,8 +178,7 @@ function uploadFailure(error: unknown) {
       status: 415,
       body: {
         error: "unsupported-media",
-        message:
-          "This file type is not supported. Choose media or a ZIP app.",
+        message: "This file type is not supported. Choose media or a ZIP app.",
       },
     };
   if (
@@ -244,18 +243,37 @@ async function boundedBody(request: Request, maximum: number) {
 async function handleRequestInner(request: Request, deps: Dependencies, requestId: string) {
   const url = new URL(request.url);
   const path = url.pathname;
-  const bundleRoute = /^\/api\/accounts\/([^/]+)\/custom-module-bundles\/([a-zA-Z0-9]{1,200})\/(.*)$/.exec(path);
+  const bundleRoute =
+    /^\/api\/accounts\/([^/]+)\/custom-module-bundles\/([a-zA-Z0-9]{1,200})\/(.*)$/.exec(path);
   if (bundleRoute && (request.method === "GET" || request.method === "HEAD")) {
     try {
       const did = decodeURIComponent(bundleRoute[1]);
       const asset = decodeURIComponent(bundleRoute[3]);
-      if (!/^did:[a-z0-9]+:[^/?#\s]+$/.test(did) || asset.includes("\\") || asset.includes("\0") || asset.split("/").some((part) => part === ".." || part === "."))
+      if (
+        !/^did:[a-z0-9]+:[^/?#\s]+$/.test(did) ||
+        asset.includes("\\") ||
+        asset.includes("\0") ||
+        asset.split("/").some((part) => part === ".." || part === ".")
+      )
         return json({ error: "invalid-bundle-path" }, 400);
-      const bundle = await deps.pds.customModuleBundle(did, bundleRoute[2], { logger: deps.logger, requestId });
+      const bundle = await deps.pds.customModuleBundle(did, bundleRoute[2], {
+        logger: deps.logger,
+        requestId,
+      });
       return customBundleResponse(bundle, asset, request.method === "HEAD");
     } catch (error) {
       deps.logger.log("warn", "cloud.bundle.request-failed", { requestId, ...safeError(error) });
-      return json({ error: "bundle-unavailable", message: error instanceof CustomBundleError ? error.message : "The ZIP app could not be loaded from the PDS.", requestId }, 400);
+      return json(
+        {
+          error: "bundle-unavailable",
+          message:
+            error instanceof CustomBundleError
+              ? error.message
+              : "The ZIP app could not be loaded from the PDS.",
+          requestId,
+        },
+        400,
+      );
     }
   }
   // A signed browser cookie can outlive the OAuth session on ephemeral disk.

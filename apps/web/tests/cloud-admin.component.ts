@@ -4,6 +4,7 @@ import CloudAdmin from "../src/CloudAdmin.vue";
 import { version } from "../../../package.json";
 import CloudEmoticonControls from "../src/CloudEmoticonControls.vue";
 import CloudModuleControls from "../src/CloudModuleControls.vue";
+import CloudCustomModuleControls from "../src/CloudCustomModuleControls.vue";
 
 const actorMocks = vi.hoisted(() => ({
   loadPublicActorProfile: vi.fn(async () => ({
@@ -103,6 +104,10 @@ describe("Cloud Admin", () => {
   test("creates independent custom cards, renames without changing their URL, and deletes only the selected module", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (String(input).endsWith("/api/session")) return response(session);
+      if (String(input).endsWith("/overlay/source"))
+        return response({
+          url: "https://example.test/overlay/?did=did%3Aplc%3Aalice&token=fixture",
+        });
       return response(
         init?.method === "PUT" ? JSON.parse(String(init.body)) : { ...config, customModules: [] },
       );
@@ -129,8 +134,9 @@ describe("Cloud Admin", () => {
     let cards = wrapper.findAll('[data-module^="custom:"]');
     expect(cards).toHaveLength(7);
     const id = cards[0].attributes("data-module");
-    const oldUrl = cards[0].get('iframe[title="Untitled module saved preview"]').attributes("src");
+    const oldUrl = cards[0].getComponent(CloudCustomModuleControls).props("pageUrl");
     expect(oldUrl).toContain("only=custom");
+    expect(cards[0].find('iframe[title="Untitled module saved preview"]').exists()).toBe(false);
     expect(cards[0].text()).toContain("Custom Module");
     await cards[0].get('button[aria-label="Rename Untitled module"]').trigger("click");
     await cards[0].get('input[aria-label="Custom Module name"]').setValue("Scoreboard");
@@ -140,7 +146,7 @@ describe("Cloud Admin", () => {
     await flushPromises();
     cards = wrapper.findAll('[data-module^="custom:"]');
     expect(cards[0].get("h3").text()).toBe("Scoreboard");
-    expect(cards[0].get('iframe[title="Scoreboard saved preview"]').attributes("src")).toBe(oldUrl);
+    expect(cards[0].getComponent(CloudCustomModuleControls).props("pageUrl")).toBe(oldUrl);
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     await cards[0]
       .findAll("button")
@@ -609,7 +615,7 @@ describe("Cloud Admin", () => {
         `only=${name === "Chat" ? "chat" : "overlay-paint"}`,
       );
     }
-    expect(wrapper.findAll('[aria-label="Chat appearance"] input')).toHaveLength(7);
+    expect(wrapper.findAll('[aria-label="Chat appearance"] input')).toHaveLength(8);
     expect(wrapper.get('[aria-label="Chat appearance"]').classes()).toContain("module-section");
     expect(wrapper.get('[aria-label="Paint appearance"]').classes()).toContain("module-section");
     const delay = wrapper.get('[aria-label="Paint appearance"] input[type=number]');
@@ -869,7 +875,7 @@ describe("Cloud Admin", () => {
     );
     expect(wrapper.find('[aria-label="Enable Emotes"]').exists()).toBe(true);
     expect(wrapper.find('[aria-label="Copy Emotes OBS URL"]').exists()).toBe(false);
-    expect(wrapper.get(".obs-guidance").text()).toContain("Your overlay");
+    expect(wrapper.get(".obs-guidance").text()).toContain("Your Overlay");
     await wrapper.get('button[aria-label="Show Emotes details"]').trigger("click");
     await wrapper
       .findAll('[role="tab"]')

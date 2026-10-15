@@ -163,7 +163,7 @@ test("admin preview generates sample avatars and messages without observing live
   await flushPromises();
   expect((document.querySelector(".chat-messages") as HTMLElement).style.fontSize).toBe("36px");
   expect((document.querySelector(".chat-plane") as HTMLElement).style.transform).toContain(
-    "rotateY(25deg)",
+    "rotate3d(0, 25, 0, 25deg)",
   );
   await vi.advanceTimersByTimeAsync(35_000);
   await flushPromises();

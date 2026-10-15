@@ -158,7 +158,11 @@ test("public Custom Module media URLs resolve against the owning PDS", async () 
           html: '<img src="streamface-media:pic">',
           css: "",
           media: [{ id: "pic", blob }],
-          bundle: { name: "app.zip", blob: { ...blob, mimeType: "application/zip" }, url: "https://not-persisted.test/zip" },
+          bundle: {
+            name: "app.zip",
+            blob: { ...blob, mimeType: "application/zip" },
+            url: "https://not-persisted.test/zip",
+          },
         },
       ],
     },
@@ -195,7 +199,10 @@ test("public Custom Module media URLs resolve against the owning PDS", async () 
   const bundleUrl = new URL(loaded.customModules![0].bundle!.url!);
   expect(bundleUrl.origin).toBe("https://pds.example");
   expect(bundleUrl.searchParams.get("cid")).toBe(blob.ref.$link);
-  expect(records.find((record) => record.collection === moduleCollections.customModule)!.value.bundle.url).toBeUndefined();
+  expect(
+    records.find((record) => record.collection === moduleCollections.customModule)!.value.bundle
+      .url,
+  ).toBeUndefined();
 });
 test("Custom Module roundtrips and older clients do not erase its source", () => {
   const customModule = {
@@ -205,7 +212,15 @@ test("Custom Module roundtrips and older clients do not erase its source", () =>
     html: "<h1>My room</h1>",
     css: "h1 { color: red }",
     javascript: 'document.querySelector("h1").textContent = "Welcome";',
-    bundle: { name: "app.zip", blob: { $type: "blob" as const, ref: { $link: "bafkreigh2akiscaildc6rnag6ni5nrd6tmjuj6aqn5mltlhdp4dt2o5x4i" }, mimeType: "application/zip", size: 100 } },
+    bundle: {
+      name: "app.zip",
+      blob: {
+        $type: "blob" as const,
+        ref: { $link: "bafkreigh2akiscaildc6rnag6ni5nrd6tmjuj6aqn5mltlhdp4dt2o5x4i" },
+        mimeType: "application/zip",
+        size: 100,
+      },
+    },
   };
   const records = serializeModuleRecords(
     { ...config, customModules: [customModule] },
@@ -235,7 +250,13 @@ test("Custom Module roundtrips and older clients do not erase its source", () =>
       timestamp,
     ),
   ).toThrow();
-  expect(() => serializeModuleRecords({ ...config, customModules: [{ ...customModule, javascript: "x".repeat(50001) }] }, [], timestamp)).toThrow();
+  expect(() =>
+    serializeModuleRecords(
+      { ...config, customModules: [{ ...customModule, javascript: "x".repeat(50001) }] },
+      [],
+      timestamp,
+    ),
+  ).toThrow();
   const legacy = records.find((record) => record.collection === moduleCollections.customModule)!;
   legacy.value.width = 1280;
   legacy.value.height = 720;
@@ -696,17 +717,35 @@ test("overlay layout persists through PDS records and older preference edits", (
 });
 
 test("an Emotes toggle changes only its own record and a no-op preserves every timestamp", () => {
-  const first = "2026-10-15T10:00:00.000Z", second = "2026-10-15T10:01:00.000Z";
+  const first = "2026-10-15T10:00:00.000Z",
+    second = "2026-10-15T10:01:00.000Z";
   const original = serializeModuleRecords(config, [], first);
   const same = serializeModuleRecords(config, original, second);
-  expect(same.every(record => record.value.updatedAt === first)).toBe(true);
-  const toggled = serializeModuleRecords({...config, enabled: !config.enabled}, original, second);
-  expect(toggled.filter(record => record.value.updatedAt === second).map(record => record.collection)).toEqual([moduleCollections.emoticons]);
+  expect(same.every((record) => record.value.updatedAt === first)).toBe(true);
+  const toggled = serializeModuleRecords({ ...config, enabled: !config.enabled }, original, second);
+  expect(
+    toggled
+      .filter((record) => record.value.updatedAt === second)
+      .map((record) => record.collection),
+  ).toEqual([moduleCollections.emoticons]);
 });
 
 test("Custom Module display mode persists, allows legacy records and rejects unknown modes", () => {
-  const module = { id: "page", name: "Page", enabled: true, html: "", css: "", displayMode: "page" as const };
-  const roundtrip = (value: Omit<typeof module, "displayMode"> & { displayMode?: "page" | "overlay" }) => parseModuleRecords(did, serializeModuleRecords({ ...config, customModules: [value] }, [], timestamp)).customModules![0];
+  const module = {
+    id: "page",
+    name: "Page",
+    enabled: true,
+    html: "",
+    css: "",
+    displayMode: "page" as const,
+  };
+  const roundtrip = (
+    value: Omit<typeof module, "displayMode"> & { displayMode?: "page" | "overlay" },
+  ) =>
+    parseModuleRecords(
+      did,
+      serializeModuleRecords({ ...config, customModules: [value] }, [], timestamp),
+    ).customModules![0];
   expect(roundtrip(module).displayMode).toBe("page");
   expect(roundtrip({ ...module, displayMode: "overlay" }).displayMode).toBe("overlay");
   expect(roundtrip({ ...module, displayMode: undefined } as any).displayMode).toBeUndefined();

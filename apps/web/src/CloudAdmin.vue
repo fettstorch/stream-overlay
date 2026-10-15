@@ -96,10 +96,15 @@ const dimensionsDetected = ref(false);
 let dimensionsTimer: ReturnType<typeof setInterval> | undefined;
 let disposed = false;
 function obsInstructions(moduleId: string) {
-  if (moduleId.startsWith("custom:") && config.value?.customModules?.find((module) => `custom:${module.id}` === moduleId)?.displayMode === "page")
-    return ["Enable this module, then copy its Own page URL from the module settings into an OBS Browser Source."];
-  if (moduleId === "bot")
-    return ["Enable Bot and keep your shared overlay Browser Source open."];
+  if (
+    moduleId.startsWith("custom:") &&
+    config.value?.customModules?.find((module) => `custom:${module.id}` === moduleId)
+      ?.displayMode === "page"
+  )
+    return [
+      "Enable this module, then copy its Own page URL from the module settings into an OBS Browser Source.",
+    ];
+  if (moduleId === "bot") return ["Enable Bot and keep your shared overlay Browser Source open."];
   return [
     "Enable this module to show it in your shared overlay.",
     "Arrange its position and size in the overlay layout above.",
@@ -261,9 +266,12 @@ function moduleEnabled(id: string) {
 }
 const layoutModules = computed(() =>
   cloudModules.value
-    .filter((module) => !config.value?.customModules?.some(
-      (custom) => `custom:${custom.id}` === module.id && custom.displayMode === "page",
-    ))
+    .filter(
+      (module) =>
+        !config.value?.customModules?.some(
+          (custom) => `custom:${custom.id}` === module.id && custom.displayMode === "page",
+        ),
+    )
     .map((module) => ({
       id: module.id,
       name: module.name,
@@ -679,8 +687,8 @@ onBeforeUnmount(() => {
         class="shadowed-section"
       >
         <p>
-          This tutorial shows you how to create an OBS Browser Source for your shared
-          Streamface overlay.
+          This tutorial shows you how to create an OBS Browser Source for your shared Streamface
+          overlay.
         </p>
         <video
           v-if="publicTutorialOpen"
@@ -787,8 +795,8 @@ onBeforeUnmount(() => {
       </CollapsibleSection>
       <CollapsibleSection v-model:open="tutorialOpen" title="Tutorial" class="shadowed-section">
         <p>
-          This tutorial shows you how to create an OBS Browser Source for your shared
-          Streamface overlay.
+          This tutorial shows you how to create an OBS Browser Source for your shared Streamface
+          overlay.
         </p>
         <video
           v-if="tutorialOpen"
@@ -917,7 +925,10 @@ onBeforeUnmount(() => {
             @drop="cardDrop(module, $event)"
           >
             <div
-              v-if="cardDragDepth[module.id] > 0 && (module.id === 'emoticons' || module.id.startsWith('custom:'))"
+              v-if="
+                cardDragDepth[module.id] > 0 &&
+                (module.id === 'emoticons' || module.id.startsWith('custom:'))
+              "
               class="module-drop-overlay"
               role="status"
             >

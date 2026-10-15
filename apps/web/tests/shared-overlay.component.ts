@@ -126,9 +126,15 @@ test("layout edits stay local until saved and preserve other preferences and mod
   vi.spyOn(parent, "getBoundingClientRect").mockReturnValue({ left: 0, top: 0 } as DOMRect);
   Object.defineProperties(parent, { clientWidth: { value: 1000 }, clientHeight: { value: 500 } });
   Object.defineProperty(region, "offsetParent", { value: parent });
+  const frame = wrapper.get("iframe").element as HTMLIFrameElement;
+  vi.stubGlobal("CSS", { escape: (value: string) => value }); // Fixture IDs contain no CSS metacharacters.
+  const hitTest = vi.fn(async () => "chat");
+  Object.assign(frame.contentWindow!, { streamfaceOverlayHitTest: hitTest });
   region.dispatchEvent(
     new MouseEvent("mousedown", { bubbles: true, button: 0, clientX: 740, clientY: 175 }),
   );
+  await flushPromises();
+  expect(hitTest).toHaveBeenCalled();
   document.dispatchEvent(
     new MouseEvent("mousemove", { bubbles: true, clientX: 120, clientY: 175 }),
   );
@@ -152,12 +158,14 @@ test("layout edits stay local until saved and preserve other preferences and mod
 });
 
 test("dragging the layer list changes front-to-back order without changing module geometry", async () => {
+  vi.stubGlobal("CSS", { escape: (value: string) => value }); // Fixture IDs contain no CSS metacharacters.
   const layout = [
     { id: "chat", x: 1000, y: 2000, width: 2500, height: 5000, order: 20 },
     { id: "pokemon-crystal-mgba", x: 300, y: 1000, width: 3000, height: 8000, order: 10 },
   ];
   const save = vi.fn(async () => true);
   wrapper = mount(LayoutEditor, {
+    global: { stubs: { TransitionGroup: false } },
     props: {
       config: { ...config, preferences: { confirmDeletion: true, overlayLayout: layout } },
       previewUrl: "/overlay/?preview=1",
@@ -183,26 +191,34 @@ test("dragging the layer list changes front-to-back order without changing modul
   list.setPointerCapture = vi.fn();
   list.hasPointerCapture = vi.fn(() => true);
   list.releasePointerCapture = vi.fn();
+  const pointer = async (element: Element, type: string, coordinates = {}) => {
+    const event = new MouseEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      ...coordinates,
+    });
+    Object.defineProperty(event, "pointerId", { value: 1 });
+    element.dispatchEvent(event);
+    await flushPromises();
+  };
   for (const row of wrapper.findAll("[data-layer]")) {
     Object.defineProperties(row.element, {
       offsetTop: { get: () => [...list.children].indexOf(row.element) * 36 },
       offsetHeight: { value: 32 },
     });
   }
-  await wrapper.get('[data-layer="chat"]').trigger("pointerdown", {
-    button: 0,
-    pointerId: 1,
+  await pointer(wrapper.get('[data-layer="chat"]').element, "pointerdown", {
     clientX: 10,
     clientY: 40,
   });
-  await wrapper.get("ol").trigger("pointermove", {
-    pointerId: 1,
+  await pointer(list, "pointermove", {
     clientX: 10,
     clientY: 0,
   });
   expect(wrapper.findAll("[data-layer]")[0]!.attributes("data-layer")).toBe("chat");
   expect(wrapper.get('[data-layer="chat"]').classes()).toContain("dragging");
-  await wrapper.get("ol").trigger("pointerup", { pointerId: 1 });
+  await pointer(list, "pointerup");
   expect(list.releasePointerCapture).toHaveBeenCalledWith(1);
   expect(wrapper.find(".dragging").exists()).toBe(false);
   expect(wrapper.findAll("[data-layer]").map((row) => row.attributes("data-layer"))).toEqual([
@@ -283,7 +299,16 @@ test("command listing can be disabled independently but follows the parent Emote
   });
   expect(wrapper.find('[data-module="emoticons-board"]').exists()).toBe(false);
   expect(wrapper.find('[data-module="emoticons"]').exists()).toBe(true);
-  state.value = { ...state.value, preferences: { ...state.value.preferences, overlayLayout: state.value.preferences.overlayLayout.map(item => ({...item, hidden: false})) } };
+  state.value = {
+    ...state.value,
+    preferences: {
+      ...state.value.preferences,
+      overlayLayout: state.value.preferences.overlayLayout.map((item) => ({
+        ...item,
+        hidden: false,
+      })),
+    },
+  };
   await flushPromises();
   expect(wrapper.find('[data-module="emoticons-board"]').exists()).toBe(true);
   state.value = { ...state.value, enabled: false };
@@ -293,8 +318,13 @@ test("command listing can be disabled independently but follows the parent Emote
 
 test("list actions emit module commands without changing the layout", async () => {
   wrapper = mount(LayoutEditor, {
-    props: { config, previewUrl: "/overlay/?preview=1", dimensions: {width:1920,height:1080},
-      modules: [{id:"chat",name:"Chat",enabled:true}], save:vi.fn(async () => true) },
+    props: {
+      config,
+      previewUrl: "/overlay/?preview=1",
+      dimensions: { width: 1920, height: 1080 },
+      modules: [{ id: "chat", name: "Chat", enabled: true }],
+      save: vi.fn(async () => true),
+    },
   });
   const row = wrapper.get('[data-layer="chat"]');
   expect((row.get("input").element as HTMLInputElement).checked).toBe(true);
@@ -302,14 +332,33 @@ test("list actions emit module commands without changing the layout", async () =
   expect(wrapper.emitted("toggle-module")![0]![0]).toBe("chat");
   await row.get('[aria-label="Edit Chat"]').trigger("click");
   expect(wrapper.emitted("edit-module")![0]).toEqual(["chat"]);
-  expect(wrapper.findAll("button").find(button => button.text() === "Save layout")!.attributes("disabled")).toBeDefined();
+  expect(
+    wrapper
+      .findAll("button")
+      .find((button) => button.text() === "Save layout")!
+      .attributes("disabled"),
+  ).toBeDefined();
 });
 
 test("page modules leave the shared overlay, fill their own page, and respect enable changes", async () => {
-  const module = { id: "page", name: "Page", enabled: true, displayMode: "page" as const, html: "<h1>Page</h1>", css: "" };
-  const state = shallowRef({ ...config, customModules: [module, { ...module, id: "legacy", displayMode: undefined }] });
+  const module = {
+    id: "page",
+    name: "Page",
+    enabled: true,
+    displayMode: "page" as const,
+    html: "<h1>Page</h1>",
+    css: "",
+  };
+  const state = shallowRef({
+    ...config,
+    customModules: [module, { ...module, id: "legacy", displayMode: undefined }],
+  });
   wrapper = mount(SharedOverlay, {
-    global: { provide: { [overlayRuntimeKey as symbol]: { config: state, preview: false, report: vi.fn() } } },
+    global: {
+      provide: {
+        [overlayRuntimeKey as symbol]: { config: state, preview: false, report: vi.fn() },
+      },
+    },
   });
   expect(wrapper.find('[data-module="custom:page"]').exists()).toBe(false);
   expect(wrapper.find('[data-module="custom:legacy"]').exists()).toBe(true);
