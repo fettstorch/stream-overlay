@@ -349,8 +349,8 @@ function reset() {
       </button>
     </div>
     <p v-if="sourceMode === 'code'">
-      Use <span class="html-label">HTML</span>, <span class="css-label">CSS</span> and JavaScript.
-      Use the JavaScript field for scripts; it runs after your HTML is rendered.
+      Use <span class="html-label">HTML</span>, <span class="css-label">CSS</span> and <span class="javascript-label">JavaScript</span>.
+      Use the <span class="javascript-label">JavaScript</span> field for scripts; it runs after your <span class="html-label">HTML</span> is rendered.
       Drop images or videos onto the preview to upload them to your PDS. Use the <span class="css-label">CSS</span> field for styles and animations. Each field supports
       up to
       {{ customModuleSourceLimit / 1000 }} KB.

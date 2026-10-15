@@ -95,7 +95,9 @@ let dimensionsTimer: ReturnType<typeof setInterval> | undefined;
 let disposed = false;
 function obsInstructions(moduleId: string) {
   if (moduleId.startsWith("custom:") && config.value?.customModules?.find((module) => `custom:${module.id}` === moduleId)?.displayMode === "page")
-    return ["Enable this module and open its page from the module settings."];
+    return ["Enable this module, then copy its Own page URL from the module settings into an OBS Browser Source."];
+  if (moduleId === "bot")
+    return ["Enable Bot and keep your shared overlay Browser Source open."];
   return [
     "Enable this module to show it in your shared overlay.",
     "Arrange its position and size in the overlay layout above.",
@@ -674,8 +676,8 @@ onBeforeUnmount(() => {
         class="shadowed-section"
       >
         <p>
-          This tutorial shows you how to create a browser source in OBS and use one of your
-          streamface modules in it.
+          This tutorial shows you how to create an OBS Browser Source for your shared
+          Streamface overlay.
         </p>
         <video
           v-if="publicTutorialOpen"
@@ -782,8 +784,8 @@ onBeforeUnmount(() => {
       </CollapsibleSection>
       <CollapsibleSection v-model:open="tutorialOpen" title="Tutorial" class="shadowed-section">
         <p>
-          This tutorial shows you how to create a browser source in OBS and use one of your
-          streamface modules in it.
+          This tutorial shows you how to create an OBS Browser Source for your shared
+          Streamface overlay.
         </p>
         <video
           v-if="tutorialOpen"

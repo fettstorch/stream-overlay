@@ -28,7 +28,7 @@ async function add() {
 </script>
 <template>
   <section class="module-section routines">
-    <p>Post recurring messages while your Bot browser source is running. The first post happens after one full interval; missed posts are not replayed.</p>
+    <p>Post recurring messages while Bot is enabled and your shared overlay is running. The first post happens after one full interval; missed posts are not replayed.</p>
     <ul class="command-list striped-list">
       <li v-for="item in config.bot?.routines ?? []" :key="item.id" class="routine-row">
         <div class="routine-copy"><strong>Every {{ item.intervalSeconds / 60 }} {{ item.intervalSeconds === 60 ? 'minute' : 'minutes' }}</strong><p>{{ item.response }}</p></div>

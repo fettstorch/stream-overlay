@@ -7,7 +7,7 @@ defineProps<{ id: string; name: string; description: string; instructions?: stri
     <button type="button" class="info-button" :aria-label="`About ${name}`" :aria-describedby="`module-help-${id}`"><span class="info-icon" aria-hidden="true" /></button>
     <span :id="`module-help-${id}`" class="module-tooltip" role="tooltip">
       <strong>{{ description }}</strong>
-      <span v-if="instructions" class="tooltip-obs"><b>Use in OBS</b><span>Add a Browser Source and paste this module’s URL.</span><span v-for="instruction in instructions" :key="instruction">{{ instruction }}</span></span>
+      <span v-if="instructions" class="tooltip-obs"><b>Use in OBS</b><span v-for="instruction in instructions" :key="instruction">{{ instruction }}</span></span>
     </span>
   </span>
 </template>

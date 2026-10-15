@@ -23,7 +23,7 @@ async function save() {
 </script>
 <template>
   <form class="editor-fields emote-events" @submit.prevent="save">
-    <p>Choose a clip command to play when Streamplace sends an event. The Emotes browser source must be connected. Clip cooldowns still apply; chat roles and user restrictions do not apply to these automatic events.</p>
+    <p>Choose a clip command to play when Streamplace sends an event. Emotes must be enabled and your shared overlay must be connected. Clip cooldowns still apply; chat roles and user restrictions do not apply to these automatic events.</p>
     <CollapsibleSection v-for="event in emoteEvents" :key="event.id" class="event-reaction" :title="event.name">
       <div class="event-fields">
       <p>{{ event.description }}</p>
