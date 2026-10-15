@@ -94,6 +94,8 @@ const dimensionsDetected = ref(false);
 let dimensionsTimer: ReturnType<typeof setInterval> | undefined;
 let disposed = false;
 function obsInstructions(moduleId: string) {
+  if (moduleId.startsWith("custom:") && config.value?.customModules?.find((module) => `custom:${module.id}` === moduleId)?.displayMode === "page")
+    return ["Enable this module and open its page from the module settings."];
   return [
     "Enable this module to show it in your shared overlay.",
     "Arrange its position and size in the overlay layout above.",
@@ -101,6 +103,13 @@ function obsInstructions(moduleId: string) {
 }
 const sourceUrl = ref("");
 const displaySourceUrl = computed(() => sourceUrl.value.replace(/([?&]token=)[^&#]*/gi, "$1…"));
+function customPageUrl(id: string) {
+  if (!sourceUrl.value) return undefined;
+  const url = new URL(sourceUrl.value);
+  url.searchParams.set("only", id);
+  url.searchParams.set("fit", "1");
+  return url.toString();
+}
 function openSource() {
   window.open(sourceUrl.value, "_blank", "noopener,noreferrer");
 }
@@ -246,11 +255,15 @@ function moduleEnabled(id: string) {
       : moduleSettings(config.value).modules[key];
 }
 const layoutModules = computed(() =>
-  cloudModules.value.map((module) => ({
-    id: module.id,
-    name: module.name,
-    enabled: moduleEnabled(module.id),
-  })),
+  cloudModules.value
+    .filter((module) => !config.value?.customModules?.some(
+      (custom) => `custom:${custom.id}` === module.id && custom.displayMode === "page",
+    ))
+    .map((module) => ({
+      id: module.id,
+      name: module.name,
+      enabled: moduleEnabled(module.id),
+    })),
 );
 function overlayModule(id: string) {
   return cloudModules.value.find(
@@ -1012,17 +1025,7 @@ onBeforeUnmount(() => {
                 class="module-body"
                 :inert="saving || !isExpanded(module) || undefined"
               >
-                <p v-if="module.id.startsWith('custom:')">
-                  <span
-                    v-for="(text, index) in module.description.split(/(HTML|CSS)/g)"
-                    :key="index"
-                    :class="
-                      text === 'HTML' ? 'html-label' : text === 'CSS' ? 'css-label' : undefined
-                    "
-                    >{{ text }}</span
-                  >
-                </p>
-                <p v-else>{{ module.description }}</p>
+                <p v-if="!module.id.startsWith('custom:')">{{ module.description }}</p>
                 <template v-if="module.id === 'emoticons'">
                   <DrawnTabs v-model="emoticonTab" :tabs="emoticonTabs" label="Emote tools">
                     <div
@@ -1134,12 +1137,24 @@ onBeforeUnmount(() => {
                 <div v-else-if="module.id.startsWith('custom:')">
                   <CloudCustomModuleControls
                     :module-id="module.id.slice(7)"
+                    :page-url="customPageUrl(module.id)"
                     :ref="(el) => setModuleControls(module.id, el)"
                     :config="config"
                     :preview-aspect-ratio="dimensions.width / dimensions.height"
                     :save="(candidate) => saveConfiguration(candidate, undefined, module.id)"
                     @media-drop="cardDragDepth[module.id] = 0"
-                  />
+                  >
+                    <p>
+                      <span
+                        v-for="(text, index) in module.description.split(/(HTML|CSS)/g)"
+                        :key="index"
+                        :class="
+                          text === 'HTML' ? 'html-label' : text === 'CSS' ? 'css-label' : undefined
+                        "
+                        >{{ text }}</span
+                      >
+                    </p>
+                  </CloudCustomModuleControls>
                 </div>
                 <CloudModuleControls
                   v-else

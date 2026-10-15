@@ -304,3 +304,19 @@ test("list actions emit module commands without changing the layout", async () =
   expect(wrapper.emitted("edit-module")![0]).toEqual(["chat"]);
   expect(wrapper.findAll("button").find(button => button.text() === "Save layout")!.attributes("disabled")).toBeDefined();
 });
+
+test("page modules leave the shared overlay, fill their own page, and respect enable changes", async () => {
+  const module = { id: "page", name: "Page", enabled: true, displayMode: "page" as const, html: "<h1>Page</h1>", css: "" };
+  const state = shallowRef({ ...config, customModules: [module, { ...module, id: "legacy", displayMode: undefined }] });
+  wrapper = mount(SharedOverlay, {
+    global: { provide: { [overlayRuntimeKey as symbol]: { config: state, preview: false, report: vi.fn() } } },
+  });
+  expect(wrapper.find('[data-module="custom:page"]').exists()).toBe(false);
+  expect(wrapper.find('[data-module="custom:legacy"]').exists()).toBe(true);
+  await wrapper.setProps({ only: "custom:page" });
+  expect(wrapper.findAll(".overlay-layer")).toHaveLength(1);
+  expect(wrapper.get(".overlay-layer").attributes("style")).toContain("inset: 0");
+  state.value = { ...state.value, customModules: [{ ...module, enabled: false }] };
+  await flushPromises();
+  expect(wrapper.findAll(".overlay-layer")).toHaveLength(0);
+});

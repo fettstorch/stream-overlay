@@ -703,3 +703,12 @@ test("an Emotes toggle changes only its own record and a no-op preserves every t
   const toggled = serializeModuleRecords({...config, enabled: !config.enabled}, original, second);
   expect(toggled.filter(record => record.value.updatedAt === second).map(record => record.collection)).toEqual([moduleCollections.emoticons]);
 });
+
+test("Custom Module display mode persists, allows legacy records and rejects unknown modes", () => {
+  const module = { id: "page", name: "Page", enabled: true, html: "", css: "", displayMode: "page" as const };
+  const roundtrip = (value: Omit<typeof module, "displayMode"> & { displayMode?: "page" | "overlay" }) => parseModuleRecords(did, serializeModuleRecords({ ...config, customModules: [value] }, [], timestamp)).customModules![0];
+  expect(roundtrip(module).displayMode).toBe("page");
+  expect(roundtrip({ ...module, displayMode: "overlay" }).displayMode).toBe("overlay");
+  expect(roundtrip({ ...module, displayMode: undefined } as any).displayMode).toBeUndefined();
+  expect(() => roundtrip({ ...module, displayMode: "invalid" } as any)).toThrow("display mode");
+});

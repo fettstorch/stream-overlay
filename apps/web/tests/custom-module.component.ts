@@ -227,3 +227,93 @@ test("stream preview is opt-in, muted and separate from the sandboxed custom con
   expect(wrapper.find(".stream-background").exists()).toBe(false);
   wrapper.unmount();
 });
+
+test("display mode saves immediately without saving or discarding code drafts", async () => {
+  const config = { enabled: true, streamerDid: "did:plc:test", revision: "one", commands: [], customModules: [{ ...defaultCustomModuleSettings, id: "one", name: "Page" }] };
+  let wrapper: ReturnType<typeof mount>;
+  const save = vi.fn(async (candidate) => {
+    await wrapper.setProps({ config: candidate });
+    return true;
+  });
+  wrapper = mount(CloudCustomModuleControls, { props: { config, moduleId: "one", save, pageUrl: "/overlay/?did=did:plc:test&only=custom%3Aone&fit=1" } });
+  try {
+    const toggle = wrapper.get('[aria-label="Own page mode"]');
+    expect(wrapper.get('.save-overlay-button').attributes("disabled")).toBeDefined();
+    await toggle.setValue(true);
+    await flushPromises();
+    expect(save).toHaveBeenLastCalledWith({ ...config, customModules: [{ ...config.customModules[0], displayMode: "page" }] });
+    expect(wrapper.get('[aria-label="Copy module page URL"]').exists()).toBe(true);
+    expect(wrapper.get('.save-overlay-button').attributes("disabled")).toBeDefined();
+    expect(wrapper.get('.danger-button').attributes("disabled")).toBeDefined();
+
+    wrapper.getComponent(CustomModulePreview).vm.$emit("html", "<h1>Unsaved code</h1>");
+    await flushPromises();
+    await toggle.setValue(false);
+    await flushPromises();
+    expect(save.mock.calls[1][0].customModules[0]).toEqual({ ...config.customModules[0], displayMode: "overlay" });
+    expect(wrapper.getComponent(CustomModulePreview).props("settings").html).toBe("<h1>Unsaved code</h1>");
+    await wrapper.get('.danger-button').trigger("click");
+    expect((toggle.element as HTMLInputElement).checked).toBe(false);
+    expect(wrapper.getComponent(CustomModulePreview).props("settings").html).toBe(config.customModules[0].html);
+    expect(save).toHaveBeenCalledTimes(2);
+
+    wrapper.getComponent(CustomModulePreview).vm.$emit("html", "<h1>Saved code</h1>");
+    await toggle.setValue(true);
+    await flushPromises();
+    expect(save.mock.calls[2][0].customModules[0].html).toBe(config.customModules[0].html);
+    await wrapper.get('.save-overlay-button').trigger("click");
+    await flushPromises();
+    expect(save.mock.calls[3][0].customModules[0]).toEqual({ ...config.customModules[0], displayMode: "page", html: "<h1>Saved code</h1>", javascript: "" });
+  } finally { wrapper.unmount(); }
+});
+
+test.each([false, new Error("Failed")])("failed display mode save restores the toggle and retains code drafts (%s)", async (result) => {
+  const config = { enabled: true, streamerDid: "did:plc:test", revision: "one", commands: [], customModules: [{ ...defaultCustomModuleSettings, id: "one", name: "Page" }] };
+  let finish: (value: boolean) => void;
+  const save = vi.fn(() => result instanceof Error ? Promise.reject(result) : new Promise<boolean>((resolve) => { finish = resolve; }));
+  const wrapper = mount(CloudCustomModuleControls, { props: { config, moduleId: "one", save } });
+  try {
+    wrapper.getComponent(CustomModulePreview).vm.$emit("html", "<h1>Draft</h1>");
+    const toggle = wrapper.get('[aria-label="Own page mode"]');
+    await toggle.setValue(true);
+    if (result === false) {
+      expect(toggle.attributes("disabled")).toBeDefined();
+      finish!(false);
+    }
+    await flushPromises();
+    expect((toggle.element as HTMLInputElement).checked).toBe(false);
+    expect(wrapper.get('[role="status"]').text()).toContain("Could not save the display mode");
+    expect(wrapper.getComponent(CustomModulePreview).props("settings").html).toBe("<h1>Draft</h1>");
+  } finally { wrapper.unmount(); }
+});
+
+test("page URL uses overlay controls, copies the complete URL and reports clipboard failures", async () => {
+  const pageUrl = "/overlay/?did=did:plc:test&token=private-token&only=custom%3Aone&fit=1";
+  const config = { enabled: true, streamerDid: "did:plc:test", revision: "one", commands: [], customModules: [{ ...defaultCustomModuleSettings, displayMode: "page" as const, id: "one", name: "Page" }] };
+  const clipboard = vi.fn(async () => {});
+  const previous = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+  const open = vi.spyOn(window, "open").mockReturnValue(null);
+  const wrapper = mount(CloudCustomModuleControls, { props: { config, moduleId: "one", save: vi.fn(async () => true), pageUrl } });
+  try {
+    expect(wrapper.get('.overlay-url code').text()).toBe(pageUrl.replace("private-token", "…"));
+    await wrapper.get('[aria-label="Open module page"]').trigger("click");
+    expect(open).toHaveBeenCalledWith(pageUrl, "_blank", "noopener,noreferrer");
+    const copy = wrapper.get('[aria-label="Copy module page URL"]');
+    await copy.trigger("click");
+    await flushPromises();
+    expect(clipboard).toHaveBeenCalledWith(pageUrl);
+    expect(copy.classes()).toContain("copied");
+    clipboard.mockRejectedValueOnce(new Error("Denied"));
+    await copy.trigger("click");
+    await flushPromises();
+    expect(wrapper.get('[role="status"]').text()).toBe("Could not copy the URL.");
+    await wrapper.setProps({ config: { ...config, customModules: [{ ...config.customModules[0], displayMode: "overlay" }] } });
+    expect(wrapper.find('.overlay-url').exists()).toBe(false);
+  } finally {
+    wrapper.unmount();
+    open.mockRestore();
+    if (previous) Object.defineProperty(navigator, "clipboard", previous);
+    else Reflect.deleteProperty(navigator, "clipboard");
+  }
+});

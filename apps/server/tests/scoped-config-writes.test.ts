@@ -168,6 +168,7 @@ fields(collections.bot, "self", {
 fields(collections.customModule, "one", {
   "customModules.0.name": "Renamed",
   "customModules.0.enabled": false,
+  "customModules.0.displayMode": "page",
   "customModules.0.html": "<h1>Changed</h1>",
   "customModules.0.css": "h1 {color:blue}",
   "customModules.0.javascript": "document.body.dataset.ready = 'yes';",

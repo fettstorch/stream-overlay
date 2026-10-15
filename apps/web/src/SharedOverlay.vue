@@ -39,7 +39,10 @@ const entries = computed(() => {
       ? ["streamplace-pets"]
       : []),
     ...(c.customModules ?? [])
-      .filter((module) => module.enabled)
+      .filter(
+        (module) => module.enabled &&
+          (props.only === `custom:${module.id}` || module.displayMode !== "page"),
+      )
       .map((module) => `custom:${module.id}`),
   ];
   return ids
@@ -51,7 +54,7 @@ const entries = computed(() => {
     }));
 });
 function style(item: (typeof entries.value)[number]) {
-  return props.fit && props.only && item.id !== "chat"
+  return props.only && (props.fit || item.custom?.displayMode === "page") && item.id !== "chat"
     ? { inset: "0", zIndex: item.placement.order }
     : placementStyle(item.placement);
 }

@@ -14,23 +14,68 @@ import { adminFetch } from "./cloud-admin-fetch.ts";
 import type { CustomModuleMedia } from "../../../modules/custom-module/src/config.ts";
 const CodeEditor = defineAsyncComponent(() => import("./CodeEditor.vue"));
 function editorSettings(settings: Parameters<typeof customModuleSettings>[0]) {
-  return { ...customModuleSettings(settings), javascript: settings.javascript ?? "" };
+  const { enabled, displayMode, ...source } = customModuleSettings(settings);
+  return { ...source, javascript: settings.javascript ?? "" };
 }
 const props = defineProps<{
   config: CloudConfig;
   moduleId: string;
   save: (config: CloudConfig) => Promise<boolean>;
   previewAspectRatio?: number;
+  pageUrl?: string;
 }>();
 const emit = defineEmits<{ mediaDrop: [] }>();
 const savedModule = computed(() =>
   props.config.customModules?.find((module) => module.id === props.moduleId),
 );
-const draft = ref({
-  ...editorSettings(savedModule.value ?? defaultCustomModuleSettings),
-  name: savedModule.value?.name ?? "Custom Module",
-});
+const draft = ref(editorSettings(savedModule.value ?? defaultCustomModuleSettings));
+const previewSettings = computed(() => ({
+  ...draft.value,
+  enabled: savedModule.value?.enabled ?? false,
+}));
+const displayMode = computed(() => savedModule.value?.displayMode ?? "overlay");
+const savingDisplayMode = ref(false);
+const displayModeMessage = ref("");
+async function changeDisplayMode(event: Event) {
+  const input = event.target as HTMLInputElement;
+  if (savingDisplayMode.value || saving.value) return;
+  const next = input.checked ? "page" : "overlay";
+  savingDisplayMode.value = true;
+  displayModeMessage.value = "";
+  try {
+    const saved = await props.save({
+      ...props.config,
+      customModules: props.config.customModules?.map((module) =>
+        module.id === props.moduleId ? { ...module, displayMode: next } : module,
+      ),
+    });
+    if (!saved) displayModeMessage.value = "Could not save the display mode. Please try again.";
+  } catch {
+    displayModeMessage.value = "Could not save the display mode. Please try again.";
+  } finally {
+    input.checked = displayMode.value === "page";
+    savingDisplayMode.value = false;
+  }
+}
 const message = ref("");
+const pageCopied = ref(false);
+let pageCopyTimer: ReturnType<typeof setTimeout> | undefined;
+const displayPageUrl = computed(() => props.pageUrl?.replace(/([?&]token=)[^&#]*/gi, "$1…"));
+function openPage() {
+  if (props.pageUrl) window.open(props.pageUrl, "_blank", "noopener,noreferrer");
+}
+async function copyPageUrl() {
+  if (!props.pageUrl) return;
+  try {
+    await navigator.clipboard.writeText(props.pageUrl);
+    if (disposed) return;
+    pageCopied.value = true;
+    clearTimeout(pageCopyTimer);
+    pageCopyTimer = setTimeout(() => { pageCopied.value = false; }, 1800);
+  } catch {
+    if (!disposed) message.value = "Could not copy the URL.";
+  }
+}
 const saving = ref(false);
 const savedFeedback = ref(false);
 let savedFeedbackTimer: ReturnType<typeof setTimeout> | undefined;
@@ -80,6 +125,7 @@ let disposed = false;
 onBeforeUnmount(() => {
   disposed = true;
   clearTimeout(savedFeedbackTimer);
+  clearTimeout(pageCopyTimer);
 });
 const fileTypes: Record<string, string> = {
   png: "image/png",
@@ -156,7 +202,7 @@ async function dropMedia(files: File[], x = 50, y = 50) {
         html: `${draft.value.html}\n${element.outerHTML}`,
         media: [...(draft.value.media ?? []), media],
       };
-      validateCustomModuleSettings(next);
+      validateCustomModuleSettings({ ...savedModule.value, ...next });
       draft.value = next;
       draftFiles.set(id, file);
       message.value = "Media added to the draft. Save overlay or :w to keep it.";
@@ -185,42 +231,25 @@ const streamUrl = computed(() =>
     : undefined,
 );
 const dirty = computed(
-  () =>
-    contentKey(draft.value) !==
-    contentKey({
-      ...editorSettings(savedModule.value ?? defaultCustomModuleSettings),
-      name: savedModule.value?.name ?? "Custom Module",
-    }),
+  () => contentKey(draft.value) !== contentKey(editorSettings(savedModule.value ?? defaultCustomModuleSettings)),
 );
 watch(
   () => savedModule.value,
   (value, previous) => {
-    // Preserve unsaved editor text when another module is saved or this is toggled.
-    const before = {
-      ...editorSettings(previous ?? defaultCustomModuleSettings),
-      name: previous?.name ?? "Custom Module",
-    };
-    const { enabled: oldEnabled, ...oldContent } = before;
-    const { enabled: draftEnabled, ...draftContent } = draft.value;
-    if (contentKey(oldContent) === contentKey(draftContent)) {
-      draft.value = {
-        ...editorSettings(value ?? defaultCustomModuleSettings),
-        name: value?.name ?? "Custom Module",
-      };
+    // Metadata saves must preserve unsaved source edits.
+    if (contentKey(editorSettings(previous ?? defaultCustomModuleSettings)) === contentKey(draft.value)) {
+      draft.value = editorSettings(value ?? defaultCustomModuleSettings);
       sourceMode.value = value?.bundle ? "zip" : "code";
-      return;
     }
-    draft.value.enabled = value?.enabled ?? false;
-    draft.value.name = value?.name ?? "Custom Module";
   },
 );
 async function save() {
-  if (saving.value || uploading.value || !dirty.value) return;
+  if (saving.value || savingDisplayMode.value || uploading.value || !dirty.value) return;
   message.value = "";
   try {
     if (sourceMode.value === "zip" && !draft.value.bundle) throw new Error("Choose a ZIP app before saving.");
-    validateCustomModuleSettings(draft.value);
-    validateCustomModules([{ ...draft.value, id: props.moduleId }]);
+    validateCustomModuleSettings(previewSettings.value);
+    validateCustomModules([{ ...savedModule.value, ...draft.value, id: props.moduleId }]);
     saving.value = true;
     savedFeedback.value = false;
     clearTimeout(savedFeedbackTimer);
@@ -242,17 +271,17 @@ async function save() {
     if (
       await props.save({
         ...props.config,
-        customModules: props.config.customModules?.map((module) =>
-          module.id === props.moduleId
-            ? {
-                ...draft.value,
-                id: module.id,
-                ...(draft.value.media
-                  ? { media: draft.value.media.map(({ id, blob }) => ({ id, blob })) }
-                  : {}),
-              }
-            : module,
-        ),
+        customModules: props.config.customModules?.map((module) => {
+          if (module.id !== props.moduleId) return module;
+          const { html, css, javascript, bundle, media, ...metadata } = module;
+          return {
+            ...metadata,
+            ...draft.value,
+            ...(draft.value.media
+              ? { media: draft.value.media.map(({ id, blob }) => ({ id, blob })) }
+              : {}),
+          };
+        }),
       })
     ) {
       draftFiles.clear();
@@ -270,10 +299,7 @@ async function save() {
 function reset() {
   draftFiles.clear();
   draftBundleFile = undefined;
-  draft.value = {
-    ...editorSettings(savedModule.value ?? defaultCustomModuleSettings),
-    name: savedModule.value?.name ?? "Custom Module",
-  };
+  draft.value = editorSettings(savedModule.value ?? defaultCustomModuleSettings);
   sourceMode.value = savedModule.value?.bundle ? "zip" : "code";
   message.value = "";
 }
@@ -285,6 +311,39 @@ function reset() {
     @dragover="dragFiles"
     @drop="dropEditorFiles"
   >
+    <div class="command-mode-selector">
+      <strong :class="{ 'mode-selected': displayMode !== 'page' }">Shared overlay</strong>
+      <label class="switch choice-switch">
+        <input
+          type="checkbox"
+          aria-label="Own page mode"
+          :checked="displayMode === 'page'"
+          :disabled="saving || savingDisplayMode"
+          :aria-busy="savingDisplayMode"
+          @change="changeDisplayMode"
+        >
+        <span aria-hidden="true" />
+      </label>
+      <strong :class="{ 'mode-selected': displayMode === 'page' }">Own page</strong>
+    </div>
+    <p v-if="displayModeMessage" role="status">{{ displayModeMessage }}</p>
+    <slot />
+    <p v-if="displayMode === 'page'">This module fills its own page and stays off the shared overlay. Enable the module to show its content.</p>
+    <div v-if="displayMode === 'page' && pageUrl" class="overlay-url">
+      <code>{{ displayPageUrl }}</code>
+      <button type="button" class="open-url-button" aria-label="Open module page" @click="openPage">
+        <span class="external-link-icon" aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        class="copy-button"
+        :class="{ copied: pageCopied }"
+        aria-label="Copy module page URL"
+        @click="copyPageUrl"
+      >
+        <span class="copy-icon" aria-hidden="true" />
+      </button>
+    </div>
     <p v-if="sourceMode === 'code'">
       Use <span class="html-label">HTML</span>, <span class="css-label">CSS</span> and JavaScript.
       Use the JavaScript field for scripts; it runs after your HTML is rendered.
@@ -342,9 +401,9 @@ function reset() {
       </div>
     </div>
     <div class="editor-actions">
-      <button class="save-overlay-button success-button" type="button" :aria-busy="saving" :data-save-state="savedFeedback && !dirty ? 'saved' : undefined" :disabled="saving || uploading || !dirty" @click="save">
+      <button class="save-overlay-button success-button" type="button" :aria-busy="saving" :data-save-state="savedFeedback && !dirty ? 'saved' : undefined" :disabled="saving || savingDisplayMode || uploading || !dirty" @click="save">
         <span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">{{ saving ? 'Saving…' : savedFeedback && !dirty ? '✓ Saved' : 'Save overlay' }}</span></button
-      ><button class="danger-button" type="button" :disabled="saving || uploading || !dirty" @click="reset"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">
+      ><button class="danger-button" type="button" :disabled="saving || savingDisplayMode || uploading || !dirty" @click="reset"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">
         Discard changes
       </span></button>
     </div>
@@ -352,7 +411,7 @@ function reset() {
     <div class="editor-preview">
     <CustomModulePreview
       :did="config.streamerDid"
-      :settings="draft"
+      :settings="previewSettings"
       :stream-url="streamUrl"
       :aspect-ratio="previewAspectRatio"
       @html="

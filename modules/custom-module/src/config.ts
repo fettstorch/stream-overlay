@@ -1,5 +1,6 @@
 export type CustomModuleSettings = {
   enabled: boolean;
+  displayMode?: "overlay" | "page";
   html: string;
   css: string;
   javascript?: string;
@@ -87,6 +88,7 @@ const oldStarterCss =
 export function customModuleSettings(value: CustomModuleSettings): CustomModuleSettings {
   return {
     enabled: value.enabled,
+    ...(value.displayMode !== undefined ? { displayMode: value.displayMode } : {}),
     html: value.html === compactStarterHtml ? defaultCustomModuleSettings.html : value.html,
     css:
       value.css === oldStarterCss || value.css === compactStarterCss
@@ -105,6 +107,8 @@ export function validateCustomModuleSettings(
   if (!value || typeof value !== "object") throw new Error("Invalid Custom Module settings");
   const settings = value as CustomModuleSettings;
   if (typeof settings.enabled !== "boolean") throw new Error("Invalid Custom Module enabled state");
+  if (settings.displayMode !== undefined && !["overlay", "page"].includes(settings.displayMode))
+    throw new Error("Invalid Custom Module display mode");
   for (const field of ["html", "css", "javascript"] as const) {
     if (field === "javascript" && settings[field] === undefined) continue;
     if (

@@ -12,6 +12,7 @@
         "properties": {
           "name": { "type": "string", "minLength": 1, "maxLength": 200 },
           "enabled": { "type": "boolean" },
+          "displayMode": { "type": "string", "enum": ["overlay", "page"] },
           "html": { "type": "string", "maxLength": 50000 },
           "css": { "type": "string", "maxLength": 50000 },
           "javascript": { "type": "string", "maxLength": 50000 },

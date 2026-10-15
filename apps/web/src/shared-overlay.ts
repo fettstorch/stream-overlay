@@ -10,7 +10,8 @@ import "./cloud-emoticons.css";
 const params = new URLSearchParams(location.search);
 const did = params.get("did") ?? "";
 const preview = params.get("preview") === "1";
-const only = preview ? (params.get("only") ?? undefined) : undefined;
+const requestedModule = params.get("only") ?? undefined;
+const only = preview || requestedModule?.startsWith("custom:") ? requestedModule : undefined;
 if (!/^did:[a-z0-9]+:[A-Za-z0-9._:%-]+$/.test(did)) {
   document.body.textContent = "Missing account identifier";
 } else {
