@@ -34,6 +34,7 @@ import CrystalPettingControls from "./CrystalPettingControls.vue";
 import CloudCustomModuleControls from "./CloudCustomModuleControls.vue";
 import CollapsibleSection from "./CollapsibleSection.vue";
 import ModuleHelp from "./ModuleHelp.vue";
+import { emoteObsInstructions } from "./emote-obs-instructions.ts";
 import { moduleSettings } from "../../../packages/protocol/src/cloud-settings.ts";
 import type { ChatConfiguration } from "../../../modules/chat/src/config.ts";
 import type { CloudCommand, CloudConfig } from "./cloud-admin-types.ts";
@@ -101,6 +102,7 @@ function obsInstructions(moduleId: string) {
   return [
     "Enable this module to show it in your shared overlay.",
     "Arrange its position and size in the overlay layout above.",
+    ...(moduleId === "emoticons" ? emoteObsInstructions : []),
   ];
 }
 const sourceUrl = ref("");

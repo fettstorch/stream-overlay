@@ -6,6 +6,7 @@ import BrandMascot from "./BrandMascot.vue";
 import { computed, onBeforeUnmount, onMounted, ref, useId, watch } from "vue";
 import { mutePreview } from "./mute-preview.ts";
 import EmoticonControls from "./EmoticonControls.vue";
+import { emoteObsInstructions } from "./emote-obs-instructions.ts";
 import PokemonModuleControls from "./PokemonModuleControls.vue";
 import { defaultChatConfiguration, parseChatConfiguration } from "../../../modules/chat/src/config";
 import { parseThoughtInterval, type PokemonBlueConfiguration } from "../../../modules/pokemon-blue/src/config";
@@ -512,6 +513,9 @@ onBeforeUnmount(() => {
                   <span class="tooltip-obs">
                     <b>Use in OBS</b>
                     <span>Add a Browser Source and paste the URL shown below.</span>
+                    <template v-if="module.id === 'emoticons'">
+                      <span v-for="instruction in emoteObsInstructions" :key="instruction">{{ instruction }}</span>
+                    </template>
                   </span>
                   <span v-if="module.requirements?.length" class="tooltip-requirements">
                     <b>Setup</b>
