@@ -3,7 +3,7 @@ export interface ModuleManifest {
   id: string;
   name: string;
   description: string;
-  badges?: readonly ("commands" | "overlay" | "game" | "pokemon")[];
+  badges?: readonly ("commands" | "overlay" | "game" | "pokemon" | "custom")[];
   cloud: {
     enabledKey: string;
     interactivePreview?: boolean;

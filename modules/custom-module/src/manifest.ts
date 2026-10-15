@@ -1,6 +1,6 @@
 import type { ModuleManifest } from "../../../packages/overlay-sdk/src/manifest.ts";
 export const customModuleManifest = {
-  badges: ["overlay"],
+  badges: ["overlay", "custom"],
   id: "custom-module",
   name: "Custom Module",
   description: "Design your own transparent overlay with HTML, CSS and JavaScript.",

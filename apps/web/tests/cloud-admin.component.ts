@@ -133,11 +133,27 @@ describe("Cloud Admin", () => {
     await flushPromises();
     let cards = wrapper.findAll('[data-module^="custom:"]');
     expect(cards).toHaveLength(7);
+    for (const card of cards) {
+      expect(card.get('.card-badges [data-badge="custom"]').text()).toBe("custom");
+      expect(card.find(".custom-module-badge").exists()).toBe(false);
+    }
+    await wrapper.get('input[aria-label="Search modules"]').setValue("");
+    const customFilter = wrapper.get('button[data-badge="custom"]');
+    await customFilter.trigger("click");
+    expect(customFilter.attributes("aria-pressed")).toBe("true");
+    expect(wrapper.findAll(".module-card").filter((card) => card.isVisible())).toHaveLength(7);
+    expect(
+      wrapper
+        .findAll(".module-card")
+        .filter((card) => card.isVisible())
+        .every((card) => card.attributes("data-module")?.startsWith("custom:")),
+    ).toBe(true);
+    await customFilter.trigger("click");
     const id = cards[0].attributes("data-module");
     const oldUrl = cards[0].getComponent(CloudCustomModuleControls).props("pageUrl");
     expect(oldUrl).toContain("only=custom");
     expect(cards[0].find('iframe[title="Untitled module saved preview"]').exists()).toBe(false);
-    expect(cards[0].text()).toContain("Custom Module");
+    expect(cards[0].get("h3").text()).toBe("Untitled module");
     await cards[0].get('button[aria-label="Rename Untitled module"]').trigger("click");
     await cards[0].get('input[aria-label="Custom Module name"]').setValue("Scoreboard");
     await cards[0]

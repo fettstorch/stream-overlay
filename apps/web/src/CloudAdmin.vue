@@ -976,9 +976,6 @@ onBeforeUnmount(() => {
                     >{{ badge }}</span
                   >
                 </div>
-                <span v-if="module.id.startsWith('custom:')" class="custom-module-badge"
-                  >Custom Module</span
-                >
                 <span
                   class="status"
                   :data-status="moduleEnabled(module.id) ? 'running' : 'stopped'"
@@ -1268,6 +1265,10 @@ onBeforeUnmount(() => {
   --badge-border: #a36b10;
   --badge-fill: #fff0c7;
 }
+.module-badge[data-badge="custom"] {
+  --badge-border: #98503b;
+  --badge-fill: #fce4da;
+}
 .module-badge,
 :global(html[data-theme] #app button.module-badge) {
   display: inline-flex;
@@ -1341,12 +1342,6 @@ onBeforeUnmount(() => {
 :global(html[data-theme="dark"] .pencil-icon) {
   filter: invert(1);
   mix-blend-mode: screen;
-}
-.custom-module-badge {
-  display: block;
-  margin-block-end: 0.25em;
-  font-size: 0.75rem;
-  opacity: 0.8;
 }
 .tutorial-video {
   display: block;
