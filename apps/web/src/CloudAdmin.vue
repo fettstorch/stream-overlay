@@ -34,6 +34,7 @@ import CrystalPettingControls from "./CrystalPettingControls.vue";
 import CloudCustomModuleControls from "./CloudCustomModuleControls.vue";
 import CollapsibleSection from "./CollapsibleSection.vue";
 import ModuleHelp from "./ModuleHelp.vue";
+import LanguageText from "./LanguageText.vue";
 import { emoteObsInstructions } from "./emote-obs-instructions.ts";
 import { moduleSettings } from "../../../packages/protocol/src/cloud-settings.ts";
 import type { ChatConfiguration } from "../../../modules/chat/src/config.ts";
@@ -1149,14 +1150,7 @@ onBeforeUnmount(() => {
                     @media-drop="cardDragDepth[module.id] = 0"
                   >
                     <p>
-                      <span
-                        v-for="(text, index) in module.description.split(/(HTML|CSS)/g)"
-                        :key="index"
-                        :class="
-                          text === 'HTML' ? 'html-label' : text === 'CSS' ? 'css-label' : undefined
-                        "
-                        >{{ text }}</span
-                      >
+                      <LanguageText :text="module.description" />
                     </p>
                   </CloudCustomModuleControls>
                 </div>
@@ -1307,18 +1301,6 @@ onBeforeUnmount(() => {
 }
 .modules-heading h2 {
   margin: 0;
-}
-.html-label {
-  color: #b77b00;
-}
-.css-label {
-  color: #1769c2;
-}
-:global(html[data-theme="dark"] .html-label) {
-  color: #f5c542;
-}
-:global(html[data-theme="dark"] .css-label) {
-  color: #69b5ff;
 }
 .account-preference {
   display: flex;

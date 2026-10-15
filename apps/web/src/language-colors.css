@@ -1,0 +1,6 @@
+.html-label { color: #bd3916; }
+.css-label { color: #1769c2; }
+.javascript-label { color: #806a00; }
+html[data-theme="dark"] .html-label { color: #ff8b63; }
+html[data-theme="dark"] .css-label { color: #69b5ff; }
+html[data-theme="dark"] .javascript-label { color: #f5df55; }

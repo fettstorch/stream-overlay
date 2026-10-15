@@ -10,6 +10,7 @@ import {
 import type { CloudConfig } from "./cloud-admin-types.ts";
 import CustomModulePreview from "./CustomModulePreview.vue";
 import AppButton from "./AppButton.vue";
+import LanguageText from "./LanguageText.vue";
 import { adminFetch } from "./cloud-admin-fetch.ts";
 import type { CustomModuleMedia } from "../../../modules/custom-module/src/config.ts";
 const CodeEditor = defineAsyncComponent(() => import("./CodeEditor.vue"));
@@ -349,9 +350,8 @@ function reset() {
       </button>
     </div>
     <p v-if="sourceMode === 'code'">
-      Use <span class="html-label">HTML</span>, <span class="css-label">CSS</span> and <span class="javascript-label">JavaScript</span>.
-      Use the <span class="javascript-label">JavaScript</span> field for scripts; it runs after your <span class="html-label">HTML</span> is rendered.
-      Drop images or videos onto the preview to upload them to your PDS. Use the <span class="css-label">CSS</span> field for styles and animations. Each field supports
+      <LanguageText text="Use HTML, CSS and JavaScript. Use the JavaScript field for scripts; it runs after your HTML is rendered. " />
+      <LanguageText text="Drop images or videos onto the preview to upload them to your PDS. Use the CSS field for styles and animations. Each field supports" />
       up to
       {{ customModuleSourceLimit / 1000 }} KB.
     </p>
@@ -479,20 +479,6 @@ function reset() {
 .vite-info-icon { width: 22px; height: 22px; }
 .editor-preview {
   margin-top: 32px;
-}
-.html-label {
-  color: #b77b00;
-}
-.css-label {
-  color: #1769c2;
-}
-.javascript-label { color: #886000; }
-:global(html[data-theme="dark"] .javascript-label) { color: #f5df55; }
-:global(html[data-theme="dark"] .html-label) {
-  color: #f5c542;
-}
-:global(html[data-theme="dark"] .css-label) {
-  color: #69b5ff;
 }
 .custom-module-sources {
   display: flex;

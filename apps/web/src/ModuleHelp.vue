@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LanguageText from "./LanguageText.vue";
 defineProps<{ id: string; name: string; description: string; instructions?: string[]; align?: "start" | "end" }>();
 </script>
 
@@ -6,7 +7,7 @@ defineProps<{ id: string; name: string; description: string; instructions?: stri
   <span class="module-help" :class="{ 'help-start': align === 'start' }" @click.stop>
     <button type="button" class="info-button" :aria-label="`About ${name}`" :aria-describedby="`module-help-${id}`"><span class="info-icon" aria-hidden="true" /></button>
     <span :id="`module-help-${id}`" class="module-tooltip" role="tooltip">
-      <strong>{{ description }}</strong>
+      <strong><LanguageText :text="description" /></strong>
       <span v-if="instructions" class="tooltip-obs"><b>Use in OBS</b><span v-for="instruction in instructions" :key="instruction">{{ instruction }}</span></span>
     </span>
   </span>
