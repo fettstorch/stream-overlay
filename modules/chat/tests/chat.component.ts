@@ -246,3 +246,29 @@ test("status interruption hides the chat until the current state arrives again",
     expect(app.wrapper.text()).toContain("Reconnected");
   } finally { app.wrapper.unmount(); }
 });
+
+
+test("user colors replace custom backgrounds live, with safe fallback and reversible settings", async () => {
+  const app = setup();
+  const settings = { fadeOut: 0, backgroundColor: "#123456", backgroundOpacity: 10 };
+  try {
+    await app.state(true, settings);
+    await app.message({ ...message(), author: { ...message().author, chatColor: "#ffff00" } });
+    await app.message({ ...message("2"), author: { did: "did:plc:bob", chatColor: "url(unsafe)" } });
+    expect(app.wrapper.get("li").attributes("style")).not.toContain("background-color");
+    await app.state(true, { ...settings, respectUserChatColor: true });
+    expect(app.wrapper.get("li").attributes("style")).toContain("background-color: rgba(255, 255, 0, 0.1)");
+    expect(app.wrapper.get("li").attributes("style")).toContain("color: rgb(0, 0, 0)");
+    expect(app.wrapper.findAll("li")[1]!.attributes("style")).not.toContain("background-color");
+    expect(app.wrapper.get("ol").attributes("style")).toContain("rgba(0, 0, 0, 0.1)");
+    await app.state(true, { ...settings, respectUserChatColor: true, backgroundOpacity: 50 });
+    expect(app.wrapper.get("li").attributes("style")).toContain("background-color: rgba(255, 255, 0, 0.5)");
+    expect(app.wrapper.get("ol").attributes("style")).toContain("rgba(0, 0, 0, 0.5)");
+    await app.state(true, { ...settings, respectUserChatColor: true, backgroundOpacity: 0 });
+    expect(app.wrapper.get("li").attributes("style")).toContain("background-color: rgba(255, 255, 0, 0)");
+    await app.state(true, settings);
+    expect(app.wrapper.get("li").attributes("style")).not.toContain("background-color");
+    expect(app.wrapper.get("ol").attributes("style")).toContain("rgba(18, 52, 86, 0.1)");
+    expect(app.sources).toHaveLength(2);
+  } finally { app.wrapper.unmount(); }
+});

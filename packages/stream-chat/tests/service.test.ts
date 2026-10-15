@@ -1,6 +1,6 @@
 import { describe, expect, test, spyOn } from "bun:test";
 import { parseChatEvent, StreamChatService } from "../src/service.ts";
-import { DirectStreamChatService } from "../src/direct-service.ts";
+import { parseDirectChatEvent, DirectStreamChatService } from "../src/direct-service.ts";
 
 describe("parseChatEvent", () => {
   test("normalizes a chat message for the configured streamer", () => {
@@ -45,13 +45,15 @@ test("direct browser transport ignores startup history and repeated reconnect ev
   const mock = spyOn(globalThis, "WebSocket").mockImplementation(() => {
     const socket = new FakeSocket(); sockets.push(socket); return socket as unknown as WebSocket;
   });
-  const service = new DirectStreamChatService();
+  const diagnostics: { event: string; details?: Record<string, unknown> }[] = [];
+  const service = new DirectStreamChatService((event, details) => diagnostics.push({ event, details }));
   const ids: string[] = [];
   const unsubscribe = service.messages.subscribe(message => ids.push(message.id));
   const message = (rkey: string, createdAt: string) => JSON.stringify({
     $type: "place.stream.chat.defs#messageView",
     uri: `at://did:plc:viewer/place.stream.chat.message/${rkey}`,
     author: { did: "did:plc:viewer" },
+    chatProfile: { color: { red: 12, green: 34, blue: 56 } },
     record: { streamer: "did:plc:streamer", text: "!party", createdAt },
   });
   try {
@@ -60,6 +62,8 @@ test("direct browser transport ignores startup history and repeated reconnect ev
     sockets[0]!.dispatchEvent(new MessageEvent("message", { data: message("live", new Date(Date.now() + 1_000).toISOString()) }));
     sockets[0]!.dispatchEvent(new MessageEvent("message", { data: message("live", new Date(Date.now() + 1_000).toISOString()) }));
     expect(ids).toEqual(["did:plc:viewer:live"]);
+    expect(diagnostics.find(entry => entry.event === "chat.direct-message-received")?.details)
+      .toMatchObject({ hasChatColor: true, invalidChatColor: false });
 
     sockets[0]!.dispatchEvent(new Event("close"));
     await Bun.sleep(1050);
@@ -200,4 +204,22 @@ for (const intermediate of ["", "did:plc:other"]) test(`superseded lookups canno
     await Bun.sleep(0);
     expect(ids).toEqual(["new:new"]);
   } finally { unsubscribe(); service.stop(); mock.mockRestore(); }
+});
+
+
+test("direct chat preserves valid Stream.place profile colors and ignores malformed colors", () => {
+  const event = {
+    $type: "place.stream.chat.defs#messageView",
+    uri: "at://did:plc:viewer/place.stream.chat.message/color",
+    author: { did: "did:plc:viewer" },
+    record: { streamer: "did:plc:streamer", text: "Hello", createdAt: "2026-10-15T12:00:00Z" },
+  };
+  for (const [color, expected] of [
+    [{ red: 0, green: 128, blue: 255 }, "#0080ff"],
+    [undefined, undefined], [{ red: -1, green: 0, blue: 0 }, undefined],
+    [{ red: 256, green: 0, blue: 0 }, undefined], [{ red: 1.5, green: 0, blue: 0 }, undefined],
+    [{ red: "255", green: 0, blue: 0 }, undefined], [{ red: 255 }, undefined],
+  ] as const) {
+    expect(parseDirectChatEvent({ ...event, chatProfile: { color } }, "did:plc:streamer")?.author.chatColor).toBe(expected);
+  }
 });

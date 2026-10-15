@@ -1,4 +1,5 @@
 export interface ChatConfiguration {
+  respectUserChatColor: boolean;
   fadeOut: number;
   fontSize: number;
   backgroundColor: string;
@@ -8,6 +9,7 @@ export interface ChatConfiguration {
   perspectiveStrength: number;
 }
 export const defaultChatConfiguration: ChatConfiguration = {
+  respectUserChatColor: false,
   fadeOut: 0, fontSize: 20, backgroundColor: "#000000", backgroundOpacity: 65,
   rotationX: 0, rotationY: 0, perspectiveStrength: 0,
 };
@@ -18,7 +20,7 @@ export function parseChatConfiguration(value: unknown): ChatConfiguration | null
     || value.fadeOut < 0 || value.fadeOut > 100) return null;
   // Existing installations only have fadeOut; missing appearance fields use the old appearance.
   const settings = { ...defaultChatConfiguration, ...value };
-  if (typeof settings.fontSize !== "number" || !Number.isFinite(settings.fontSize)
+  if (typeof settings.respectUserChatColor !== "boolean" || typeof settings.fontSize !== "number" || !Number.isFinite(settings.fontSize)
     || settings.fontSize < 8 || settings.fontSize > 72
     || typeof settings.backgroundColor !== "string" || !/^#[0-9a-f]{6}$/i.test(settings.backgroundColor)
     || typeof settings.backgroundOpacity !== "number" || !Number.isFinite(settings.backgroundOpacity)
@@ -27,7 +29,7 @@ export function parseChatConfiguration(value: unknown): ChatConfiguration | null
     || settings.perspectiveStrength < 0 || settings.perspectiveStrength > 100
     || [settings.rotationX, settings.rotationY].some(angle => typeof angle !== "number"
       || !Number.isFinite(angle) || angle < -180 || angle > 180)) return null;
-  return { fadeOut: value.fadeOut, fontSize: settings.fontSize,
+  return { respectUserChatColor: settings.respectUserChatColor, fadeOut: value.fadeOut, fontSize: settings.fontSize,
     backgroundColor: settings.backgroundColor, backgroundOpacity: settings.backgroundOpacity,
     rotationX: settings.rotationX, rotationY: settings.rotationY, perspectiveStrength: settings.perspectiveStrength };
 }

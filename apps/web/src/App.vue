@@ -627,7 +627,8 @@ onBeforeUnmount(() => {
             <label>Font size (px)
               <input v-model.number="chatConfiguration.fontSize" type="number" min="8" max="72" step="1" aria-label="Chat font size">
             </label>
-            <label>Message background color
+            <div class="chat-color-toggle"><strong>Respect user's chat color</strong><label class="switch"><input v-model="chatConfiguration.respectUserChatColor" type="checkbox" aria-label="Respect user's chat color"><span aria-hidden="true" /></label></div>
+            <label v-if="!chatConfiguration.respectUserChatColor">Message background color
               <input v-model="chatConfiguration.backgroundColor" type="color" aria-label="Chat message background color">
             </label>
             <label>Message background opacity: {{ chatConfiguration.backgroundOpacity }}%
@@ -778,6 +779,7 @@ code { display: block; min-width: 0; padding: 12px 52px 12px 12px; overflow: aut
 .module-settings label { display: flex; align-items: center; gap: 8px; }
 .chat-settings { grid-template-columns: 1fr; }
 .chat-settings label { flex-direction: column; align-items: stretch; }
+.chat-color-toggle { display: flex; align-items: center; gap: 12px; }
 .chat-settings input[type="range"] { width: 100%; accent-color: #a78bfa; cursor: pointer; }
 .chat-settings input[type="color"] { width: 44px; height: 32px; padding: 2px; border: 1px solid #36425d; border-radius: 7px; background: #0b101c; cursor: pointer; }
 .chat-settings input[type="number"] { width: 100%; max-width: 120px; padding: 7px 9px; border: 1px solid #36425d; border-radius: 7px; color: white; background: #0b101c; font: inherit; }

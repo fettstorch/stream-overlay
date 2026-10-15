@@ -20,6 +20,7 @@
           "updatedAt"
         ],
         "properties": {
+          "respectUserChatColor": { "type": "boolean" },
           "enabled": { "type": "boolean" },
           "topFadePercent": {
             "type": "integer",

@@ -22,7 +22,8 @@ async function save() { await props.save({ ...props.config, chat: { ...chat.valu
 <template>
   <section v-if="moduleId === 'chat'" class="module-section appearance-controls" aria-label="Chat appearance">
     <p>Messages remain for 20 seconds, then fade over 10 seconds.</p>
-    <label>Background color<input v-model="chat.backgroundColor" type="color" @change="save"></label>
+    <div class="chat-color-toggle"><strong>Respect user's chat color</strong><label class="switch"><input v-model="chat.respectUserChatColor" type="checkbox" aria-label="Respect user's chat color" @change="save"><span aria-hidden="true" /></label></div>
+    <label v-if="!chat.respectUserChatColor">Background color<input v-model="chat.backgroundColor" type="color" @change="save"></label>
     <label v-for="slider in sliders" :key="slider.key" class="chat-slider"><span>{{ slider.label }}</span><output>{{ chat[slider.key] }}{{ slider.unit }}</output><input v-model.number="chat[slider.key]" type="range" :min="slider.min" :max="slider.max" @change="save"></label>
   </section>
   <section v-else-if="moduleId === 'overlay-paint'" class="module-section appearance-controls" aria-label="Paint appearance">
@@ -39,5 +40,6 @@ async function save() { await props.save({ ...props.config, chat: { ...chat.valu
   </section>
 </template>
 <style scoped>
+.chat-color-toggle { display: flex; align-items: center; gap: 12px; }
 .upstream-action { display: block; margin-top: 8px; font-size: 1.2rem; font-weight: 700; }
 </style>

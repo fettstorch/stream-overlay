@@ -4,6 +4,7 @@ export interface StreamChatAuthor {
   displayName?: string;
   avatar?: string;
   isModerator?: boolean;
+  chatColor?: string;
 }
 
 export interface StreamChatMessage {

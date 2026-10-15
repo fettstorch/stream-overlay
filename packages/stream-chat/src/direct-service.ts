@@ -5,6 +5,7 @@ interface MessageView {
   $type?: unknown;
   uri?: unknown;
   deleted?: unknown;
+  chatProfile?: { color?: { red?: unknown; green?: unknown; blue?: unknown } };
   badges?: { badgeType?: unknown; recipient?: unknown }[];
   author?: { did?: unknown; handle?: unknown; displayName?: unknown; avatar?: unknown };
   record?: { streamer?: unknown; text?: unknown; createdAt?: unknown };
@@ -69,6 +70,11 @@ export function parseDirectChatEvent(value: unknown, streamerDid: string): Strea
   const prefix = `at://${author.did}/place.stream.chat.message/`;
   if (!view.uri.startsWith(prefix) || !view.uri.slice(prefix.length) || view.uri.slice(prefix.length).includes("/")) return null;
   if (typeof record.createdAt !== "string" || !Number.isFinite(Date.parse(record.createdAt))) return null;
+  const color = view.chatProfile?.color;
+  const channels = color ? [color.red, color.green, color.blue] : [];
+  const chatColor = channels.length === 3 && channels.every(channel =>
+    typeof channel === "number" && Number.isInteger(channel) && channel >= 0 && channel <= 255)
+    ? `#${channels.map(channel => (channel as number).toString(16).padStart(2, "0")).join("")}` : undefined;
   return {
     // Same identity as Jetstream, so consumers can migrate without changing their dedupe keys.
     id: `${author.did}:${view.uri.slice(prefix.length)}`,
@@ -77,6 +83,7 @@ export function parseDirectChatEvent(value: unknown, streamerDid: string): Strea
     createdAt: record.createdAt,
     author: {
       did: author.did,
+      ...(chatColor ? { chatColor } : {}),
       // Only the first slot is controlled by the trusted Streamplace chat server.
       ...(Array.isArray(view.badges) && view.badges[0]?.badgeType === "place.stream.badge.defs#mod"
         && view.badges[0]?.recipient === author.did ? { isModerator: true } : {}),
@@ -173,6 +180,8 @@ export class DirectStreamChatService {
         this.log("chat.direct-message-received", {
           id: message.id, authorDid: message.author.did, streamerDid,
           createdAt: message.createdAt, receivedAt,
+          hasChatColor: Boolean(message.author.chatColor),
+          invalidChatColor: data.chatProfile?.color != null && !message.author.chatColor,
           ageMs: Date.parse(receivedAt) - Date.parse(message.createdAt),
         });
         // Deliver immediately; consumers can resolve missing profile fields separately.

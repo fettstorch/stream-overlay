@@ -269,6 +269,7 @@ export function parseModuleRecords(did: string, records: StoredRecord[]): CloudC
       ...(chat
         ? {
             chat: {
+              respectUserChatColor: chat.respectUserChatColor ?? false,
               fadeOut: chat.topFadePercent,
               fontSize: chat.fontSize,
               backgroundColor: chat.backgroundColor,

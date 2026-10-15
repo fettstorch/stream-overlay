@@ -39,8 +39,21 @@ const maskStyle = computed(() => ({
   maskImage: chatMask(configuration.value.fadeOut),
   WebkitMaskImage: chatMask(configuration.value.fadeOut),
   fontSize: `${configuration.value.fontSize}px`,
-  "--message-background": chatBackground(configuration.value),
+  "--message-background": chatBackground(configuration.value.respectUserChatColor
+    ? { ...defaultChatConfiguration, backgroundOpacity: configuration.value.backgroundOpacity } : configuration.value),
 }));
+function messageStyle(message: StreamChatMessage) {
+  const color = message.author.chatColor;
+  if (!configuration.value.respectUserChatColor || typeof color !== "string" || !/^#[0-9a-f]{6}$/i.test(color))
+    return messageDecayStyle;
+  // Relative luminance chooses readable black or white text on the user's color.
+  const channels = [1, 3, 5].map(offset => {
+    const channel = parseInt(color.slice(offset, offset + 2), 16) / 255;
+    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  const luminance = 0.2126 * channels[0]! + 0.7152 * channels[1]! + 0.0722 * channels[2]!;
+  return { ...messageDecayStyle, backgroundColor: chatBackground({ ...configuration.value, backgroundColor: color }), color: luminance > 0.179 ? "#000000" : "#ffffff" };
+}
 const failedAvatars = ref(new Set<string>());
 function authorName(message: StreamChatMessage) {
   return message.author.displayName || message.author.handle || message.author.did;
@@ -166,7 +179,7 @@ onBeforeUnmount(() => {
           v-for="message in messages"
           :key="message.id"
           class="chat-message"
-          :style="messageDecayStyle"
+          :style="messageStyle(message)"
         >
           <img
             v-if="message.author.avatar && !failedAvatars.has(message.author.avatar)"
