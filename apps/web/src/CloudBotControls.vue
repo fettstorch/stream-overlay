@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { normalizeCommandName } from "../../../modules/emoticons/src/validation.ts";
 import AppButton from "./AppButton.vue";
 import { computed, nextTick, ref, watch } from "vue";
 import sendIcon from "./assets/branding/controls/send.png";
@@ -121,7 +122,7 @@ async function persist(rules: BotRule[]) {
   }
 }
 async function add() {
-  const name = command.value.trim().replace(/^!/, "").toLowerCase();
+  const name = normalizeCommandName(command.value);
   const rules = [
     ...(props.config.bot?.rules ?? []).filter((rule) => rule.command !== editing.value),
     { command: name, response: response.value.trim(), cooldownSeconds: cooldown.value },

@@ -1,5 +1,9 @@
 import type { CloudCommand, CloudMedia } from "./cloud-contracts.ts";
 
+export function normalizeCommandName(value: string) {
+  return value.trim().replace(/^!/, "").toLowerCase();
+}
+
 export const commandNamePattern = /^[a-z0-9_-]{1,40}$/;
 export const commandNameHint = "Use 1–40 letters, numbers, underscores or hyphens";
 const dimensionPattern = /^(?:|auto|(?:\d+(?:\.\d+)?)(?:px|%|vw|vh|vmin|vmax|em|rem))$/;

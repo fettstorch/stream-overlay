@@ -1,7 +1,12 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { EmoticonAsset, EmoticonCommand, EmoticonEvent, EmoticonState } from "./contracts.ts";
-import { commandNamePattern, commandNameHint, validDimension } from "./validation.ts";
+import {
+  commandNamePattern,
+  commandNameHint,
+  validDimension,
+  normalizeCommandName,
+} from "./validation.ts";
 
 const assetId = /^[a-f0-9-]{36}$/;
 export class EmoticonService {
@@ -11,88 +16,214 @@ export class EmoticonService {
   private cooldowns = new Map<string, number>();
   private listeners = new Set<(event: EmoticonEvent) => void>();
   readonly assetDirectory: string;
-  constructor(private directory: string, private readonly log: (event: string, details?: Record<string, unknown>) => void = () => {}) {
+  constructor(
+    private directory: string,
+    private readonly log: (event: string, details?: Record<string, unknown>) => void = () => {},
+  ) {
     this.assetDirectory = join(directory, "assets");
     mkdirSync(this.assetDirectory, { recursive: true });
     try {
       const stored = JSON.parse(readFileSync(join(directory, "commands.json"), "utf8"));
       this.assets = stored.assets;
-      this.commands = stored.commands.map((command: EmoticonCommand) => ({ ...command, videoAssetId: command.videoAssetId ?? null, mode: command.mode ?? "effect" }));
+      this.commands = stored.commands.map((command: EmoticonCommand) => ({
+        ...command,
+        videoAssetId: command.videoAssetId ?? null,
+        mode: command.mode ?? "effect",
+      }));
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
   }
-  snapshot(): EmoticonState { return { enabled: this.enabled, commands: this.commands, assets: this.assets, cooldowns: Object.fromEntries(this.commands.filter(command => command.mode !== "sticker" && (this.cooldowns.get(command.id) ?? 0) > Date.now()).map(command => [command.id, { endsAt: this.cooldowns.get(command.id)!, durationSeconds: command.cooldownSeconds }])) }; }
-  private emit(event: EmoticonEvent) { for (const listener of this.listeners) listener(event); }
+  snapshot(): EmoticonState {
+    return {
+      enabled: this.enabled,
+      commands: this.commands,
+      assets: this.assets,
+      cooldowns: Object.fromEntries(
+        this.commands
+          .filter(
+            (command) =>
+              command.mode !== "sticker" && (this.cooldowns.get(command.id) ?? 0) > Date.now(),
+          )
+          .map((command) => [
+            command.id,
+            { endsAt: this.cooldowns.get(command.id)!, durationSeconds: command.cooldownSeconds },
+          ]),
+      ),
+    };
+  }
+  private emit(event: EmoticonEvent) {
+    for (const listener of this.listeners) listener(event);
+  }
   private persist() {
     const path = join(this.directory, "commands.json");
-    writeFileSync(`${path}.tmp`, JSON.stringify({ commands: this.commands, assets: this.assets }, null, 2));
+    writeFileSync(
+      `${path}.tmp`,
+      JSON.stringify({ commands: this.commands, assets: this.assets }, null, 2),
+    );
     renameSync(`${path}.tmp`, path);
     this.emit({ type: "state", state: this.snapshot() });
   }
   save(value: unknown, id?: string) {
     if (!value || typeof value !== "object") throw new Error("Enter command settings");
-    const input = { ...value, videoAssetId: (value as EmoticonCommand).videoAssetId ?? null } as EmoticonCommand;
+    const input = {
+      ...value,
+      videoAssetId: (value as EmoticonCommand).videoAssetId ?? null,
+    } as EmoticonCommand;
     const mode = input.mode ?? "effect";
     if (mode !== "effect" && mode !== "sticker") throw new Error("Choose Effect or Sticker");
-    if (mode === "sticker" && input.audioAssetId) throw new Error("Stickers do not support audio attachments");
-    const command = typeof input.command === "string" ? input.command.trim().replace(/^!/, "").toLowerCase() : "";
+    if (mode === "sticker" && input.audioAssetId)
+      throw new Error("Stickers do not support audio attachments");
+    const command = typeof input.command === "string" ? normalizeCommandName(input.command) : "";
     if (!commandNamePattern.test(command)) throw new Error(commandNameHint);
-    if (this.commands.some(item => item.command === command && item.id !== id)) throw new Error("This command already exists");
-    if (id && !this.commands.some(item => item.id === id)) throw new Error("Command not found");
-    for (const [key, kind] of [["imageAssetId", "image"], ["audioAssetId", "audio"], ["videoAssetId", "video"]] as const) {
-      if (input[key] !== null && !this.assets.some(asset => asset.id === input[key] && asset.kind === kind)) throw new Error(`Choose a valid ${kind} file`);
+    if (this.commands.some((item) => item.command === command && item.id !== id))
+      throw new Error("This command already exists");
+    if (id && !this.commands.some((item) => item.id === id)) throw new Error("Command not found");
+    for (const [key, kind] of [
+      ["imageAssetId", "image"],
+      ["audioAssetId", "audio"],
+      ["videoAssetId", "video"],
+    ] as const) {
+      if (
+        input[key] !== null &&
+        !this.assets.some((asset) => asset.id === input[key] && asset.kind === kind)
+      )
+        throw new Error(`Choose a valid ${kind} file`);
     }
-    if (input.imageAssetId && input.videoAssetId) throw new Error("Choose an image or video for the visual");
-    if (!input.imageAssetId && !input.audioAssetId && !input.videoAssetId) throw new Error("Add an image, audio, or video");
-    if (!Number.isFinite(input.durationSeconds) || input.durationSeconds <= 0 || !Number.isFinite(input.cooldownSeconds) || input.cooldownSeconds < 0
-      || !Number.isFinite(input.volume) || input.volume < 0 || input.volume > 1) throw new Error("Use a positive duration, nonnegative cooldown and volume from 0 to 1");
-    if (!validDimension(input.width) || !validDimension(input.height)) throw new Error("Use CSS sizes such as 300px, 40vw, 25vh, 50%, or auto");
-    const entry: EmoticonCommand = { id: id ?? crypto.randomUUID(), command, mode, mirrored: input.mirrored === true, imageAssetId: input.imageAssetId, audioAssetId: input.audioAssetId, videoAssetId: input.videoAssetId,
-      durationSeconds: input.durationSeconds, cooldownSeconds: input.cooldownSeconds, volume: input.volume, width: input.width.trim(), height: input.height.trim() };
+    if (input.imageAssetId && input.videoAssetId)
+      throw new Error("Choose an image or video for the visual");
+    if (!input.imageAssetId && !input.audioAssetId && !input.videoAssetId)
+      throw new Error("Add an image, audio, or video");
+    if (
+      !Number.isFinite(input.durationSeconds) ||
+      input.durationSeconds <= 0 ||
+      !Number.isFinite(input.cooldownSeconds) ||
+      input.cooldownSeconds < 0 ||
+      !Number.isFinite(input.volume) ||
+      input.volume < 0 ||
+      input.volume > 1
+    )
+      throw new Error("Use a positive duration, nonnegative cooldown and volume from 0 to 1");
+    if (!validDimension(input.width) || !validDimension(input.height))
+      throw new Error("Use CSS sizes such as 300px, 40vw, 25vh, 50%, or auto");
+    const entry: EmoticonCommand = {
+      id: id ?? crypto.randomUUID(),
+      command,
+      mode,
+      mirrored: input.mirrored === true,
+      imageAssetId: input.imageAssetId,
+      audioAssetId: input.audioAssetId,
+      videoAssetId: input.videoAssetId,
+      durationSeconds: input.durationSeconds,
+      cooldownSeconds: input.cooldownSeconds,
+      volume: input.volume,
+      width: input.width.trim(),
+      height: input.height.trim(),
+    };
     const previous = this.commands;
-    this.commands = id ? this.commands.map(item => item.id === id ? entry : item) : [...this.commands, entry];
-    try { this.persist(); } catch (error) { this.commands = previous; throw error; }
+    this.commands = id
+      ? this.commands.map((item) => (item.id === id ? entry : item))
+      : [...this.commands, entry];
+    try {
+      this.persist();
+    } catch (error) {
+      this.commands = previous;
+      throw error;
+    }
     return entry;
   }
   remove(id: string) {
     const previous = this.commands;
-    this.commands = this.commands.filter(item => item.id !== id);
-    try { this.persist(); } catch (error) { this.commands = previous; throw error; }
+    this.commands = this.commands.filter((item) => item.id !== id);
+    try {
+      this.persist();
+    } catch (error) {
+      this.commands = previous;
+      throw error;
+    }
     this.cooldowns.delete(id);
   }
-  async upload(file: File, kind: string, durationSeconds: number, uploadId: string = crypto.randomUUID()) {
-    if (kind !== "image" && kind !== "audio" && kind !== "video") throw new Error("Choose image, audio, or video");
+  async upload(
+    file: File,
+    kind: string,
+    durationSeconds: number,
+    uploadId: string = crypto.randomUUID(),
+  ) {
+    if (kind !== "image" && kind !== "audio" && kind !== "video")
+      throw new Error("Choose image, audio, or video");
     // Local-only files: generated names prevent paths or executable markup being served.
-    const extensions: Record<string, string> = kind === "image"
-      ? { "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp" }
-      : kind === "video" ? { "video/mp4": "mp4", "video/quicktime": "mov", "video/webm": "webm" }
-      : { "audio/mpeg": "mp3", "audio/mp3": "mp3", "audio/wav": "wav", "audio/x-wav": "wav", "audio/ogg": "ogg", "application/ogg": "ogg", "audio/mp4": "m4a", "audio/x-m4a": "m4a", "audio/flac": "flac" };
-    const contentType = file.type || (kind === "video" && /\.mp4$/i.test(file.name) ? "video/mp4"
-      : kind === "video" && /\.mov$/i.test(file.name) ? "video/quicktime"
-      : kind === "video" && /\.webm$/i.test(file.name) ? "video/webm" : "");
+    const extensions: Record<string, string> =
+      kind === "image"
+        ? { "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif", "image/webp": "webp" }
+        : kind === "video"
+          ? { "video/mp4": "mp4", "video/quicktime": "mov", "video/webm": "webm" }
+          : {
+              "audio/mpeg": "mp3",
+              "audio/mp3": "mp3",
+              "audio/wav": "wav",
+              "audio/x-wav": "wav",
+              "audio/ogg": "ogg",
+              "application/ogg": "ogg",
+              "audio/mp4": "m4a",
+              "audio/x-m4a": "m4a",
+              "audio/flac": "flac",
+            };
+    const contentType =
+      file.type ||
+      (kind === "video" && /\.mp4$/i.test(file.name)
+        ? "video/mp4"
+        : kind === "video" && /\.mov$/i.test(file.name)
+          ? "video/quicktime"
+          : kind === "video" && /\.webm$/i.test(file.name)
+            ? "video/webm"
+            : "");
     const extension = extensions[contentType];
     if (!extension || !file.size) throw new Error("Choose a supported, nonempty media file");
-    if (kind !== "image" && (!Number.isFinite(durationSeconds) || durationSeconds <= 0)) throw new Error("Could not read media duration");
+    if (kind !== "image" && (!Number.isFinite(durationSeconds) || durationSeconds <= 0))
+      throw new Error("Could not read media duration");
     const id = crypto.randomUUID();
-    const entry: EmoticonAsset = { id, filename: `${id}.${extension}`, originalName: file.name, kind, contentType, durationSeconds: kind !== "image" ? durationSeconds : 0 };
-    this.log("emoticons.upload-validated", { uploadId, assetId: id, kind, bytes: file.size, durationSeconds: entry.durationSeconds });
+    const entry: EmoticonAsset = {
+      id,
+      filename: `${id}.${extension}`,
+      originalName: file.name,
+      kind,
+      contentType,
+      durationSeconds: kind !== "image" ? durationSeconds : 0,
+    };
+    this.log("emoticons.upload-validated", {
+      uploadId,
+      assetId: id,
+      kind,
+      bytes: file.size,
+      durationSeconds: entry.durationSeconds,
+    });
     await Bun.write(join(this.assetDirectory, entry.filename), file);
     this.log("emoticons.upload-file-written", { uploadId, assetId: id, bytes: file.size });
     this.assets.push(entry);
-    try { this.persist(); } catch (error) { this.assets.pop(); throw error; }
+    try {
+      this.persist();
+    } catch (error) {
+      this.assets.pop();
+      throw error;
+    }
     this.log("emoticons.upload-persisted", { uploadId, assetId: id });
     return entry;
   }
-  asset(id: string) { return assetId.test(id) ? this.assets.find(item => item.id === id) : undefined; }
+  asset(id: string) {
+    return assetId.test(id) ? this.assets.find((item) => item.id === id) : undefined;
+  }
   setEnabled(enabled: boolean) {
     this.enabled = enabled;
     if (!enabled) this.cooldowns.clear();
-    this.log("emoticons.module-state", { enabled, commands: this.commands.map(command => command.command) });
-    this.emit({ type: "clear" }); this.emit({ type: "state", state: this.snapshot() });
+    this.log("emoticons.module-state", {
+      enabled,
+      commands: this.commands.map((command) => command.command),
+    });
+    this.emit({ type: "clear" });
+    this.emit({ type: "state", state: this.snapshot() });
   }
   preview(id: string) {
-    if (!this.enabled || !this.commands.some(command => command.id === id)) return false;
+    if (!this.enabled || !this.commands.some((command) => command.id === id)) return false;
     this.emit({ type: "preview", commandId: id });
     return true;
   }
@@ -100,11 +231,17 @@ export class EmoticonService {
     if (!value || typeof value !== "object") throw new Error("Invalid cooldown report");
     const next = new Map<string, number>();
     const now = Date.now();
-    for (const command of this.commands.filter(command => command.mode !== "sticker")) {
+    for (const command of this.commands.filter((command) => command.mode !== "sticker")) {
       const report = (value as Record<string, unknown>)[command.id];
       if (!report || typeof report !== "object") continue;
       const endsAt = (report as { endsAt?: unknown }).endsAt;
-      if (typeof endsAt !== "number" || !Number.isFinite(endsAt) || endsAt <= now || endsAt > now + 24 * 60 * 60_000) continue;
+      if (
+        typeof endsAt !== "number" ||
+        !Number.isFinite(endsAt) ||
+        endsAt <= now ||
+        endsAt > now + 24 * 60 * 60_000
+      )
+        continue;
       next.set(command.id, endsAt);
     }
     this.cooldowns = next;
@@ -112,28 +249,87 @@ export class EmoticonService {
   }
   events(request: Request) {
     const query = new URL(request.url).searchParams;
-    const overlay = query.get("overlay") === "effects" ? "effects" : query.get("overlay") === "board" ? "board" : "admin";
+    const overlay =
+      query.get("overlay") === "effects"
+        ? "effects"
+        : query.get("overlay") === "board"
+          ? "board"
+          : "admin";
     const requestedClientId = query.get("clientId") ?? "";
     const clientId = assetId.test(requestedClientId) ? requestedClientId : crypto.randomUUID();
     let cleanup = () => {};
-    const stream = new ReadableStream<Uint8Array>({ start: controller => {
-      let closed = false; const encoder = new TextEncoder();
-      const send = (event: EmoticonEvent) => { if (!closed) { try { controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`)); } catch { cleanup(); } } };
-      const heartbeat = setInterval(() => { try { controller.enqueue(encoder.encode(": heartbeat\n\n")); } catch { cleanup(); } }, 15000);
-      cleanup = () => { if (closed) return; closed = true; clearInterval(heartbeat); this.listeners.delete(send); this.log("emoticons.client-disconnected", { clientId, overlay, subscribers: this.listeners.size }); request.signal.removeEventListener("abort", cleanup); try { controller.close(); } catch {} };
-      this.listeners.add(send); this.log("emoticons.client-connected", { clientId, overlay, subscribers: this.listeners.size }); send({ type: "state", state: this.snapshot() });
-      request.signal.addEventListener("abort", cleanup, { once: true }); if (request.signal.aborted) cleanup();
-    }, cancel: () => cleanup() });
-    return new Response(stream, { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-store" } });
+    const stream = new ReadableStream<Uint8Array>({
+      start: (controller) => {
+        let closed = false;
+        const encoder = new TextEncoder();
+        const send = (event: EmoticonEvent) => {
+          if (!closed) {
+            try {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+            } catch {
+              cleanup();
+            }
+          }
+        };
+        const heartbeat = setInterval(() => {
+          try {
+            controller.enqueue(encoder.encode(": heartbeat\n\n"));
+          } catch {
+            cleanup();
+          }
+        }, 15000);
+        cleanup = () => {
+          if (closed) return;
+          closed = true;
+          clearInterval(heartbeat);
+          this.listeners.delete(send);
+          this.log("emoticons.client-disconnected", {
+            clientId,
+            overlay,
+            subscribers: this.listeners.size,
+          });
+          request.signal.removeEventListener("abort", cleanup);
+          try {
+            controller.close();
+          } catch {}
+        };
+        this.listeners.add(send);
+        this.log("emoticons.client-connected", {
+          clientId,
+          overlay,
+          subscribers: this.listeners.size,
+        });
+        send({ type: "state", state: this.snapshot() });
+        request.signal.addEventListener("abort", cleanup, { once: true });
+        if (request.signal.aborted) cleanup();
+      },
+      cancel: () => cleanup(),
+    });
+    return new Response(stream, {
+      headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-store" },
+    });
   }
   subscribe(listener: (event: EmoticonEvent) => void, clientId: string, overlay: string) {
     this.listeners.add(listener);
-    this.log("emoticons.client-connected", { clientId, overlay, transport: "websocket", subscribers: this.listeners.size });
+    this.log("emoticons.client-connected", {
+      clientId,
+      overlay,
+      transport: "websocket",
+      subscribers: this.listeners.size,
+    });
     listener({ type: "state", state: this.snapshot() });
     return () => {
       if (!this.listeners.delete(listener)) return;
-      this.log("emoticons.client-disconnected", { clientId, overlay, transport: "websocket", subscribers: this.listeners.size });
+      this.log("emoticons.client-disconnected", {
+        clientId,
+        overlay,
+        transport: "websocket",
+        subscribers: this.listeners.size,
+      });
     };
   }
-  stop() { this.setEnabled(false); this.listeners.clear(); }
+  stop() {
+    this.setEnabled(false);
+    this.listeners.clear();
+  }
 }

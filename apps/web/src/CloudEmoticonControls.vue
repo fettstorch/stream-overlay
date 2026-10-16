@@ -1,4 +1,13 @@
 <script setup lang="ts">
+import {
+  mediaKinds as kinds,
+  mediaTypes,
+  extension,
+  fileMedia,
+  unsupportedFile,
+  probe,
+  type MediaKind,
+} from "./emote-media.ts";
 import AppButton from "./AppButton.vue";
 import { adminFetch, uploadMedia } from "./cloud-admin-fetch.ts";
 import CollapsibleSection from "./CollapsibleSection.vue";
@@ -6,7 +15,10 @@ import { emoteEvents, type EmoteEventType } from "../../../modules/emoticons/src
 import DeleteConfirmation from "./DeleteConfirmation.vue";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import type { CloudCommand, CloudConfig, CloudMedia } from "./cloud-admin-types.ts";
-import { validateCloudCommand } from "../../../modules/emoticons/src/validation.ts";
+import {
+  validateCloudCommand,
+  normalizeCommandName,
+} from "../../../modules/emoticons/src/validation.ts";
 import { searchGiphy, resolveGiphy, type GiphyChoice } from "./giphy.ts";
 import { getDebouncer } from "@fettstorch/jule";
 import giphyAttribution from "./assets/branding/PoweredBy_200px-White_HorizLogo.png";
@@ -19,9 +31,7 @@ const props = defineProps<{
   panel?: string;
 }>();
 const emit = defineEmits<{ "panel-change": [panel: string] }>();
-const kinds = ["image", "audio", "video"] as const;
 const deleting = ref<CloudCommand | null>(null);
-type MediaKind = (typeof kinds)[number];
 const formOpen = ref(false),
   editing = ref<string | null>(null),
   busy = ref(false),
@@ -246,45 +256,6 @@ function changeMode() {
   giphySearching.value = false;
   if (giphySearchMode.value) giphyDebouncer.debounce(() => void submitMediaInput(), 400);
 }
-const mediaTypes: Record<string, { kind: MediaKind; type: string }> = {
-  gif: { kind: "image", type: "image/gif" },
-  png: { kind: "image", type: "image/png" },
-  jpg: { kind: "image", type: "image/jpeg" },
-  jpeg: { kind: "image", type: "image/jpeg" },
-  webp: { kind: "image", type: "image/webp" },
-  mp3: { kind: "audio", type: "audio/mpeg" },
-  m4a: { kind: "audio", type: "audio/mp4" },
-  wav: { kind: "audio", type: "audio/wav" },
-  ogg: { kind: "audio", type: "audio/ogg" },
-  opus: { kind: "audio", type: "audio/ogg" },
-  mp4: { kind: "video", type: "video/mp4" },
-  mov: { kind: "video", type: "video/quicktime" },
-  webm: { kind: "video", type: "video/webm" },
-};
-function extension(value: string) {
-  try {
-    return new URL(value, "https://local.invalid").pathname
-      .match(/\.([a-z0-9]+)$/i)?.[1]
-      .toLowerCase();
-  } catch {
-    return value.match(/\.([a-z0-9]+)$/i)?.[1].toLowerCase();
-  }
-}
-function fileMedia(file: File) {
-  const declared = file.type.split(";", 1)[0].trim().toLowerCase();
-  const kind: MediaKind | undefined = declared.startsWith("image/")
-    ? "image"
-    : declared.startsWith("audio/")
-      ? "audio"
-      : declared.startsWith("video/")
-        ? "video"
-        : undefined;
-  if (kind) return { kind, type: declared === "image/jpg" ? "image/jpeg" : declared };
-  return mediaTypes[extension(file.name) ?? ""];
-}
-function unsupportedFile(file: File) {
-  return `Unsupported file: ${file.name}. Choose an image, GIF, audio, MP4, MOV, or WebM file.`;
-}
 function attachUrl(kind: MediaKind, value: string) {
   if (form.value.mode === "sticker" && kind === "audio") {
     message.value = "Stickers do not support audio attachments.";
@@ -298,29 +269,6 @@ function attachUrl(kind: MediaKind, value: string) {
   mediaUrlInput.value = "";
   unresolvedUrl.value = "";
   message.value = `${kind[0].toUpperCase()}${kind.slice(1)} URL attached.`;
-}
-function probe(url: string, kind: MediaKind) {
-  return new Promise<boolean>((resolve) => {
-    const element = kind === "image" ? new Image() : document.createElement(kind);
-    const timer = setTimeout(() => finish(false), 4000);
-    const finish = (result: boolean) => {
-      clearTimeout(timer);
-      element.onload = null;
-      element.onerror = null;
-      if (element instanceof HTMLMediaElement) {
-        element.onloadedmetadata = null;
-        element.removeAttribute("src");
-        element.load();
-      }
-      resolve(result);
-    };
-    element.onerror = () => finish(false);
-    if (element instanceof HTMLMediaElement) {
-      element.preload = "metadata";
-      element.onloadedmetadata = () => finish(true);
-    } else element.onload = () => finish(true);
-    element.src = url;
-  });
 }
 async function addMediaUrl() {
   const value = mediaUrlInput.value.trim();
@@ -418,7 +366,7 @@ function selected(event: Event) {
 }
 async function save() {
   if (busy.value) return;
-  const normalized = form.value.command.trim().replace(/^!/, "").toLowerCase();
+  const normalized = normalizeCommandName(form.value.command);
   const command: CloudCommand = {
     ...form.value,
     id: editing.value ?? crypto.randomUUID(),
