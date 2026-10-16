@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { getDebouncer } from "@fettstorch/jule";
 import AppButton from "./AppButton.vue";
 import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { RelayClient } from "@streamface/browser-runtime";
@@ -68,27 +69,27 @@ const results = ref<GiphyChoice[]>([]);
 const searching = ref(false);
 const dragging = ref(false);
 let searchGeneration = 0;
-let searchTimer: ReturnType<typeof setTimeout> | undefined;
+const searchDebouncer = getDebouncer();
 let searchOffset = 0;
 const hasNextBatch = ref(false);
 watch(url, () => {
-  clearTimeout(searchTimer);
+  searchDebouncer.clear();
   searchGeneration++;
   results.value = [];
   searchOffset = 0;
   hasNextBatch.value = false;
   searching.value = false;
   if (url.value.trim() && !/^https?:\/\//i.test(url.value.trim()))
-    searchTimer = setTimeout(() => void search(), 400);
+    searchDebouncer.debounce(() => void search(), 400);
 });
 onBeforeUnmount(() => {
   partyRelay?.close();
   clearParty();
-  clearTimeout(searchTimer);
+  searchDebouncer.clear();
   searchGeneration++;
 });
 async function search(nextBatch = false) {
-  clearTimeout(searchTimer);
+  searchDebouncer.clear();
   const generation = ++searchGeneration;
   searching.value = true;
   message.value = "";

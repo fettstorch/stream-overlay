@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { sleep } from "@fettstorch/jule";
 import AppButton from "./AppButton.vue";
 import ChatPreviewFrame from "./ChatPreviewFrame.vue";
 import { overlayPlacement } from "../../../packages/protocol/src/overlay-layout.ts";
@@ -194,7 +195,7 @@ async function prepareEmoticonTest(command: CloudCommand) {
       });
       return;
     }
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await sleep(50);
   }
   throw new Error("The emoticon preview could not connect. Please try Test again.");
 }

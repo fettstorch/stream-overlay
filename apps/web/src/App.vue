@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { getDebouncer } from "@fettstorch/jule";
 import AppButton from "./AppButton.vue";
 import BrandWordmark from "./BrandWordmark.vue";
 import CollapseTransition from "./CollapseTransition.vue";
@@ -75,9 +76,9 @@ const petResetMessage = ref("");
 const paintConfiguration = ref({ color: "#ff5cbe", decaySeconds: 4 });
 const chatConfiguration = ref({ ...defaultChatConfiguration });
 const chatMessage = ref("");
-let chatSaveTimer: ReturnType<typeof setTimeout> | undefined;
+const chatSaveDebouncer = getDebouncer();
 const paintMessage = ref("");
-let paintSaveTimer: ReturnType<typeof setTimeout> | undefined;
+const paintSaveDebouncer = getDebouncer();
 const obsDimensions = computed(() => streamDimensions.value ?? { width: 1920, height: 1080 });
 const streamDimensions = ref<{ width: number; height: number } | null>(null);
 let dimensionsSequence = 0;
@@ -91,8 +92,8 @@ const streamEmbedUrl = computed(() => {
 });
 const origin = computed(() => location.origin);
 let loaded = false;
-let actorSearchTimer: ReturnType<typeof setTimeout> | undefined;
-let pokemonSaveTimer: ReturnType<typeof setTimeout> | undefined;
+const actorSearchDebouncer = getDebouncer();
+const pokemonSaveDebouncer = getDebouncer();
 let saveQueue = Promise.resolve();
 let actorSearchSequence = 0;
 let copyResetTimer: ReturnType<typeof setTimeout> | undefined;
@@ -299,7 +300,7 @@ watch(
   chatConfiguration,
   (value) => {
     if (!loaded) return;
-    clearTimeout(chatSaveTimer);
+    chatSaveDebouncer.clear();
     const configuration = parseChatConfiguration(value);
     if (!configuration) {
       chatMessage.value =
@@ -307,7 +308,7 @@ watch(
       return;
     }
     chatMessage.value = "Saving…";
-    chatSaveTimer = setTimeout(
+    chatSaveDebouncer.debounce(
       () =>
         enqueueSave(async () => {
           try {
@@ -331,7 +332,7 @@ watch(
   paintConfiguration,
   (value) => {
     if (!loaded) return;
-    if (paintSaveTimer) clearTimeout(paintSaveTimer);
+    paintSaveDebouncer.clear();
     if (
       !Number.isFinite(value.decaySeconds) ||
       value.decaySeconds < 0.1 ||
@@ -342,7 +343,7 @@ watch(
     }
     const configuration = { ...value };
     paintMessage.value = "Saving…";
-    paintSaveTimer = setTimeout(
+    paintSaveDebouncer.debounce(
       () => enqueueSave(() => savePaintConfiguration(configuration)),
       250,
     );
@@ -466,7 +467,7 @@ watch(streamerQuery, (query) => {
     return;
   }
   streamMessage.value = "";
-  if (actorSearchTimer) clearTimeout(actorSearchTimer);
+  actorSearchDebouncer.clear();
   const sequence = ++actorSearchSequence;
   if (query.trim().replace(/^@/, "").length < 2) {
     actorSuggestions.value = [];
@@ -474,7 +475,7 @@ watch(streamerQuery, (query) => {
     activeActorSuggestion.value = -1;
     return;
   }
-  actorSearchTimer = setTimeout(() => void searchStreamer(query, sequence), 300);
+  actorSearchDebouncer.debounce(() => void searchStreamer(query, sequence), 300);
 });
 
 watch(
@@ -482,8 +483,8 @@ watch(
   () => {
     if (!loaded) return;
     pokemonMessage.value = "Saving…";
-    if (pokemonSaveTimer) clearTimeout(pokemonSaveTimer);
-    pokemonSaveTimer = setTimeout(() => enqueueSave(savePokemonConfiguration), 350);
+    pokemonSaveDebouncer.clear();
+    pokemonSaveDebouncer.debounce(() => enqueueSave(savePokemonConfiguration), 350);
   },
   { deep: true },
 );
@@ -521,12 +522,12 @@ onBeforeUnmount(() => {
   previewCleanups.clear();
   loaded = false;
   clearInterval(runtimeTimer);
-  clearTimeout(chatSaveTimer);
-  if (paintSaveTimer) clearTimeout(paintSaveTimer);
+  chatSaveDebouncer.clear();
+  paintSaveDebouncer.clear();
   dimensionsSequence++;
   if (dimensionsTimer) clearInterval(dimensionsTimer);
-  if (actorSearchTimer) clearTimeout(actorSearchTimer);
-  if (pokemonSaveTimer) clearTimeout(pokemonSaveTimer);
+  actorSearchDebouncer.clear();
+  pokemonSaveDebouncer.clear();
   if (copyResetTimer) clearTimeout(copyResetTimer);
 });
 </script>
