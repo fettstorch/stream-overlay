@@ -21,13 +21,14 @@ export function validateOverlayLayout(value: unknown): asserts value is OverlayL
       throw new Error("Invalid overlay module ID");
     ids.add(item.id);
     for (const key of ["x", "y", "width", "height", "order"] as const)
-      if (!Number.isInteger(item[key]) || item[key] < 0 || item[key] > 10000)
+      if (
+        !Number.isSafeInteger(item[key]) ||
+        (key !== "x" && key !== "y" && (item[key] < 0 || item[key] > 10000))
+      )
         throw new Error("Invalid overlay placement");
     if (
       item.width < 100 ||
       item.height < 100 ||
-      item.x + item.width > 10000 ||
-      item.y + item.height > 10000 ||
       (item.hidden !== undefined && typeof item.hidden !== "boolean")
     )
       throw new Error("Invalid overlay bounds");

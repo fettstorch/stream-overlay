@@ -211,10 +211,8 @@ function movement(index: number, style: string) {
     if (!Number.isFinite(value)) return;
     next[key] = Math.round(value * 100);
   }
-  next.x = Math.max(0, Math.min(9900, next.x));
-  next.y = Math.max(0, Math.min(9900, next.y));
-  next.width = Math.max(100, Math.min(10000 - next.x, next.width));
-  next.height = Math.max(100, Math.min(10000 - next.y, next.height));
+  next.width = Math.max(100, Math.min(10000, next.width));
+  next.height = Math.max(100, Math.min(10000, next.height));
   update(next);
 }
 function selectModule(id: string) {
@@ -279,7 +277,6 @@ onMounted(() => {
     locks,
     {
       root: canvas.value!,
-      constrain: true,
       resolveTarget: renderedTarget,
       onSelect: (index) => {
         if (!busy.value) selected.value = choices.value[index]?.id ?? "";

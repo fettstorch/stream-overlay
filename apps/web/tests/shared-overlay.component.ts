@@ -171,6 +171,67 @@ test("layout edits stay local until saved and preserve other preferences and mod
   );
 });
 
+test.each([
+  { edge: "left", x: -125, y: 175 },
+  { edge: "top", x: 740, y: -150 },
+  { edge: "right", x: 875, y: 175 },
+  { edge: "bottom", x: 740, y: 350 },
+])("dragging past the $edge edge preserves size in preview and saved layout", async ({ x, y }) => {
+  vi.stubGlobal("CSS", { escape: (value: string) => value }); // Fixture IDs contain no CSS metacharacters.
+  const save = vi.fn(async () => true);
+  wrapper = mount(LayoutEditor, {
+    attachTo: document.body,
+    props: {
+      config,
+      previewUrl: "/overlay/?preview=1",
+      dimensions: { width: 1920, height: 1080 },
+      modules: [{ id: "chat", name: "Chat" }],
+      save,
+    },
+  });
+  const region = wrapper.get('[data-layout-module="chat"]').element as HTMLElement;
+  const parent = region.parentElement!;
+  vi.spyOn(region, "getBoundingClientRect").mockReturnValue({
+    left: 740,
+    top: 175,
+    right: 990,
+    bottom: 475,
+    width: 250,
+    height: 300,
+  } as DOMRect);
+  vi.spyOn(parent, "getBoundingClientRect").mockReturnValue({ left: 0, top: 0 } as DOMRect);
+  Object.defineProperties(parent, { clientWidth: { value: 1000 }, clientHeight: { value: 500 } });
+  Object.defineProperty(region, "offsetParent", { value: parent });
+  const frame = wrapper.get("iframe").element as HTMLIFrameElement;
+  Object.assign(frame.contentWindow!, { streamfaceOverlayHitTest: async () => "chat" });
+  const postMessage = vi.spyOn(frame.contentWindow!, "postMessage");
+  region.dispatchEvent(
+    new MouseEvent("mousedown", { bubbles: true, button: 0, clientX: 740, clientY: 175 }),
+  );
+  await flushPromises();
+  document.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: x, clientY: y }));
+  document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+  await flushPromises();
+  const placement = { id: "chat", x: x * 10, y: y * 20, width: 2500, height: 6000, order: 20 };
+  expect(region.style.left).toBe(`${x / 10}%`);
+  expect(region.style.top).toBe(`${y / 5}%`);
+  expect(region.style.width).toBe("25%");
+  expect(region.style.height).toBe("60%");
+  expect(postMessage).toHaveBeenCalledWith(
+    { type: "overlay-layout", layout: [placement] },
+    location.origin,
+  );
+  await wrapper
+    .findAll("button")
+    .find((button) => button.text() === "Save layout")!
+    .trigger("click");
+  expect(save).toHaveBeenCalledWith(
+    expect.objectContaining({
+      preferences: expect.objectContaining({ overlayLayout: [placement] }),
+    }),
+  );
+});
+
 test("dragging the layer list changes front-to-back order without changing module geometry", async () => {
   vi.stubGlobal("CSS", { escape: (value: string) => value }); // Fixture IDs contain no CSS metacharacters.
   const layout = [

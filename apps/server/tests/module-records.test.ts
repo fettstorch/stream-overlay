@@ -685,7 +685,9 @@ test("legacy read is non-mutating; save migrates atomically and rejects stale up
 
 test("overlay layout persists through PDS records and older preference edits", () => {
   const layout = [
-    { id: "pokemon-crystal-mgba", x: 1000, y: 1000, width: 3000, height: 7000, order: 12 },
+    { id: "pokemon-crystal-mgba", x: -1500, y: -3500, width: 3000, height: 7000, order: 12 },
+    { id: "chat", x: 8500, y: 6500, width: 3000, height: 7000, order: 20 },
+    { id: "custom:offscreen", x: 11000, y: -11000, width: 3000, height: 7000, order: 0 },
   ];
   const input = {
     enabled: true,
@@ -702,7 +704,9 @@ test("overlay layout persists through PDS records and older preference edits", (
   ).toEqual({ confirmDeletion: false, overlayLayout: layout });
   for (const invalid of [
     [{ ...layout[0], width: 10001 }],
-    [{ ...layout[0], x: 8000 }],
+    [{ ...layout[0], width: 99 }],
+    [{ ...layout[0], order: -1 }],
+    [{ ...layout[0], y: 0.5 }],
     [layout[0], layout[0]],
     [{ ...layout[0], x: NaN }],
   ]) {
