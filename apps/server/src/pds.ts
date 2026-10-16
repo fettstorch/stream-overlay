@@ -15,10 +15,9 @@ import {
   sameRecordContent,
   type StoredRecord,
 } from "./module-records.ts";
-import {
-  moduleSettings,
-  type CloudModuleSettings,
-} from "../../../packages/protocol/src/cloud-settings.ts";
+import { moduleSettings } from "../../../packages/protocol/src/cloud-settings.ts";
+import { collections, parseConfig } from "./legacy-records.ts";
+export { collections, parseConfig } from "./legacy-records.ts";
 
 import type { CloudMedia, CloudCommand } from "../../../modules/emoticons/src/cloud-contracts.ts";
 import type { CloudConfig } from "../../../packages/protocol/src/cloud-config.ts";
@@ -32,20 +31,19 @@ type PdsDependencies = {
   agent?: (session: Awaited<ReturnType<NodeOAuthClient["restore"]>>) => AgentLike;
 };
 type Diagnostics = { logger: StructuredLogger; requestId: string };
-export class CloudConfigMissingError extends Error {}
-export class ChatPermissionRequiredError extends Error {}
-export class ChatRateLimitError extends Error {}
+import {
+  CloudConfigMissingError,
+  ChatPermissionRequiredError,
+  ChatRateLimitError,
+  CloudConfigConflictError,
+} from "./pds-errors.ts";
+export {
+  CloudConfigMissingError,
+  ChatPermissionRequiredError,
+  ChatRateLimitError,
+  CloudConfigConflictError,
+} from "./pds-errors.ts";
 export const crystalPetCollection = "live.streamface.pokemonCrystalMgba.petCount";
-export class CloudConfigConflictError extends Error {
-  constructor() {
-    super("The configuration changed since it was loaded. Reload before saving.");
-  }
-}
-export function collections(namespace: string) {
-  if (!/^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*){1,}$/.test(namespace))
-    throw new Error("Invalid LEXICON_NAMESPACE");
-  return { settings: `${namespace}.settings`, command: `${namespace}.command` };
-}
 export function normalizeMediaType(value: string) {
   const type = value.split(";", 1)[0].trim().toLowerCase();
   if (type === "image/jpg") return "image/jpeg";
@@ -53,59 +51,6 @@ export function normalizeMediaType(value: string) {
   if (type === "application/zip" || type === "application/x-zip-compressed")
     return "application/zip";
   return /^(image|audio|video)\/[a-z0-9.+-]+$/.test(type) ? type : undefined;
-}
-export function parseConfig(
-  settings: unknown,
-  records: unknown[],
-  namespace: string,
-): CloudConfig | null {
-  if (!settings || typeof settings !== "object") return null;
-  const s = settings as Record<string, unknown>;
-  if (
-    s.$type !== collections(namespace).settings ||
-    typeof s.enabled !== "boolean" ||
-    typeof s.streamerDid !== "string" ||
-    !s.streamerDid.startsWith("did:")
-  )
-    return null;
-  const commands: CloudCommand[] = [];
-  for (const raw of records) {
-    if (!raw || typeof raw !== "object") return null;
-    const r = raw as Record<string, unknown>;
-    if (
-      r.$type !== collections(namespace).command ||
-      typeof r.id !== "string" ||
-      typeof r.command !== "string" ||
-      !/^[a-z0-9_-]{1,40}$/.test(r.command)
-    )
-      return null;
-    const command = {
-      ...r,
-      durationSeconds:
-        typeof r.durationMilliseconds === "number"
-          ? r.durationMilliseconds / 1000
-          : r.durationSeconds,
-      volume: typeof r.volumePercent === "number" ? r.volumePercent / 100 : r.volume,
-    } as unknown as CloudCommand;
-    validateCommand(command, false);
-    commands.push(command);
-  }
-  const settingsValue = { ...s } as CloudModuleSettings;
-  const storedPaint = s.paint as
-    | { color: string; decayMilliseconds?: number; decaySeconds?: number }
-    | undefined;
-  if (storedPaint?.decayMilliseconds !== undefined)
-    settingsValue.paint = {
-      color: storedPaint.color,
-      decaySeconds: storedPaint.decayMilliseconds / 1000,
-    };
-  return {
-    ...moduleSettings(settingsValue),
-    enabled: s.enabled,
-    streamerDid: s.streamerDid,
-    commands,
-    revision: typeof s.updatedAt === "string" ? s.updatedAt : "unknown",
-  };
 }
 export async function listAllRecords(
   load: (cursor?: string) => Promise<{ records: any[]; cursor?: string }>,

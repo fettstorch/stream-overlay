@@ -1,4 +1,4 @@
-import { CloudConfigConflictError } from "./pds.ts";
+import { CloudConfigConflictError } from "./pds-errors.ts";
 import { CustomBundleError } from "./custom-module-bundle.ts";
 
 export function saveFailure(error: unknown) {
