@@ -75,7 +75,11 @@ export function createEmotePlayer(
       await Promise.all(
         (["imageUrl", "videoUrl", "audioUrl"] as const).map(async (key) => {
           if (key === "imageUrl" && command.imageGiphyId) return;
-          if (command[key]) command[key] = await effectAssets.load(command[key]!);
+          if (!command[key]) return;
+          const cachedUrl = await effectAssets.load(command[key]!);
+          // Keep native media on its original URL. In Firefox, some audible
+          // MP4s resolve play() on a Blob URL but remain stuck at time zero.
+          if (key === "imageUrl") command[key] = cachedUrl;
         }),
       );
     } catch {

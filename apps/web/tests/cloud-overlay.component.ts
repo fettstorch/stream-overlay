@@ -415,6 +415,7 @@ test.each(["started", "frozen", "timeout", "canceled"])("pending play keeps the 
     () => new Promise<void>(resolve => { begin = resolve; }),
   );
   const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+  assets.load.mockImplementation(async () => "blob:https://example.test/cached-media");
   try {
     history.replaceState({}, "", "/effect/?did=did:plc:alice&preview=1");
     document.body.innerHTML = '<main class="effect"></main>';
@@ -431,6 +432,7 @@ test.each(["started", "frozen", "timeout", "canceled"])("pending play keeps the 
     await flushPromises();
     const clip = document.querySelector<HTMLElement>(".clip")!;
     const video = clip.querySelector("video")!;
+    expect(video.src).toBe("https://example.test/video.mp4");
     expect(video.autoplay).toBe(false);
     video.dispatchEvent(new Event("loadeddata"));
     await flushPromises();
@@ -478,6 +480,7 @@ test.each(["started", "frozen", "timeout", "canceled"])("pending play keeps the 
     await vi.advanceTimersByTimeAsync(1);
     expect(clip.isConnected).toBe(false);
   } finally {
+    assets.load.mockImplementation(async (source: string) => source);
     play.mockRestore();
     pause.mockRestore();
   }
