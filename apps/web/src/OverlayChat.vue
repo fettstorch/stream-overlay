@@ -4,13 +4,15 @@ import Chat from "../../../modules/chat/src/App.vue";
 import { overlayRuntimeKey } from "./shared-overlay-runtime.ts";
 import { moduleSettings } from "../../../packages/protocol/src/cloud-settings.ts";
 const host = inject(overlayRuntimeKey)!;
-const chat = host.samples ?? host.chat;
+const useSamples =
+  host.preview && new URLSearchParams(location.search).get("chatSource") !== "streamplace";
+const chat = useSamples ? host.samples! : host.chat;
 onMounted(() => host.report("config-loaded", "chat.mounted"));
 onBeforeUnmount(() => host.report("config-loaded", "chat.unmounted"));
 const source = {
   observe: () => {
-    const release = host.preview ? () => host.samples?.stop() : host.acquireChat("chat");
-    if (host.preview) chat.setStreamerDid(host.did);
+    const release = useSamples ? () => host.samples?.stop() : host.acquireChat("chat");
+    if (useSamples) chat.setStreamerDid(host.did);
     return { messages: chat.messages, close: release };
   },
   subscribe: (

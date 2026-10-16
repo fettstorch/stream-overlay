@@ -632,6 +632,16 @@ describe("Cloud Admin", () => {
       );
     }
     expect(wrapper.findAll('[aria-label="Chat appearance"] input')).toHaveLength(8);
+    const chatFrame = () => wrapper.get('iframe[title="Chat preview"]').attributes("src");
+    expect(chatFrame()).toContain("chatSource=test");
+    expect(wrapper.find('[aria-label="Message to your stream chat"]').exists()).toBe(false);
+    await wrapper.get('[aria-label="Test chat preview"]').setValue(false);
+    expect(chatFrame()).toContain("chatSource=streamplace");
+    expect(wrapper.find('[aria-label="Message to your stream chat"]').exists()).toBe(true);
+    expect(wrapper.get(".chat-preview-note").text()).toContain("Live Stream.place messages");
+    await wrapper.get('[aria-label="Test chat preview"]').setValue(true);
+    expect(chatFrame()).toContain("chatSource=test");
+    expect(wrapper.find('[aria-label="Message to your stream chat"]').exists()).toBe(false);
     expect(wrapper.get('[aria-label="Chat appearance"]').classes()).toContain("module-section");
     expect(wrapper.get('[aria-label="Paint appearance"]').classes()).toContain("module-section");
     const delay = wrapper.get('[aria-label="Paint appearance"] input[type=number]');

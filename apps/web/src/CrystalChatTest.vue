@@ -2,7 +2,9 @@
 import { ref, onMounted, onBeforeUnmount } from "vue";
 import { adminFetch } from "./cloud-admin-fetch.ts";
 import sendIcon from "./assets/branding/controls/send.png";
-const props = defineProps<{ did: string }>();
+const props = withDefaults(defineProps<{ did: string; purpose?: "petting" | "chat" }>(), {
+  purpose: "petting",
+});
 const text = ref("");
 const busy = ref(false);
 const status = ref("");
@@ -22,7 +24,9 @@ function persistenceFailed(event: MessageEvent) {
     ? "Petting works, but storing pet history needs new PDS permissions. Sign in again to authorize it."
     : "Petting works, but the pet count could not be saved. Check the server logs.";
 }
-onMounted(() => window.addEventListener("message", persistenceFailed));
+onMounted(() => {
+  if (props.purpose === "petting") window.addEventListener("message", persistenceFailed);
+});
 onBeforeUnmount(() => window.removeEventListener("message", persistenceFailed));
 async function send() {
   if (busy.value || !text.value.trim()) return;
@@ -60,8 +64,10 @@ async function send() {
     <div class="chat-test-row">
       <input
         v-model="text"
-        placeholder="!pet <pokemon>"
-        aria-label="Test petting in your stream chat"
+        :placeholder="purpose === 'petting' ? '!pet <pokemon>' : 'Write a chat message…'"
+        :aria-label="
+          purpose === 'petting' ? 'Test petting in your stream chat' : 'Message to your stream chat'
+        "
         maxlength="3000"
         required
         :disabled="busy"
@@ -77,12 +83,14 @@ async function send() {
       </button>
     </div>
     <p class="settings-hint">
-      Sends a real stream.place chat message as you. Use your Pokémon’s nickname.
+      Sends a real stream.place chat message as you.<template v-if="purpose === 'petting'">
+        Use your Pokémon’s nickname.</template
+      >
     </p>
     <p v-if="status" role="status">{{ status }}</p>
-    <a v-if="permissionRequired" :href="`/oauth/login?handle=${encodeURIComponent(did)}`"
-      >Authorize chat and pet history</a
-    >
+    <a v-if="permissionRequired" :href="`/oauth/login?handle=${encodeURIComponent(did)}`">{{
+      purpose === "petting" ? "Authorize chat and pet history" : "Authorize chat"
+    }}</a>
   </form>
 </template>
 <style scoped>

@@ -145,6 +145,7 @@ const sharedPreviewUrl = computed(() => {
   return url.toString();
 });
 const chatPreviewConfiguration = ref<ChatConfiguration>();
+const testChatPreview = ref(true);
 const previewLayout = ref<OverlayLayout>();
 function updateChatPreview(configuration: ChatConfiguration) {
   chatPreviewConfiguration.value = configuration;
@@ -343,6 +344,8 @@ function previewUrl(id: string) {
   url.searchParams.set("preview", "1");
   url.searchParams.set("only", id);
   url.searchParams.set("fit", "1");
+  if (id === "chat")
+    url.searchParams.set("chatSource", testChatPreview.value ? "test" : "streamplace");
   if (id === "overlay-paint") url.searchParams.set("interactive", "1");
   return url.toString();
 }
@@ -1180,10 +1183,29 @@ onBeforeUnmount(() => {
                   ><span class="button-hover-shade" aria-hidden="true"></span
                   ><span class="button-content"> Delete module </span>
                 </button>
-                <p v-if="module.id === 'chat'" class="chat-preview-note">
-                  Sample chat preview — these messages are generated here, not sent to your stream.
-                  Your OBS source still shows live chat.
-                </p>
+                <template v-if="module.id === 'chat'">
+                  <div class="command-mode-selector">
+                    <strong :class="{ 'mode-selected': !testChatPreview }"
+                      >Stream.place chat</strong
+                    >
+                    <label class="switch choice-switch">
+                      <input
+                        v-model="testChatPreview"
+                        type="checkbox"
+                        aria-label="Test chat preview"
+                      />
+                      <span aria-hidden="true" />
+                    </label>
+                    <strong :class="{ 'mode-selected': testChatPreview }">Test chat</strong>
+                  </div>
+                  <p class="chat-preview-note">
+                    {{
+                      testChatPreview
+                        ? "Test messages are generated here, not sent to your stream."
+                        : "Live Stream.place messages appear here as they arrive."
+                    }}
+                  </p>
+                </template>
                 <div
                   v-if="
                     module.id !== 'emoticons' &&
@@ -1217,6 +1239,11 @@ onBeforeUnmount(() => {
                     allow="autoplay"
                   />
                 </div>
+                <CrystalChatTest
+                  v-if="module.id === 'chat' && !testChatPreview && isExpanded(module)"
+                  :did="did"
+                  purpose="chat"
+                />
               </div>
             </CollapseTransition>
             <p

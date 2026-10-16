@@ -179,3 +179,35 @@ test("admin preview generates sample avatars and messages without observing live
   await flushPromises();
   expect(vi.getTimerCount()).toBe(0);
 });
+
+test("Stream.place preview observes live chat and releases it when disabled", async () => {
+  vi.useFakeTimers();
+  history.replaceState({}, "", "/overlay/?preview=1&only=chat&chatSource=streamplace");
+  document.body.innerHTML = '<div id="app"></div>';
+  await start(true);
+  const state = {
+    streamerDid: "did:plc:alice",
+    modules: { chat: true },
+    chat: defaultChatConfiguration,
+  };
+  mocks.receive(state);
+  await flushPromises();
+  expect(mocks.streamer).toHaveBeenLastCalledWith(state.streamerDid);
+  expect(document.querySelectorAll(".chat-message")).toHaveLength(0);
+  mocks.message({
+    id: "live-preview",
+    streamerDid: state.streamerDid,
+    text: "Live fixture message",
+    author: { did: "did:plc:bob", displayName: "Bob", avatar: "https://cdn.example/bob.jpg" },
+  });
+  await flushPromises();
+  expect(document.body.textContent).toContain("Live fixture message");
+  expect(document.querySelector<HTMLImageElement>(".chat-avatar")?.src).toBe(
+    "https://cdn.example/bob.jpg",
+  );
+  expect(document.body.textContent).not.toContain("Hey everyone!");
+  mocks.receive({ ...state, modules: { chat: false } });
+  await flushPromises();
+  expect(mocks.streamer).toHaveBeenLastCalledWith("");
+  expect(vi.getTimerCount()).toBe(0);
+});
