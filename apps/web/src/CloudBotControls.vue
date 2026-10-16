@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppButton from "./AppButton.vue";
 import { computed, nextTick, ref, watch } from "vue";
 import sendIcon from "./assets/branding/controls/send.png";
 import DrawnTabs from "./DrawnTabs.vue";
@@ -228,22 +229,17 @@ async function add() {
             <p>{{ rule.response }}</p>
             <small>{{ rule.cooldownSeconds }}s cooldown</small>
           </div>
-          <button :disabled="busy" @click="edit(rule)">
-            <span class="button-press-shade" aria-hidden="true"></span
-            ><span class="button-hover-shade" aria-hidden="true"></span
-            ><span class="button-content">Edit</span>
-          </button>
-          <button
+          <AppButton :disabled="busy" @click="edit(rule)" type="submit">Edit</AppButton>
+          <AppButton
             class="danger-button"
             :disabled="busy"
             @click="
               persist((config.bot?.rules ?? []).filter((item) => item.command !== rule.command))
             "
+            type="submit"
           >
-            <span class="button-press-shade" aria-hidden="true"></span
-            ><span class="button-hover-shade" aria-hidden="true"></span
-            ><span class="button-content"> Remove </span>
-          </button>
+            Remove
+          </AppButton>
         </li>
       </ul>
       <p v-if="!config.bot?.rules.length">No bot commands yet.</p>
@@ -285,16 +281,12 @@ async function add() {
       <p>
         The cooldown is shared by everyone using this command. Streamface ignores its own messages.
       </p>
-      <button class="success-button" type="submit" :disabled="busy">
-        <span class="button-press-shade" aria-hidden="true"></span
-        ><span class="button-hover-shade" aria-hidden="true"></span
-        ><span class="button-content">{{ busy ? "Saving…" : "Save command" }}</span>
-      </button>
-      <button class="danger-button" type="button" :disabled="busy" @click="reset">
-        <span class="button-press-shade" aria-hidden="true"></span
-        ><span class="button-hover-shade" aria-hidden="true"></span
-        ><span class="button-content">Cancel</span>
-      </button>
+      <AppButton class="success-button" type="submit" :disabled="busy">{{
+        busy ? "Saving…" : "Save command"
+      }}</AppButton>
+      <AppButton class="danger-button" type="button" :disabled="busy" @click="reset"
+        >Cancel</AppButton
+      >
     </form>
     <EmoticonModeration
       v-if="tab === 'moderation'"

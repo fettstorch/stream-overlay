@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppButton from "./AppButton.vue";
 import { adminFetch } from "./cloud-admin-fetch.ts";
 import CollapsibleSection from "./CollapsibleSection.vue";
 import { emoteEvents, type EmoteEventType } from "../../../modules/emoticons/src/events.ts";
@@ -525,19 +526,11 @@ defineExpose({ acceptCardDrop });
         <ul class="command-list striped-list">
           <li v-for="command in group.commands" :key="command.id">
             <strong>!{{ command.command }}</strong
-            ><button type="button" :disabled="busy" @click="test(command)">
-              <span class="button-press-shade" aria-hidden="true"></span
-              ><span class="button-hover-shade" aria-hidden="true"></span
-              ><span class="button-content">Test</span></button
-            ><button type="button" @click="edit(command)">
-              <span class="button-press-shade" aria-hidden="true"></span
-              ><span class="button-hover-shade" aria-hidden="true"></span
-              ><span class="button-content">Edit</span></button
-            ><button type="button" class="danger-button" @click="remove(command)">
-              <span class="button-press-shade" aria-hidden="true"></span
-              ><span class="button-hover-shade" aria-hidden="true"></span
-              ><span class="button-content">Delete</span>
-            </button>
+            ><AppButton type="button" :disabled="busy" @click="test(command)">Test</AppButton
+            ><AppButton type="button" @click="edit(command)">Edit</AppButton
+            ><AppButton type="button" class="danger-button" @click="remove(command)"
+              >Delete</AppButton
+            >
           </li>
         </ul></CollapsibleSection
       >
@@ -550,27 +543,21 @@ defineExpose({ acceptCardDrop });
         <ul class="command-list striped-list">
           <li v-for="event in mappedEvents" :key="event.id">
             <strong>{{ event.name }} · !{{ event.command.command }}</strong>
-            <button
+            <AppButton
               type="button"
               :disabled="busy"
               :aria-label="`Simulate ${event.name}`"
               @click="test(event.command, event.id)"
             >
-              <span class="button-press-shade" aria-hidden="true"></span
-              ><span class="button-hover-shade" aria-hidden="true"></span
-              ><span class="button-content"> Simulate </span>
-            </button>
+              Simulate
+            </AppButton>
           </li>
         </ul>
       </CollapsibleSection>
       <slot name="previews" />
     </div>
     <div v-if="!formOpen && !panel">
-      <button class="primary-button" type="button" @click="create">
-        <span class="button-press-shade" aria-hidden="true"></span
-        ><span class="button-hover-shade" aria-hidden="true"></span
-        ><span class="button-content">Create new command</span>
-      </button>
+      <AppButton class="primary-button" type="button" @click="create">Create new command</AppButton>
     </div>
     <form
       v-if="formOpen"
@@ -581,11 +568,9 @@ defineExpose({ acceptCardDrop });
     >
       <div v-if="editing || !panel" class="editor-heading">
         <h4>{{ editing ? "Edit command" : "Create command" }}</h4>
-        <button v-if="!panel" type="button" class="secondary-button" @click="reset">
-          <span class="button-press-shade" aria-hidden="true"></span
-          ><span class="button-hover-shade" aria-hidden="true"></span
-          ><span class="button-content">Close</span>
-        </button>
+        <AppButton v-if="!panel" type="button" class="secondary-button" @click="reset"
+          >Close</AppButton
+        >
       </div>
       <div class="command-mode-selector">
         <strong :class="{ 'mode-selected': form.mode === 'effect' }">Clip</strong>
@@ -639,16 +624,14 @@ defineExpose({ acceptCardDrop });
               placeholder="https://…/media.gif or a GIF search"
               :disabled="busy"
               @keydown.enter.prevent="submitMediaInput" /></label
-          ><button
+          ><AppButton
             v-if="!giphySearchMode"
             type="button"
             :disabled="busy || !mediaUrlInput.trim()"
             @click="submitMediaInput"
           >
-            <span class="button-press-shade" aria-hidden="true"></span
-            ><span class="button-hover-shade" aria-hidden="true"></span
-            ><span class="button-content"> Add URL </span>
-          </button>
+            Add URL
+          </AppButton>
         </div>
         <div v-if="giphySearchMode || giphyResults.length" class="giphy-picker">
           <img :src="giphyAttribution" alt="Powered by GIPHY" width="200" />
@@ -677,31 +660,20 @@ defineExpose({ acceptCardDrop });
         >
         <div v-if="unresolvedUrl" class="media-kind-choice">
           <span>What kind of direct media is this?</span
-          ><button type="button" @click="attachUrl('image', unresolvedUrl)">
-            <span class="button-press-shade" aria-hidden="true"></span
-            ><span class="button-hover-shade" aria-hidden="true"></span
-            ><span class="button-content">Image/GIF</span></button
-          ><button
+          ><AppButton type="button" @click="attachUrl('image', unresolvedUrl)">Image/GIF</AppButton
+          ><AppButton
             v-if="form.mode === 'effect'"
             type="button"
             @click="attachUrl('audio', unresolvedUrl)"
           >
-            <span class="button-press-shade" aria-hidden="true"></span
-            ><span class="button-hover-shade" aria-hidden="true"></span
-            ><span class="button-content"> Audio</span></button
-          ><button type="button" @click="attachUrl('video', unresolvedUrl)">
-            <span class="button-press-shade" aria-hidden="true"></span
-            ><span class="button-hover-shade" aria-hidden="true"></span
-            ><span class="button-content">Video</span>
-          </button>
+            Audio</AppButton
+          ><AppButton type="button" @click="attachUrl('video', unresolvedUrl)">Video</AppButton>
         </div>
         <div v-for="kind in kinds" v-show="pending[kind]" :key="kind" class="attachment">
           <span>{{ kind }} attached</span
-          ><button class="danger-button" type="button" @click="removeMedia(kind)">
-            <span class="button-press-shade" aria-hidden="true"></span
-            ><span class="button-hover-shade" aria-hidden="true"></span
-            ><span class="button-content">Remove</span>
-          </button>
+          ><AppButton class="danger-button" type="button" @click="removeMedia(kind)"
+            >Remove</AppButton
+          >
         </div>
       </div>
       <label v-if="mediaUrl('image') || mediaUrl('video')" class="sticker-toggle"
@@ -784,22 +756,17 @@ defineExpose({ acceptCardDrop });
         </label>
       </div>
       <div class="form-actions">
-        <button class="primary-button success-button" type="submit" :disabled="busy">
-          <span class="button-press-shade" aria-hidden="true"></span
-          ><span class="button-hover-shade" aria-hidden="true"></span
-          ><span class="button-content">{{
-            editing ? "Save changes" : "Create new command"
-          }}</span></button
-        ><button
+        <AppButton class="primary-button success-button" type="submit" :disabled="busy">{{
+          editing ? "Save changes" : "Create new command"
+        }}</AppButton
+        ><AppButton
           type="button"
           class="secondary-button danger-button"
           :disabled="busy"
           @click="cancel"
         >
-          <span class="button-press-shade" aria-hidden="true"></span
-          ><span class="button-hover-shade" aria-hidden="true"></span
-          ><span class="button-content"> Cancel </span>
-        </button>
+          Cancel
+        </AppButton>
       </div>
     </form>
     <p v-if="message" class="module-message" role="status">{{ message }}</p>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppButton from "./AppButton.vue";
 import ChatPreviewFrame from "./ChatPreviewFrame.vue";
 import { overlayPlacement } from "../../../packages/protocol/src/overlay-layout.ts";
 import type { OverlayLayout } from "../../../packages/protocol/src/overlay-layout.ts";
@@ -675,11 +676,9 @@ onBeforeUnmount(() => {
               autocomplete="username"
               placeholder="Search name or handle"
               required /></label
-          ><button class="primary-button atproto-button" type="submit">
-            <span class="button-press-shade" aria-hidden="true"></span
-            ><span class="button-hover-shade" aria-hidden="true"></span
-            ><span class="button-content">Continue with AT Protocol</span>
-          </button>
+          ><AppButton class="primary-button atproto-button" type="submit"
+            >Continue with AT Protocol</AppButton
+          >
         </form>
         <p ref="loginStatus" class="save-status login-status" aria-live="polite">
           {{ loginMessage }}
@@ -783,11 +782,9 @@ onBeforeUnmount(() => {
             Retry profile
           </button>
         </div>
-        <button type="button" class="secondary-button danger-button" @click="logout">
-          <span class="button-press-shade" aria-hidden="true"></span
-          ><span class="button-hover-shade" aria-hidden="true"></span
-          ><span class="button-content">Log out</span>
-        </button>
+        <AppButton type="button" class="secondary-button danger-button" @click="logout"
+          >Log out</AppButton
+        >
       </section>
       <CollapsibleSection v-if="config" title="Quickstart" class="shadowed-section">
         <SetupImport
@@ -875,16 +872,14 @@ onBeforeUnmount(() => {
       <section>
         <div class="modules-heading">
           <h2>Modules</h2>
-          <button
+          <AppButton
             type="button"
             aria-label="Create custom module"
             :disabled="!config || saving"
             @click="createCustomModule"
           >
-            <span class="button-press-shade" aria-hidden="true"></span
-            ><span class="button-hover-shade" aria-hidden="true"></span
-            ><span class="button-content"> New </span>
-          </button>
+            New
+          </AppButton>
         </div>
         <div class="module-badges" aria-label="Filter modules by badge">
           <button
@@ -1027,11 +1022,7 @@ onBeforeUnmount(() => {
             <div v-if="loadState === 'error'" class="state-panel error-panel">
               <strong>Your saved configuration could not be loaded.</strong
               ><span>We did not replace it with an empty setup.</span
-              ><button type="button" @click="loadConfiguration">
-                <span class="button-press-shade" aria-hidden="true"></span
-                ><span class="button-hover-shade" aria-hidden="true"></span
-                ><span class="button-content">Retry</span>
-              </button>
+              ><AppButton type="button" @click="loadConfiguration">Retry</AppButton>
             </div>
             <div v-else-if="loadState === 'loading'" class="state-panel">
               Loading your configuration…
@@ -1175,17 +1166,15 @@ onBeforeUnmount(() => {
                   :save="(candidate) => saveConfiguration(candidate, undefined, module.id)"
                   @chat-preview="updateChatPreview"
                 />
-                <button
+                <AppButton
                   v-if="module.id.startsWith('custom:')"
                   class="danger-button"
                   type="button"
                   :disabled="saving"
                   @click="deleteCustomModule(module.id)"
                 >
-                  <span class="button-press-shade" aria-hidden="true"></span
-                  ><span class="button-hover-shade" aria-hidden="true"></span
-                  ><span class="button-content"> Delete module </span>
-                </button>
+                  Delete module
+                </AppButton>
                 <template v-if="module.id === 'chat'">
                   <div class="command-mode-selector">
                     <strong :class="{ 'mode-selected': !testChatPreview }"

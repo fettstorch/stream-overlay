@@ -1,96 +1,277 @@
 <script setup lang="ts">
+import AppButton from "./AppButton.vue";
 import { onMounted, onBeforeUnmount, ref, watch } from "vue";
 import { attachActorCombobox, type ActorSuggestion } from "./actor-combobox.ts";
-import { searchPublicActors, resolvePublicActor, loadPublicActorProfile, type PublicActorProfile } from "./actor-search.ts";
-import { openCommandRoles, rolesRestricted, validateCommandRoles, type CommandRoles } from "../../../modules/emoticons/src/roles.ts";
+import {
+  searchPublicActors,
+  resolvePublicActor,
+  loadPublicActorProfile,
+  type PublicActorProfile,
+} from "./actor-search.ts";
+import {
+  openCommandRoles,
+  rolesRestricted,
+  validateCommandRoles,
+  type CommandRoles,
+} from "../../../modules/emoticons/src/roles.ts";
 import type { CloudConfig } from "./cloud-admin-types.ts";
-const props = defineProps<{ config: CloudConfig; save: (config: CloudConfig) => Promise<boolean> }>();
+const props = defineProps<{
+  config: CloudConfig;
+  save: (config: CloudConfig) => Promise<boolean>;
+}>();
 function copyRoles(value?: CommandRoles): CommandRoles {
   const source = value ?? openCommandRoles;
-  return { ...source, following: source.following ?? false, users: source.users.map(user => ({ ...user })) };
+  return {
+    ...source,
+    following: source.following ?? false,
+    users: source.users.map((user) => ({ ...user })),
+  };
 }
 const roles = ref<CommandRoles>(copyRoles(props.config.roles));
-const query = ref(""), selected = ref<ActorSuggestion>(), input = ref<HTMLInputElement>(), searchStatus = ref<HTMLElement>();
-const busy = ref(false), message = ref("");
+const query = ref(""),
+  selected = ref<ActorSuggestion>(),
+  input = ref<HTMLInputElement>(),
+  searchStatus = ref<HTMLElement>();
+const busy = ref(false),
+  message = ref("");
 const profiles = ref<Record<string, PublicActorProfile | null>>({});
-let autocomplete: ReturnType<typeof attachActorCombobox> | undefined, disposed = false;
-watch(() => props.config.roles, value => { roles.value = copyRoles(value); }, { deep: true });
-watch(() => roles.value.users.map(user => user.did), dids => {
-  for (const did of dids) if (!(did in profiles.value)) {
-    profiles.value[did] = null;
-    void loadPublicActorProfile(did).then(profile => { if (!disposed) profiles.value[did] = profile; }).catch(() => {});
-  }
-}, { immediate: true });
+let autocomplete: ReturnType<typeof attachActorCombobox> | undefined,
+  disposed = false;
+watch(
+  () => props.config.roles,
+  (value) => {
+    roles.value = copyRoles(value);
+  },
+  { deep: true },
+);
+watch(
+  () => roles.value.users.map((user) => user.did),
+  (dids) => {
+    for (const did of dids)
+      if (!(did in profiles.value)) {
+        profiles.value[did] = null;
+        void loadPublicActorProfile(did)
+          .then((profile) => {
+            if (!disposed) profiles.value[did] = profile;
+          })
+          .catch(() => {});
+      }
+  },
+  { immediate: true },
+);
 onMounted(() => {
-  if (input.value && searchStatus.value) autocomplete = attachActorCombobox({ input: input.value, status: searchStatus.value,
-    searcher: searchPublicActors, purpose: "moderation", onSelect: actor => { selected.value = actor; query.value = actor.handle; } });
+  if (input.value && searchStatus.value)
+    autocomplete = attachActorCombobox({
+      input: input.value,
+      status: searchStatus.value,
+      searcher: searchPublicActors,
+      purpose: "moderation",
+      onSelect: (actor) => {
+        selected.value = actor;
+        query.value = actor.handle;
+      },
+    });
 });
-onBeforeUnmount(() => { disposed = true; autocomplete?.dispose(); });
+onBeforeUnmount(() => {
+  disposed = true;
+  autocomplete?.dispose();
+});
 async function addUser() {
   if (busy.value || !query.value.trim()) return;
-  busy.value = true; message.value = "";
+  busy.value = true;
+  message.value = "";
   try {
-    const actor = selected.value ?? await resolvePublicActor(query.value);
+    const actor = selected.value ?? (await resolvePublicActor(query.value));
     const candidate = copyRoles(roles.value);
-    if (!candidate.users.some(user => user.did === actor.did)) candidate.users.push({ did: actor.did, ...(actor.handle ? { handle: actor.handle } : {}) });
+    if (!candidate.users.some((user) => user.did === actor.did))
+      candidate.users.push({ did: actor.did, ...(actor.handle ? { handle: actor.handle } : {}) });
     validateCommandRoles(candidate);
     roles.value = candidate;
-    query.value = ""; selected.value = undefined; autocomplete?.close();
+    query.value = "";
+    selected.value = undefined;
+    autocomplete?.close();
     if (searchStatus.value) searchStatus.value.textContent = "";
-  } catch (error) { message.value = error instanceof Error ? error.message : "Could not resolve this account."; }
-  finally { busy.value = false; }
+  } catch (error) {
+    message.value = error instanceof Error ? error.message : "Could not resolve this account.";
+  } finally {
+    busy.value = false;
+  }
 }
 async function saveRoles() {
   if (busy.value) return;
-  busy.value = true; message.value = "";
+  busy.value = true;
+  message.value = "";
   try {
     validateCommandRoles(roles.value);
-    const candidate: CommandRoles = { ...roles.value, users: roles.value.users.map(user => ({ ...user })) };
-    if (await props.save({ ...props.config, roles: candidate })) message.value = "Command roles saved.";
-  } catch (error) { message.value = error instanceof Error ? error.message : "Could not save command roles."; }
-  finally { busy.value = false; }
+    const candidate: CommandRoles = {
+      ...roles.value,
+      users: roles.value.users.map((user) => ({ ...user })),
+    };
+    if (await props.save({ ...props.config, roles: candidate }))
+      message.value = "Command roles saved.";
+  } catch (error) {
+    message.value = error instanceof Error ? error.message : "Could not save command roles.";
+  } finally {
+    busy.value = false;
+  }
 }
 </script>
 <template>
   <div class="command-roles editor-fields">
-    <p>Allow users who match any selected role or account. These roles apply to all commands in this module. Restrictions still take priority.</p>
-    <div class="role-choice"><div><strong>Following</strong><small>People you follow.</small></div><label class="switch">
-      <input v-model="roles.following" type="checkbox" role="switch" aria-label="Following" :disabled="busy" /><span aria-hidden="true" />
-    </label></div>
-    <div class="role-choice"><div><strong>Followers</strong><small>People who follow you.</small></div><label class="switch">
-      <input v-model="roles.followers" type="checkbox" role="switch" aria-label="Followers" :disabled="busy" /><span aria-hidden="true" />
-    </label></div>
-    <div class="role-choice"><div><strong>Mutuals</strong><small>You follow each other.</small></div><label class="switch">
-      <input v-model="roles.mutuals" type="checkbox" role="switch" aria-label="Mutuals" :disabled="busy" /><span aria-hidden="true" />
-    </label></div>
-    <div class="role-choice"><div><strong>Streamplace moderators</strong><small>Recognized by Streamplace's server-controlled chat badge.</small></div><label class="switch">
-      <input v-model="roles.moderators" type="checkbox" role="switch" aria-label="Streamplace moderators" :disabled="busy" /><span aria-hidden="true" />
-    </label></div>
+    <p>
+      Allow users who match any selected role or account. These roles apply to all commands in this
+      module. Restrictions still take priority.
+    </p>
+    <div class="role-choice">
+      <div><strong>Following</strong><small>People you follow.</small></div>
+      <label class="switch">
+        <input
+          v-model="roles.following"
+          type="checkbox"
+          role="switch"
+          aria-label="Following"
+          :disabled="busy"
+        /><span aria-hidden="true" />
+      </label>
+    </div>
+    <div class="role-choice">
+      <div><strong>Followers</strong><small>People who follow you.</small></div>
+      <label class="switch">
+        <input
+          v-model="roles.followers"
+          type="checkbox"
+          role="switch"
+          aria-label="Followers"
+          :disabled="busy"
+        /><span aria-hidden="true" />
+      </label>
+    </div>
+    <div class="role-choice">
+      <div><strong>Mutuals</strong><small>You follow each other.</small></div>
+      <label class="switch">
+        <input
+          v-model="roles.mutuals"
+          type="checkbox"
+          role="switch"
+          aria-label="Mutuals"
+          :disabled="busy"
+        /><span aria-hidden="true" />
+      </label>
+    </div>
+    <div class="role-choice">
+      <div>
+        <strong>Streamplace moderators</strong
+        ><small>Recognized by Streamplace's server-controlled chat badge.</small>
+      </div>
+      <label class="switch">
+        <input
+          v-model="roles.moderators"
+          type="checkbox"
+          role="switch"
+          aria-label="Streamplace moderators"
+          :disabled="busy"
+        /><span aria-hidden="true" />
+      </label>
+    </div>
     <ul v-if="roles.users.length" class="module-section command-list striped-list allowed-users">
       <li v-for="user in roles.users" :key="user.did">
-        <img v-if="profiles[user.did]?.avatar" :src="profiles[user.did]!.avatar" alt="" @error="profiles[user.did]!.avatar = ''" />
-        <span v-else class="avatar-placeholder" role="img" aria-label="Profile picture unavailable" />
-        <strong>{{ profiles[user.did]?.handle ? `@${profiles[user.did]!.handle}` : user.handle ? `@${user.handle}` : user.did }}</strong>
-        <button class="danger-button" type="button" :disabled="busy" @click="roles.users = roles.users.filter(item => item.did !== user.did)"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Remove</span></button>
+        <img
+          v-if="profiles[user.did]?.avatar"
+          :src="profiles[user.did]!.avatar"
+          alt=""
+          @error="profiles[user.did]!.avatar = ''"
+        />
+        <span
+          v-else
+          class="avatar-placeholder"
+          role="img"
+          aria-label="Profile picture unavailable"
+        />
+        <strong>{{
+          profiles[user.did]?.handle
+            ? `@${profiles[user.did]!.handle}`
+            : user.handle
+              ? `@${user.handle}`
+              : user.did
+        }}</strong>
+        <AppButton
+          class="danger-button"
+          type="button"
+          :disabled="busy"
+          @click="roles.users = roles.users.filter((item) => item.did !== user.did)"
+          >Remove</AppButton
+        >
       </li>
     </ul>
-    <label class="role-search">Specific user
-      <input ref="input" v-model="query" placeholder="Add @handle" :disabled="busy" autocomplete="off" @input="selected = undefined" @keydown.enter.prevent="addUser" />
+    <label class="role-search"
+      >Specific user
+      <input
+        ref="input"
+        v-model="query"
+        placeholder="Add @handle"
+        :disabled="busy"
+        autocomplete="off"
+        @input="selected = undefined"
+        @keydown.enter.prevent="addUser"
+      />
     </label>
     <span ref="searchStatus" role="status" class="settings-hint" />
-    <button class="atproto-button" type="button" :disabled="busy || !query.trim()" @click="addUser"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Add user</span></button>
-    <p class="settings-hint">{{ rolesRestricted(roles) ? 'Only matching users will be allowed. If a relationship lookup fails, access is denied.' : 'No roles selected: everyone can use commands, subject to restrictions.' }} Changes take effect after saving.</p>
-    <button class="success-button" type="button" :disabled="busy" @click="saveRoles"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">{{ busy ? 'Saving…' : 'Save roles' }}</span></button>
+    <AppButton
+      class="atproto-button"
+      type="button"
+      :disabled="busy || !query.trim()"
+      @click="addUser"
+      >Add user</AppButton
+    >
+    <p class="settings-hint">
+      {{
+        rolesRestricted(roles)
+          ? "Only matching users will be allowed. If a relationship lookup fails, access is denied."
+          : "No roles selected: everyone can use commands, subject to restrictions."
+      }}
+      Changes take effect after saving.
+    </p>
+    <AppButton class="success-button" type="button" :disabled="busy" @click="saveRoles">{{
+      busy ? "Saving…" : "Save roles"
+    }}</AppButton>
     <p v-if="message" role="status">{{ message }}</p>
   </div>
 </template>
 <style scoped>
-.command-roles { display: grid; gap: 12px; min-width: 0; }
-#app .role-choice { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.role-choice > div { display: grid; gap: 2px; }
-.role-choice small { font-weight: 400; }
-.role-search { position: relative; }
-.allowed-users strong { overflow-wrap: anywhere; min-width: 0; }
-.allowed-users img, .allowed-users .avatar-placeholder { width: 40px; height: 40px; flex: 0 0 40px; border-radius: 50%; object-fit: cover; }
-.command-roles > button { justify-self: start; }
+.command-roles {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+#app .role-choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.role-choice > div {
+  display: grid;
+  gap: 2px;
+}
+.role-choice small {
+  font-weight: 400;
+}
+.role-search {
+  position: relative;
+}
+.allowed-users strong {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.allowed-users img,
+.allowed-users .avatar-placeholder {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.command-roles > button {
+  justify-self: start;
+}
 </style>

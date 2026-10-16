@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppButton from "./AppButton.vue";
 import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { RelayClient } from "@streamface/browser-runtime";
 import type { PokemonSnapshot } from "@streamface/pokemon-model";
@@ -17,23 +18,34 @@ const props = defineProps<{
   panel?: "script" | "artwork";
 }>();
 const species = ref(25);
-const sortedMappings = computed(() => [...(props.config.pokemonCrystalMgbaMedia ?? [])].sort((a, b) => a.number - b.number));
+const sortedMappings = computed(() =>
+  [...(props.config.pokemonCrystalMgbaMedia ?? [])].sort((a, b) => a.number - b.number),
+);
 const party = ref<PokemonSnapshot["party"]>([]);
 const editing = ref(false);
 const artworkEditor = ref<HTMLElement>();
 let partyRelay: RelayClient | undefined;
 let partyExpiry: ReturnType<typeof setTimeout> | undefined;
-function clearParty() { party.value = []; clearTimeout(partyExpiry); }
+function clearParty() {
+  party.value = [];
+  clearTimeout(partyExpiry);
+}
 onMounted(() => {
   partyRelay = new RelayClient(
     `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/relay`,
-    { type: "hello", did: props.config.streamerDid, page: "pokemon-crystal-mgba", channel: "preview" },
+    {
+      type: "hello",
+      did: props.config.streamerDid,
+      page: "pokemon-crystal-mgba",
+      channel: "preview",
+    },
     (message) => {
       if (message.type !== "pokemon-crystal-mgba") return;
       party.value = message.snapshot.party;
       clearTimeout(partyExpiry);
       partyExpiry = setTimeout(clearParty, 10000);
-    }, clearParty,
+    },
+    clearParty,
   );
 });
 async function assignArtwork(number: number) {
@@ -45,7 +57,9 @@ async function assignArtwork(number: number) {
   artworkEditor.value?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
 }
 function artwork(number: number) {
-  return props.config.pokemonCrystalMgbaMedia?.find((item) => item.number === number)?.url ?? fallback;
+  return (
+    props.config.pokemonCrystalMgbaMedia?.find((item) => item.number === number)?.url ?? fallback
+  );
 }
 const url = ref("");
 const message = ref("");
@@ -234,8 +248,15 @@ async function remove(number: number) {
 }
 </script>
 <template>
-  <div class="crystal-controls editor-fields" :class="{ 'module-settings': !panel, 'tabbed-controls': panel }">
-    <section v-show="!panel || panel === 'script'" :inert="panel === 'artwork' || undefined" :class="{ 'module-section': !panel }">
+  <div
+    class="crystal-controls editor-fields"
+    :class="{ 'module-settings': !panel, 'tabbed-controls': panel }"
+  >
+    <section
+      v-show="!panel || panel === 'script'"
+      :inert="panel === 'artwork' || undefined"
+      :class="{ 'module-section': !panel }"
+    >
       <h4>Live game source</h4>
       <p>
         English Pokémon Crystal (USA/Europe Rev 1), mGBA 0.10+. Download your script and load it
@@ -246,120 +267,115 @@ async function remove(number: number) {
         replaces the previous script.
       </p>
       <div class="crystal-actions">
-        <button type="button" :disabled="busy" @click="download">
-          <span class="button-press-shade" aria-hidden="true"></span>
-          <span class="button-hover-shade" aria-hidden="true"></span>
-          <span class="button-content">Download private Lua script</span>
-        </button>
-        <button type="button" :disabled="busy" @click="revoke">
-          <span class="button-press-shade" aria-hidden="true"></span>
-          <span class="button-hover-shade" aria-hidden="true"></span>
-          <span class="button-content">Revoke source</span>
-        </button>
+        <AppButton type="button" :disabled="busy" @click="download"
+          >Download private Lua script</AppButton
+        >
+        <AppButton type="button" :disabled="busy" @click="revoke">Revoke source</AppButton>
       </div>
     </section>
-    <section v-show="!panel || panel === 'artwork'" :inert="panel === 'script' || undefined" :class="{ 'module-section': !panel }">
+    <section
+      v-show="!panel || panel === 'artwork'"
+      :inert="panel === 'script' || undefined"
+      :class="{ 'module-section': !panel }"
+    >
       <h4>Pokémon artwork</h4>
       <p>Assign artwork to your current party. Mappings apply to every Pokémon of that species.</p>
       <div class="party-artwork">
         <div v-for="pokemon in party" :key="pokemon.id" class="party-artwork-card">
-          <img :src="artwork(pokemon.nationalDexNumber)" :alt="pokemon.name" @error="($event.target as HTMLImageElement).src = fallback" />
+          <img
+            :src="artwork(pokemon.nationalDexNumber)"
+            :alt="pokemon.name"
+            @error="($event.target as HTMLImageElement).src = fallback"
+          />
           <span>{{ pokemon.name }}</span>
-          <button type="button" :disabled="busy" @click="assignArtwork(pokemon.nationalDexNumber)">
-            <span class="button-press-shade" aria-hidden="true"></span>
-            <span class="button-hover-shade" aria-hidden="true"></span>
-            <span class="button-content">Assign artwork</span>
-          </button>
+          <AppButton
+            type="button"
+            :disabled="busy"
+            @click="assignArtwork(pokemon.nationalDexNumber)"
+            >Assign artwork</AppButton
+          >
         </div>
       </div>
       <p v-if="!party.length">Waiting for live party data from mGBA.</p>
-      <button v-if="panel && !editing" type="button" @click="editing = true">
-        <span class="button-press-shade" aria-hidden="true"></span>
-        <span class="button-hover-shade" aria-hidden="true"></span>
-        <span class="button-content">Choose another species</span>
-      </button>
-      <div v-show="!panel || editing" ref="artworkEditor">
-      <label
-        >National Pokédex number<input
-          v-model.number="species"
-          type="number"
-          min="1"
-          max="251"
-          :disabled="busy"
-      /></label>
-      <div
-        class="artwork-drop"
-        :class="{ dragging }"
-        @dragover.prevent="dragging = true"
-        @dragleave="dragging = false"
-        @drop.prevent="drop"
+      <AppButton v-if="panel && !editing" type="button" @click="editing = true"
+        >Choose another species</AppButton
       >
-        <p>Drop an image here, or choose a file.</p>
+      <div v-show="!panel || editing" ref="artworkEditor">
         <label
-          >Upload image<input
-            type="file"
-            accept="image/png,image/jpeg,image/gif,image/webp,image/avif"
-            :disabled="busy"
-            @change="upload"
-        /></label>
-      </div>
-      <form class="crystal-actions" @submit.prevent="submit">
-        <label
-          >Media URL or GIPHY sticker search<input
-            v-model="url"
-            placeholder="https://… or pikachu"
+          >National Pokédex number<input
+            v-model.number="species"
+            type="number"
+            min="1"
+            max="251"
             :disabled="busy"
         /></label>
-        <button
-          v-if="/^https?:\/\//i.test(url.trim())"
-          class="primary-button success-button"
-          type="submit"
-          :disabled="busy || !url.trim()"
+        <div
+          class="artwork-drop"
+          :class="{ dragging }"
+          @dragover.prevent="dragging = true"
+          @dragleave="dragging = false"
+          @drop.prevent="drop"
         >
-          <span class="button-press-shade" aria-hidden="true"></span>
-          <span class="button-hover-shade" aria-hidden="true"></span>
-          <span class="button-content">Apply</span>
-        </button>
-      </form>
-      <p v-if="searching" role="status">Searching stickers…</p>
-      <div v-if="results.length" class="sticker-results">
-        <div v-for="sticker in results" :key="sticker.id">
-          <img :src="sticker.preview" :alt="sticker.title" />
-          <button
-            class="primary-button success-button"
-            :disabled="busy"
-            @click="action(() => replace({ number: species, url: sticker.url }))"
-          >
-            <span class="button-press-shade" aria-hidden="true"></span>
-            <span class="button-hover-shade" aria-hidden="true"></span>
-            <span class="button-content">Apply</span>
-          </button>
+          <p>Drop an image here, or choose a file.</p>
+          <label
+            >Upload image<input
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp,image/avif"
+              :disabled="busy"
+              @change="upload"
+          /></label>
         </div>
-      </div>
-      <img
-        v-if="results.length || searching"
-        :src="giphyAttribution"
-        alt="Powered by GIPHY"
-        width="200"
-      />
-      <button v-if="hasNextBatch" type="button" :disabled="busy || searching" @click="search(true)">
-        <span class="button-press-shade" aria-hidden="true"></span>
-        <span class="button-hover-shade" aria-hidden="true"></span>
-        <span class="button-content">Next batch</span>
-      </button>
+        <form class="crystal-actions" @submit.prevent="submit">
+          <label
+            >Media URL or GIPHY sticker search<input
+              v-model="url"
+              placeholder="https://… or pikachu"
+              :disabled="busy"
+          /></label>
+          <AppButton
+            v-if="/^https?:\/\//i.test(url.trim())"
+            class="primary-button success-button"
+            type="submit"
+            :disabled="busy || !url.trim()"
+            >Apply</AppButton
+          >
+        </form>
+        <p v-if="searching" role="status">Searching stickers…</p>
+        <div v-if="results.length" class="sticker-results">
+          <div v-for="sticker in results" :key="sticker.id">
+            <img :src="sticker.preview" :alt="sticker.title" />
+            <AppButton
+              class="primary-button success-button"
+              :disabled="busy"
+              @click="action(() => replace({ number: species, url: sticker.url }))"
+              type="submit"
+              >Apply</AppButton
+            >
+          </div>
+        </div>
+        <img
+          v-if="results.length || searching"
+          :src="giphyAttribution"
+          alt="Powered by GIPHY"
+          width="200"
+        />
+        <AppButton
+          v-if="hasNextBatch"
+          type="button"
+          :disabled="busy || searching"
+          @click="search(true)"
+          >Next batch</AppButton
+        >
       </div>
       <ul class="artwork-mappings">
         <li v-for="item in sortedMappings" :key="item.number">
           <span>#{{ item.number }}</span
-          ><img v-if="item.url" :src="item.url" alt="Mapped Pokémon artwork" /><button
+          ><img v-if="item.url" :src="item.url" alt="Mapped Pokémon artwork" /><AppButton
             type="button"
             :disabled="busy"
             @click="remove(item.number)"
+            >Remove</AppButton
           >
-            <span class="button-press-shade" aria-hidden="true"></span>
-            <span class="button-hover-shade" aria-hidden="true"></span>
-            <span class="button-content">Remove</span>
-          </button>
         </li>
       </ul>
     </section>
@@ -367,9 +383,23 @@ async function remove(number: number) {
   </div>
 </template>
 <style scoped>
-.party-artwork { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-block: 20px; }
-.party-artwork-card { display: flex; flex-direction: column; align-items: center; gap: 10px; }
-.party-artwork-card img { width: 100px; height: 100px; object-fit: contain; }
+.party-artwork {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+  margin-block: 20px;
+}
+.party-artwork-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.party-artwork-card img {
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+}
 .crystal-controls {
   margin-top: 32px;
 }
@@ -422,10 +452,19 @@ li {
   gap: 12px;
   flex-wrap: wrap;
 }
-.crystal-actions > label { flex: 1; min-width: 180px; }
-.crystal-controls input[type="number"] { max-width: 9ch; }
-form.crystal-actions { margin-block: 16px; }
-.crystal-actions > button { align-self: end; }
+.crystal-actions > label {
+  flex: 1;
+  min-width: 180px;
+}
+.crystal-controls input[type="number"] {
+  max-width: 9ch;
+}
+form.crystal-actions {
+  margin-block: 16px;
+}
+.crystal-actions > button {
+  align-self: end;
+}
 ul {
   list-style: none;
   padding: 0;

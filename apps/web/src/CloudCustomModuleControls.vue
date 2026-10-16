@@ -72,7 +72,9 @@ async function copyPageUrl() {
     if (disposed) return;
     pageCopied.value = true;
     clearTimeout(pageCopyTimer);
-    pageCopyTimer = setTimeout(() => { pageCopied.value = false; }, 1800);
+    pageCopyTimer = setTimeout(() => {
+      pageCopied.value = false;
+    }, 1800);
   } catch {
     if (!disposed) message.value = "Could not copy the URL.";
   }
@@ -83,15 +85,20 @@ let savedFeedbackTimer: ReturnType<typeof setTimeout> | undefined;
 const uploading = ref(false);
 const sourceMode = ref(savedModule.value?.bundle ? "zip" : "code");
 const bundleInput = ref<HTMLInputElement>();
-watch(sourceMode, (mode) => { if (mode === "code") delete draft.value.bundle; });
+watch(sourceMode, (mode) => {
+  if (mode === "code") delete draft.value.bundle;
+});
 async function uploadBundle(file?: File) {
   if (!file || uploading.value || saving.value || savingDisplayMode.value) return;
   sourceMode.value = "zip";
   emit("mediaDrop");
-  uploading.value = true; message.value = `Uploading ${file.name} to your PDS…`;
+  uploading.value = true;
+  message.value = `Uploading ${file.name} to your PDS…`;
   try {
-    if (!file.size || file.size > 10_000_000) throw new Error("ZIP apps must be between 1 byte and 10 MB.");
-    if (new TextEncoder().encode(file.name).length > 200) throw new Error("Use a ZIP filename shorter than 200 bytes.");
+    if (!file.size || file.size > 10_000_000)
+      throw new Error("ZIP apps must be between 1 byte and 10 MB.");
+    if (new TextEncoder().encode(file.name).length > 200)
+      throw new Error("Use a ZIP filename shorter than 200 bytes.");
     const blob = await uploadFile(file, "application/zip");
     if (disposed) return;
     const bundle = { name: file.name, blob };
@@ -109,7 +116,9 @@ async function uploadBundle(file?: File) {
     message.value = "ZIP app saved. Connected overlays update automatically.";
   } catch (error) {
     message.value = error instanceof Error ? error.message : "Could not upload the ZIP app.";
-  } finally { uploading.value = false; }
+  } finally {
+    uploading.value = false;
+  }
 }
 async function selectedBundle(event: Event) {
   const input = event.target as HTMLInputElement;
@@ -127,7 +136,8 @@ function dragFiles(event: DragEvent) {
 async function dropEditorFiles(event: DragEvent) {
   const files = Array.from(event.dataTransfer?.files ?? []);
   if (!files.length) return;
-  event.preventDefault(); event.stopPropagation();
+  event.preventDefault();
+  event.stopPropagation();
   await dropFiles(files);
 }
 const draftFiles = new Map<string, File>();
@@ -227,7 +237,10 @@ async function acceptCardDrop(files: FileList | null | undefined) {
   const list = Array.from(files ?? []);
   if (!list.length) return { accepted: false };
   await dropFiles(list);
-  return { accepted: list.some((file) => /\.zip$/i.test(file.name) || mediaType(file)), message: message.value };
+  return {
+    accepted: list.some((file) => /\.zip$/i.test(file.name) || mediaType(file)),
+    message: message.value,
+  };
 }
 defineExpose({ acceptCardDrop });
 const showStream = ref(false);
@@ -241,20 +254,32 @@ const streamUrl = computed(() =>
     : undefined,
 );
 const dirty = computed(
-  () => contentKey(draft.value) !== contentKey(editorSettings(savedModule.value ?? defaultCustomModuleSettings)),
+  () =>
+    contentKey(draft.value) !==
+    contentKey(editorSettings(savedModule.value ?? defaultCustomModuleSettings)),
 );
 watch(
   () => savedModule.value,
   (value, previous) => {
     // Metadata saves must preserve unsaved source edits.
-    if (contentKey(editorSettings(previous ?? defaultCustomModuleSettings)) === contentKey(draft.value)) {
+    if (
+      contentKey(editorSettings(previous ?? defaultCustomModuleSettings)) ===
+      contentKey(draft.value)
+    ) {
       draft.value = editorSettings(value ?? defaultCustomModuleSettings);
       if (!uploading.value) sourceMode.value = value?.bundle ? "zip" : "code";
     }
   },
 );
 async function save() {
-  if (sourceMode.value !== "code" || saving.value || savingDisplayMode.value || uploading.value || !dirty.value) return;
+  if (
+    sourceMode.value !== "code" ||
+    saving.value ||
+    savingDisplayMode.value ||
+    uploading.value ||
+    !dirty.value
+  )
+    return;
   message.value = "";
   try {
     validateCustomModuleSettings(previewSettings.value);
@@ -293,7 +318,9 @@ async function save() {
     ) {
       draftFiles.clear();
       savedFeedback.value = true;
-      savedFeedbackTimer = setTimeout(() => { savedFeedback.value = false; }, 1800);
+      savedFeedbackTimer = setTimeout(() => {
+        savedFeedback.value = false;
+      }, 1800);
       message.value = "Custom Module saved. Connected overlays update automatically.";
     }
   } catch (error) {
@@ -326,14 +353,17 @@ function reset() {
           :disabled="saving || savingDisplayMode || uploading"
           :aria-busy="savingDisplayMode"
           @change="changeDisplayMode"
-        >
+        />
         <span aria-hidden="true" />
       </label>
       <strong :class="{ 'mode-selected': displayMode === 'page' }">Own page</strong>
     </div>
     <p v-if="displayModeMessage" role="status">{{ displayModeMessage }}</p>
     <slot />
-    <p v-if="displayMode === 'page'">This module fills its own page and stays off the shared overlay. Enable the module to show its content.</p>
+    <p v-if="displayMode === 'page'">
+      This module fills its own page and stays off the shared overlay. Enable the module to show its
+      content.
+    </p>
     <div v-if="displayMode === 'page' && pageUrl" class="overlay-url">
       <code>{{ displayPageUrl }}</code>
       <button type="button" class="open-url-button" aria-label="Open module page" @click="openPage">
@@ -350,16 +380,25 @@ function reset() {
       </button>
     </div>
     <p v-if="sourceMode === 'code'">
-      <LanguageText text="Use HTML, CSS and JavaScript. Use the JavaScript field for scripts; it runs after your HTML is rendered. " />
-      <LanguageText text="Drop images or videos onto the preview to upload them to your PDS. Use the CSS field for styles and animations. Each field supports" />
+      <LanguageText
+        text="Use HTML, CSS and JavaScript. Use the JavaScript field for scripts; it runs after your HTML is rendered. "
+      />
+      <LanguageText
+        text="Drop images or videos onto the preview to upload them to your PDS. Use the CSS field for styles and animations. Each field supports"
+      />
       up to
       {{ customModuleSourceLimit / 1000 }} KB.
     </p>
     <div class="command-mode-selector">
       <strong :class="{ 'mode-selected': sourceMode === 'code' }">Code</strong>
       <label class="switch choice-switch">
-        <input type="checkbox" aria-label="ZIP app mode" :checked="sourceMode === 'zip'" :disabled="saving || uploading"
-          @change="sourceMode = ($event.target as HTMLInputElement).checked ? 'zip' : 'code'">
+        <input
+          type="checkbox"
+          aria-label="ZIP app mode"
+          :checked="sourceMode === 'zip'"
+          :disabled="saving || uploading"
+          @change="sourceMode = ($event.target as HTMLInputElement).checked ? 'zip' : 'code'"
+        />
         <span aria-hidden="true" />
       </label>
       <strong :class="{ 'mode-selected': sourceMode === 'zip' }">ZIP app</strong>
@@ -377,8 +416,22 @@ function reset() {
         </div>
       </aside>
       <small>Maximum 10 MB zipped, 50 MB unpacked, 1,000 files.</small>
-      <input ref="bundleInput" hidden type="file" accept=".zip,application/zip" :disabled="saving || uploading" @change="selectedBundle">
-      <AppButton class="zip-upload-button" :disabled="saving || uploading" @click="bundleInput?.click()">{{ uploading ? 'Uploading…' : draft.bundle ? 'Replace ZIP app' : 'Choose ZIP app' }}</AppButton>
+      <input
+        ref="bundleInput"
+        hidden
+        type="file"
+        accept=".zip,application/zip"
+        :disabled="saving || uploading"
+        @change="selectedBundle"
+      />
+      <AppButton
+        class="zip-upload-button"
+        :disabled="saving || uploading"
+        @click="bundleInput?.click()"
+        >{{
+          uploading ? "Uploading…" : draft.bundle ? "Replace ZIP app" : "Choose ZIP app"
+        }}</AppButton
+      >
       <small v-if="draft.bundle">{{ draft.bundle.name }}</small>
     </div>
     <div v-else class="custom-module-sources">
@@ -414,27 +467,38 @@ function reset() {
       </div>
     </div>
     <div v-if="sourceMode === 'code'" class="editor-actions">
-      <button class="save-overlay-button success-button" type="button" :aria-busy="saving" :data-save-state="savedFeedback && !dirty ? 'saved' : undefined" :disabled="saving || savingDisplayMode || uploading || !dirty" @click="save">
-        <span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">{{ saving ? 'Saving…' : savedFeedback && !dirty ? '✓ Saved' : 'Save overlay' }}</span></button
-      ><button class="danger-button" type="button" :disabled="saving || savingDisplayMode || uploading || !dirty" @click="reset"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">
+      <AppButton
+        class="save-overlay-button success-button"
+        type="button"
+        :aria-busy="saving"
+        :data-save-state="savedFeedback && !dirty ? 'saved' : undefined"
+        :disabled="saving || savingDisplayMode || uploading || !dirty"
+        @click="save"
+        >{{ saving ? "Saving…" : savedFeedback && !dirty ? "✓ Saved" : "Save overlay" }}</AppButton
+      ><AppButton
+        class="danger-button"
+        type="button"
+        :disabled="saving || savingDisplayMode || uploading || !dirty"
+        @click="reset"
+      >
         Discard changes
-      </span></button>
+      </AppButton>
     </div>
     <p v-if="message" role="status">{{ message }}</p>
     <div class="editor-preview">
-    <CustomModulePreview
-      :did="config.streamerDid"
-      :settings="previewSettings"
-      :stream-url="streamUrl"
-      :aspect-ratio="previewAspectRatio"
-      @html="
-        (html) => {
-          if (!saving && !uploading) draft.html = html;
-        }
-      "
-      @media-drop="dropFiles"
-      @error="message = $event"
-    />
+      <CustomModulePreview
+        :did="config.streamerDid"
+        :settings="previewSettings"
+        :stream-url="streamUrl"
+        :aspect-ratio="previewAspectRatio"
+        @html="
+          (html) => {
+            if (!saving && !uploading) draft.html = html;
+          }
+        "
+        @media-drop="dropFiles"
+        @error="message = $event"
+      />
     </div>
     <div class="stream-preview-option">
       <span>Show my stream behind the preview</span>
@@ -451,17 +515,21 @@ function reset() {
 .custom-module-editor {
   min-width: 0;
 }
-.zip-upload-button { justify-self: start; }
+.zip-upload-button {
+  justify-self: start;
+}
 .vite-info {
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr);
   gap: 10px;
   padding: 16px;
   margin-block: 12px;
-  font-size: .84rem;
+  font-size: 0.84rem;
   line-height: 1.5;
 }
-.vite-info p { margin: 0; }
+.vite-info p {
+  margin: 0;
+}
 .vite-info pre {
   margin: 6px 0 10px;
   padding: 8px 12px;
@@ -471,12 +539,17 @@ function reset() {
   font: inherit;
   overflow-x: auto;
 }
-.vite-info pre code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.vite-info pre code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
 :global(html[data-theme="dark"]) .vite-info pre {
   border-color: #555;
   background: #222;
 }
-.vite-info-icon { width: 22px; height: 22px; }
+.vite-info-icon {
+  width: 22px;
+  height: 22px;
+}
 .editor-preview {
   margin-top: 32px;
 }
@@ -511,14 +584,18 @@ label,
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .source-field { transition: none; }
+  .source-field {
+    transition: none;
+  }
 }
 .editor-actions {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
 }
-.save-overlay-button { min-width: 8em; }
+.save-overlay-button {
+  min-width: 8em;
+}
 .stream-preview-option {
   display: flex;
   align-items: center;

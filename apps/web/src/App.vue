@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppButton from "./AppButton.vue";
 import BrandWordmark from "./BrandWordmark.vue";
 import CollapseTransition from "./CollapseTransition.vue";
 import { vModuleWidth } from "./module-width-motion.ts";
@@ -9,7 +10,10 @@ import EmoticonControls from "./EmoticonControls.vue";
 import { emoteObsInstructions } from "./emote-obs-instructions.ts";
 import PokemonModuleControls from "./PokemonModuleControls.vue";
 import { defaultChatConfiguration, parseChatConfiguration } from "../../../modules/chat/src/config";
-import { parseThoughtInterval, type PokemonBlueConfiguration } from "../../../modules/pokemon-blue/src/config";
+import {
+  parseThoughtInterval,
+  type PokemonBlueConfiguration,
+} from "../../../modules/pokemon-blue/src/config";
 import { useModuleCollection } from "./use-module-collection.ts";
 
 interface ModuleStatus {
@@ -41,7 +45,17 @@ interface ActorProfile {
 }
 
 const modules = ref<ModuleStatus[]>([]);
-const { query: moduleQuery, isPinned, togglePin, isExpanded, toggleDetails, expandCard, matchesSearch, orderedModules, matchingCount: matchingModuleCount } = useModuleCollection(modules);
+const {
+  query: moduleQuery,
+  isPinned,
+  togglePin,
+  isExpanded,
+  toggleDetails,
+  expandCard,
+  matchesSearch,
+  orderedModules,
+  matchingCount: matchingModuleCount,
+} = useModuleCollection(modules);
 const configuration = ref<PokemonBlueConfiguration>({
   thoughtIntervalSeconds: 120,
   components: { team: true, badges: true },
@@ -86,7 +100,10 @@ const previewCleanups = new Map<HTMLIFrameElement, () => void>();
 function muteLoadedPreview(event: Event) {
   const frame = event.target as HTMLIFrameElement;
   for (const [previous, cleanup] of previewCleanups) {
-    if (previous === frame || !previous.isConnected) { cleanup(); previewCleanups.delete(previous); }
+    if (previous === frame || !previous.isConnected) {
+      cleanup();
+      previewCleanups.delete(previous);
+    }
   }
   previewCleanups.set(frame, mutePreview(frame));
 }
@@ -109,36 +126,52 @@ function previewUrl(module: ModuleStatus) {
 async function refreshStreamDimensions() {
   const sequence = ++dimensionsSequence;
   const did = streamConfiguration.value.streamerDid;
-  if (!did || !modules.value.some(module => module.preview?.streamBackground || module.obsSize)) {
+  if (!did || !modules.value.some((module) => module.preview?.streamBackground || module.obsSize)) {
     streamDimensions.value = null;
     return;
   }
   try {
     const response = await fetch("/api/stream/dimensions", { cache: "no-store" });
     if (!response.ok) throw new Error("Dimensions unavailable");
-    const result = await response.json() as { streamerDid: string; dimensions: { width: number; height: number } | null };
+    const result = (await response.json()) as {
+      streamerDid: string;
+      dimensions: { width: number; height: number } | null;
+    };
     if (sequence !== dimensionsSequence || did !== streamConfiguration.value.streamerDid) return;
     const dimensions = result.streamerDid === did ? result.dimensions : null;
-    streamDimensions.value = dimensions && Number.isSafeInteger(dimensions.width) && dimensions.width > 0
-      && Number.isSafeInteger(dimensions.height) && dimensions.height > 0 ? dimensions : null;
+    streamDimensions.value =
+      dimensions &&
+      Number.isSafeInteger(dimensions.width) &&
+      dimensions.width > 0 &&
+      Number.isSafeInteger(dimensions.height) &&
+      dimensions.height > 0
+        ? dimensions
+        : null;
   } catch {
     if (sequence === dimensionsSequence) streamDimensions.value = null;
   }
 }
 
-watch(() => streamConfiguration.value.streamerDid, () => {
-  streamDimensions.value = null;
-  void refreshStreamDimensions();
-});
+watch(
+  () => streamConfiguration.value.streamerDid,
+  () => {
+    streamDimensions.value = null;
+    void refreshStreamDimensions();
+  },
+);
 
-function boardUrl() { return new URL("/overlays/emoticons/board/", origin.value).toString(); }
+function boardUrl() {
+  return new URL("/overlays/emoticons/board/", origin.value).toString();
+}
 
 async function copyOverlayUrl(module: ModuleStatus, board = false) {
   try {
     await navigator.clipboard.writeText(board ? boardUrl() : overlayUrl(module));
     copiedModuleId.value = board ? `${module.id}-board` : module.id;
     if (copyResetTimer) clearTimeout(copyResetTimer);
-    copyResetTimer = setTimeout(() => { copiedModuleId.value = null; }, 1800);
+    copyResetTimer = setTimeout(() => {
+      copiedModuleId.value = null;
+    }, 1800);
   } catch {
     copiedModuleId.value = null;
   }
@@ -150,9 +183,9 @@ async function load() {
     fetch("/api/pokemon-blue/config", { cache: "no-store" }),
     fetch("/api/config", { cache: "no-store" }),
   ]);
-  modules.value = await modulesResponse.json() as ModuleStatus[];
+  modules.value = (await modulesResponse.json()) as ModuleStatus[];
   for (const module of modules.value) confirmedModuleStates.set(module.id, module.enabled);
-  if (modules.value.some(module => module.id === "chat")) {
+  if (modules.value.some((module) => module.id === "chat")) {
     const response = await fetch("/api/chat/config", { cache: "no-store" });
     if (response.ok) {
       const settings = await response.json();
@@ -160,14 +193,18 @@ async function load() {
       if (parsed) chatConfiguration.value = parsed;
     }
   }
-  if (modules.value.some(module => module.id === "overlay-paint")) {
+  if (modules.value.some((module) => module.id === "overlay-paint")) {
     const response = await fetch("/api/overlay-paint/config", { cache: "no-store" });
     if (response.ok) paintConfiguration.value = await response.json();
   }
-  configuration.value = { thoughtIntervalSeconds: 120, ...await configResponse.json() as PokemonBlueConfiguration };
-  streamConfiguration.value = await streamConfigResponse.json() as StreamConfiguration;
+  configuration.value = {
+    thoughtIntervalSeconds: 120,
+    ...((await configResponse.json()) as PokemonBlueConfiguration),
+  };
+  streamConfiguration.value = (await streamConfigResponse.json()) as StreamConfiguration;
   confirmedStreamConfiguration = streamConfiguration.value;
-  streamerQuery.value = streamConfiguration.value.profile?.handle || streamConfiguration.value.streamerDid;
+  streamerQuery.value =
+    streamConfiguration.value.profile?.handle || streamConfiguration.value.streamerDid;
 }
 
 const toggleSequences = new Map<string, number>();
@@ -178,21 +215,34 @@ function toggle(module: ModuleStatus, event: Event) {
   const sequence = (toggleSequences.get(module.id) ?? 0) + 1;
   toggleSequences.set(module.id, sequence);
   const previous = module.enabled;
-  modules.value = modules.value.map(candidate => candidate.id === module.id ? { ...candidate, enabled } : candidate);
+  modules.value = modules.value.map((candidate) =>
+    candidate.id === module.id ? { ...candidate, enabled } : candidate,
+  );
   enqueueSave(async () => {
     try {
       const response = await fetch(`/api/modules/${module.id}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled }),
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
       });
       if (!response.ok) throw new Error("Module update failed");
-      const updated = await response.json() as ModuleStatus;
+      const updated = (await response.json()) as ModuleStatus;
       confirmedModuleStates.set(module.id, updated.enabled);
       if (toggleSequences.get(module.id) !== sequence) return;
-      modules.value = modules.value.map(candidate => candidate.id === module.id ? updated : candidate);
+      modules.value = modules.value.map((candidate) =>
+        candidate.id === module.id ? updated : candidate,
+      );
     } catch {
       if (toggleSequences.get(module.id) !== sequence) return;
-      modules.value = modules.value.map(candidate => candidate.id === module.id
-        ? { ...candidate, enabled: confirmedModuleStates.get(module.id) ?? previous, error: "Could not change module state. Try again." } : candidate);
+      modules.value = modules.value.map((candidate) =>
+        candidate.id === module.id
+          ? {
+              ...candidate,
+              enabled: confirmedModuleStates.get(module.id) ?? previous,
+              error: "Could not change module state. Try again.",
+            }
+          : candidate,
+      );
     }
   });
 }
@@ -226,57 +276,87 @@ async function resetPetCounts() {
     petResetArmed.value = false;
   } catch {
     petResetMessage.value = "Could not reset pet counts. Try again.";
-  } finally { petResetBusy.value = false; }
+  } finally {
+    petResetBusy.value = false;
+  }
 }
 
 async function savePaintConfiguration(configuration: { color: string; decaySeconds: number }) {
   paintMessage.value = "Saving…";
   try {
     const response = await fetch("/api/overlay-paint/config", {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(configuration),
     });
     paintMessage.value = response.ok ? "Saved" : "Could not save Paint settings";
-  } catch { paintMessage.value = "Could not save Paint settings"; }
+  } catch {
+    paintMessage.value = "Could not save Paint settings";
+  }
 }
 
-watch(chatConfiguration, value => {
-  if (!loaded) return;
-  clearTimeout(chatSaveTimer);
-  const configuration = parseChatConfiguration(value);
-  if (!configuration) {
-    chatMessage.value = "Use a font size from 8 to 72 px, percentages from 0 to 100, and rotation from −180° to 180°";
-    return;
-  }
-  chatMessage.value = "Saving…";
-  chatSaveTimer = setTimeout(() => enqueueSave(async () => {
-    try {
-      const response = await fetch("/api/chat/config", {
-        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(configuration),
-      });
-      chatMessage.value = response.ok ? "Saved" : "Could not save Chat settings";
-    } catch { chatMessage.value = "Could not save Chat settings"; }
-  }), 250);
-}, { deep: true });
+watch(
+  chatConfiguration,
+  (value) => {
+    if (!loaded) return;
+    clearTimeout(chatSaveTimer);
+    const configuration = parseChatConfiguration(value);
+    if (!configuration) {
+      chatMessage.value =
+        "Use a font size from 8 to 72 px, percentages from 0 to 100, and rotation from −180° to 180°";
+      return;
+    }
+    chatMessage.value = "Saving…";
+    chatSaveTimer = setTimeout(
+      () =>
+        enqueueSave(async () => {
+          try {
+            const response = await fetch("/api/chat/config", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(configuration),
+            });
+            chatMessage.value = response.ok ? "Saved" : "Could not save Chat settings";
+          } catch {
+            chatMessage.value = "Could not save Chat settings";
+          }
+        }),
+      250,
+    );
+  },
+  { deep: true },
+);
 
-watch(paintConfiguration, value => {
-  if (!loaded) return;
-  if (paintSaveTimer) clearTimeout(paintSaveTimer);
-  if (!Number.isFinite(value.decaySeconds) || value.decaySeconds < 0.1 || value.decaySeconds > 60) {
-    paintMessage.value = "Enter a delay from 0.1 to 60 seconds";
-    return;
-  }
-  const configuration = { ...value };
-  paintMessage.value = "Saving…";
-  paintSaveTimer = setTimeout(() => enqueueSave(() => savePaintConfiguration(configuration)), 250);
-}, { deep: true });
+watch(
+  paintConfiguration,
+  (value) => {
+    if (!loaded) return;
+    if (paintSaveTimer) clearTimeout(paintSaveTimer);
+    if (
+      !Number.isFinite(value.decaySeconds) ||
+      value.decaySeconds < 0.1 ||
+      value.decaySeconds > 60
+    ) {
+      paintMessage.value = "Enter a delay from 0.1 to 60 seconds";
+      return;
+    }
+    const configuration = { ...value };
+    paintMessage.value = "Saving…";
+    paintSaveTimer = setTimeout(
+      () => enqueueSave(() => savePaintConfiguration(configuration)),
+      250,
+    );
+  },
+  { deep: true },
+);
 
 let streamerSelectionSequence = 0;
 let confirmedStreamConfiguration: StreamConfiguration | undefined;
 function restoreConfirmedStreamer() {
   if (!confirmedStreamConfiguration) return;
   streamConfiguration.value = confirmedStreamConfiguration;
-  streamerQuery.value = confirmedStreamConfiguration.profile?.handle || confirmedStreamConfiguration.streamerDid;
+  streamerQuery.value =
+    confirmedStreamConfiguration.profile?.handle || confirmedStreamConfiguration.streamerDid;
 }
 function selectStreamer(identity: string) {
   const sequence = ++streamerSelectionSequence;
@@ -302,13 +382,22 @@ function navigateActorSuggestions(event: KeyboardEvent) {
     closeActorSearch();
     return;
   }
-  if (!actorSuggestions.value.length || !["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+  if (
+    !actorSuggestions.value.length ||
+    !["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)
+  )
+    return;
   event.preventDefault();
   actorSearchOpen.value = true;
   if (event.key === "Home") activeActorSuggestion.value = 0;
   else if (event.key === "End") activeActorSuggestion.value = actorSuggestions.value.length - 1;
-  else if (event.key === "ArrowDown") activeActorSuggestion.value = (activeActorSuggestion.value + 1) % actorSuggestions.value.length;
-  else activeActorSuggestion.value = activeActorSuggestion.value <= 0 ? actorSuggestions.value.length - 1 : activeActorSuggestion.value - 1;
+  else if (event.key === "ArrowDown")
+    activeActorSuggestion.value = (activeActorSuggestion.value + 1) % actorSuggestions.value.length;
+  else
+    activeActorSuggestion.value =
+      activeActorSuggestion.value <= 0
+        ? actorSuggestions.value.length - 1
+        : activeActorSuggestion.value - 1;
 }
 
 async function saveStreamer(identity: string, sequence: number) {
@@ -318,16 +407,18 @@ async function saveStreamer(identity: string, sequence: number) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ streamerDid: identity }),
     });
-    const result = await response.json() as StreamConfiguration | { error?: string };
+    const result = (await response.json()) as StreamConfiguration | { error?: string };
     if (response.ok) confirmedStreamConfiguration = result as StreamConfiguration;
     if (sequence !== streamerSelectionSequence) return;
     if (!response.ok) {
       restoreConfirmedStreamer();
-      streamMessage.value = "error" in result && result.error ? result.error : "Could not save configuration";
+      streamMessage.value =
+        "error" in result && result.error ? result.error : "Could not save configuration";
       return;
     }
     streamConfiguration.value = result as StreamConfiguration;
-    streamerQuery.value = streamConfiguration.value.profile?.handle || streamConfiguration.value.streamerDid;
+    streamerQuery.value =
+      streamConfiguration.value.profile?.handle || streamConfiguration.value.streamerDid;
     actorSuggestions.value = [];
     streamMessage.value = "Selected and saved";
   } catch {
@@ -340,10 +431,17 @@ async function saveStreamer(identity: string, sequence: number) {
 
 async function searchStreamer(query: string, sequence: number) {
   try {
-    const response = await fetch(`/api/actors/search?q=${encodeURIComponent(query)}`, { cache: "no-store" });
-    const result = await response.json() as { actors?: Array<{
-      did: string; handle: string; displayName: string; avatar: string;
-    }> };
+    const response = await fetch(`/api/actors/search?q=${encodeURIComponent(query)}`, {
+      cache: "no-store",
+    });
+    const result = (await response.json()) as {
+      actors?: Array<{
+        did: string;
+        handle: string;
+        displayName: string;
+        avatar: string;
+      }>;
+    };
     if (sequence !== actorSearchSequence) return;
     actorSuggestions.value = result.actors ?? [];
     actorSearchOpen.value = actorSuggestions.value.length > 0;
@@ -359,7 +457,10 @@ function enqueueSave(save: () => Promise<void>) {
 
 watch(streamerQuery, (query) => {
   if (!loaded) return;
-  if (query === streamConfiguration.value.profile?.handle || query === streamConfiguration.value.streamerDid) {
+  if (
+    query === streamConfiguration.value.profile?.handle ||
+    query === streamConfiguration.value.streamerDid
+  ) {
     actorSearchOpen.value = false;
     activeActorSuggestion.value = -1;
     return;
@@ -376,12 +477,16 @@ watch(streamerQuery, (query) => {
   actorSearchTimer = setTimeout(() => void searchStreamer(query, sequence), 300);
 });
 
-watch(configuration, () => {
-  if (!loaded) return;
-  pokemonMessage.value = "Saving…";
-  if (pokemonSaveTimer) clearTimeout(pokemonSaveTimer);
-  pokemonSaveTimer = setTimeout(() => enqueueSave(savePokemonConfiguration), 350);
-}, { deep: true });
+watch(
+  configuration,
+  () => {
+    if (!loaded) return;
+    pokemonMessage.value = "Saving…";
+    if (pokemonSaveTimer) clearTimeout(pokemonSaveTimer);
+    pokemonSaveTimer = setTimeout(() => enqueueSave(savePokemonConfiguration), 350);
+  },
+  { deep: true },
+);
 
 async function refreshModuleRuntime() {
   if (!loaded || runtimeRefreshPending) return;
@@ -390,14 +495,17 @@ async function refreshModuleRuntime() {
   try {
     const response = await fetch("/api/modules", { cache: "no-store" });
     if (!response.ok) return;
-    const statuses = await response.json() as ModuleStatus[];
+    const statuses = (await response.json()) as ModuleStatus[];
     if (!loaded || revision !== runtimeRevision) return;
-    modules.value = modules.value.map(module => {
-      const current = statuses.find(status => status.id === module.id);
+    modules.value = modules.value.map((module) => {
+      const current = statuses.find((status) => status.id === module.id);
       return current ? { ...module, status: current.status, error: current.error } : module;
     });
-  } catch { /* Keep the last known runtime while the host is unavailable. */ }
-  finally { runtimeRefreshPending = false; }
+  } catch {
+    /* Keep the last known runtime while the host is unavailable. */
+  } finally {
+    runtimeRefreshPending = false;
+  }
 }
 
 onMounted(async () => {
@@ -433,11 +541,21 @@ onBeforeUnmount(() => {
     <section class="settings stream-settings">
       <h2>Stream</h2>
       <div v-if="streamConfiguration.streamerDid" class="selected-streamer">
-        <img v-if="streamConfiguration.profile?.avatar" :src="streamConfiguration.profile.avatar" alt="">
+        <img
+          v-if="streamConfiguration.profile?.avatar"
+          :src="streamConfiguration.profile.avatar"
+          alt=""
+        />
         <span v-else class="avatar-placeholder" aria-hidden="true" />
         <span>
-          <strong>{{ streamConfiguration.profile?.displayName || streamConfiguration.profile?.handle || "Profile unavailable" }}</strong>
-          <small v-if="streamConfiguration.profile">@{{ streamConfiguration.profile.handle }}</small>
+          <strong>{{
+            streamConfiguration.profile?.displayName ||
+            streamConfiguration.profile?.handle ||
+            "Profile unavailable"
+          }}</strong>
+          <small v-if="streamConfiguration.profile"
+            >@{{ streamConfiguration.profile.handle }}</small
+          >
           <small v-else>{{ streamConfiguration.streamerDid }}</small>
         </span>
       </div>
@@ -451,12 +569,20 @@ onBeforeUnmount(() => {
           aria-haspopup="listbox"
           :aria-controls="actorListboxId"
           :aria-expanded="actorSearchOpen"
-          :aria-activedescendant="activeActorSuggestion >= 0 ? `${actorListboxId}-${activeActorSuggestion}` : undefined"
+          :aria-activedescendant="
+            activeActorSuggestion >= 0 ? `${actorListboxId}-${activeActorSuggestion}` : undefined
+          "
           @focus="actorSearchOpen = actorSuggestions.length > 0"
           @keydown="navigateActorSuggestions"
           @keydown.enter.prevent="selectActiveActorSuggestion"
+        />
+        <span
+          v-if="actorSearchOpen"
+          :id="actorListboxId"
+          class="actor-suggestions"
+          role="listbox"
+          aria-label="Streamer accounts"
         >
-        <span v-if="actorSearchOpen" :id="actorListboxId" class="actor-suggestions" role="listbox" aria-label="Streamer accounts">
           <button
             v-for="(actor, index) in actorSuggestions"
             :key="actor.did"
@@ -468,7 +594,7 @@ onBeforeUnmount(() => {
             @pointerdown.prevent
             @click="selectStreamer(actor.did)"
           >
-            <img v-if="actor.avatar" :src="actor.avatar" alt="">
+            <img v-if="actor.avatar" :src="actor.avatar" alt="" />
             <span v-else class="avatar-placeholder" aria-hidden="true" />
             <span>
               <strong>{{ actor.displayName || actor.handle }}</strong>
@@ -484,22 +610,54 @@ onBeforeUnmount(() => {
       <h2>Modules</h2>
       <label class="module-search">
         <span class="sr-only">Search modules</span>
-        <input v-model="moduleQuery" type="search" placeholder="Search modules…" aria-label="Search modules">
+        <input
+          v-model="moduleQuery"
+          type="search"
+          placeholder="Search modules…"
+          aria-label="Search modules"
+        />
       </label>
-      <p v-if="modules.length && !matchingModuleCount" class="no-modules" role="status">No modules match your search.</p>
+      <p v-if="modules.length && !matchingModuleCount" class="no-modules" role="status">
+        No modules match your search.
+      </p>
       <TransitionGroup name="module-layout" tag="div" class="module-grid">
-        <article v-for="module in orderedModules" v-show="matchesSearch(module)" :key="module.id" v-module-width="isExpanded(module)" class="module-card" :class="{ pinned: isPinned(module.id), collapsed: !isExpanded(module) }" @click="expandCard(module, $event)">
+        <article
+          v-for="module in orderedModules"
+          v-show="matchesSearch(module)"
+          :key="module.id"
+          v-module-width="isExpanded(module)"
+          class="module-card"
+          :class="{ pinned: isPinned(module.id), collapsed: !isExpanded(module) }"
+          @click="expandCard(module, $event)"
+        >
           <div class="module-heading">
             <div>
               <h3>{{ module.name }}</h3>
               <span class="status" :data-status="module.status">{{ module.status }}</span>
             </div>
             <div class="module-actions">
-              <button type="button" class="module-icon-button pin-button" :aria-label="`${isPinned(module.id) ? 'Unpin' : 'Pin'} ${module.name}`" :aria-pressed="isPinned(module.id)" @click="togglePin(module.id)">
+              <button
+                type="button"
+                class="module-icon-button pin-button"
+                :aria-label="`${isPinned(module.id) ? 'Unpin' : 'Pin'} ${module.name}`"
+                :aria-pressed="isPinned(module.id)"
+                @click="togglePin(module.id)"
+              >
                 <span class="pin-icon" aria-hidden="true" />
               </button>
-              <button type="button" class="module-icon-button" :aria-label="`${isExpanded(module) ? 'Hide' : 'Show'} ${module.name} details`" :aria-expanded="isExpanded(module)" :aria-controls="`module-body-${module.id}`" @click="toggleDetails(module)">
-                <span class="fold-icon" aria-hidden="true" :class="{ expanded: isExpanded(module) }" />
+              <button
+                type="button"
+                class="module-icon-button"
+                :aria-label="`${isExpanded(module) ? 'Hide' : 'Show'} ${module.name} details`"
+                :aria-expanded="isExpanded(module)"
+                :aria-controls="`module-body-${module.id}`"
+                @click="toggleDetails(module)"
+              >
+                <span
+                  class="fold-icon"
+                  aria-hidden="true"
+                  :class="{ expanded: isExpanded(module) }"
+                />
               </button>
               <span class="module-help">
                 <button
@@ -507,19 +665,27 @@ onBeforeUnmount(() => {
                   class="info-button"
                   :aria-label="`About ${module.name}`"
                   :aria-describedby="`module-help-${module.id}`"
-                ><span class="info-icon" aria-hidden="true" /></button>
+                >
+                  <span class="info-icon" aria-hidden="true" />
+                </button>
                 <span :id="`module-help-${module.id}`" class="module-tooltip" role="tooltip">
-                  <strong>{{ module.description || `Controls the ${module.name} overlay.` }}</strong>
+                  <strong>{{
+                    module.description || `Controls the ${module.name} overlay.`
+                  }}</strong>
                   <span class="tooltip-obs">
                     <b>Use in OBS</b>
                     <span>Add a Browser Source and paste the URL shown below.</span>
                     <template v-if="module.id === 'emoticons'">
-                      <span v-for="instruction in emoteObsInstructions" :key="instruction">{{ instruction }}</span>
+                      <span v-for="instruction in emoteObsInstructions" :key="instruction">{{
+                        instruction
+                      }}</span>
                     </template>
                   </span>
                   <span v-if="module.requirements?.length" class="tooltip-requirements">
                     <b>Setup</b>
-                    <span v-for="requirement in module.requirements" :key="requirement">• {{ requirement }}</span>
+                    <span v-for="requirement in module.requirements" :key="requirement"
+                      >• {{ requirement }}</span
+                    >
                   </span>
                 </span>
               </span>
@@ -529,150 +695,342 @@ onBeforeUnmount(() => {
                   :checked="module.enabled"
                   :aria-label="`Enable ${module.name}`"
                   @change="toggle(module, $event)"
-                >
+                />
                 <span />
               </label>
             </div>
           </div>
           <CollapseTransition>
-          <div v-show="isExpanded(module)" :id="`module-body-${module.id}`" class="module-body" :inert="!isExpanded(module) || undefined">
-          <div class="overlay-url">
-            <code>{{ overlayUrl(module) }}</code>
-            <a class="open-url-button" :href="overlayUrl(module)" target="_blank" rel="noopener noreferrer"
-              :aria-label="`Open ${module.name} OBS URL in a new tab`" title="Open in a new tab">
-              <span class="external-link-icon" aria-hidden="true" />
-            </a>
-            <button
-              type="button"
-              class="copy-button"
-              :class="{ copied: copiedModuleId === module.id }"
-              :aria-label="copiedModuleId === module.id ? `${module.name} OBS URL copied` : `Copy ${module.name} OBS URL`"
-              @click="copyOverlayUrl(module)"
+            <div
+              v-show="isExpanded(module)"
+              :id="`module-body-${module.id}`"
+              class="module-body"
+              :inert="!isExpanded(module) || undefined"
             >
-              <span class="copy-icon" aria-hidden="true" />
-            </button>
-            <span class="sr-only" aria-live="polite">{{ copiedModuleId === module.id ? "Copied" : "" }}</span>
-          </div>
-          <template v-if="module.id === 'emoticons'">
-            <section class="module-commands"><h4>Command listing OBS URL</h4></section>
-            <div class="overlay-url board-url">
-              <code>{{ boardUrl() }}</code>
-              <a class="open-url-button" :href="boardUrl()" target="_blank" rel="noopener noreferrer"
-                aria-label="Open Emotes command listing OBS URL in a new tab" title="Open in a new tab">
-                <span class="external-link-icon" aria-hidden="true" />
-              </a>
-              <button type="button" class="copy-button" :class="{ copied: copiedModuleId === 'emoticons-board' }"
-                :aria-label="copiedModuleId === 'emoticons-board' ? 'Emotes command listing OBS URL copied' : 'Copy Emotes command listing OBS URL'"
-                @click="copyOverlayUrl(module, true)"><span class="copy-icon" aria-hidden="true" /></button>
-              <span class="sr-only" aria-live="polite">{{ copiedModuleId === 'emoticons-board' ? 'Copied' : '' }}</span>
-            </div>
-          </template>
-          <section v-if="module.configurationLink" class="module-commands">
-            <h4>External configuration</h4>
-            <div class="chat-command">
-              <a class="configuration-link" :href="module.configurationLink.url" target="_blank" rel="noopener noreferrer">{{ module.configurationLink.label }}</a>
-              <span>{{ module.configurationLink.description }}</span>
-            </div>
-          </section>
-          <section v-if="module.chatCommands?.length" class="module-commands">
-            <h4>Chat interactions</h4>
-            <div v-for="chatCommand in module.chatCommands" :key="chatCommand.command" class="chat-command">
-              <code>{{ chatCommand.command }}</code>
-              <span>{{ chatCommand.description }}</span>
-            </div>
-          </section>
-          <section v-if="module.preview?.streamBackground || module.obsSize" class="module-commands obs-dimensions">
-            <h4>OBS Browser Source size</h4>
-            <div class="chat-command">
-              <code><template v-if="module.preview?.streamBackground">Width: {{ obsDimensions.width }} px<br></template>Height: {{ obsDimensions.height }} px</code>
-              <span v-if="module.obsSize">Set your OBS browser source to this height; choose the width for your chat column. {{ streamDimensions ? "Height matches your stream." : "1080 px fallback — stream height is not available yet." }}</span>
-              <span v-else-if="streamDimensions">Matches your stream's video aspect ratio. Place this source above your video.</span>
-              <span v-else>1920 × 1080 fallback — stream dimensions are not available yet.</span>
-            </div>
-          </section>
-          <div
-            v-if="module.id !== 'emoticons'"
-            class="module-preview"
-            :style="module.preview?.streamBackground && streamDimensions
-              ? { aspectRatio: `${streamDimensions.width} / ${streamDimensions.height}` } : undefined"
-          >
-            <iframe
-              v-if="module.preview?.streamBackground && streamEmbedUrl"
-              class="stream-background"
-              :src="streamEmbedUrl"
-              title="Stream.place background stream"
-              allow="autoplay; fullscreen"
-              loading="lazy"
-              @load="muteLoadedPreview"
-            />
-            <iframe
-              :src="previewUrl(module)"
-              :class="{ 'paint-foreground': module.preview?.interactive }"
-              :title="`${module.name} live preview`"
-              loading="lazy"
-              @load="muteLoadedPreview"
-            />
-          </div>
-          <div v-if="module.preview?.interactive" class="paint-instructions">
-            <p>Draw using a mouse, pen or touch. New input postpones fading for the whole drawing.</p>
-            <p v-if="!streamEmbedUrl">Select your streamer account above to see your stream behind the canvas.</p>
-          </div>
-          <div v-if="module.id === 'chat'" class="module-settings chat-settings">
-            <label>Perspective strength: {{ chatConfiguration.perspectiveStrength }}%
-              <input v-model.number="chatConfiguration.perspectiveStrength" type="range" min="0" max="100" step="1" aria-label="Chat perspective strength">
-              <span>Subtle at 0%; stronger near/far size differences at 100%. Requires X or Y rotation.</span>
-            </label>
-            <label>3D rotation X (tilt up/down): {{ chatConfiguration.rotationX }}°
-              <input v-model.number="chatConfiguration.rotationX" type="range" min="-180" max="180" step="1" aria-label="Chat X rotation">
-            </label>
-            <label>3D rotation Y (tilt left/right): {{ chatConfiguration.rotationY }}°
-              <input v-model.number="chatConfiguration.rotationY" type="range" min="-180" max="180" step="1" aria-label="Chat Y rotation">
-            </label>
-            <label>Font size (px)
-              <input v-model.number="chatConfiguration.fontSize" type="number" min="8" max="72" step="1" aria-label="Chat font size">
-            </label>
-            <div class="chat-color-toggle"><strong>Respect user's chat color</strong><label class="switch"><input v-model="chatConfiguration.respectUserChatColor" type="checkbox" aria-label="Respect user's chat color"><span aria-hidden="true" /></label></div>
-            <label v-if="!chatConfiguration.respectUserChatColor">Message background color
-              <input v-model="chatConfiguration.backgroundColor" type="color" aria-label="Chat message background color">
-            </label>
-            <label>Message background opacity: {{ chatConfiguration.backgroundOpacity }}%
-              <input v-model.number="chatConfiguration.backgroundOpacity" type="range" min="0" max="100" step="1" aria-label="Chat message background opacity">
-            </label>
-            <label>Fade out from top: {{ chatConfiguration.fadeOut }}%
-              <input v-model.number="chatConfiguration.fadeOut" type="range" min="0" max="100" step="1" aria-label="Chat fade-out percentage">
-            </label>
-            <span>0% shows the full height; 80% hides the upper 80% with a soft edge; 100% hides all messages.</span>
-            <span class="module-message" aria-live="polite">{{ chatMessage }}</span>
-          </div>
-          <div v-if="module.id === 'overlay-paint'" class="module-settings paint-settings">
-            <h4>Brush settings</h4>
-            <label>Color <input v-model="paintConfiguration.color" type="color" aria-label="Paint brush color"></label>
-            <label>Fade delay (seconds) <input v-model.number="paintConfiguration.decaySeconds" type="number" min="0.1" max="60" step="0.1" aria-label="Paint fade delay in seconds"></label>
-            <span class="module-message" aria-live="polite">{{ paintMessage }}</span>
-          </div>
-          <EmoticonControls v-if="module.id === 'emoticons'" />
-          <PokemonModuleControls v-if="module.id === 'pokemon-crystal'" :module-id="module.id" />
-          <div v-if="module.id === 'pokemon-blue'" class="module-settings">
-            <h4>Visible components</h4>
-            <label><input v-model="configuration.components.team" type="checkbox"> Team</label>
-            <label><input v-model="configuration.components.badges" type="checkbox"> Badges</label>
-            <h4>Thought bubbles</h4>
-            <label>Interval (seconds)
-              <input v-model.number="configuration.thoughtIntervalSeconds" type="number" min="1" max="3600" step="1" aria-label="Thought bubble interval in seconds">
-            </label>
-            <span>Time between team members thinking of their favourite petter. Changes apply live.</span>
-            <span class="module-message" aria-live="polite">{{ pokemonMessage }}</span>
-            <div class="pet-reset">
-              <button v-if="!petResetArmed" type="button" @click="petResetArmed = true; petResetMessage = ''"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Reset pet counts</span></button>
-              <template v-else>
-                <span>Clear all saved pet counts for every Pokémon and streamer? This cannot be undone.</span>
-                <button type="button" :disabled="petResetBusy" @click="resetPetCounts"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Confirm reset</span></button>
-                <button class="danger-button" type="button" :disabled="petResetBusy" @click="petResetArmed = false"><span class="button-press-shade" aria-hidden="true"></span><span class="button-hover-shade" aria-hidden="true"></span><span class="button-content">Cancel</span></button>
+              <div class="overlay-url">
+                <code>{{ overlayUrl(module) }}</code>
+                <a
+                  class="open-url-button"
+                  :href="overlayUrl(module)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  :aria-label="`Open ${module.name} OBS URL in a new tab`"
+                  title="Open in a new tab"
+                >
+                  <span class="external-link-icon" aria-hidden="true" />
+                </a>
+                <button
+                  type="button"
+                  class="copy-button"
+                  :class="{ copied: copiedModuleId === module.id }"
+                  :aria-label="
+                    copiedModuleId === module.id
+                      ? `${module.name} OBS URL copied`
+                      : `Copy ${module.name} OBS URL`
+                  "
+                  @click="copyOverlayUrl(module)"
+                >
+                  <span class="copy-icon" aria-hidden="true" />
+                </button>
+                <span class="sr-only" aria-live="polite">{{
+                  copiedModuleId === module.id ? "Copied" : ""
+                }}</span>
+              </div>
+              <template v-if="module.id === 'emoticons'">
+                <section class="module-commands"><h4>Command listing OBS URL</h4></section>
+                <div class="overlay-url board-url">
+                  <code>{{ boardUrl() }}</code>
+                  <a
+                    class="open-url-button"
+                    :href="boardUrl()"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Open Emotes command listing OBS URL in a new tab"
+                    title="Open in a new tab"
+                  >
+                    <span class="external-link-icon" aria-hidden="true" />
+                  </a>
+                  <button
+                    type="button"
+                    class="copy-button"
+                    :class="{ copied: copiedModuleId === 'emoticons-board' }"
+                    :aria-label="
+                      copiedModuleId === 'emoticons-board'
+                        ? 'Emotes command listing OBS URL copied'
+                        : 'Copy Emotes command listing OBS URL'
+                    "
+                    @click="copyOverlayUrl(module, true)"
+                  >
+                    <span class="copy-icon" aria-hidden="true" />
+                  </button>
+                  <span class="sr-only" aria-live="polite">{{
+                    copiedModuleId === "emoticons-board" ? "Copied" : ""
+                  }}</span>
+                </div>
               </template>
-              <span class="module-message" aria-live="polite">{{ petResetMessage }}</span>
+              <section v-if="module.configurationLink" class="module-commands">
+                <h4>External configuration</h4>
+                <div class="chat-command">
+                  <a
+                    class="configuration-link"
+                    :href="module.configurationLink.url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >{{ module.configurationLink.label }}</a
+                  >
+                  <span>{{ module.configurationLink.description }}</span>
+                </div>
+              </section>
+              <section v-if="module.chatCommands?.length" class="module-commands">
+                <h4>Chat interactions</h4>
+                <div
+                  v-for="chatCommand in module.chatCommands"
+                  :key="chatCommand.command"
+                  class="chat-command"
+                >
+                  <code>{{ chatCommand.command }}</code>
+                  <span>{{ chatCommand.description }}</span>
+                </div>
+              </section>
+              <section
+                v-if="module.preview?.streamBackground || module.obsSize"
+                class="module-commands obs-dimensions"
+              >
+                <h4>OBS Browser Source size</h4>
+                <div class="chat-command">
+                  <code
+                    ><template v-if="module.preview?.streamBackground"
+                      >Width: {{ obsDimensions.width }} px<br /></template
+                    >Height: {{ obsDimensions.height }} px</code
+                  >
+                  <span v-if="module.obsSize"
+                    >Set your OBS browser source to this height; choose the width for your chat
+                    column.
+                    {{
+                      streamDimensions
+                        ? "Height matches your stream."
+                        : "1080 px fallback — stream height is not available yet."
+                    }}</span
+                  >
+                  <span v-else-if="streamDimensions"
+                    >Matches your stream's video aspect ratio. Place this source above your
+                    video.</span
+                  >
+                  <span v-else
+                    >1920 × 1080 fallback — stream dimensions are not available yet.</span
+                  >
+                </div>
+              </section>
+              <div
+                v-if="module.id !== 'emoticons'"
+                class="module-preview"
+                :style="
+                  module.preview?.streamBackground && streamDimensions
+                    ? { aspectRatio: `${streamDimensions.width} / ${streamDimensions.height}` }
+                    : undefined
+                "
+              >
+                <iframe
+                  v-if="module.preview?.streamBackground && streamEmbedUrl"
+                  class="stream-background"
+                  :src="streamEmbedUrl"
+                  title="Stream.place background stream"
+                  allow="autoplay; fullscreen"
+                  loading="lazy"
+                  @load="muteLoadedPreview"
+                />
+                <iframe
+                  :src="previewUrl(module)"
+                  :class="{ 'paint-foreground': module.preview?.interactive }"
+                  :title="`${module.name} live preview`"
+                  loading="lazy"
+                  @load="muteLoadedPreview"
+                />
+              </div>
+              <div v-if="module.preview?.interactive" class="paint-instructions">
+                <p>
+                  Draw using a mouse, pen or touch. New input postpones fading for the whole
+                  drawing.
+                </p>
+                <p v-if="!streamEmbedUrl">
+                  Select your streamer account above to see your stream behind the canvas.
+                </p>
+              </div>
+              <div v-if="module.id === 'chat'" class="module-settings chat-settings">
+                <label
+                  >Perspective strength: {{ chatConfiguration.perspectiveStrength }}%
+                  <input
+                    v-model.number="chatConfiguration.perspectiveStrength"
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    aria-label="Chat perspective strength"
+                  />
+                  <span
+                    >Subtle at 0%; stronger near/far size differences at 100%. Requires X or Y
+                    rotation.</span
+                  >
+                </label>
+                <label
+                  >3D rotation X (tilt up/down): {{ chatConfiguration.rotationX }}°
+                  <input
+                    v-model.number="chatConfiguration.rotationX"
+                    type="range"
+                    min="-180"
+                    max="180"
+                    step="1"
+                    aria-label="Chat X rotation"
+                  />
+                </label>
+                <label
+                  >3D rotation Y (tilt left/right): {{ chatConfiguration.rotationY }}°
+                  <input
+                    v-model.number="chatConfiguration.rotationY"
+                    type="range"
+                    min="-180"
+                    max="180"
+                    step="1"
+                    aria-label="Chat Y rotation"
+                  />
+                </label>
+                <label
+                  >Font size (px)
+                  <input
+                    v-model.number="chatConfiguration.fontSize"
+                    type="number"
+                    min="8"
+                    max="72"
+                    step="1"
+                    aria-label="Chat font size"
+                  />
+                </label>
+                <div class="chat-color-toggle">
+                  <strong>Respect user's chat color</strong
+                  ><label class="switch"
+                    ><input
+                      v-model="chatConfiguration.respectUserChatColor"
+                      type="checkbox"
+                      aria-label="Respect user's chat color" /><span aria-hidden="true"
+                  /></label>
+                </div>
+                <label v-if="!chatConfiguration.respectUserChatColor"
+                  >Message background color
+                  <input
+                    v-model="chatConfiguration.backgroundColor"
+                    type="color"
+                    aria-label="Chat message background color"
+                  />
+                </label>
+                <label
+                  >Message background opacity: {{ chatConfiguration.backgroundOpacity }}%
+                  <input
+                    v-model.number="chatConfiguration.backgroundOpacity"
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    aria-label="Chat message background opacity"
+                  />
+                </label>
+                <label
+                  >Fade out from top: {{ chatConfiguration.fadeOut }}%
+                  <input
+                    v-model.number="chatConfiguration.fadeOut"
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    aria-label="Chat fade-out percentage"
+                  />
+                </label>
+                <span
+                  >0% shows the full height; 80% hides the upper 80% with a soft edge; 100% hides
+                  all messages.</span
+                >
+                <span class="module-message" aria-live="polite">{{ chatMessage }}</span>
+              </div>
+              <div v-if="module.id === 'overlay-paint'" class="module-settings paint-settings">
+                <h4>Brush settings</h4>
+                <label
+                  >Color
+                  <input
+                    v-model="paintConfiguration.color"
+                    type="color"
+                    aria-label="Paint brush color"
+                /></label>
+                <label
+                  >Fade delay (seconds)
+                  <input
+                    v-model.number="paintConfiguration.decaySeconds"
+                    type="number"
+                    min="0.1"
+                    max="60"
+                    step="0.1"
+                    aria-label="Paint fade delay in seconds"
+                /></label>
+                <span class="module-message" aria-live="polite">{{ paintMessage }}</span>
+              </div>
+              <EmoticonControls v-if="module.id === 'emoticons'" />
+              <PokemonModuleControls
+                v-if="module.id === 'pokemon-crystal'"
+                :module-id="module.id"
+              />
+              <div v-if="module.id === 'pokemon-blue'" class="module-settings">
+                <h4>Visible components</h4>
+                <label
+                  ><input v-model="configuration.components.team" type="checkbox" /> Team</label
+                >
+                <label
+                  ><input v-model="configuration.components.badges" type="checkbox" /> Badges</label
+                >
+                <h4>Thought bubbles</h4>
+                <label
+                  >Interval (seconds)
+                  <input
+                    v-model.number="configuration.thoughtIntervalSeconds"
+                    type="number"
+                    min="1"
+                    max="3600"
+                    step="1"
+                    aria-label="Thought bubble interval in seconds"
+                  />
+                </label>
+                <span
+                  >Time between team members thinking of their favourite petter. Changes apply
+                  live.</span
+                >
+                <span class="module-message" aria-live="polite">{{ pokemonMessage }}</span>
+                <div class="pet-reset">
+                  <AppButton
+                    v-if="!petResetArmed"
+                    type="button"
+                    @click="
+                      petResetArmed = true;
+                      petResetMessage = '';
+                    "
+                    >Reset pet counts</AppButton
+                  >
+                  <template v-else>
+                    <span
+                      >Clear all saved pet counts for every Pokémon and streamer? This cannot be
+                      undone.</span
+                    >
+                    <AppButton type="button" :disabled="petResetBusy" @click="resetPetCounts"
+                      >Confirm reset</AppButton
+                    >
+                    <AppButton
+                      class="danger-button"
+                      type="button"
+                      :disabled="petResetBusy"
+                      @click="petResetArmed = false"
+                      >Cancel</AppButton
+                    >
+                  </template>
+                  <span class="module-message" aria-live="polite">{{ petResetMessage }}</span>
+                </div>
+              </div>
             </div>
-          </div>
-          </div>
           </CollapseTransition>
           <p v-if="module.error" class="error" role="alert">{{ module.error }}</p>
         </article>
@@ -683,110 +1041,653 @@ onBeforeUnmount(() => {
 </template>
 
 <style>
-:root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #171717; background: #fff; }
-* { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; min-height: 100vh; background: #fff; }
-main { width: min(1040px, calc(100% - 40px)); margin: 0 auto; padding: 64px 0 96px; }
-header { margin-bottom: 48px; }
-.eyebrow { margin: 0 0 8px; color: #88a6ff; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.18em; }
-h1 { margin: 0; font-size: clamp(2.6rem, 7vw, 5.6rem); line-height: 0.95; letter-spacing: -0.055em; }
-.intro { max-width: 560px; color: #9aa6c1; font-size: 1.05rem; }
-section { margin-top: 44px; }
-h2 { margin-bottom: 18px; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.12em; color: #aebbd7; }
-.module-grid { columns: 320px 2; column-gap: 16px; }
-.module-search { display: block; margin-bottom: 20px; }
-.module-search input { width: 100%; padding: 12px 14px; border: 1px solid #36425d; border-radius: 9px; color: white; background: #0b101c; font: inherit; }
-.module-search input:focus-visible { outline: 2px solid #7794e8; outline-offset: 2px; }
-.no-modules { color: #9aa6c1; }
-.module-card.pinned { border-color: #526baf; }
-.module-icon-button { display: grid; place-items: center; width: 24px; height: 28px; padding: 3px; border: 0; border-radius: 6px; background: transparent; color: #8fa1c7; cursor: pointer; }
-.module-icon-button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.module-icon-button:hover, .module-icon-button:focus-visible { color: white; background: #1a2540; outline: 2px solid #7794e8; }
-.pin-button[aria-pressed="true"] { color: #a9bdf9; border: 1px solid #526baf; background: #1a2540; }
-.pin-button[aria-pressed="true"] svg { fill: #526baf; }
-.module-card.collapsed { cursor: pointer; }
-.module-icon-button svg.expanded { transform: rotate(180deg); }
-.module-card { display: inline-block; width: 100%; margin: 0 0 16px; break-inside: avoid; vertical-align: top; }
-.module-card, .settings { padding: 24px; }
-.stream-settings { margin-bottom: 44px; }
-.selected-streamer { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; background: #0b101c; }
-.selected-streamer img, .actor-suggestions img, .avatar-placeholder { width: 44px; height: 44px; flex: 0 0 44px; border-radius: 50%; object-fit: cover; background: #303a51; }
-.selected-streamer > span:last-child, .actor-suggestions button > span:last-child { display: grid; gap: 2px; min-width: 0; }
-.selected-streamer small, .actor-suggestions small { color: #8f9bb4; font-weight: 500; }
-.actor-search { position: relative; }
-.actor-suggestions { position: absolute; z-index: 20; top: calc(100% + 8px); left: 0; right: 0; overflow: hidden; border: 1px solid #36425d; border-radius: 12px; background: #111827; box-shadow: 0 16px 40px rgba(0,0,0,.42); }
-.actor-suggestions button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border: 0; color: #eaf0ff; background: transparent; text-align: left; font: inherit; cursor: pointer; }
-.actor-suggestions button:hover, .actor-suggestions button:focus-visible { background: #202a40; outline: none; }
-.module-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
-.module-heading > div:first-child { flex: 1 1 120px; min-width: 0; }
-h3 { margin: 0 0 8px; font-size: 1.25rem; }
-.status { color: #9aa6c1; font-size: .8rem; text-transform: uppercase; letter-spacing: .1em; }
-.status[data-status="running"] { color: #70e7a1; }
-.status[data-status="failed"] { color: #ff7f91; }
-.overlay-url { position: relative; margin-top: 22px; }
-.overlay-url.board-url { margin-top: 10px; }
-code { display: block; min-width: 0; padding: 12px 52px 12px 12px; overflow: auto; border-radius: 9px; color: #a9bdf9; background: #090d16; }
-.overlay-url code { padding-right: 90px; }
-.copy-button, .open-url-button { position: absolute; top: 50%; right: 7px; display: grid; place-items: center; width: 34px; height: 34px; padding: 8px; border: 0; border-radius: 7px; color: #8fa1c7; background: transparent; transform: translateY(-50%); cursor: pointer; }
-.open-url-button { right: 45px; }
-.copy-button:hover, .copy-button:focus-visible, .open-url-button:hover, .open-url-button:focus-visible { color: white; outline: none; background: #1a2540; }
-.copy-button.copied { color: #70e7a1; }
-.copy-icon { width: 100%; height: 100%; background: currentColor; -webkit-mask: url("./assets/copy-document.svg") center / contain no-repeat; mask: url("./assets/copy-document.svg") center / contain no-repeat; }
-.external-link-icon { width: 100%; height: 100%; background: currentColor; -webkit-mask: url("./assets/external-link.svg") center / contain no-repeat; mask: url("./assets/external-link.svg") center / contain no-repeat; }
-.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
-.module-commands { display: grid; gap: 10px; margin-top: 16px; }
-.module-commands h4 { margin: 0; color: #aebbd7; font-size: .78rem; text-transform: uppercase; letter-spacing: .1em; }
-.chat-command { display: grid; gap: 7px; padding: 12px 14px; border: 1px solid #28334b; border-radius: 10px; background: #0b101c; }
-.chat-command code { color: #9db2ff; font: 650 .95rem/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
-.chat-command span { color: #9aa6c1; font-size: .84rem; }
-.configuration-link { color: #9db2ff; font-size: .9rem; }
-.module-preview { position: relative; margin-top: 16px; overflow: hidden; aspect-ratio: 16 / 9; border: 1px solid #28334b; border-radius: 10px; background-color: #0b101c; background-image: linear-gradient(45deg, #141c2b 25%, transparent 25%), linear-gradient(-45deg, #141c2b 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #141c2b 75%), linear-gradient(-45deg, transparent 75%, #141c2b 75%); background-position: 0 0, 0 8px, 8px -8px, -8px 0; background-size: 16px 16px; }
-.module-preview iframe { width: 100%; height: 100%; border: 0; background: transparent; }
-.module-preview .stream-background, .module-preview .paint-foreground { position: absolute; inset: 0; }
-.module-preview .paint-foreground { z-index: 1; }
-.paint-instructions { margin-top: 14px; color: #9aa6c1; font-size: .85rem; }
-.paint-instructions label { display: flex; align-items: center; gap: 8px; color: #b9c3da; }
-.paint-instructions p { margin: 8px 0 0; }
-.paint-settings { grid-template-columns: 1fr 1fr; }
-.paint-settings label { display: grid; align-content: start; }
-.paint-settings input[type="color"] { width: 44px; height: 32px; padding: 2px; border: 1px solid #36425d; border-radius: 7px; background: #0b101c; cursor: pointer; }
-.paint-settings input[type="number"] { width: 100%; max-width: 120px; padding: 7px 9px; border: 1px solid #36425d; border-radius: 7px; color: white; background: #0b101c; font: inherit; }
-.paint-settings .module-message { grid-column: 1 / -1; }
-.error { color: #ff7f91; }
-.pet-reset { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
-.pet-reset > span { flex-basis: 100%; }
-.pet-reset button { padding: 5px 9px; border: 1px solid #485570; border-radius: 6px; background: #111827; color: #eaf0ff; font: inherit; font-size: .8rem; cursor: pointer; }
-.pet-reset button:hover, .pet-reset button:focus-visible { border-color: #ff7f91; outline: 2px solid #ff7f91; outline-offset: 2px; }
-.pet-reset button:disabled { opacity: .5; cursor: wait; }
-.switch input { position: absolute; opacity: 0; }
-.switch span { display: block; width: 48px; height: 28px; padding: 3px; border-radius: 99px; background: #3a4356; cursor: pointer; transition: background .2s; }
-.switch span::after { content: ""; display: block; width: 22px; height: 22px; border-radius: 50%; background: white; transition: transform .2s; }
-.switch input:checked + span { background: #5d7cff; }
-.switch input:checked + span::after { transform: translateX(20px); }
-.module-actions { display: flex; align-items: center; flex: none; gap: 6px; }
-.module-help { position: relative; display: block; }
-.info-button { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 1px solid #485570; border-radius: 50%; color: #b9c6df; background: #111827; font: 700 .9rem/1 Georgia, serif; cursor: help; }
-.info-button:hover, .info-button:focus-visible { color: #fff; border-color: #7794e8; outline: none; background: #1a2540; }
-.module-tooltip { position: absolute; z-index: 10; top: calc(100% + 12px); right: 0; display: grid; gap: 8px; width: 340px; padding: 13px 15px; border: 1px solid #3a4661; border-radius: 10px; color: #dbe4f8; background: #111827; box-shadow: 0 12px 32px rgba(0,0,0,.38); font-size: .84rem; line-height: 1.4; opacity: 0; pointer-events: none; transform: translateY(-4px); transition: opacity .16s, transform .16s; }
-.module-tooltip > span { display: block; }
-.tooltip-obs, .tooltip-requirements { display: grid !important; gap: 4px; padding-top: 4px; color: #b9c6df; }
-.tooltip-obs b, .tooltip-requirements b { color: #dbe4f8; }
-.module-tooltip::before { content: ""; position: absolute; right: 7px; bottom: 100%; border: 7px solid transparent; border-bottom-color: #3a4661; }
-.module-tooltip::after { content: ""; position: absolute; right: 8px; bottom: 100%; border: 6px solid transparent; border-bottom-color: #111827; }
-.module-help:hover .module-tooltip, .module-help:focus-within .module-tooltip { opacity: 1; transform: translateY(0); }
-.settings, .module-settings { display: grid; gap: 18px; }
-.settings > h2 { margin: 0; }
-.settings > label { display: grid; gap: 8px; color: #b9c3da; font-weight: 650; }
-.settings input:not([type]) { width: 100%; padding: 12px 14px; border: 1px solid #36425d; border-radius: 9px; color: white; background: #0b101c; font: inherit; }
-.module-settings { grid-template-columns: auto auto 1fr; align-items: center; margin-top: 22px; padding-top: 20px; border-top: 1px solid #28334b; }
-.module-settings h4 { grid-column: 1 / -1; margin: 0; color: #b9c3da; }
-.module-settings label { display: flex; align-items: center; gap: 8px; }
-.chat-settings { grid-template-columns: 1fr; }
-.chat-settings label { flex-direction: column; align-items: stretch; }
-.chat-color-toggle { display: flex; align-items: center; gap: 12px; }
-.chat-settings input[type="range"] { width: 100%; accent-color: #a78bfa; cursor: pointer; }
-.chat-settings input[type="color"] { width: 44px; height: 32px; padding: 2px; border: 1px solid #36425d; border-radius: 7px; background: #0b101c; cursor: pointer; }
-.chat-settings input[type="number"] { width: 100%; max-width: 120px; padding: 7px 9px; border: 1px solid #36425d; border-radius: 7px; color: white; background: #0b101c; font: inherit; }
-.chat-settings > span { color: #9aa6c1; font-size: .85rem; }
-.module-message, .save-status { justify-self: end; min-width: 3.5em; color: #9aa6c1; font-size: .85rem; }
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #171717;
+  background: #fff;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: #fff;
+}
+main {
+  width: min(1040px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 64px 0 96px;
+}
+header {
+  margin-bottom: 48px;
+}
+.eyebrow {
+  margin: 0 0 8px;
+  color: #88a6ff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+h1 {
+  margin: 0;
+  font-size: clamp(2.6rem, 7vw, 5.6rem);
+  line-height: 0.95;
+  letter-spacing: -0.055em;
+}
+.intro {
+  max-width: 560px;
+  color: #9aa6c1;
+  font-size: 1.05rem;
+}
+section {
+  margin-top: 44px;
+}
+h2 {
+  margin-bottom: 18px;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #aebbd7;
+}
+.module-grid {
+  columns: 320px 2;
+  column-gap: 16px;
+}
+.module-search {
+  display: block;
+  margin-bottom: 20px;
+}
+.module-search input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #36425d;
+  border-radius: 9px;
+  color: white;
+  background: #0b101c;
+  font: inherit;
+}
+.module-search input:focus-visible {
+  outline: 2px solid #7794e8;
+  outline-offset: 2px;
+}
+.no-modules {
+  color: #9aa6c1;
+}
+.module-card.pinned {
+  border-color: #526baf;
+}
+.module-icon-button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 28px;
+  padding: 3px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #8fa1c7;
+  cursor: pointer;
+}
+.module-icon-button svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.module-icon-button:hover,
+.module-icon-button:focus-visible {
+  color: white;
+  background: #1a2540;
+  outline: 2px solid #7794e8;
+}
+.pin-button[aria-pressed="true"] {
+  color: #a9bdf9;
+  border: 1px solid #526baf;
+  background: #1a2540;
+}
+.pin-button[aria-pressed="true"] svg {
+  fill: #526baf;
+}
+.module-card.collapsed {
+  cursor: pointer;
+}
+.module-icon-button svg.expanded {
+  transform: rotate(180deg);
+}
+.module-card {
+  display: inline-block;
+  width: 100%;
+  margin: 0 0 16px;
+  break-inside: avoid;
+  vertical-align: top;
+}
+.module-card,
+.settings {
+  padding: 24px;
+}
+.stream-settings {
+  margin-bottom: 44px;
+}
+.selected-streamer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #0b101c;
+}
+.selected-streamer img,
+.actor-suggestions img,
+.avatar-placeholder {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #303a51;
+}
+.selected-streamer > span:last-child,
+.actor-suggestions button > span:last-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.selected-streamer small,
+.actor-suggestions small {
+  color: #8f9bb4;
+  font-weight: 500;
+}
+.actor-search {
+  position: relative;
+}
+.actor-suggestions {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  border: 1px solid #36425d;
+  border-radius: 12px;
+  background: #111827;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.42);
+}
+.actor-suggestions button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  color: #eaf0ff;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.actor-suggestions button:hover,
+.actor-suggestions button:focus-visible {
+  background: #202a40;
+  outline: none;
+}
+.module-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+}
+.module-heading > div:first-child {
+  flex: 1 1 120px;
+  min-width: 0;
+}
+h3 {
+  margin: 0 0 8px;
+  font-size: 1.25rem;
+}
+.status {
+  color: #9aa6c1;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.status[data-status="running"] {
+  color: #70e7a1;
+}
+.status[data-status="failed"] {
+  color: #ff7f91;
+}
+.overlay-url {
+  position: relative;
+  margin-top: 22px;
+}
+.overlay-url.board-url {
+  margin-top: 10px;
+}
+code {
+  display: block;
+  min-width: 0;
+  padding: 12px 52px 12px 12px;
+  overflow: auto;
+  border-radius: 9px;
+  color: #a9bdf9;
+  background: #090d16;
+}
+.overlay-url code {
+  padding-right: 90px;
+}
+.copy-button,
+.open-url-button {
+  position: absolute;
+  top: 50%;
+  right: 7px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 8px;
+  border: 0;
+  border-radius: 7px;
+  color: #8fa1c7;
+  background: transparent;
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+.open-url-button {
+  right: 45px;
+}
+.copy-button:hover,
+.copy-button:focus-visible,
+.open-url-button:hover,
+.open-url-button:focus-visible {
+  color: white;
+  outline: none;
+  background: #1a2540;
+}
+.copy-button.copied {
+  color: #70e7a1;
+}
+.copy-icon {
+  width: 100%;
+  height: 100%;
+  background: currentColor;
+  -webkit-mask: url("./assets/copy-document.svg") center / contain no-repeat;
+  mask: url("./assets/copy-document.svg") center / contain no-repeat;
+}
+.external-link-icon {
+  width: 100%;
+  height: 100%;
+  background: currentColor;
+  -webkit-mask: url("./assets/external-link.svg") center / contain no-repeat;
+  mask: url("./assets/external-link.svg") center / contain no-repeat;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.module-commands {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+.module-commands h4 {
+  margin: 0;
+  color: #aebbd7;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.chat-command {
+  display: grid;
+  gap: 7px;
+  padding: 12px 14px;
+  border: 1px solid #28334b;
+  border-radius: 10px;
+  background: #0b101c;
+}
+.chat-command code {
+  color: #9db2ff;
+  font:
+    650 0.95rem/1.4 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    monospace;
+}
+.chat-command span {
+  color: #9aa6c1;
+  font-size: 0.84rem;
+}
+.configuration-link {
+  color: #9db2ff;
+  font-size: 0.9rem;
+}
+.module-preview {
+  position: relative;
+  margin-top: 16px;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  border: 1px solid #28334b;
+  border-radius: 10px;
+  background-color: #0b101c;
+  background-image:
+    linear-gradient(45deg, #141c2b 25%, transparent 25%),
+    linear-gradient(-45deg, #141c2b 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #141c2b 75%),
+    linear-gradient(-45deg, transparent 75%, #141c2b 75%);
+  background-position:
+    0 0,
+    0 8px,
+    8px -8px,
+    -8px 0;
+  background-size: 16px 16px;
+}
+.module-preview iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+}
+.module-preview .stream-background,
+.module-preview .paint-foreground {
+  position: absolute;
+  inset: 0;
+}
+.module-preview .paint-foreground {
+  z-index: 1;
+}
+.paint-instructions {
+  margin-top: 14px;
+  color: #9aa6c1;
+  font-size: 0.85rem;
+}
+.paint-instructions label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #b9c3da;
+}
+.paint-instructions p {
+  margin: 8px 0 0;
+}
+.paint-settings {
+  grid-template-columns: 1fr 1fr;
+}
+.paint-settings label {
+  display: grid;
+  align-content: start;
+}
+.paint-settings input[type="color"] {
+  width: 44px;
+  height: 32px;
+  padding: 2px;
+  border: 1px solid #36425d;
+  border-radius: 7px;
+  background: #0b101c;
+  cursor: pointer;
+}
+.paint-settings input[type="number"] {
+  width: 100%;
+  max-width: 120px;
+  padding: 7px 9px;
+  border: 1px solid #36425d;
+  border-radius: 7px;
+  color: white;
+  background: #0b101c;
+  font: inherit;
+}
+.paint-settings .module-message {
+  grid-column: 1 / -1;
+}
+.error {
+  color: #ff7f91;
+}
+.pet-reset {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.pet-reset > span {
+  flex-basis: 100%;
+}
+.pet-reset button {
+  padding: 5px 9px;
+  border: 1px solid #485570;
+  border-radius: 6px;
+  background: #111827;
+  color: #eaf0ff;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.pet-reset button:hover,
+.pet-reset button:focus-visible {
+  border-color: #ff7f91;
+  outline: 2px solid #ff7f91;
+  outline-offset: 2px;
+}
+.pet-reset button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.switch input {
+  position: absolute;
+  opacity: 0;
+}
+.switch span {
+  display: block;
+  width: 48px;
+  height: 28px;
+  padding: 3px;
+  border-radius: 99px;
+  background: #3a4356;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.switch span::after {
+  content: "";
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: white;
+  transition: transform 0.2s;
+}
+.switch input:checked + span {
+  background: #5d7cff;
+}
+.switch input:checked + span::after {
+  transform: translateX(20px);
+}
+.module-actions {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 6px;
+}
+.module-help {
+  position: relative;
+  display: block;
+}
+.info-button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #485570;
+  border-radius: 50%;
+  color: #b9c6df;
+  background: #111827;
+  font:
+    700 0.9rem/1 Georgia,
+    serif;
+  cursor: help;
+}
+.info-button:hover,
+.info-button:focus-visible {
+  color: #fff;
+  border-color: #7794e8;
+  outline: none;
+  background: #1a2540;
+}
+.module-tooltip {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 12px);
+  right: 0;
+  display: grid;
+  gap: 8px;
+  width: 340px;
+  padding: 13px 15px;
+  border: 1px solid #3a4661;
+  border-radius: 10px;
+  color: #dbe4f8;
+  background: #111827;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.38);
+  font-size: 0.84rem;
+  line-height: 1.4;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition:
+    opacity 0.16s,
+    transform 0.16s;
+}
+.module-tooltip > span {
+  display: block;
+}
+.tooltip-obs,
+.tooltip-requirements {
+  display: grid !important;
+  gap: 4px;
+  padding-top: 4px;
+  color: #b9c6df;
+}
+.tooltip-obs b,
+.tooltip-requirements b {
+  color: #dbe4f8;
+}
+.module-tooltip::before {
+  content: "";
+  position: absolute;
+  right: 7px;
+  bottom: 100%;
+  border: 7px solid transparent;
+  border-bottom-color: #3a4661;
+}
+.module-tooltip::after {
+  content: "";
+  position: absolute;
+  right: 8px;
+  bottom: 100%;
+  border: 6px solid transparent;
+  border-bottom-color: #111827;
+}
+.module-help:hover .module-tooltip,
+.module-help:focus-within .module-tooltip {
+  opacity: 1;
+  transform: translateY(0);
+}
+.settings,
+.module-settings {
+  display: grid;
+  gap: 18px;
+}
+.settings > h2 {
+  margin: 0;
+}
+.settings > label {
+  display: grid;
+  gap: 8px;
+  color: #b9c3da;
+  font-weight: 650;
+}
+.settings input:not([type]) {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #36425d;
+  border-radius: 9px;
+  color: white;
+  background: #0b101c;
+  font: inherit;
+}
+.module-settings {
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid #28334b;
+}
+.module-settings h4 {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #b9c3da;
+}
+.module-settings label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.chat-settings {
+  grid-template-columns: 1fr;
+}
+.chat-settings label {
+  flex-direction: column;
+  align-items: stretch;
+}
+.chat-color-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.chat-settings input[type="range"] {
+  width: 100%;
+  accent-color: #a78bfa;
+  cursor: pointer;
+}
+.chat-settings input[type="color"] {
+  width: 44px;
+  height: 32px;
+  padding: 2px;
+  border: 1px solid #36425d;
+  border-radius: 7px;
+  background: #0b101c;
+  cursor: pointer;
+}
+.chat-settings input[type="number"] {
+  width: 100%;
+  max-width: 120px;
+  padding: 7px 9px;
+  border: 1px solid #36425d;
+  border-radius: 7px;
+  color: white;
+  background: #0b101c;
+  font: inherit;
+}
+.chat-settings > span {
+  color: #9aa6c1;
+  font-size: 0.85rem;
+}
+.module-message,
+.save-status {
+  justify-self: end;
+  min-width: 3.5em;
+  color: #9aa6c1;
+  font-size: 0.85rem;
+}
 </style>
