@@ -1,4 +1,4 @@
-import { awaitable } from "@fettstorch/jule";
+import { createEmotePlayer } from "./emote-player.ts";
 import type { SharedOverlayRuntime } from "./shared-overlay-runtime.ts";
 
 import { EmoticonRuntime } from "@streamface/emoticons/src/runtime.ts";
@@ -11,9 +11,6 @@ import type {
 } from "@streamface/emoticons/src/contracts.ts";
 import type { RelaySnapshot, EffectDiagnostic } from "@streamface/protocol";
 import { createCloudBoard } from "./cloud-board.ts";
-import { effectTop, applyMediaLayout } from "../../../modules/emoticons/src/media-layout.ts";
-import { loadPublicActorProfile } from "./actor-search.ts";
-import tailUrl from "../../../modules/emoticons/assets/speech-bubble-tail.png";
 import { createStickerAssetCache } from "../../../modules/emoticons/src/asset-cache.ts";
 import { createGiphyPreloader } from "./giphy.ts";
 
@@ -22,64 +19,18 @@ export function mountEmotes(container: HTMLElement, host: SharedOverlayRuntime, 
     channel = host.preview ? "preview" : "live";
   const relay = { send: host.send };
   let disposed = false;
-  const abortReadiness = new Set<() => void>();
   let releaseChat: (() => void) | undefined;
-  const timers = new Set<ReturnType<typeof setTimeout>>();
-  function later(callback: () => void, delay: number) {
-    const timer = setTimeout(() => {
-      timers.delete(timer);
-      callback();
-    }, delay);
-    timers.add(timer);
-  }
   let config: EmoticonState = { enabled: false, commands: [], assets: [] };
   let cooldowns: RelaySnapshot["cooldowns"] = {};
   let revision = 0;
   const testRequests = new Map<string, string>();
   let cooldownRequestId: string | undefined;
   const board = boardMode ? createCloudBoard(container) : undefined;
-  const muted = new URLSearchParams(location.search).get("muted") === "1";
-  const activeMedia = new Set<HTMLMediaElement>(),
-    activeWrappers = new Set<HTMLElement>();
   const effectAssets = createStickerAssetCache();
   const giphyAssets = createGiphyPreloader();
   let preloadedGiphyIds = new Set<string>();
   let preloadedSources = new Set<string>();
-  let playbackGeneration = 0;
-  let soundButton: HTMLButtonElement | undefined;
-  function clearPlayback() {
-    playbackGeneration++;
-    for (const abort of abortReadiness) abort();
-    abortReadiness.clear();
-    for (const timer of timers) clearTimeout(timer);
-    timers.clear();
-    for (const media of activeMedia) media.pause();
-    activeMedia.clear();
-    for (const wrapper of activeWrappers) wrapper.remove();
-    activeWrappers.clear();
-    soundButton?.remove();
-    soundButton = undefined;
-  }
-  const fallbackAvatar = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="32" fill="#36425d"/><circle cx="32" cy="23" r="12" fill="#bdc8df"/><path d="M10 60v-6a22 22 0 0 1 44 0v6" fill="#bdc8df"/></svg>')}`;
-  function offerSound() {
-    if (muted || soundButton) return;
-    soundButton = Object.assign(document.createElement("button"), {
-      type: "button",
-      textContent: "Enable sound",
-    });
-    soundButton.className = "enable-sound";
-    soundButton.onclick = () => {
-      for (const element of activeMedia) {
-        element.muted = false;
-        void element
-          .play()
-          .catch(() => diagnostic("media-failed", { reason: "sound-enable-failed" }));
-      }
-      soundButton?.remove();
-      soundButton = undefined;
-    };
-    container.append(soundButton);
-  }
+  const player = createEmotePlayer(container, diagnostic, effectAssets, giphyAssets);
   let rejectionReason: string | undefined;
   const moderationLogTimes = new Map<string, number>();
   function moderationDiagnostic(
@@ -103,246 +54,10 @@ export function mountEmotes(container: HTMLElement, host: SharedOverlayRuntime, 
   function renderBoard() {
     board?.render({ ...config, cooldowns });
   }
-  async function play(event: Extract<EmoticonEvent, { type: "effect" }>) {
-    const command = { ...event.command };
-    const requestId = testRequests.get(command.id);
-    testRequests.delete(command.id);
-    const context = { requestId, commandId: command.id };
-    const generation = playbackGeneration;
-    try {
-      if (command.imageGiphyId) command.imageUrl = await giphyAssets.load(command.imageGiphyId);
-      await Promise.all(
-        (["imageUrl", "videoUrl", "audioUrl"] as const).map(async (key) => {
-          if (key === "imageUrl" && command.imageGiphyId) return;
-          if (command[key]) command[key] = await effectAssets.load(command[key]!);
-        }),
-      );
-    } catch {
-      diagnostic("media-failed", { ...context, reason: "asset-download-failed" });
-      throw new Error("Asset download failed");
-    }
-    if (generation !== playbackGeneration) return;
-    const visual = command.videoUrl
-      ? document.createElement("video")
-      : command.imageUrl
-        ? new Image()
-        : undefined;
-    const audio = command.audioUrl ? document.createElement("audio") : undefined;
-    if (!visual && !audio) {
-      diagnostic("media-missing", context);
-      return;
-    }
-    const startedLoading = performance.now();
-    const readiness = [visual, audio]
-      .filter((element): element is NonNullable<typeof element> => Boolean(element))
-      .map(
-        (element) =>
-          new Promise<void>((resolve, reject) => {
-            const loaded = () => {
-              cleanup();
-              resolve();
-            };
-            const failed = () => {
-              cleanup();
-              reject(new Error("media-load-failed"));
-            };
-            const timeout = setTimeout(() => {
-              cleanup();
-              reject(new Error("media-load-timeout"));
-            }, 60_000);
-            const name = element instanceof HTMLMediaElement ? "loadeddata" : "load";
-            const abort = () => {
-              cleanup();
-              reject(new Error("playback-canceled"));
-            };
-            abortReadiness.add(abort);
-            function cleanup() {
-              abortReadiness.delete(abort);
-              clearTimeout(timeout);
-              element.removeEventListener(name, loaded);
-              element.removeEventListener("error", failed);
-            }
-            element.addEventListener(name, loaded, { once: true });
-            element.addEventListener("error", failed, { once: true });
-          }),
-      );
-    for (const element of [visual, audio])
-      if (element) {
-        element.addEventListener(
-          "error",
-          () =>
-            diagnostic("media-failed", {
-              ...context,
-              reason:
-                element instanceof HTMLMediaElement
-                  ? `media-error-${element.error?.code ?? 0}`
-                  : "image-error",
-            }),
-          { once: true },
-        );
-        element.addEventListener(
-          element instanceof HTMLMediaElement ? "loadeddata" : "load",
-          () => diagnostic("media-loaded", context),
-          { once: true },
-        );
-      }
-    if (visual) {
-      visual.src = command.videoUrl ?? command.imageUrl!;
-      applyMediaLayout(visual, command, command.mode === "sticker");
-      if (visual instanceof HTMLVideoElement) {
-        visual.autoplay = false;
-        visual.playsInline = true;
-        visual.loop = command.mode === "sticker";
-        visual.muted = muted || command.mode === "sticker";
-        visual.volume = command.volume;
-      }
-    }
-    if (audio) {
-      audio.src = command.audioUrl!;
-      audio.autoplay = false;
-      audio.muted = muted;
-      audio.volume = command.volume;
-    }
-    const wrapper = document.createElement("div");
-    wrapper.hidden = true;
-    if (visual) wrapper.append(visual);
-    if (audio) wrapper.append(audio);
-    if (event.author) {
-      const avatar = new Image();
-      avatar.className = "sender-avatar";
-      avatar.alt = event.author.displayName || event.author.handle || "Chat sender";
-      avatar.src = event.author.avatar || fallbackAvatar;
-      avatar.onerror = () => {
-        avatar.onerror = null;
-        avatar.src = fallbackAvatar;
-        diagnostic("media-failed", { ...context, reason: "avatar-failed" });
-      };
-      avatar.onload = () => diagnostic("media-loaded", { ...context, reason: "avatar" });
-      wrapper.append(avatar);
-      if (!event.author.avatar && event.author.did)
-        void loadPublicActorProfile(event.author.did)
-          .then((profile) => {
-            if (wrapper.isConnected && profile.avatar) avatar.src = profile.avatar;
-          })
-          .catch(() => {});
-      if (command.mode !== "sticker" && visual) {
-        const tail = new Image();
-        tail.className = "speech-bubble-tail";
-        tail.src = tailUrl;
-        tail.alt = "";
-        wrapper.append(tail);
-      }
-    }
-    if (command.mode === "sticker") {
-      wrapper.className = "sticker";
-      wrapper.style.left = `${5 + Math.random() * 90}%`;
-      wrapper.style.setProperty("--drift", `${(Math.random() - 0.5) * 160}px`);
-      wrapper.style.animationDuration = `${event.durationSeconds}s`;
-      if (visual) {
-        const media = document.createElement("div");
-        media.className = "sticker-media";
-        media.style.transformOrigin = "left center";
-        media.style.scale = String(0.4 + Math.random() * 0.6);
-        // Scale independently of the media's centered mirror transform.
-        visual.replaceWith(media);
-        media.append(visual);
-      }
-      container.append(wrapper);
-    } else {
-      wrapper.className = "clip";
-      wrapper.style.top = effectTop(command.height);
-      if (event.eventText) {
-        const text = document.createElement("p");
-        text.className = "event-text";
-        text.textContent = event.eventText;
-        wrapper.append(text);
-      }
-      container.append(wrapper);
-    }
-    activeWrappers.add(wrapper);
-    for (const element of [visual, audio])
-      if (element instanceof HTMLMediaElement) {
-        element.autoplay = false;
-        element.preload = "auto";
-        activeMedia.add(element);
-      }
-    const media = [visual, audio].filter(
-      (element): element is HTMLMediaElement => element instanceof HTMLMediaElement,
-    );
-    try {
-      await Promise.all(readiness);
-      if (!activeWrappers.has(wrapper)) return;
-      // Allow decoding without revealing the first frame or starting animation.
-      wrapper.style.visibility = "hidden";
-      wrapper.style.animationPlayState = "paused";
-      wrapper.hidden = false;
-      const started = awaitable();
-      const abort = () => started.reject(new Error("playback-canceled"));
-      const timeout = setTimeout(() => started.reject(new Error("media-play-timeout")), 60_000);
-      abortReadiness.add(abort);
-      void Promise.all(
-        media.map(async (element) => {
-          try {
-            await element.play();
-          } catch (error) {
-            diagnostic("media-failed", {
-              ...context,
-              reason: error instanceof Error ? error.name : "play-failed",
-            });
-            if (error instanceof Error && error.name === "NotAllowedError" && !muted) {
-              offerSound();
-              if (element instanceof HTMLVideoElement) {
-                element.muted = true;
-                await element.play();
-              }
-            } else throw error;
-          }
-        }),
-      ).then(() => started.resolve(), started.reject);
-      await started.finally(() => {
-        clearTimeout(timeout);
-        abortReadiness.delete(abort);
-      });
-    } catch (error) {
-      diagnostic("media-failed", {
-        ...context,
-        reason: error instanceof Error ? error.message : "media-play-failed",
-      });
-      for (const element of media) {
-        element.pause();
-        activeMedia.delete(element);
-      }
-      wrapper.remove();
-      activeWrappers.delete(wrapper);
-      throw error;
-    }
-    if (!activeWrappers.has(wrapper)) return;
-    wrapper.style.visibility = "";
-    wrapper.style.animationPlayState = "";
-    diagnostic("playback-started", {
-      ...context,
-      reason: `playing-after-${Math.round(performance.now() - startedLoading)}ms`,
-    });
-    if (command.mode === "sticker" && visual)
-      later(() => {
-        if (!wrapper.isConnected) return;
-        const rect = visual.getBoundingClientRect();
-        const position =
-          rect.bottom < 0 ? "above" : rect.top > innerHeight ? "below" : "in-viewport";
-        diagnostic("playback-started", {
-          ...context,
-          count: Math.min(200, wrapper.getAnimations().length),
-          reason: `${position}-top-${Math.round(rect.top)}-height-${Math.round(rect.height)}-viewport-${innerHeight}`,
-        });
-      }, 250);
-    later(() => {
-      for (const element of wrapper.querySelectorAll("audio,video")) {
-        (element as HTMLMediaElement).pause();
-        activeMedia.delete(element as HTMLMediaElement);
-      }
-      wrapper.remove();
-      activeWrappers.delete(wrapper);
-    }, event.durationSeconds * 1000);
+  function play(event: Extract<EmoticonEvent, { type: "effect" }>) {
+    const requestId = testRequests.get(event.command.id);
+    testRequests.delete(event.command.id);
+    return player.play(event, requestId);
   }
   function nextRevision() {
     revision = Math.max(revision + 1, Date.now());
@@ -483,7 +198,7 @@ export function mountEmotes(container: HTMLElement, host: SharedOverlayRuntime, 
       };
       eventMappings = cloud.eventMappings ?? [];
       runtime?.configure(config);
-      if (!cloud.enabled) clearPlayback();
+      if (!cloud.enabled) player.clear();
       if (cloud.enabled && chat && !releaseChat) releaseChat = host.acquireChat("emoticons");
       if (!cloud.enabled) {
         releaseChat?.();
@@ -561,11 +276,9 @@ export function mountEmotes(container: HTMLElement, host: SharedOverlayRuntime, 
     unsubscribeEvents?.();
     releaseChat?.();
     runtime?.clear();
-    clearPlayback();
+    player.clear();
     effectAssets.clear();
     giphyAssets.clear();
     board?.close();
-    for (const timer of timers) clearTimeout(timer);
-    timers.clear();
   };
 }
