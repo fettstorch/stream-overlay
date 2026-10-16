@@ -31,6 +31,13 @@ export function createEmotePlayer(
   const muted = new URLSearchParams(location.search).get("muted") === "1";
   const activeMedia = new Set<HTMLMediaElement>(),
     activeWrappers = new Set<HTMLElement>();
+  function releaseMedia(media: HTMLMediaElement) {
+    if (!activeMedia.delete(media)) return;
+    media.pause();
+    // Removing a DOM node does not release its decoder/audio resources.
+    media.removeAttribute("src");
+    media.load();
+  }
   let playbackGeneration = 0;
   let soundButton: HTMLButtonElement | undefined;
   function clearPlayback() {
@@ -39,8 +46,7 @@ export function createEmotePlayer(
     abortReadiness.clear();
     for (const timer of timers) clearTimeout(timer);
     timers.clear();
-    for (const media of activeMedia) media.pause();
-    activeMedia.clear();
+    for (const media of activeMedia) releaseMedia(media);
     for (const wrapper of activeWrappers) wrapper.remove();
     activeWrappers.clear();
     soundButton?.remove();
@@ -75,11 +81,7 @@ export function createEmotePlayer(
       await Promise.all(
         (["imageUrl", "videoUrl", "audioUrl"] as const).map(async (key) => {
           if (key === "imageUrl" && command.imageGiphyId) return;
-          if (!command[key]) return;
-          const cachedUrl = await effectAssets.load(command[key]!);
-          // Keep native media on its original URL. In Firefox, some audible
-          // MP4s resolve play() on a Blob URL but remain stuck at time zero.
-          if (key === "imageUrl") command[key] = cachedUrl;
+          if (command[key]) command[key] = await effectAssets.load(command[key]!);
         }),
       );
     } catch {
@@ -276,10 +278,7 @@ export function createEmotePlayer(
         ...context,
         reason: error instanceof Error ? error.message : "media-play-failed",
       });
-      for (const element of media) {
-        element.pause();
-        activeMedia.delete(element);
-      }
+      for (const element of media) releaseMedia(element);
       wrapper.remove();
       activeWrappers.delete(wrapper);
       throw error;
@@ -319,8 +318,7 @@ export function createEmotePlayer(
       }, 250);
     later(() => {
       for (const element of wrapper.querySelectorAll("audio,video")) {
-        (element as HTMLMediaElement).pause();
-        activeMedia.delete(element as HTMLMediaElement);
+        releaseMedia(element as HTMLMediaElement);
       }
       wrapper.remove();
       activeWrappers.delete(wrapper);

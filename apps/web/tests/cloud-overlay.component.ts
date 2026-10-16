@@ -415,6 +415,7 @@ test.each(["started", "frozen", "timeout", "canceled"])("pending play keeps the 
     () => new Promise<void>(resolve => { begin = resolve; }),
   );
   const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+  const load = vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
   assets.load.mockImplementation(async () => "blob:https://example.test/cached-media");
   try {
     history.replaceState({}, "", "/effect/?did=did:plc:alice&preview=1");
@@ -432,7 +433,7 @@ test.each(["started", "frozen", "timeout", "canceled"])("pending play keeps the 
     await flushPromises();
     const clip = document.querySelector<HTMLElement>(".clip")!;
     const video = clip.querySelector("video")!;
-    expect(video.src).toBe("https://example.test/video.mp4");
+    expect(video.src).toBe("blob:https://example.test/cached-media");
     expect(video.autoplay).toBe(false);
     video.dispatchEvent(new Event("loadeddata"));
     await flushPromises();
@@ -445,6 +446,8 @@ test.each(["started", "frozen", "timeout", "canceled"])("pending play keeps the 
       await vi.advanceTimersByTimeAsync(52_000);
       expect(clip.isConnected).toBe(false);
       expect(pause).toHaveBeenCalled();
+      expect(video.hasAttribute("src")).toBe(false);
+      expect(load).toHaveBeenCalledOnce();
       expect(relay.send).toHaveBeenCalledWith(expect.objectContaining({
         event: "media-failed", requestId: "delayed-play", reason: "media-play-timeout",
       }));
@@ -455,6 +458,8 @@ test.each(["started", "frozen", "timeout", "canceled"])("pending play keeps the 
       begin();
       await flushPromises();
       expect(clip.isConnected).toBe(false);
+      expect(video.hasAttribute("src")).toBe(false);
+      expect(load).toHaveBeenCalledOnce();
       expect(relay.send).not.toHaveBeenCalledWith(expect.objectContaining({ event: "playback-started", requestId: "delayed-play" }));
       return;
     }
@@ -479,9 +484,12 @@ test.each(["started", "frozen", "timeout", "canceled"])("pending play keeps the 
     expect(clip.isConnected).toBe(true);
     await vi.advanceTimersByTimeAsync(1);
     expect(clip.isConnected).toBe(false);
+    expect(video.hasAttribute("src")).toBe(false);
+    expect(load).toHaveBeenCalledOnce();
   } finally {
     assets.load.mockImplementation(async (source: string) => source);
     play.mockRestore();
     pause.mockRestore();
+    load.mockRestore();
   }
 });
