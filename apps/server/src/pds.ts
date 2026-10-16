@@ -1,3 +1,4 @@
+import { joinByteChunks } from "../../../packages/overlay-sdk/src/bytes.ts";
 import { Agent, type ComAtprotoRepoApplyWrites } from "@atproto/api";
 import { createHash } from "node:crypto";
 import { CustomBundleCache, unpackCustomBundle } from "./custom-module-bundle.ts";
@@ -152,12 +153,7 @@ export class PdsService {
         } finally {
           await reader.cancel();
         }
-        const bytes = new Uint8Array(size);
-        let offset = 0;
-        for (const chunk of chunks) {
-          bytes.set(chunk, offset);
-          offset += chunk.length;
-        }
+        const bytes = joinByteChunks(chunks, size);
         const bundle = unpackCustomBundle(bytes);
         diagnostics?.logger.log("info", "cloud.bundle.load-completed", {
           ...context,

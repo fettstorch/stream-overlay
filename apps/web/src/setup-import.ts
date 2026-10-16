@@ -1,3 +1,4 @@
+import { joinByteChunks } from "../../../packages/overlay-sdk/src/bytes.ts";
 import type { CloudConfig, CloudMedia } from "./cloud-admin-types.ts";
 import { uploadMedia } from "./cloud-admin-fetch.ts";
 
@@ -104,12 +105,7 @@ export async function copySetupMedia(config: CloudConfig, did: string): Promise<
       } finally {
         await reader.cancel();
       }
-      const bytes = new Uint8Array(size);
-      let offset = 0;
-      for (const chunk of chunks) {
-        bytes.set(chunk, offset);
-        offset += chunk.length;
-      }
+      const bytes = joinByteChunks(chunks, size);
       const upload = await uploadMedia(did, bytes, media.blob.mimeType);
       if (!upload.ok)
         throw new Error("Could not copy media to your PDS. Your setup has not been changed.");
