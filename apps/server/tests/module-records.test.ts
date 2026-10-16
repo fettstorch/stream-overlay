@@ -709,7 +709,9 @@ test("overlay layout persists through PDS records and older preference edits", (
     [{ ...layout[0], y: 0.5 }],
     [layout[0], layout[0]],
     [{ ...layout[0], x: NaN }],
-    ...[NaN, Infinity, 0.5, -181, 181, "45" as unknown as number].map((rotation) => [{ ...layout[0], rotation }]),
+    ...[NaN, Infinity, 0.5, -181, 181, "45" as unknown as number].map((rotation) => [
+      { ...layout[0], rotation },
+    ]),
   ]) {
     expect(() =>
       serializeModuleRecords(
