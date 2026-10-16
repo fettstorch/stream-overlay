@@ -504,7 +504,13 @@ export function mountEmotes(container: HTMLElement, host: SharedOverlayRuntime, 
 
       // Tests use the same browser-owned runtime and cooldowns as chat commands.
       if (message.type === "test-command" && runtime) {
-        diagnostic("test-received", { requestId: message.requestId, commandId: message.commandId });
+        diagnostic("test-received", {
+          requestId: message.requestId,
+          commandId: message.commandId,
+          reason: new URLSearchParams(location.search).has("only")
+            ? "isolated-preview"
+            : "shared-overlay",
+        });
         testRequests.set(message.commandId, message.requestId);
         rejectionReason = undefined;
         cooldownRequestId = message.requestId;
