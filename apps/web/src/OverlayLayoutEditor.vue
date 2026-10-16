@@ -15,16 +15,20 @@ import {
   type OverlayLayout,
   type OverlayPlacement,
 } from "../../../packages/protocol/src/overlay-layout.ts";
-const props = defineProps<{
-  config: CloudConfig;
-  previewUrl: string;
-  chatConfiguration?: ChatConfiguration;
-  dimensions: { width: number; height: number };
-  modules: { id: string; name: string; enabled?: boolean }[];
-  saving?: boolean;
-  moduleMessage?: string;
-  save: (config: CloudConfig) => Promise<boolean>;
-}>();
+const props = withDefaults(
+  defineProps<{
+    config: CloudConfig;
+    previewUrl: string;
+    previewActive?: boolean;
+    chatConfiguration?: ChatConfiguration;
+    dimensions: { width: number; height: number };
+    modules: { id: string; name: string; enabled?: boolean }[];
+    saving?: boolean;
+    moduleMessage?: string;
+    save: (config: CloudConfig) => Promise<boolean>;
+  }>(),
+  { previewActive: true },
+);
 const emit = defineEmits<{
   "layout-change": [layout: OverlayLayout];
   "toggle-module": [id: string, event: Event];
@@ -377,6 +381,7 @@ onBeforeUnmount(() => {
         :style="{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }"
       >
         <iframe
+          v-if="previewActive"
           ref="frame"
           :src="previewUrl"
           title="Shared overlay layout preview"

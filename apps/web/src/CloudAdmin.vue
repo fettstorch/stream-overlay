@@ -139,6 +139,7 @@ async function loadSource() {
     sourceMessage.value = "Could not load your overlay URL.";
   }
 }
+const sharedPreviewOpen = ref(true);
 const sharedPreviewUrl = computed(() => {
   const url = new URL(cloudUrl("/overlay/"));
   url.searchParams.set("preview", "1");
@@ -814,6 +815,7 @@ onBeforeUnmount(() => {
         </video>
       </CollapsibleSection>
       <CollapsibleSection
+        v-model:open="sharedPreviewOpen"
         title="Your Overlay"
         initially-open
         class="settings obs-guidance shadowed-section"
@@ -857,6 +859,7 @@ onBeforeUnmount(() => {
           v-if="config"
           :config="config"
           :preview-url="sharedPreviewUrl"
+          :preview-active="sharedPreviewOpen"
           :chat-configuration="chatPreviewConfiguration"
           @layout-change="previewLayout = $event"
           :dimensions="dimensions"

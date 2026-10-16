@@ -141,6 +141,20 @@ test("layout edits stay local until saved and preserve other preferences and mod
   document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
   await flushPromises();
   expect(save).not.toHaveBeenCalled();
+  // Collapsing destroys the browsing context, while the unsaved draft survives.
+  const draft = wrapper.emitted("layout-change")!.at(-1)![0];
+  await wrapper.setProps({ previewActive: false });
+  expect(wrapper.find("iframe").exists()).toBe(false);
+  expect(frame.isConnected).toBe(false);
+  await wrapper.setProps({ previewActive: true });
+  const reopenedFrame = wrapper.get("iframe").element as HTMLIFrameElement;
+  expect(reopenedFrame).not.toBe(frame);
+  const postMessage = vi.spyOn(reopenedFrame.contentWindow!, "postMessage");
+  await wrapper.get("iframe").trigger("load");
+  expect(postMessage).toHaveBeenCalledWith(
+    { type: "overlay-layout", layout: draft },
+    location.origin,
+  );
   await wrapper
     .findAll("button")
     .find((button) => button.text() === "Save layout")!

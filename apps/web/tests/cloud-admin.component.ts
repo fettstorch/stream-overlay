@@ -66,6 +66,31 @@ function mediaDrag(type: string, name = "drop.gif") {
 }
 
 describe("Cloud Admin", () => {
+  test("collapsing Your Overlay removes its live iframe and reopening creates a fresh preview", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) =>
+        String(input).endsWith("/api/session") ? response(session) : response(config),
+      ),
+    );
+    const wrapper = mount(CloudAdmin, { attachTo: document.body });
+    try {
+      await flushPromises();
+      const preview = 'iframe[title="Shared overlay layout preview"]';
+      const original = wrapper.get(preview).element;
+      const editor = wrapper.get(".overlay-layout-editor").element;
+      await wrapper.get('[aria-label="Hide Your Overlay"]').trigger("click");
+      expect(wrapper.find(preview).exists()).toBe(false);
+      expect(original.isConnected).toBe(false);
+      expect(wrapper.get(".overlay-layout-editor").element).toBe(editor);
+      await wrapper.get('[aria-label="Show Your Overlay"]').trigger("click");
+      expect(wrapper.get(preview).element).not.toBe(original);
+      expect(wrapper.get(preview).attributes("src")).toContain("preview=1");
+    } finally {
+      wrapper.unmount();
+    }
+  });
+
   test("masks the private token without exposing it in a hover link and copies the full source URL", async () => {
     const url = `https://example.test/overlay/?did=${encodeURIComponent(session.did)}&token=fixture-private-token`;
     vi.stubGlobal(
