@@ -1,8 +1,15 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
-import { BadgeStrip, PokemonTeam, type BadgeDefinition, type PetAppearance, type ThoughtAppearance } from "@streamface/pokemon-ui";
+import {
+  BadgeStrip,
+  PokemonTeam,
+  PokemonPetQueues,
+  type PetAuthor,
+  type BadgeDefinition,
+  type PetAppearance,
+  type ThoughtAppearance,
+} from "@streamface/pokemon-ui";
 import type { PokemonSnapshot } from "@streamface/pokemon-model";
-import { PokemonPetQueues, type PetAuthor } from "./pet-queue.ts";
 import { observeStreamChat } from "@streamface/stream-chat";
 import { parseThoughtInterval, type PokemonBlueConfiguration } from "./config.ts";
 import fallbackImage from "../../../assets/unknown-pokemon.svg";
@@ -20,7 +27,10 @@ import volcanoBadge from "../../../assets/badges/volcano.png";
 import earthBadge from "../../../assets/badges/earth.png";
 
 // The interaction lifecycle is shared; game-specific readers and badges stay separate.
-const props = withDefaults(defineProps<{ moduleId?: string; badgeDefinitions?: BadgeDefinition[] }>(), { moduleId: "pokemon-blue" });
+const props = withDefaults(
+  defineProps<{ moduleId?: string; badgeDefinitions?: BadgeDefinition[] }>(),
+  { moduleId: "pokemon-blue" },
+);
 const api = `/api/${props.moduleId}`;
 
 const snapshot = ref<PokemonSnapshot>({ party: [], badges: null, capturedAt: "" });
@@ -87,11 +97,12 @@ async function refreshSnapshot() {
   try {
     const response = await fetch(`${api}/snapshot`, { cache: "no-store" });
     if (!response.ok) return;
-    const result = await response.json() as PokemonSnapshot;
+    const result = (await response.json()) as PokemonSnapshot;
     if (version !== lifecycleVersion || !moduleEnabled.value) return;
     snapshot.value = result;
     petQueues.updateParty(snapshot.value.party);
-    if (thought.value && !result.party.some(pokemon => pokemon.id === thought.value!.pokemonId)) thought.value = undefined;
+    if (thought.value && !result.party.some((pokemon) => pokemon.id === thought.value!.pokemonId))
+      thought.value = undefined;
   } catch {
     // Keep the last valid game snapshot while the host is temporarily unavailable.
   }
@@ -102,7 +113,7 @@ async function refreshConfiguration() {
   try {
     const response = await fetch(`${api}/config`, { cache: "no-store" });
     if (!response.ok) return;
-    const result = await response.json() as PokemonBlueConfiguration;
+    const result = (await response.json()) as PokemonBlueConfiguration;
     if (version !== lifecycleVersion || !moduleEnabled.value) return;
     const previousInterval = parseThoughtInterval(configuration.value.thoughtIntervalSeconds);
     const interval = parseThoughtInterval(result.thoughtIntervalSeconds);
@@ -163,33 +174,62 @@ function stopInteractions() {
 }
 
 async function showNextThought() {
-  if (thought.value || !moduleEnabled.value || !configuration.value.components.team || !snapshot.value.party.length) return;
+  if (
+    thought.value ||
+    !moduleEnabled.value ||
+    !configuration.value.components.team ||
+    !snapshot.value.party.length
+  )
+    return;
   const version = lifecycleVersion;
   if (thoughtLookupVersion === version) return;
   thoughtLookupVersion = version;
-  try { await findNextThought(version); }
-  finally { if (thoughtLookupVersion === version) thoughtLookupVersion = undefined; }
+  try {
+    await findNextThought(version);
+  } finally {
+    if (thoughtLookupVersion === version) thoughtLookupVersion = undefined;
+  }
 }
 
 async function findNextThought(version: number) {
   const partySize = snapshot.value.party.length;
   for (let attempted = 0; attempted < partySize; attempted++) {
-    if (version !== lifecycleVersion || !moduleEnabled.value || !snapshot.value.party.length) return;
+    if (version !== lifecycleVersion || !moduleEnabled.value || !snapshot.value.party.length)
+      return;
     const pokemon = snapshot.value.party[nextThoughtSlot % snapshot.value.party.length]!;
     nextThoughtSlot = (nextThoughtSlot + 1) % snapshot.value.party.length;
     try {
-      const response = await fetch(`${api}/pet-favourite/${encodeURIComponent(pokemon.id)}`, { cache: "no-store" });
+      const response = await fetch(`${api}/pet-favourite/${encodeURIComponent(pokemon.id)}`, {
+        cache: "no-store",
+      });
       if (!response.ok) continue;
-      const favourite = await response.json() as { avatar?: string; authorDid: string; count: number } | null;
+      const favourite = (await response.json()) as {
+        avatar?: string;
+        authorDid: string;
+        count: number;
+      } | null;
       if (version !== lifecycleVersion || !moduleEnabled.value || thought.value) return;
-      if (!favourite?.avatar || !snapshot.value.party.some(member => member.id === pokemon.id)) continue;
+      if (!favourite?.avatar || !snapshot.value.party.some((member) => member.id === pokemon.id))
+        continue;
       thoughtRemaining = 10_000;
       thoughtVisibleAt = undefined;
-      thought.value = { pokemonId: pokemon.id, avatar: favourite.avatar, bubbleImage: thoughtBubbleImage, heartsImage: heartsEffectImage, startedAt: Date.now() };
-      diagnose("pokemon.thought-started", { pokemonId: pokemon.id, authorDid: favourite.authorDid, count: favourite.count });
+      thought.value = {
+        pokemonId: pokemon.id,
+        avatar: favourite.avatar,
+        bubbleImage: thoughtBubbleImage,
+        heartsImage: heartsEffectImage,
+        startedAt: Date.now(),
+      };
+      diagnose("pokemon.thought-started", {
+        pokemonId: pokemon.id,
+        authorDid: favourite.authorDid,
+        count: favourite.count,
+      });
       syncThoughtExpiry();
       return;
-    } catch { /* Try another member without interrupting normal pets or game data. */ }
+    } catch {
+      /* Try another member without interrupting normal pets or game data. */
+    }
   }
 }
 
@@ -199,12 +239,19 @@ function syncThoughtExpiry() {
   thoughtVisibleAt = undefined;
   if (!thought.value || activePets[thought.value.pokemonId]) return;
   thoughtVisibleAt = Date.now();
-  thoughtEndTimer = setTimeout(() => {
-    thoughtVisibleAt = undefined;
-    thought.value = undefined;
-  }, Math.max(0, thoughtRemaining));
+  thoughtEndTimer = setTimeout(
+    () => {
+      thoughtVisibleAt = undefined;
+      thought.value = undefined;
+    },
+    Math.max(0, thoughtRemaining),
+  );
 }
-watch(() => thought.value ? Boolean(activePets[thought.value.pokemonId]) : undefined, syncThoughtExpiry, { flush: "sync" });
+watch(
+  () => (thought.value ? Boolean(activePets[thought.value.pokemonId]) : undefined),
+  syncThoughtExpiry,
+  { flush: "sync" },
+);
 
 async function setModuleEnabled(enabled: boolean, restart = false) {
   if (moduleEnabled.value === enabled && !restart) return;
@@ -212,7 +259,10 @@ async function setModuleEnabled(enabled: boolean, restart = false) {
   const version = ++lifecycleVersion;
   if (restart) stopInteractions();
   diagnose("pokemon.module-state", { enabled });
-  if (!enabled) { stopInteractions(); return; }
+  if (!enabled) {
+    stopInteractions();
+    return;
+  }
   await refreshOverlay();
   if (version !== lifecycleVersion || !moduleEnabled.value) return;
   diagnose("pokemon.snapshot-ready", {
@@ -220,20 +270,25 @@ async function setModuleEnabled(enabled: boolean, restart = false) {
   });
   refreshTimer = setInterval(refreshOverlay, 1000);
   connectChat();
-  thoughtTimer = setInterval(showNextThought, (parseThoughtInterval(configuration.value.thoughtIntervalSeconds) ?? 120) * 1000);
+  thoughtTimer = setInterval(
+    showNextThought,
+    (parseThoughtInterval(configuration.value.thoughtIntervalSeconds) ?? 120) * 1000,
+  );
 }
 
 onMounted(() => {
   diagnose("pokemon.overlay-mounted");
   moduleStatus = new EventSource(`/api/modules/${props.moduleId}/events`);
-  moduleStatus.onmessage = event => {
+  moduleStatus.onmessage = (event) => {
     try {
       const state = JSON.parse(event.data) as { enabled?: unknown; streamerDid?: unknown };
       if (typeof state.enabled !== "boolean") return;
       const changed = typeof state.streamerDid === "string" && state.streamerDid !== streamerDid;
       if (typeof state.streamerDid === "string") streamerDid = state.streamerDid;
       void setModuleEnabled(state.enabled, changed);
-    } catch { diagnose("pokemon.module-state-invalid"); }
+    } catch {
+      diagnose("pokemon.module-state-invalid");
+    }
   };
   // Fail closed while disconnected; reconnection sends the authoritative state.
   moduleStatus.onerror = () => {
@@ -256,31 +311,57 @@ onBeforeUnmount(() => {
     class="pokemon-overlay"
     :class="{ 'pokemon-overlay--crystal': props.moduleId === 'pokemon-crystal' }"
   >
-  <PokemonTeam
-    v-if="configuration.components.team"
-    :party="snapshot.party"
-    :images="images"
-    :fallback-image="fallbackImage"
-    egg-image="https://media.giphy.com/media/bxquPUdFgeUdeO2I1V/giphy.gif"
-    :active-pets="activePets"
-    :thought="thought"
-  />
-  <BadgeStrip
-    v-if="configuration.components.badges"
-    :badges="props.badgeDefinitions ?? badges"
-    :owned-badge-ids="snapshot.badges?.ownedBadgeIds ?? []"
-  />
-  <p v-if="configuration.components.team && snapshot.party.length" class="pet-hint">
-    Pet a Pokémon in chat: <code>!pet &lt;Pokémon name&gt;</code>
-    <span>Use the name shown above.</span>
-  </p>
+    <PokemonTeam
+      v-if="configuration.components.team"
+      :party="snapshot.party"
+      :images="images"
+      :fallback-image="fallbackImage"
+      egg-image="https://media.giphy.com/media/bxquPUdFgeUdeO2I1V/giphy.gif"
+      :active-pets="activePets"
+      :thought="thought"
+    />
+    <BadgeStrip
+      v-if="configuration.components.badges"
+      :badges="props.badgeDefinitions ?? badges"
+      :owned-badge-ids="snapshot.badges?.ownedBadgeIds ?? []"
+    />
+    <p v-if="configuration.components.team && snapshot.party.length" class="pet-hint">
+      Pet a Pokémon in chat: <code>!pet &lt;Pokémon name&gt;</code>
+      <span>Use the name shown above.</span>
+    </p>
   </div>
 </template>
 
 <style>
-html, body, #app { margin: 0; min-height: 100%; background: transparent; }
-.pokemon-overlay--crystal { box-sizing: border-box; min-height: 100vh; padding-block: clamp(48px, 6vh, 96px); }
-.pet-hint { margin: 24px 7% 16px; color: #fff; text-align: center; font: 700 20px/1.5 ui-monospace, monospace; text-shadow: 1px 1px 2px #000, -1px -1px 2px #000; }
-.pet-hint code { color: #ffb6de; font: inherit; }
-.pet-hint span { display: block; font-size: 0.75em; }
+html,
+body,
+#app {
+  margin: 0;
+  min-height: 100%;
+  background: transparent;
+}
+.pokemon-overlay--crystal {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding-block: clamp(48px, 6vh, 96px);
+}
+.pet-hint {
+  margin: 24px 7% 16px;
+  color: #fff;
+  text-align: center;
+  font:
+    700 20px/1.5 ui-monospace,
+    monospace;
+  text-shadow:
+    1px 1px 2px #000,
+    -1px -1px 2px #000;
+}
+.pet-hint code {
+  color: #ffb6de;
+  font: inherit;
+}
+.pet-hint span {
+  display: block;
+  font-size: 0.75em;
+}
 </style>

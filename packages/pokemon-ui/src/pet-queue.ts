@@ -66,7 +66,7 @@ export class PokemonPetQueues {
       if (this.queues.get(pokemonId) !== queue) break;
       queue.active = author;
       this.activate(pokemonId, author);
-      await new Promise<void>(resolve => {
+      await new Promise<void>((resolve) => {
         const finish = () => {
           clearTimeout(timer);
           queue.cancelDelay = undefined;

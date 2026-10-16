@@ -4,12 +4,12 @@ import { overlayRuntimeKey } from "./shared-overlay-runtime.ts";
 import {
   PokemonTeam,
   BadgeStrip,
+  PokemonPetQueues,
   type PetAppearance,
   type ThoughtAppearance,
 } from "@streamface/pokemon-ui";
 import type { PokemonSnapshot } from "@streamface/pokemon-model";
 import { crystalBadges } from "../../../modules/pokemon-crystal/src/badges.ts";
-import { PokemonPetQueues } from "../../../modules/pokemon-blue/src/pet-queue.ts";
 
 import type { CloudConfig } from "./cloud-admin-types.ts";
 import fallback from "../../../assets/unknown-pokemon.svg";

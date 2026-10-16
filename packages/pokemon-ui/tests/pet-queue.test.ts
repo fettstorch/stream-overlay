@@ -17,14 +17,22 @@ const wait = (milliseconds: number) => new Promise((resolve) => setTimeout(resol
 describe("PokemonPetQueues", () => {
   test("duplicate normalized names target the first party member like persisted counts", async () => {
     const activated: string[] = [];
-    const queues = new PokemonPetQueues(1, id => activated.push(id), () => {});
+    const queues = new PokemonPetQueues(
+      1,
+      (id) => activated.push(id),
+      () => {},
+    );
     queues.updateParty([kleo, { ...kleo, id: "second", name: " kleo " }]);
     queues.enqueue("KLEO", Promise.resolve({ did: "viewer" }));
     await wait(5);
     expect(activated).toEqual([kleo.id]);
   });
   test("matches Pokémon nicknames without case or surrounding whitespace", () => {
-    const queues = new PokemonPetQueues(1, () => {}, () => {});
+    const queues = new PokemonPetQueues(
+      1,
+      () => {},
+      () => {},
+    );
     queues.updateParty([kleo]);
     expect(queues.enqueue("  kLeO ", Promise.resolve({ did: "did:one" }))).toBe(true);
   });
@@ -45,7 +53,11 @@ describe("PokemonPetQueues", () => {
 
   test("discards queued pets when their Pokémon leaves the party", async () => {
     const events: string[] = [];
-    const queues = new PokemonPetQueues(5, (_, author) => events.push(author.did), () => {});
+    const queues = new PokemonPetQueues(
+      5,
+      (_, author) => events.push(author.did),
+      () => {},
+    );
     queues.updateParty([kleo]);
     queues.enqueue("Kleo", Promise.resolve({ did: "did:one" }));
     queues.enqueue("Kleo", Promise.resolve({ did: "did:two" }));
@@ -56,9 +68,11 @@ describe("PokemonPetQueues", () => {
 
   test("removal immediately deactivates a pet and cannot clear a newer pet after rejoining", async () => {
     const events: string[] = [];
-    const queues = new PokemonPetQueues(20,
+    const queues = new PokemonPetQueues(
+      20,
       (_, author) => events.push(`start:${author.did}`),
-      (_, author) => events.push(`stop:${author.did}`));
+      (_, author) => events.push(`stop:${author.did}`),
+    );
     queues.updateParty([kleo]);
     queues.enqueue("Kleo", Promise.resolve({ did: "old" }));
     await wait(0);
