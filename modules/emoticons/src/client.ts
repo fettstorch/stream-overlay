@@ -1,9 +1,10 @@
+import { createCooldownRing } from "./cooldown-ring.ts";
 import type { EmoticonEvent } from "./contracts.ts";
 import { DirectStreamChatService } from "@streamface/stream-chat";
 import { captureStickerPreview } from "./sticker-preview.ts";
 import { createStickerAssetCache } from "./asset-cache.ts";
 import { advanceBoardScroll, createBoardScrollState } from "./board-scroll.ts";
-import { effectTop, mediaObjectFit } from "./media-layout.ts";
+import { effectTop, applyMediaLayout } from "./media-layout.ts";
 import { observeEmoticonEvents } from "./events-client.ts";
 import { EmoticonRuntime } from "./runtime.ts";
 const boardMode = location.pathname.includes("/board");
@@ -12,8 +13,14 @@ const effect = document.querySelector<HTMLDivElement>("#effect")!;
 const board = document.querySelector<HTMLElement>("#board")!;
 const clientId = crypto.randomUUID();
 function diagnose(event: string, details: Record<string, unknown> = {}) {
-  void fetch("/api/diagnostics", { method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ event, details: { ...details, clientId, overlay: boardMode ? "board" : "effects", muted } }) }).catch(() => {});
+  void fetch("/api/diagnostics", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      event,
+      details: { ...details, clientId, overlay: boardMode ? "board" : "effects", muted },
+    }),
+  }).catch(() => {});
 }
 diagnose("emoticons.overlay-mounted");
 type Effect = Extract<EmoticonEvent, { type: "effect" }>;
@@ -29,21 +36,37 @@ const stickerAvatars = createStickerAssetCache();
 function captureAssetPreview(assetId: string, video: boolean) {
   let captured = assetPreviews.get(assetId);
   if (!captured) {
-    captured = stickerAssets.load(`/api/emoticons/assets/${assetId}`).then(url => captureStickerPreview(url, video));
+    captured = stickerAssets
+      .load(`/api/emoticons/assets/${assetId}`)
+      .then((url) => captureStickerPreview(url, video));
     assetPreviews.set(assetId, captured);
     const pending = captured;
-    void captured.catch(() => { if (assetPreviews.get(assetId) === pending) assetPreviews.delete(assetId); });
+    void captured.catch(() => {
+      if (assetPreviews.get(assetId) === pending) assetPreviews.delete(assetId);
+    });
   }
   return captured;
 }
-type StickerSlot = { container: HTMLDivElement; visual: HTMLDivElement; image: HTMLImageElement; video: HTMLVideoElement; avatar: HTMLImageElement };
+type StickerSlot = {
+  container: HTMLDivElement;
+  visual: HTMLDivElement;
+  image: HTMLImageElement;
+  video: HTMLVideoElement;
+  avatar: HTMLImageElement;
+};
 const stickerPool: StickerSlot[] = [];
 function createStickerSlot(): StickerSlot {
-  const container = document.createElement("div"); container.className = "sticker";
-  const visual = document.createElement("div"); visual.className = "sticker-media";
-  const image = new Image(); const video = document.createElement("video");
-  video.muted = true; video.playsInline = true; video.loop = true;
-  const avatar = new Image(); avatar.className = "sender-avatar";
+  const container = document.createElement("div");
+  container.className = "sticker";
+  const visual = document.createElement("div");
+  visual.className = "sticker-media";
+  const image = new Image();
+  const video = document.createElement("video");
+  video.muted = true;
+  video.playsInline = true;
+  video.loop = true;
+  const avatar = new Image();
+  avatar.className = "sender-avatar";
   container.append(avatar, visual);
   return { container, visual, image, video, avatar };
 }
@@ -51,48 +74,68 @@ const stickers = new Map<HTMLElement, () => void>();
 let soundButton: HTMLButtonElement | undefined;
 function offerSound() {
   if (muted || soundButton) return;
-  soundButton = document.createElement("button"); soundButton.type = "button";
+  soundButton = document.createElement("button");
+  soundButton.type = "button";
   soundButton.textContent = "Enable sound";
-  soundButton.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:10px 16px;border:1px solid #7794e8;border-radius:8px;background:#101828;color:white;font:16px system-ui;cursor:pointer;z-index:10";
+  soundButton.style.cssText =
+    "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:10px 16px;border:1px solid #7794e8;border-radius:8px;background:#101828;color:white;font:16px system-ui;cursor:pointer;z-index:10";
   soundButton.onclick = () => {
     // This handler runs within the browser gesture required for audible playback.
     for (const element of media) {
       element.muted = false;
-      void element.play().catch(error => diagnose("emoticons.sound-enable-failed", { error: String(error) }));
+      void element
+        .play()
+        .catch((error) => diagnose("emoticons.sound-enable-failed", { error: String(error) }));
     }
-    soundButton?.remove(); soundButton = undefined;
+    soundButton?.remove();
+    soundButton = undefined;
     diagnose("emoticons.sound-enabled");
   };
   document.body.append(soundButton);
 }
 function clear() {
   for (const remove of [...stickers.values()]) remove();
-  generation++; clearTimeout(timer); cancelPlayback(); cancelPlayback = () => {};
-  soundButton?.remove(); soundButton = undefined;
-  for (const element of media) element.pause(); media = []; effect.replaceChildren(); effect.hidden = true; pending = []; playing = false;
+  generation++;
+  clearTimeout(timer);
+  cancelPlayback();
+  cancelPlayback = () => {};
+  soundButton?.remove();
+  soundButton = undefined;
+  for (const element of media) element.pause();
+  media = [];
+  effect.replaceChildren();
+  effect.hidden = true;
+  pending = [];
+  playing = false;
 }
 function appendAvatar(container: HTMLElement, event: Effect) {
   if (!event.author?.avatar && !event.author?.did) return;
-  const avatar = new Image(); avatar.className = "sender-avatar";
+  const avatar = new Image();
+  avatar.className = "sender-avatar";
   avatar.alt = event.author.displayName || event.author.handle || "Chat sender";
-  avatar.src = event.author.avatar || `/api/emoticons/avatar/${encodeURIComponent(event.author.did!)}`;
+  avatar.src =
+    event.author.avatar || `/api/emoticons/avatar/${encodeURIComponent(event.author.did!)}`;
   avatar.onload = () => diagnose("emoticons.avatar-loaded", { effectId: event.id });
-  avatar.onerror = () => { diagnose("emoticons.avatar-failed", { effectId: event.id, authorDid: event.author?.did }); avatar.remove(); };
+  avatar.onerror = () => {
+    diagnose("emoticons.avatar-failed", { effectId: event.id, authorDid: event.author?.did });
+    avatar.remove();
+  };
   container.append(avatar);
   if (container === effect && (event.command.imageAssetId || event.command.videoAssetId)) {
-    const tail = new Image(); tail.className = "speech-bubble-tail"; tail.alt = "";
-    tail.src = "/overlays/emoticons/speech-bubble-tail.png"; container.append(tail);
+    const tail = new Image();
+    tail.className = "speech-bubble-tail";
+    tail.alt = "";
+    tail.src = "/overlays/emoticons/speech-bubble-tail.png";
+    container.append(tail);
   }
 }
-function sizeMedia(element: HTMLImageElement | HTMLVideoElement, command: Effect["command"], sticker = false) {
-  element.style.transform = command.mirrored ? "scaleX(-1)" : "none";
-  const custom = Boolean(command.width || command.height);
+function sizeMedia(
+  element: HTMLImageElement | HTMLVideoElement,
+  command: Effect["command"],
+  sticker = false,
+) {
   if (!sticker) effect.style.top = effectTop(command.height);
-  element.style.width = custom ? command.width || "auto" : sticker ? "5vw" : "auto";
-  element.style.height = custom ? command.height || "auto" : sticker ? "5vw" : "auto";
-  element.style.objectFit = mediaObjectFit(command.width, command.height);
-  element.style.maxWidth = custom || sticker ? "none" : "40vw";
-  element.style.maxHeight = custom || sticker ? "none" : "35vh";
+  applyMediaLayout(element, command, sticker);
 }
 function spawnSticker(event: Effect) {
   const command = event.command;
@@ -101,109 +144,219 @@ function spawnSticker(event: Effect) {
   let active = true;
   let expiry: ReturnType<typeof setTimeout> | undefined;
   const remove = () => {
-    if (!active) return; active = false;
-    clearTimeout(expiry); container.onanimationend = null;
+    if (!active) return;
+    active = false;
+    clearTimeout(expiry);
+    container.onanimationend = null;
     image.onload = image.onerror = avatar.onload = avatar.onerror = video.onerror = null;
-    video.pause(); video.removeAttribute("src"); video.load();
-    image.removeAttribute("src"); avatar.removeAttribute("src");
-    visual.replaceChildren(); container.remove(); stickers.delete(container);
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
+    image.removeAttribute("src");
+    avatar.removeAttribute("src");
+    visual.replaceChildren();
+    container.remove();
+    stickers.delete(container);
     if (stickerPool.length < 32) stickerPool.push(slot);
   };
   stickers.set(container, remove);
-  container.style.width = "max-content"; container.style.height = "max-content";
+  container.style.width = "max-content";
+  container.style.height = "max-content";
   visual.style.scale = String(0.4 + Math.random() * 0.6);
   container.style.left = `${5 + Math.random() * 90}%`;
-  container.style.setProperty("--drift", `${(Math.random() - .5) * 160}px`);
+  container.style.setProperty("--drift", `${(Math.random() - 0.5) * 160}px`);
   container.style.animationDuration = `${event.durationSeconds}s`;
   avatar.hidden = true;
   if (event.author?.avatar || event.author?.did) {
     avatar.alt = event.author.displayName || event.author.handle || "Chat sender";
-    avatar.onerror = () => { avatar.hidden = true; diagnose("emoticons.avatar-failed", { effectId: event.id }); };
+    avatar.onerror = () => {
+      avatar.hidden = true;
+      diagnose("emoticons.avatar-failed", { effectId: event.id });
+    };
     avatar.onload = () => diagnose("emoticons.avatar-loaded", { effectId: event.id });
-    const source = event.author.did ? `/api/emoticons/avatar/${encodeURIComponent(event.author.did)}` : event.author.avatar!;
-    void stickerAvatars.load(source).then(url => {
-      if (active) { avatar.src = url; avatar.hidden = false; }
-    }).catch(error => { if (active) diagnose("emoticons.avatar-failed", { effectId: event.id, error: String(error) }); });
+    const source = event.author.did
+      ? `/api/emoticons/avatar/${encodeURIComponent(event.author.did)}`
+      : event.author.avatar!;
+    void stickerAvatars
+      .load(source)
+      .then((url) => {
+        if (active) {
+          avatar.src = url;
+          avatar.hidden = false;
+        }
+      })
+      .catch((error) => {
+        if (active)
+          diagnose("emoticons.avatar-failed", { effectId: event.id, error: String(error) });
+      });
   }
   const assetId = command.imageAssetId || command.videoAssetId;
-  if (!assetId) { remove(); return; }
-  void stickerAssets.load(`/api/emoticons/assets/${assetId}`).then(url => {
-    if (!active) return;
-    const element = command.imageAssetId ? image : video;
-    element.onerror = () => { diagnose("emoticons.sticker-media-failed", { effectId: event.id }); remove(); };
-    if (element === image) image.alt = command.command;
-    sizeMedia(element, command, true);
-    element.src = url; visual.append(element);
-    container.onanimationend = event => { if (event.target === container) remove(); };
-    document.body.append(container);
-    expiry = setTimeout(remove, event.durationSeconds * 1000 + 100);
-    if (element === video) void video.play().catch(error => {
-      if (active) { diagnose("emoticons.sticker-media-failed", { effectId: event.id, error: String(error) }); remove(); }
+  if (!assetId) {
+    remove();
+    return;
+  }
+  void stickerAssets
+    .load(`/api/emoticons/assets/${assetId}`)
+    .then((url) => {
+      if (!active) return;
+      const element = command.imageAssetId ? image : video;
+      element.onerror = () => {
+        diagnose("emoticons.sticker-media-failed", { effectId: event.id });
+        remove();
+      };
+      if (element === image) image.alt = command.command;
+      sizeMedia(element, command, true);
+      element.src = url;
+      visual.append(element);
+      container.onanimationend = (event) => {
+        if (event.target === container) remove();
+      };
+      document.body.append(container);
+      expiry = setTimeout(remove, event.durationSeconds * 1000 + 100);
+      if (element === video)
+        void video.play().catch((error) => {
+          if (active) {
+            diagnose("emoticons.sticker-media-failed", {
+              effectId: event.id,
+              error: String(error),
+            });
+            remove();
+          }
+        });
+      diagnose("emoticons.sticker-spawned", { effectId: event.id, command: command.command });
+    })
+    .catch((error) => {
+      if (active) {
+        diagnose("emoticons.sticker-media-failed", { effectId: event.id, error: String(error) });
+        remove();
+      }
     });
-    diagnose("emoticons.sticker-spawned", { effectId: event.id, command: command.command });
-  }).catch(error => {
-    if (active) { diagnose("emoticons.sticker-media-failed", { effectId: event.id, error: String(error) }); remove(); }
-  });
 }
 async function next() {
   if (playing) return;
-  const event = pending.shift(); if (!event) return;
+  const event = pending.shift();
+  if (!event) return;
   diagnose("emoticons.effect-started", { effectId: event.id, command: event.command.command });
-  playing = true; const current = generation; const command = event.command;
+  playing = true;
+  const current = generation;
+  const command = event.command;
   appendAvatar(effect, event);
   effect.hidden = false;
-  if (command.imageAssetId) { const image = new Image(); sizeMedia(image, command); image.onload = () => diagnose("emoticons.image-loaded", { effectId: event.id, width: image.naturalWidth, height: image.naturalHeight }); image.onerror = () => diagnose("emoticons.image-failed", { effectId: event.id, assetId: command.imageAssetId }); image.src = `/api/emoticons/assets/${command.imageAssetId}`; image.alt = command.command; effect.append(image); effect.hidden = false; }
+  if (command.imageAssetId) {
+    const image = new Image();
+    sizeMedia(image, command);
+    image.onload = () =>
+      diagnose("emoticons.image-loaded", {
+        effectId: event.id,
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+      });
+    image.onerror = () =>
+      diagnose("emoticons.image-failed", { effectId: event.id, assetId: command.imageAssetId });
+    image.src = `/api/emoticons/assets/${command.imageAssetId}`;
+    image.alt = command.command;
+    effect.append(image);
+    effect.hidden = false;
+  }
   const finishMedia: Array<() => void> = [];
   let finishDuration = () => {};
-  const duration = new Promise<void>(resolve => { finishDuration = resolve; timer = setTimeout(resolve, event.durationSeconds * 1000); });
-  const play = (element: HTMLMediaElement, assetId: string, kind: "audio" | "video") => new Promise<void>(resolve => {
-    finishMedia.push(resolve); media.push(element);
-    element.muted = muted; element.volume = command.volume;
-    element.onplaying = () => diagnose(`emoticons.${kind}-playing`, { effectId: event.id, currentTime: element.currentTime, actualMuted: element.muted });
-    element.onended = () => resolve(); element.onerror = () => { diagnose(`emoticons.${kind}-failed`, { effectId: event.id, code: element.error?.code }); resolve(); };
-    element.src = `/api/emoticons/assets/${assetId}`;
-    void element.play().catch(async error => {
-      if (current !== generation) { resolve(); return; }
-      diagnose(`emoticons.${kind}-play-failed`, { effectId: event.id, error: String(error) });
-      if (error instanceof Error && error.name === "NotAllowedError" && !muted) {
-        offerSound();
-        if (kind === "video") {
-          element.muted = true;
-          try {
-            await element.play();
-            if (current !== generation) element.pause();
-            return;
-          } catch (retryError) { diagnose("emoticons.video-muted-play-failed", { effectId: event.id, error: String(retryError) }); }
-        }
-      }
-      resolve();
-    });
+  const duration = new Promise<void>((resolve) => {
+    finishDuration = resolve;
+    timer = setTimeout(resolve, event.durationSeconds * 1000);
   });
+  const play = (element: HTMLMediaElement, assetId: string, kind: "audio" | "video") =>
+    new Promise<void>((resolve) => {
+      finishMedia.push(resolve);
+      media.push(element);
+      element.muted = muted;
+      element.volume = command.volume;
+      element.onplaying = () =>
+        diagnose(`emoticons.${kind}-playing`, {
+          effectId: event.id,
+          currentTime: element.currentTime,
+          actualMuted: element.muted,
+        });
+      element.onended = () => resolve();
+      element.onerror = () => {
+        diagnose(`emoticons.${kind}-failed`, { effectId: event.id, code: element.error?.code });
+        resolve();
+      };
+      element.src = `/api/emoticons/assets/${assetId}`;
+      void element.play().catch(async (error) => {
+        if (current !== generation) {
+          resolve();
+          return;
+        }
+        diagnose(`emoticons.${kind}-play-failed`, { effectId: event.id, error: String(error) });
+        if (error instanceof Error && error.name === "NotAllowedError" && !muted) {
+          offerSound();
+          if (kind === "video") {
+            element.muted = true;
+            try {
+              await element.play();
+              if (current !== generation) element.pause();
+              return;
+            } catch (retryError) {
+              diagnose("emoticons.video-muted-play-failed", {
+                effectId: event.id,
+                error: String(retryError),
+              });
+            }
+          }
+        }
+        resolve();
+      });
+    });
   const playback: Promise<void>[] = [];
   if (command.videoAssetId) {
-    const video = document.createElement("video"); video.playsInline = true; sizeMedia(video, command);
-    video.onloadeddata = () => diagnose("emoticons.video-loaded", { effectId: event.id, width: video.videoWidth, height: video.videoHeight });
-    effect.append(video); effect.hidden = false;
+    const video = document.createElement("video");
+    video.playsInline = true;
+    sizeMedia(video, command);
+    video.onloadeddata = () =>
+      diagnose("emoticons.video-loaded", {
+        effectId: event.id,
+        width: video.videoWidth,
+        height: video.videoHeight,
+      });
+    effect.append(video);
+    effect.hidden = false;
     playback.push(play(video, command.videoAssetId, "video"));
   }
   if (command.audioAssetId) playback.push(play(new Audio(), command.audioAssetId, "audio"));
-  cancelPlayback = () => { finishDuration(); for (const finish of finishMedia) finish(); };
+  cancelPlayback = () => {
+    finishDuration();
+    for (const finish of finishMedia) finish();
+  };
   void Promise.all(playback);
   await duration;
   if (current !== generation) return;
   diagnose("emoticons.effect-ended", { effectId: event.id });
-  for (const element of media) element.pause(); media = []; effect.replaceChildren(); effect.hidden = true; playing = false;
-  cancelPlayback = () => {}; void next();
+  for (const element of media) element.pause();
+  media = [];
+  effect.replaceChildren();
+  effect.hidden = true;
+  playing = false;
+  cancelPlayback = () => {};
+  void next();
 }
-const cooldownRings = new Map<string, { element: SVGSVGElement; progress: SVGCircleElement; endsAt: number; durationSeconds: number }>();
+const cooldownRings = new Map<
+  string,
+  { element: SVGSVGElement; progress: SVGCircleElement; endsAt: number; durationSeconds: number }
+>();
 function updateCooldownRings() {
   for (const ring of cooldownRings.values()) {
     const remaining = Math.max(0, ring.endsAt - Date.now());
-    const fraction = ring.durationSeconds > 0 ? Math.min(1, remaining / (ring.durationSeconds * 1000)) : 0;
+    const fraction =
+      ring.durationSeconds > 0 ? Math.min(1, remaining / (ring.durationSeconds * 1000)) : 0;
     ring.progress.setAttribute("stroke-dasharray", `${fraction * 100} 100`);
     ring.progress.setAttribute("stroke-dashoffset", String(-(1 - fraction) * 100));
     ring.element.classList.toggle("cooling-down", remaining > 0);
-    ring.element.setAttribute("aria-label", remaining > 0 ? `${Math.ceil(remaining / 1000)} seconds cooldown remaining` : "No cooldown remaining");
+    ring.element.setAttribute(
+      "aria-label",
+      remaining > 0
+        ? `${Math.ceil(remaining / 1000)} seconds cooldown remaining`
+        : "No cooldown remaining",
+    );
   }
 }
 const cooldownTicker = boardMode ? setInterval(updateCooldownRings, 100) : undefined;
@@ -227,97 +380,182 @@ if (boardMode) {
   board.addEventListener("touchstart", pauseBoardAutoScroll, { passive: true });
   boardScrollFrame = requestAnimationFrame(updateBoardAutoScroll);
 }
-const runtime = boardMode ? undefined : new EmoticonRuntime({
-  effect: event => {
-    diagnose("emoticons.effect-accepted", { effectId: event.id, command: event.command.command });
-    if (event.command.mode === "sticker") spawnSticker(event);
-    else { pending.push(event); void next(); }
-  },
-  cooldowns: cooldowns => {
-    void fetch("/api/emoticons/runtime/cooldowns", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(cooldowns),
-    }).catch(error => diagnose("emoticons.cooldown-report-failed", { error: String(error) }));
-  },
-  log: diagnose,
-});
+const runtime = boardMode
+  ? undefined
+  : new EmoticonRuntime({
+      effect: (event) => {
+        diagnose("emoticons.effect-accepted", {
+          effectId: event.id,
+          command: event.command.command,
+        });
+        if (event.command.mode === "sticker") spawnSticker(event);
+        else {
+          pending.push(event);
+          void next();
+        }
+      },
+      cooldowns: (cooldowns) => {
+        void fetch("/api/emoticons/runtime/cooldowns", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(cooldowns),
+        }).catch((error) => diagnose("emoticons.cooldown-report-failed", { error: String(error) }));
+      },
+      log: diagnose,
+    });
 const chat = boardMode ? undefined : new DirectStreamChatService(diagnose);
-chat?.messages.subscribe(message => runtime?.message(message.id, message.text, message.author));
+chat?.messages.subscribe((message) => runtime?.message(message.id, message.text, message.author));
 async function refreshStreamer() {
   if (!chat) return;
   try {
-    const response = await fetch("/api/config", { headers: { "Accept": "application/json" } });
+    const response = await fetch("/api/config", { headers: { Accept: "application/json" } });
     if (!response.ok) throw new Error(`Configuration unavailable (${response.status})`);
-    const configuration = await response.json() as { streamerDid?: unknown };
-    chat.setStreamerDid(typeof configuration.streamerDid === "string" ? configuration.streamerDid : "");
+    const configuration = (await response.json()) as { streamerDid?: unknown };
+    chat.setStreamerDid(
+      typeof configuration.streamerDid === "string" ? configuration.streamerDid : "",
+    );
   } catch (error) {
     diagnose("emoticons.chat-config-failed", { error: String(error) });
   }
 }
 void refreshStreamer();
-const events = observeEmoticonEvents(boardMode ? "board" : "effects", event => {
-  if (event.type === "state") {
-    runtime?.configure(event.state);
-    if (!boardMode) void refreshStreamer();
-    stickerAssets.retain(new Set(event.state.assets.map(asset => `/api/emoticons/assets/${asset.id}`)));
-    for (const id of assetPreviews.keys()) if (!event.state.assets.some(asset => asset.id === id)) assetPreviews.delete(id);
-    if (!event.state.enabled) clear();
-    board.hidden = !boardMode || !event.state.enabled;
-    const scrollTop = board.scrollTop;
-    board.replaceChildren(); cooldownRings.clear();
-    for (const [title, sticker] of [["Clips", false], ["Stickers", true]] as const) {
-      const section = document.createElement("section");
-      const heading = document.createElement("h2"); heading.textContent = title;
-      const commands = event.state.commands.filter(command => (command.mode === "sticker") === sticker);
-      const list = document.createElement("ul"); section.append(heading);
-      const example = commands[0];
-      if (example) {
-        const usage = document.createElement("p"); usage.className = "usage";
-        usage.append("Use in chat, e.g.: ", Object.assign(document.createElement("code"), { textContent: `!${example.command}` }));
-        if (sticker) usage.append(" · Repeat, e.g.: ", Object.assign(document.createElement("code"), { textContent: `!${example.command} x3` }));
-        section.append(usage);
-      }
-      section.append(list);
-      for (const command of commands) {
-        const item = document.createElement("li"); const name = document.createElement("strong"); name.textContent = `!${command.command}`; item.append(name);
-        if (boardMode && !sticker) {
-          const assetId = command.imageAssetId || command.videoAssetId;
-          if (assetId) {
-            const preview = new Image(); preview.className = "clip-preview"; preview.alt = ""; preview.style.transform = command.mirrored ? "scaleX(-1)" : "none"; item.prepend(preview);
-            void captureAssetPreview(assetId, Boolean(command.videoAssetId)).then(url => { if (preview.isConnected) preview.src = url; }).catch(error => {
-              preview.remove(); diagnose("emoticons.clip-preview-failed", { assetId, error: String(error) });
+const events = observeEmoticonEvents(
+  boardMode ? "board" : "effects",
+  (event) => {
+    if (event.type === "state") {
+      runtime?.configure(event.state);
+      if (!boardMode) void refreshStreamer();
+      stickerAssets.retain(
+        new Set(event.state.assets.map((asset) => `/api/emoticons/assets/${asset.id}`)),
+      );
+      for (const id of assetPreviews.keys())
+        if (!event.state.assets.some((asset) => asset.id === id)) assetPreviews.delete(id);
+      if (!event.state.enabled) clear();
+      board.hidden = !boardMode || !event.state.enabled;
+      const scrollTop = board.scrollTop;
+      board.replaceChildren();
+      cooldownRings.clear();
+      for (const [title, sticker] of [
+        ["Clips", false],
+        ["Stickers", true],
+      ] as const) {
+        const section = document.createElement("section");
+        const heading = document.createElement("h2");
+        heading.textContent = title;
+        const commands = event.state.commands.filter(
+          (command) => (command.mode === "sticker") === sticker,
+        );
+        const list = document.createElement("ul");
+        section.append(heading);
+        const example = commands[0];
+        if (example) {
+          const usage = document.createElement("p");
+          usage.className = "usage";
+          usage.append(
+            "Use in chat, e.g.: ",
+            Object.assign(document.createElement("code"), { textContent: `!${example.command}` }),
+          );
+          if (sticker)
+            usage.append(
+              " · Repeat, e.g.: ",
+              Object.assign(document.createElement("code"), {
+                textContent: `!${example.command} x3`,
+              }),
+            );
+          section.append(usage);
+        }
+        section.append(list);
+        for (const command of commands) {
+          const item = document.createElement("li");
+          const name = document.createElement("strong");
+          name.textContent = `!${command.command}`;
+          item.append(name);
+          if (boardMode && !sticker) {
+            const assetId = command.imageAssetId || command.videoAssetId;
+            if (assetId) {
+              const preview = new Image();
+              preview.className = "clip-preview";
+              preview.alt = "";
+              preview.style.transform = command.mirrored ? "scaleX(-1)" : "none";
+              item.prepend(preview);
+              void captureAssetPreview(assetId, Boolean(command.videoAssetId))
+                .then((url) => {
+                  if (preview.isConnected) preview.src = url;
+                })
+                .catch((error) => {
+                  preview.remove();
+                  diagnose("emoticons.clip-preview-failed", { assetId, error: String(error) });
+                });
+            }
+          }
+          if (boardMode && sticker) {
+            const assetId = command.imageAssetId || command.videoAssetId;
+            if (assetId) {
+              const preview = new Image();
+              preview.className = "sticker-preview";
+              preview.alt = "";
+              preview.style.transform = command.mirrored ? "scaleX(-1)" : "none";
+              item.append(preview);
+              void captureAssetPreview(assetId, Boolean(command.videoAssetId))
+                .then((url) => {
+                  if (preview.isConnected) preview.src = url;
+                })
+                .catch((error) => {
+                  preview.remove();
+                  diagnose("emoticons.sticker-preview-failed", { assetId, error: String(error) });
+                });
+            }
+          }
+          if (!sticker && command.cooldownSeconds > 0) {
+            const { element: ring, progress } = createCooldownRing();
+            item.append(ring);
+            const cooldown = event.state.cooldowns?.[command.id];
+            cooldownRings.set(command.id, {
+              element: ring,
+              progress,
+              endsAt: cooldown?.endsAt ?? 0,
+              durationSeconds: cooldown?.durationSeconds ?? command.cooldownSeconds,
             });
           }
+          list.append(item);
         }
-        if (boardMode && sticker) {
-          const assetId = command.imageAssetId || command.videoAssetId;
-          if (assetId) {
-            const preview = new Image(); preview.className = "sticker-preview"; preview.alt = ""; preview.style.transform = command.mirrored ? "scaleX(-1)" : "none"; item.append(preview);
-            void captureAssetPreview(assetId, Boolean(command.videoAssetId)).then(url => { if (preview.isConnected) preview.src = url; }).catch(error => {
-              preview.remove(); diagnose("emoticons.sticker-preview-failed", { assetId, error: String(error) });
-            });
-          }
+        if (!list.children.length) {
+          const item = document.createElement("li");
+          item.textContent = "No commands yet";
+          list.append(item);
         }
-        if (!sticker && command.cooldownSeconds > 0) {
-          const ns = "http://www.w3.org/2000/svg";
-          const ring = document.createElementNS(ns, "svg"); ring.classList.add("cooldown-ring"); ring.setAttribute("viewBox", "0 0 24 24"); ring.setAttribute("role", "img");
-          const track = document.createElementNS(ns, "circle"); const progress = document.createElementNS(ns, "circle");
-          for (const circle of [track, progress]) { circle.setAttribute("cx", "12"); circle.setAttribute("cy", "12"); circle.setAttribute("r", "9"); circle.setAttribute("pathLength", "100"); }
-          progress.classList.add("cooldown-progress"); ring.append(track, progress); item.append(ring);
-          const cooldown = event.state.cooldowns?.[command.id];
-          cooldownRings.set(command.id, { element: ring, progress, endsAt: cooldown?.endsAt ?? 0, durationSeconds: cooldown?.durationSeconds ?? command.cooldownSeconds });
-        }
-        list.append(item);
+        board.append(section);
       }
-      if (!list.children.length) { const item = document.createElement("li"); item.textContent = "No commands yet"; list.append(item); }
-      board.append(section);
-    }
-    board.scrollTop = Math.min(scrollTop, Math.max(0, board.scrollHeight - board.clientHeight));
-    updateCooldownRings();
-    if (boardMode) diagnose("emoticons.board-cooldowns-updated", { activeCooldowns: [...cooldownRings.values()].filter(ring => ring.endsAt > Date.now()).length });
-  } else if (event.type === "clear") { runtime?.clear(); clear(); for (const ring of cooldownRings.values()) ring.endsAt = 0; updateCooldownRings(); }
-  else if (event.type === "preview" && !boardMode) runtime?.trigger(event.commandId);
-}, () => diagnose("emoticons.events-connected", { transport: "websocket" }),
-() => { diagnose("emoticons.events-disconnected"); if (boardMode) board.hidden = true; }, clientId);
-window.addEventListener("pagehide", () => { runtime?.clear(); chat?.stop(); clear(); clearInterval(cooldownTicker); if (boardScrollFrame !== undefined) cancelAnimationFrame(boardScrollFrame); events.close(); stickerPool.length = 0; stickerAssets.clear(); stickerAvatars.clear(); assetPreviews.clear(); });
+      board.scrollTop = Math.min(scrollTop, Math.max(0, board.scrollHeight - board.clientHeight));
+      updateCooldownRings();
+      if (boardMode)
+        diagnose("emoticons.board-cooldowns-updated", {
+          activeCooldowns: [...cooldownRings.values()].filter((ring) => ring.endsAt > Date.now())
+            .length,
+        });
+    } else if (event.type === "clear") {
+      runtime?.clear();
+      clear();
+      for (const ring of cooldownRings.values()) ring.endsAt = 0;
+      updateCooldownRings();
+    } else if (event.type === "preview" && !boardMode) runtime?.trigger(event.commandId);
+  },
+  () => diagnose("emoticons.events-connected", { transport: "websocket" }),
+  () => {
+    diagnose("emoticons.events-disconnected");
+    if (boardMode) board.hidden = true;
+  },
+  clientId,
+);
+window.addEventListener("pagehide", () => {
+  runtime?.clear();
+  chat?.stop();
+  clear();
+  clearInterval(cooldownTicker);
+  if (boardScrollFrame !== undefined) cancelAnimationFrame(boardScrollFrame);
+  events.close();
+  stickerPool.length = 0;
+  stickerAssets.clear();
+  stickerAvatars.clear();
+  assetPreviews.clear();
+});

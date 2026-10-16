@@ -11,7 +11,7 @@ import type {
 } from "@streamface/emoticons/src/contracts.ts";
 import type { RelaySnapshot, EffectDiagnostic } from "@streamface/protocol";
 import { createCloudBoard } from "./cloud-board.ts";
-import { effectTop, mediaObjectFit } from "../../../modules/emoticons/src/media-layout.ts";
+import { effectTop, applyMediaLayout } from "../../../modules/emoticons/src/media-layout.ts";
 import { loadPublicActorProfile } from "./actor-search.ts";
 import tailUrl from "../../../modules/emoticons/assets/speech-bubble-tail.png";
 import { createStickerAssetCache } from "../../../modules/emoticons/src/asset-cache.ts";
@@ -188,15 +188,7 @@ export function mountEmotes(container: HTMLElement, host: SharedOverlayRuntime, 
       }
     if (visual) {
       visual.src = command.videoUrl ?? command.imageUrl!;
-      const custom = Boolean(command.width || command.height);
-      visual.style.width =
-        command.width || (custom ? "auto" : command.mode === "sticker" ? "5vw" : "auto");
-      visual.style.height =
-        command.height || (custom ? "auto" : command.mode === "sticker" ? "5vw" : "auto");
-      visual.style.maxWidth = custom || command.mode === "sticker" ? "none" : "40vw";
-      visual.style.maxHeight = custom || command.mode === "sticker" ? "none" : "35vh";
-      visual.style.objectFit = mediaObjectFit(command.width, command.height);
-      visual.style.transform = command.mirrored ? "scaleX(-1)" : "none";
+      applyMediaLayout(visual, command, command.mode === "sticker");
       if (visual instanceof HTMLVideoElement) {
         visual.autoplay = false;
         visual.playsInline = true;
@@ -288,23 +280,25 @@ export function mountEmotes(container: HTMLElement, host: SharedOverlayRuntime, 
       const abort = () => started.reject(new Error("playback-canceled"));
       const timeout = setTimeout(() => started.reject(new Error("media-play-timeout")), 60_000);
       abortReadiness.add(abort);
-      void Promise.all(media.map(async (element) => {
-        try {
-          await element.play();
-        } catch (error) {
-          diagnostic("media-failed", {
-            ...context,
-            reason: error instanceof Error ? error.name : "play-failed",
-          });
-          if (error instanceof Error && error.name === "NotAllowedError" && !muted) {
-            offerSound();
-            if (element instanceof HTMLVideoElement) {
-              element.muted = true;
-              await element.play();
-            }
-          } else throw error;
-        }
-      })).then(() => started.resolve(), started.reject);
+      void Promise.all(
+        media.map(async (element) => {
+          try {
+            await element.play();
+          } catch (error) {
+            diagnostic("media-failed", {
+              ...context,
+              reason: error instanceof Error ? error.name : "play-failed",
+            });
+            if (error instanceof Error && error.name === "NotAllowedError" && !muted) {
+              offerSound();
+              if (element instanceof HTMLVideoElement) {
+                element.muted = true;
+                await element.play();
+              }
+            } else throw error;
+          }
+        }),
+      ).then(() => started.resolve(), started.reject);
       await started.finally(() => {
         clearTimeout(timeout);
         abortReadiness.delete(abort);
