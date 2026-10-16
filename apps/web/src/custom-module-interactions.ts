@@ -1,7 +1,7 @@
 /** Trusted interaction code shared by the sandboxed preview and OBS document. */
 export function customModuleInteractions(
   channel: string,
-  icons: { scale?: string; lock?: string } = {},
+  icons: { scale?: string; lock?: string; rotate?: string } = {},
   locks: Record<number, boolean> = {},
   options?: {
     root: HTMLElement;
@@ -75,6 +75,9 @@ export function customModuleInteractions(
   const lock = control("Lock aspect ratio", icons.lock);
   const resize = control("Resize element", icons.scale);
   resize.style.cursor = "nwse-resize";
+  const rotate = control("Rotate element", icons.rotate);
+  rotate.style.cursor = "grab";
+  rotate.title = "Drag to rotate; hold Shift to snap to 15°";
   document.body.append(controls);
   const updateLock = () => {
     const locked = !hovered || locks[Number(hovered.dataset.sfIndex)] !== false;
@@ -137,7 +140,7 @@ export function customModuleInteractions(
       height: `${rect.height}px`,
     });
     controls.style.display = "flex";
-    controls.style.left = `${Math.max(0, Math.min(innerWidth - 60, rect.right - 60))}px`;
+    controls.style.left = `${Math.max(0, Math.min(innerWidth - 92, rect.right - 92))}px`;
     controls.style.top = `${Math.max(0, Math.min(innerHeight - 28, rect.bottom - 28))}px`;
     updateLock();
   };
@@ -152,6 +155,11 @@ export function customModuleInteractions(
         width: number;
         height: number;
         resizing: boolean;
+        rotating: boolean;
+        rotation: number;
+        angle: number;
+        centerX: number;
+        centerY: number;
         locked: boolean;
       }
     | undefined;
@@ -173,6 +181,17 @@ export function customModuleInteractions(
       dy = event.clientY - drag.y;
     if (!drag.moved && Math.hypot(dx, dy) < 3) return;
     const element = drag.element;
+    if (drag.rotating) {
+      const angle = Math.atan2(event.clientY - drag.centerY, event.clientX - drag.centerX);
+      const delta = Math.atan2(Math.sin(angle - drag.angle), Math.cos(angle - drag.angle));
+      const step = event.shiftKey ? 15 : 1;
+      const degrees = Math.round((drag.rotation + delta * 180 / Math.PI) / step) * step;
+      element.style.setProperty("rotate", `${((degrees + 180) % 360 + 360) % 360 - 180}deg`, "important");
+      drag.moved = true;
+      options?.onChange?.(Number(element.dataset.sfIndex), element.getAttribute("style") ?? "");
+      outline(element);
+      return;
+    }
     if (!drag.moved) {
       element.style.setProperty("position", "absolute", "important");
       element.style.setProperty("margin", "0", "important");
@@ -187,6 +206,10 @@ export function customModuleInteractions(
       height = parent.clientHeight || innerHeight;
     const percentage = (value: number, size: number, preserveSize = false) =>
       `${(preserveSize ? Math.ceil : Math.round)((value / size) * 10000) / 100}%`;
+    // Resize in the element's axes, keeping its opposite corner in place.
+    const radians = drag.rotation * Math.PI / 180;
+    const cos = Math.cos(radians), sin = Math.sin(radians);
+    const localDx = dx * cos + dy * sin, localDy = -dx * sin + dy * cos;
     let nextWidth = drag.width,
       nextHeight = drag.height;
     if (drag.resizing) {
@@ -195,19 +218,24 @@ export function customModuleInteractions(
           8 / Math.max(1, drag.width),
           8 / Math.max(1, drag.height),
           1 +
-            (dx * drag.width + dy * drag.height) / Math.max(1, drag.width ** 2 + drag.height ** 2),
+            (localDx * drag.width + localDy * drag.height) / Math.max(1, drag.width ** 2 + drag.height ** 2),
         );
         nextWidth *= scale;
         nextHeight *= scale;
       } else {
-        nextWidth = Math.max(8, drag.width + dx);
-        nextHeight = Math.max(8, drag.height + dy);
+        nextWidth = Math.max(8, drag.width + localDx);
+        nextHeight = Math.max(8, drag.height + localDy);
       }
     }
     let nextLeft =
       drag.left + (drag.resizing ? 0 : dx) - rect.left - parent.clientLeft + parent.scrollLeft;
     let nextTop =
       drag.top + (drag.resizing ? 0 : dy) - rect.top - parent.clientTop + parent.scrollTop;
+    if (drag.resizing) {
+      const dw = nextWidth - drag.width, dh = nextHeight - drag.height;
+      nextLeft += (dw * cos - dh * sin - dw) / 2;
+      nextTop += (dw * sin + dh * cos - dh) / 2;
+    }
     if (options?.constrain) {
       if (drag.resizing && drag.locked) {
         const limit = Math.min(1, (width - nextLeft) / nextWidth, (height - nextTop) / nextHeight);
@@ -234,25 +262,35 @@ export function customModuleInteractions(
     if (drag) return;
     cancelHide();
     const resizing = event.target instanceof Node && resize.contains(event.target);
+    const rotating = event.target instanceof Node && rotate.contains(event.target);
     if (event.target instanceof Node && lock.contains(event.target)) return;
     if (event.button !== 0) return;
     event.preventDefault();
     const request = ++startRequest;
-    const result = resizing ? hovered : target(event);
+    const result = resizing || rotating ? hovered : target(event);
     const element = result instanceof Promise ? await result : result;
     if (request !== startRequest || !element || (options && element.closest("[inert]"))) return;
     outline(element);
     const rect = element.getBoundingClientRect();
+    const rotation = parseFloat(getComputedStyle(element).rotate) || 0;
+    const width = (rotation && element.offsetWidth) || rect.width;
+    const height = (rotation && element.offsetHeight) || rect.height;
+    const centerX = rect.left + rect.width / 2, centerY = rect.top + rect.height / 2;
     drag = {
       element,
       x: event.clientX,
       y: event.clientY,
-      left: rect.left,
-      top: rect.top,
+      left: centerX - width / 2,
+      top: centerY - height / 2,
       moved: false,
-      width: rect.width,
-      height: rect.height,
+      width,
+      height,
       resizing,
+      rotating,
+      rotation,
+      angle: Math.atan2(event.clientY - centerY, event.clientX - centerX),
+      centerX,
+      centerY,
       locked: locks[Number(element.dataset.sfIndex)] !== false,
     };
     if ("pointerId" in event && typeof event.pointerId === "number")
@@ -375,6 +413,7 @@ export function moveCustomModuleElement(html: string, index: number, style: stri
     "bottom",
     "margin",
     "box-sizing",
+    "rotate",
   ];
   const target = element as HTMLElement;
   for (const property of allowed) {

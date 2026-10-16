@@ -10,6 +10,23 @@ export async function visibleContentAt(
   if (!view) return false;
   const contains = (rect: DOMRect) =>
     x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+  // CSS rotate is inherited geometrically through ancestors, including module layers.
+  const localPoint = (element: HTMLElement) => {
+    const rect = element.getBoundingClientRect();
+    let rotation = 0;
+    for (let ancestor: Element | null = element; ancestor; ancestor = ancestor.parentElement)
+      rotation += parseFloat(view.getComputedStyle(ancestor).rotate) || 0;
+    if (!rotation) return {
+      x: ((x - rect.left) * element.clientWidth) / rect.width,
+      y: ((y - rect.top) * element.clientHeight) / rect.height,
+    };
+    const radians = rotation * Math.PI / 180;
+    const dx = x - rect.left - rect.width / 2, dy = y - rect.top - rect.height / 2;
+    return {
+      x: dx * Math.cos(radians) + dy * Math.sin(radians) + element.clientWidth / 2,
+      y: -dx * Math.sin(radians) + dy * Math.cos(radians) + element.clientHeight / 2,
+    };
+  };
   for (const element of [root, ...root.querySelectorAll("*")]) {
     if (!contains(element.getBoundingClientRect())) continue;
     let visible = true;
@@ -28,9 +45,8 @@ export async function visibleContentAt(
     const tag = element.tagName.toLowerCase();
     if (tag === "iframe") {
       const frame = element as HTMLIFrameElement;
-      const rect = frame.getBoundingClientRect();
-      const fx = ((x - rect.left) * frame.clientWidth) / rect.width;
-      const fy = ((y - rect.top) * frame.clientHeight) / rect.height;
+      const { x: fx, y: fy } = localPoint(frame);
+      if (fx < 0 || fy < 0 || fx > frame.clientWidth || fy > frame.clientHeight) continue;
       let child: Document | null = null;
       try {
         child = frame.contentDocument;
@@ -68,13 +84,13 @@ export async function visibleContentAt(
     }
     if (tag === "canvas") {
       const canvas = element as HTMLCanvasElement;
-      const rect = canvas.getBoundingClientRect();
+      const point = localPoint(canvas);
       try {
         const context = canvas.getContext("2d");
         if (
           context?.getImageData(
-            Math.floor(((x - rect.left) / rect.width) * canvas.width),
-            Math.floor(((y - rect.top) / rect.height) * canvas.height),
+            Math.floor((point.x / canvas.clientWidth) * canvas.width),
+            Math.floor((point.y / canvas.clientHeight) * canvas.height),
             1,
             1,
           ).data[3]

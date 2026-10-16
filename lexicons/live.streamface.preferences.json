@@ -64,6 +64,11 @@
           "minimum": 0,
           "maximum": 10000
         },
+        "rotation": {
+          "type": "integer",
+          "minimum": -180,
+          "maximum": 180
+        },
         "hidden": {
           "type": "boolean"
         }

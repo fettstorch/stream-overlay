@@ -444,3 +444,26 @@ test("page modules leave the shared overlay, fill their own page, and respect en
   await flushPromises();
   expect(wrapper.findAll(".overlay-layer")).toHaveLength(0);
 });
+
+test("module rotation previews immediately and saves without changing its bounds", async () => {
+  vi.stubGlobal("CSS", { escape: (value: string) => value });
+  const save = vi.fn(async () => true);
+  wrapper = mount(LayoutEditor, {
+    attachTo: document.body,
+    props: { config, previewUrl: "/overlay/?preview=1", dimensions: { width: 1920, height: 1080 }, modules: [{ id: "chat", name: "Chat" }], save },
+  });
+  const region = wrapper.get('[data-layout-module="chat"]').element as HTMLElement;
+  vi.spyOn(region, "getBoundingClientRect").mockReturnValue({ left: 740, top: 175, right: 990, bottom: 475, width: 250, height: 300 } as DOMRect);
+  await wrapper.get('[data-layer="chat"]').trigger("click");
+  const rotate = document.querySelector('[aria-label="Rotate element"]')!;
+  rotate.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0, clientX: 990, clientY: 325 }));
+  await flushPromises();
+  document.dispatchEvent(new MouseEvent("mousemove", { clientX: 865, clientY: 450 }));
+  document.dispatchEvent(new MouseEvent("mouseup"));
+  await flushPromises();
+  const placement = { id: "chat", x: 7400, y: 3500, width: 2500, height: 6000, order: 20, rotation: 90 };
+  expect(region.style.rotate).toBe("90deg");
+  expect(wrapper.emitted("layout-change")!.at(-1)![0]).toEqual([placement]);
+  await wrapper.findAll("button").find((button) => button.text() === "Save layout")!.trigger("click");
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({ preferences: expect.objectContaining({ overlayLayout: [placement] }) }));
+});

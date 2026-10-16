@@ -365,3 +365,31 @@ test("crossing transparent gaps gives time to reach the controls and entering th
     expect(controls.style.display).toBe("none");
   } finally { stop(); root.remove(); vi.useRealTimers(); }
 });
+
+test("rotation drags around the center, snaps with Shift, and preserves authored transforms", () => {
+  const element = document.createElement("div");
+  element.dataset.sfIndex = "0";
+  element.style.cssText = "left:10%;top:20%;width:20%;height:20%;transform:scale(.9);rotate:15deg";
+  document.body.append(element);
+  vi.spyOn(element, "getBoundingClientRect").mockReturnValue({ left: 100, top: 100, right: 300, bottom: 200, width: 200, height: 100 } as DOMRect);
+  const post = vi.spyOn(window, "postMessage").mockImplementation(() => {});
+  const stop = customModuleInteractions("rotation-test", { rotate: "data:image/png;base64,test" });
+  try {
+    element.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+    const rotate = document.querySelector('[aria-label="Rotate element"]')!;
+    expect((rotate as HTMLElement).style.backgroundImage).toContain("data:image/png");
+    rotate.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0, clientX: 300, clientY: 150 }));
+    document.dispatchEvent(new MouseEvent("mousemove", { clientX: 200, clientY: 250, shiftKey: true }));
+    document.dispatchEvent(new MouseEvent("mouseup"));
+    expect(element.style.rotate).toBe("105deg");
+    expect(element.style.left).toBe("10%");
+    expect(element.style.width).toBe("20%");
+    expect(element.style.transform).toBe("scale(.9)");
+    expect(post).toHaveBeenCalledWith(expect.objectContaining({ type: "custom-module-move", index: 0 }), "*");
+    const html = moveCustomModuleElement('<div style="color:red;transform:scale(.9)">Content</div>', 0, element.style.cssText);
+    const saved = new DOMParser().parseFromString(html, "text/html").querySelector("div")!;
+    expect(saved.style.rotate).toBe("105deg");
+    expect(saved.style.transform).toBe("scale(.9)");
+    expect(saved.style.color).toBe("red");
+  } finally { stop(); element.remove(); vi.restoreAllMocks(); }
+});

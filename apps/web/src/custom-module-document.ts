@@ -1,6 +1,7 @@
 import { visibleContentAt } from "./overlay-hit-test.ts";
 import DOMPurify from "dompurify";
 import scaleIcon from "./assets/custom-module-scale.png?inline";
+import rotateIcon from "./assets/custom-module-rotate.png?inline";
 import lockIcon from "./assets/custom-module-lock.png?inline";
 import { customModuleInteractions } from "./custom-module-interactions.ts";
 import {
@@ -159,7 +160,7 @@ export function customModuleDocument(settings: CustomModuleSettings, channel = "
   const policy = customModulePolicy
     .replace("img-src data:", "img-src data: blob: https:")
     .replace("media-src 'none'", `media-src data: blob: ${origins}`);
-  const args = JSON.stringify([channel, { scale: scaleIcon, lock: lockIcon }, locks]).replace(/</g, "\\u003c");
+  const args = JSON.stringify([channel, { scale: scaleIcon, lock: lockIcon, rotate: rotateIcon }, locks]).replace(/</g, "\\u003c");
   // Set textContent rather than interpolating raw source into HTML: strings such
   // as "</script>" must remain JavaScript, not terminate the surrounding tag.
   const javascript = JSON.stringify(settings.javascript ?? "").replace(/</g, "\\u003c");

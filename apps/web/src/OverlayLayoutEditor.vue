@@ -6,6 +6,7 @@ import AppButton from "./AppButton.vue";
 import { customModuleInteractions } from "./custom-module-interactions.ts";
 import pencilIcon from "./assets/custom-module-pencil.png";
 import scaleIcon from "./assets/custom-module-scale.png";
+import rotateIcon from "./assets/custom-module-rotate.png";
 import lockIcon from "./assets/custom-module-lock.png";
 import type { CloudConfig } from "./cloud-admin-types.ts";
 import {
@@ -211,6 +212,7 @@ function movement(index: number, style: string) {
     if (!Number.isFinite(value)) return;
     next[key] = Math.round(value * 100);
   }
+  if (probe.style.rotate) next.rotation = parseFloat(probe.style.rotate);
   next.width = Math.max(100, Math.min(10000, next.width));
   next.height = Math.max(100, Math.min(10000, next.height));
   update(next);
@@ -273,7 +275,7 @@ function reset() {
 onMounted(() => {
   stopInteractions = customModuleInteractions(
     channel,
-    { scale: scaleIcon, lock: lockIcon },
+    { scale: scaleIcon, lock: lockIcon, rotate: rotateIcon },
     locks,
     {
       root: canvas.value!,
@@ -304,7 +306,7 @@ onBeforeUnmount(() => {
 <template>
   <section class="overlay-layout-editor" aria-label="Overlay layout">
     <p>
-      Hover a module to move or resize it. Aspect ratio is locked by default, just like Custom
+      Hover a module to move, resize, or rotate it. Aspect ratio is locked by default, just like Custom
       Modules. Click a list entry to locate its bounds in the preview. Drag the list to change which
       modules appear in front.
     </p>

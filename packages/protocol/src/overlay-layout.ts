@@ -6,6 +6,7 @@ export type OverlayPlacement = {
   height: number;
   order: number;
   hidden?: boolean;
+  rotation?: number;
 };
 export type OverlayLayout = OverlayPlacement[];
 export function validateOverlayLayout(value: unknown): asserts value is OverlayLayout {
@@ -26,6 +27,9 @@ export function validateOverlayLayout(value: unknown): asserts value is OverlayL
         (key !== "x" && key !== "y" && (item[key] < 0 || item[key] > 10000))
       )
         throw new Error("Invalid overlay placement");
+    if (item.rotation !== undefined &&
+      (!Number.isSafeInteger(item.rotation) || item.rotation < -180 || item.rotation > 180))
+      throw new Error("Invalid overlay rotation");
     if (
       item.width < 100 ||
       item.height < 100 ||
@@ -62,5 +66,6 @@ export function placementStyle(item: OverlayPlacement) {
     width: `${item.width / 100}%`,
     height: `${item.height / 100}%`,
     zIndex: item.order,
+    rotate: item.rotation === undefined ? undefined : `${item.rotation}deg`,
   };
 }
