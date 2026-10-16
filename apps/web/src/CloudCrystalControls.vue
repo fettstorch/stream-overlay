@@ -8,7 +8,7 @@ import fallback from "../../../assets/unknown-pokemon.svg";
 import { searchGiphy, type GiphyChoice } from "./giphy.ts";
 import giphyAttribution from "./assets/branding/PoweredBy_200px-White_HorizLogo.png";
 import type { CloudConfig } from "./cloud-admin-types.ts";
-import { adminFetch } from "./cloud-admin-fetch.ts";
+import { adminFetch, uploadMedia } from "./cloud-admin-fetch.ts";
 import {
   validateCrystalMedia,
   type CrystalMedia,
@@ -219,11 +219,7 @@ async function uploadFile(file: File) {
     if (!Number.isInteger(species.value) || species.value < 1 || species.value > 251)
       throw new Error("Choose a species number between 1 and 251.");
     const number = species.value;
-    const response = await adminFetch(`${endpoint()}/media`, {
-      method: "POST",
-      headers: { "Content-Type": mime },
-      body: file,
-    });
+    const response = await uploadMedia(props.config.streamerDid, file, mime);
     if (!response.ok) {
       const result = await response.json().catch(() => ({}));
       throw new Error(

@@ -11,7 +11,7 @@ import type { CloudConfig } from "./cloud-admin-types.ts";
 import CustomModulePreview from "./CustomModulePreview.vue";
 import AppButton from "./AppButton.vue";
 import LanguageText from "./LanguageText.vue";
-import { adminFetch } from "./cloud-admin-fetch.ts";
+import { uploadMedia } from "./cloud-admin-fetch.ts";
 import type { CustomModuleMedia } from "../../../modules/custom-module/src/config.ts";
 const CodeEditor = defineAsyncComponent(() => import("./CodeEditor.vue"));
 function editorSettings(settings: Parameters<typeof customModuleSettings>[0]) {
@@ -163,14 +163,7 @@ function mediaType(file: File) {
   return Object.values(fileTypes).includes(type) ? type : undefined;
 }
 async function uploadFile(file: File, type: string): Promise<CustomModuleMedia["blob"]> {
-  const response = await adminFetch(
-    `/api/accounts/${encodeURIComponent(props.config.streamerDid)}/media`,
-    {
-      method: "POST",
-      headers: { "Content-Type": type },
-      body: file,
-    },
-  );
+  const response = await uploadMedia(props.config.streamerDid, file, type);
   if (!response.ok) {
     const detail = await response.json().catch(() => ({}));
     throw new Error(

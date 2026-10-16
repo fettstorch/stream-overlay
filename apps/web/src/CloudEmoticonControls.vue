@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import AppButton from "./AppButton.vue";
-import { adminFetch } from "./cloud-admin-fetch.ts";
+import { adminFetch, uploadMedia } from "./cloud-admin-fetch.ts";
 import CollapsibleSection from "./CollapsibleSection.vue";
 import { emoteEvents, type EmoteEventType } from "../../../modules/emoticons/src/events.ts";
 import DeleteConfirmation from "./DeleteConfirmation.vue";
@@ -372,11 +372,7 @@ async function uploadFiles(files: FileList | null | undefined) {
         continue;
       }
       message.value = `Uploading ${file.name} to your PDS…`;
-      const response = await adminFetch(`/api/accounts/${encodeURIComponent(props.did)}/media`, {
-        method: "POST",
-        headers: { "Content-Type": media.type },
-        body: file,
-      });
+      const response = await uploadMedia(props.did, file, media.type);
       if (!response.ok) {
         const detail = (await response.json().catch(() => ({}))) as {
           message?: string;
@@ -451,11 +447,7 @@ async function save() {
       const file = draftFiles[kind];
       if (!file || !command[kind]?.blob) continue;
       message.value = "Refreshing draft media on your PDS before saving…";
-      const response = await adminFetch(`/api/accounts/${encodeURIComponent(props.did)}/media`, {
-        method: "POST",
-        headers: { "Content-Type": fileMedia(file)!.type },
-        body: file,
-      });
+      const response = await uploadMedia(props.did, file, fileMedia(file)!.type);
       if (!response.ok) {
         const detail = await response.json().catch(() => ({}));
         throw new Error(

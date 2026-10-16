@@ -1,17 +1,23 @@
 import type { CloudConfig, CloudMedia } from "./cloud-admin-types.ts";
-import { adminFetch } from "./cloud-admin-fetch.ts";
+import { uploadMedia } from "./cloud-admin-fetch.ts";
 
 /** Include disabled modules: their code can run as soon as they are enabled. */
 export function setupJavaScriptModules(config: CloudConfig): string[] {
   function containsJavaScript(root: ParentNode): boolean {
-    return Array.from(root.querySelectorAll("*")).some((element) =>
-      element.tagName === "SCRIPT" ||
-      Array.from(element.attributes).some((attribute) => /^on/i.test(attribute.name)) ||
-      (element instanceof HTMLTemplateElement && containsJavaScript(element.content)),
+    return Array.from(root.querySelectorAll("*")).some(
+      (element) =>
+        element.tagName === "SCRIPT" ||
+        Array.from(element.attributes).some((attribute) => /^on/i.test(attribute.name)) ||
+        (element instanceof HTMLTemplateElement && containsJavaScript(element.content)),
     );
   }
   return (config.customModules ?? [])
-    .filter((module) => module.bundle || module.javascript?.trim() || containsJavaScript(new DOMParser().parseFromString(module.html, "text/html")))
+    .filter(
+      (module) =>
+        module.bundle ||
+        module.javascript?.trim() ||
+        containsJavaScript(new DOMParser().parseFromString(module.html, "text/html")),
+    )
     .map((module) => module.name);
 }
 
@@ -70,7 +76,7 @@ export async function copySetupMedia(config: CloudConfig, did: string): Promise<
       ),
     ),
     ...(result.customModules ?? []).flatMap((module) => module.media ?? []),
-    ...(result.customModules ?? []).flatMap((module) => module.bundle ? [module.bundle] : []),
+    ...(result.customModules ?? []).flatMap((module) => (module.bundle ? [module.bundle] : [])),
   ];
   for (const media of mediaTargets) {
     if (!media?.blob) continue;
@@ -104,11 +110,7 @@ export async function copySetupMedia(config: CloudConfig, did: string): Promise<
         bytes.set(chunk, offset);
         offset += chunk.length;
       }
-      const upload = await adminFetch(`/api/accounts/${encodeURIComponent(did)}/media`, {
-        method: "POST",
-        headers: { "Content-Type": media.blob.mimeType },
-        body: bytes,
-      });
+      const upload = await uploadMedia(did, bytes, media.blob.mimeType);
       if (!upload.ok)
         throw new Error("Could not copy media to your PDS. Your setup has not been changed.");
       replacement = { blob: await upload.json() };
