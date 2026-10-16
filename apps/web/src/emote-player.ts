@@ -143,7 +143,10 @@ export function createEmotePlayer(
         );
         element.addEventListener(
           element instanceof HTMLMediaElement ? "loadeddata" : "load",
-          () => diagnostic("media-loaded", context),
+          () => diagnostic("media-loaded", {
+            ...context,
+            reason: element instanceof HTMLVideoElement ? "video" : element instanceof HTMLAudioElement ? "audio" : "image",
+          }),
           { once: true },
         );
       }
@@ -284,6 +287,20 @@ export function createEmotePlayer(
       ...context,
       reason: `playing-after-${Math.round(performance.now() - startedLoading)}ms`,
     });
+    for (const element of media) {
+      const initialTime = element.currentTime;
+      // play() resolving alone does not show whether the media clock advances.
+      // Report once per playback, through the same relay as the start event.
+      later(() => {
+        if (!wrapper.isConnected) return;
+        const advanced = element.currentTime > initialTime || element.ended;
+        const kind = element instanceof HTMLVideoElement ? "video" : "audio";
+        diagnostic(advanced ? "media-loaded" : "media-failed", {
+          ...context,
+          reason: `${kind}-${advanced ? "progress" : "no-progress"}-ms-${Math.max(0, Math.round(element.currentTime * 1000))}-ready-${element.readyState}-network-${element.networkState}-paused-${Number(element.paused)}-ended-${Number(element.ended)}`,
+        });
+      }, Math.min(1000, event.durationSeconds * 500));
+    }
     if (command.mode === "sticker" && visual)
       later(() => {
         if (!wrapper.isConnected) return;

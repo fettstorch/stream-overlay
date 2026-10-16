@@ -1,4 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest";
+import { parseClientMessage } from "@streamface/protocol";
 import { flushPromises } from "@vue/test-utils";
 const assets = vi.hoisted(() => ({
   load: vi.fn(async (source: string) => source),
@@ -407,7 +408,7 @@ test("clip Test publishes its cooldown with the test request ID on the preview r
   );
 });
 
-test.each(["started", "timeout", "canceled"])("pending play keeps the first frame hidden and handles %s", async (outcome) => {
+test.each(["started", "frozen", "timeout", "canceled"])("pending play keeps the first frame hidden and handles %s", async (outcome) => {
   vi.useFakeTimers();
   let begin!: () => void;
   const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(
@@ -459,7 +460,20 @@ test.each(["started", "timeout", "canceled"])("pending play keeps the first fram
     await flushPromises();
     expect(clip.style.visibility).toBe("");
     expect(relay.send).toHaveBeenCalledWith(expect.objectContaining({ event: "playback-started", requestId: "delayed-play" }));
-    await vi.advanceTimersByTimeAsync(4_999);
+    if (outcome === "started") video.currentTime = 0.5;
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(relay.send).toHaveBeenCalledWith(expect.objectContaining({
+      event: outcome === "frozen" ? "media-failed" : "media-loaded",
+      requestId: "delayed-play",
+      commandId: "video",
+      reason: expect.stringContaining(outcome === "frozen" ? "video-no-progress" : "video-progress"),
+
+    }));
+    const progress = relay.send.mock.calls.map(([message]) => message).find(message =>
+      message.requestId === "delayed-play" && /video-(?:no-)?progress/.test(message.reason ?? ""),
+    );
+    expect(parseClientMessage(JSON.stringify(progress))).toEqual(progress);
+    await vi.advanceTimersByTimeAsync(3_999);
     expect(clip.isConnected).toBe(true);
     await vi.advanceTimersByTimeAsync(1);
     expect(clip.isConnected).toBe(false);
