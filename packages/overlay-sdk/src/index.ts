@@ -7,3 +7,5 @@ export type {
   OverlayRoute,
 } from "./module.ts";
 export * from "./manifest.ts";
+
+export { eventStream } from "./event-stream.ts";
