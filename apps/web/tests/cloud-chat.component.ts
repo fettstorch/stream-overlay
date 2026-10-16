@@ -12,7 +12,10 @@ const mocks = vi.hoisted(() => ({
   streamer: vi.fn(),
   report: vi.fn(),
   directCreated: vi.fn(),
+  profile: vi.fn(),
+  send: vi.fn(),
 }));
+vi.mock("../src/actor-search.ts", () => ({ loadPublicActorProfile: mocks.profile }));
 vi.mock("@streamface/stream-chat", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@streamface/stream-chat")>()),
   DirectStreamChatService: class {
@@ -38,6 +41,7 @@ async function start(preview = false) {
     preview,
     config,
     report: mocks.report,
+    send: mocks.send,
     samples: preview ? new SampleChatService() : undefined,
     chat: {
       messages: {
@@ -75,7 +79,107 @@ afterEach(() => {
   mocks.close.mockClear();
   mocks.streamer.mockClear();
   mocks.directCreated.mockClear();
+  mocks.profile.mockReset();
+  mocks.send.mockReset();
   history.replaceState({}, "", "/");
+});
+
+test("missing live avatars hydrate asynchronously without delaying, reordering or mutating shared messages", async () => {
+  vi.useFakeTimers();
+  history.replaceState({}, "", "/overlay/?preview=1&only=chat&chatSource=streamplace");
+  document.body.innerHTML = '<div id="app"></div>';
+  let resolveProfile!: (value: { avatar: string }) => void;
+  mocks.profile.mockReturnValue(
+    new Promise((resolve) => {
+      resolveProfile = resolve;
+    }),
+  );
+  await start(true);
+  mocks.receive({ streamerDid: "did:plc:alice", modules: { chat: true } });
+  await flushPromises();
+  const first = {
+    id: "missing-avatar",
+    streamerDid: "did:plc:alice",
+    text: "First",
+    author: { did: "did:plc:bob", handle: "bob.test" },
+  };
+  mocks.message(first);
+  mocks.message({ ...first, id: "same-author", text: "Second" });
+  await flushPromises();
+  expect(document.querySelectorAll(".chat-message")).toHaveLength(2);
+  expect(document.querySelectorAll(".avatar-fallback")).toHaveLength(2);
+  expect(mocks.profile).toHaveBeenCalledTimes(1);
+  resolveProfile({ avatar: "https://cdn.example/bob.jpg" });
+  await flushPromises();
+  expect(
+    [...document.querySelectorAll<HTMLImageElement>(".chat-avatar")].map((img) => img.src),
+  ).toEqual(["https://cdn.example/bob.jpg", "https://cdn.example/bob.jpg"]);
+  expect([...document.querySelectorAll(".chat-content span")].map((el) => el.textContent)).toEqual([
+    "First",
+    "Second",
+  ]);
+  expect(first.author).not.toHaveProperty("avatar");
+  expect(mocks.send).toHaveBeenCalledWith(
+    expect.objectContaining({ reason: "chat.avatar-profile-loaded", requestId: first.id }),
+  );
+});
+
+test("profile lookup failure keeps messages visible and permits a later retry", async () => {
+  vi.useFakeTimers();
+  document.body.innerHTML = '<div id="app"></div>';
+  mocks.profile
+    .mockRejectedValueOnce(new Error("unavailable"))
+    .mockResolvedValue({ avatar: "https://cdn.example/bob.jpg" });
+  await start();
+  mocks.receive({ streamerDid: "did:plc:alice", modules: { chat: true } });
+  await flushPromises();
+  const message = {
+    id: "failed",
+    streamerDid: "did:plc:alice",
+    text: "Still visible",
+    author: { did: "did:plc:bob" },
+  };
+  mocks.message(message);
+  await flushPromises();
+  expect(document.body.textContent).toContain("Still visible");
+  expect(document.querySelector(".avatar-fallback")).not.toBeNull();
+  expect(mocks.send).toHaveBeenCalledWith(
+    expect.objectContaining({ reason: "chat.avatar-profile-failed" }),
+  );
+  await vi.advanceTimersByTimeAsync(10_001);
+  mocks.message({ ...message, id: "retry" });
+  await flushPromises();
+  expect(mocks.profile).toHaveBeenCalledTimes(2);
+  expect(document.querySelector<HTMLImageElement>("img.chat-avatar")?.src).toBe(
+    "https://cdn.example/bob.jpg",
+  );
+});
+
+test("a profile resolving after chat is disabled cannot restore a cleared message", async () => {
+  document.body.innerHTML = '<div id="app"></div>';
+  let resolveProfile!: (value: { avatar: string }) => void;
+  mocks.profile.mockReturnValue(
+    new Promise((resolve) => {
+      resolveProfile = resolve;
+    }),
+  );
+  await start();
+  const state = { streamerDid: "did:plc:alice", modules: { chat: true } };
+  mocks.receive(state);
+  await flushPromises();
+  mocks.message({
+    id: "late-profile",
+    streamerDid: state.streamerDid,
+    text: "Old message",
+    author: { did: "did:plc:bob" },
+  });
+  mocks.receive({ ...state, modules: { chat: false } });
+  resolveProfile({ avatar: "https://cdn.example/bob.jpg" });
+  await flushPromises();
+  expect(document.querySelector(".chat-message")).toBeNull();
+  mocks.receive(state);
+  await flushPromises();
+  expect(document.querySelector(".chat-message")).toBeNull();
 });
 test("cloud chat reuses author avatars, appearance and timed decay, then stops when disabled", async () => {
   vi.useFakeTimers();
@@ -98,6 +202,7 @@ test("cloud chat reuses author avatars, appearance and timed decay, then stops w
   expect(document.querySelector<HTMLImageElement>(".chat-avatar")?.src).toBe(
     "https://cdn.example/bob.jpg",
   );
+  expect(mocks.profile).not.toHaveBeenCalled();
   expect((document.querySelector(".chat-messages") as HTMLElement).style.fontSize).toBe("32px");
   window.dispatchEvent(
     new MessageEvent("message", {
@@ -137,6 +242,7 @@ test("admin preview generates sample avatars and messages without observing live
   });
   await flushPromises();
   expect(mocks.directCreated).not.toHaveBeenCalled();
+  expect(mocks.profile).not.toHaveBeenCalled();
   expect(mocks.streamer).not.toHaveBeenCalled();
   expect(document.querySelectorAll(".chat-message")).toHaveLength(4);
   expect(document.body.textContent).toContain("Hey everyone!");
