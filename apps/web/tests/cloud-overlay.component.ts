@@ -406,3 +406,65 @@ test("clip Test publishes its cooldown with the test request ID on the preview r
     }),
   );
 });
+
+test.each(["started", "timeout", "canceled"])("pending play keeps the first frame hidden and handles %s", async (outcome) => {
+  vi.useFakeTimers();
+  let begin!: () => void;
+  const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(
+    () => new Promise<void>(resolve => { begin = resolve; }),
+  );
+  const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+  try {
+    history.replaceState({}, "", "/effect/?did=did:plc:alice&preview=1");
+    document.body.innerHTML = '<main class="effect"></main>';
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({
+      enabled: true, streamerDid: "did:plc:alice", commands: [{
+        id: "video", command: "video", mode: "effect", durationSeconds: 5,
+        cooldownSeconds: 0, volume: 1, width: "", height: "", mirrored: false,
+        video: { url: "https://example.test/video.mp4" },
+      }],
+    })));
+    await start();
+    await flushPromises();
+    relay.receive!({ type: "test-command", commandId: "video", requestId: "delayed-play" });
+    await flushPromises();
+    const clip = document.querySelector<HTMLElement>(".clip")!;
+    const video = clip.querySelector("video")!;
+    expect(video.autoplay).toBe(false);
+    video.dispatchEvent(new Event("loadeddata"));
+    await flushPromises();
+    expect(play).toHaveBeenCalledOnce();
+    expect(clip.style.visibility).toBe("hidden");
+    await vi.advanceTimersByTimeAsync(8_000);
+    expect(clip.isConnected).toBe(true);
+    expect(relay.send).not.toHaveBeenCalledWith(expect.objectContaining({ event: "playback-started", requestId: "delayed-play" }));
+    if (outcome === "timeout") {
+      await vi.advanceTimersByTimeAsync(52_000);
+      expect(clip.isConnected).toBe(false);
+      expect(pause).toHaveBeenCalled();
+      expect(relay.send).toHaveBeenCalledWith(expect.objectContaining({
+        event: "media-failed", requestId: "delayed-play", reason: "media-play-timeout",
+      }));
+      return;
+    }
+    if (outcome === "canceled") {
+      stop?.();
+      begin();
+      await flushPromises();
+      expect(clip.isConnected).toBe(false);
+      expect(relay.send).not.toHaveBeenCalledWith(expect.objectContaining({ event: "playback-started", requestId: "delayed-play" }));
+      return;
+    }
+    begin();
+    await flushPromises();
+    expect(clip.style.visibility).toBe("");
+    expect(relay.send).toHaveBeenCalledWith(expect.objectContaining({ event: "playback-started", requestId: "delayed-play" }));
+    await vi.advanceTimersByTimeAsync(4_999);
+    expect(clip.isConnected).toBe(true);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(clip.isConnected).toBe(false);
+  } finally {
+    play.mockRestore();
+    pause.mockRestore();
+  }
+});

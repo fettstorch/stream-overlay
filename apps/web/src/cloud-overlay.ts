@@ -197,7 +197,7 @@ export function mountEmotes(container: HTMLElement, host: SharedOverlayRuntime, 
       visual.style.objectFit = mediaObjectFit(command.width, command.height);
       visual.style.transform = command.mirrored ? "scaleX(-1)" : "none";
       if (visual instanceof HTMLVideoElement) {
-        visual.autoplay = true;
+        visual.autoplay = false;
         visual.playsInline = true;
         visual.loop = command.mode === "sticker";
         visual.muted = muted || command.mode === "sticker";
@@ -206,7 +206,7 @@ export function mountEmotes(container: HTMLElement, host: SharedOverlayRuntime, 
     }
     if (audio) {
       audio.src = command.audioUrl!;
-      audio.autoplay = true;
+      audio.autoplay = false;
       audio.muted = muted;
       audio.volume = command.volume;
     }
@@ -290,28 +290,63 @@ export function mountEmotes(container: HTMLElement, host: SharedOverlayRuntime, 
       throw error;
     }
     if (!activeWrappers.has(wrapper)) return;
+    // Keep layout available to the decoder, but hide the first frame and pause
+    // the sticker animation until play() confirms that playback has begun.
+    wrapper.style.visibility = "hidden";
+    wrapper.style.animationPlayState = "paused";
     wrapper.hidden = false;
+    const media = [visual, audio].filter(
+      (element): element is HTMLMediaElement => element instanceof HTMLMediaElement,
+    );
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const abort = () => finish(new Error("playback-canceled"));
+        const timeout = setTimeout(() => finish(new Error("media-play-timeout")), 60_000);
+        abortReadiness.add(abort);
+        function finish(error?: unknown) {
+          clearTimeout(timeout);
+          abortReadiness.delete(abort);
+          if (error) reject(error);
+          else resolve();
+        }
+        void Promise.all(media.map(async (element) => {
+          try {
+            await element.play();
+          } catch (error) {
+            diagnostic("media-failed", {
+              ...context,
+              reason: error instanceof Error ? error.name : "play-failed",
+            });
+            if (error instanceof Error && error.name === "NotAllowedError" && !muted) {
+              offerSound();
+              if (element instanceof HTMLVideoElement) {
+                element.muted = true;
+                await element.play();
+              }
+            } else throw error;
+          }
+        })).then(() => finish(), finish);
+      });
+    } catch (error) {
+      diagnostic("media-failed", {
+        ...context,
+        reason: error instanceof Error ? error.message : "media-play-failed",
+      });
+      for (const element of media) {
+        element.pause();
+        activeMedia.delete(element);
+      }
+      wrapper.remove();
+      activeWrappers.delete(wrapper);
+      throw error;
+    }
+    if (!activeWrappers.has(wrapper)) return;
+    wrapper.style.visibility = "";
+    wrapper.style.animationPlayState = "";
     diagnostic("playback-started", {
       ...context,
-      reason: `ready-after-${Math.round(performance.now() - startedLoading)}ms`,
+      reason: `playing-after-${Math.round(performance.now() - startedLoading)}ms`,
     });
-    for (const element of [visual, audio])
-      if (element instanceof HTMLMediaElement) {
-        activeMedia.add(element);
-        void element.play().catch((error) => {
-          diagnostic("media-failed", {
-            ...context,
-            reason: error instanceof Error ? error.name : "play-failed",
-          });
-          if (error instanceof Error && error.name === "NotAllowedError" && !muted) {
-            offerSound();
-            if (element instanceof HTMLVideoElement) {
-              element.muted = true;
-              void element.play().catch(() => {});
-            }
-          }
-        });
-      }
     if (command.mode === "sticker" && visual)
       later(() => {
         if (!wrapper.isConnected) return;
