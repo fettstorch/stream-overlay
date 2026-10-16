@@ -1,3 +1,4 @@
+import { awaitable } from "@fettstorch/jule";
 import type { SharedOverlayRuntime } from "./shared-overlay-runtime.ts";
 
 import { EmoticonRuntime } from "@streamface/emoticons/src/runtime.ts";
@@ -273,59 +274,40 @@ export function mountEmotes(container: HTMLElement, host: SharedOverlayRuntime, 
         element.preload = "auto";
         activeMedia.add(element);
       }
-    try {
-      await Promise.all(readiness);
-    } catch (error) {
-      diagnostic("media-failed", {
-        ...context,
-        reason: error instanceof Error ? error.message : "media-load-failed",
-      });
-      for (const element of [visual, audio])
-        if (element instanceof HTMLMediaElement) {
-          element.pause();
-          activeMedia.delete(element);
-        }
-      wrapper.remove();
-      activeWrappers.delete(wrapper);
-      throw error;
-    }
-    if (!activeWrappers.has(wrapper)) return;
-    // Keep layout available to the decoder, but hide the first frame and pause
-    // the sticker animation until play() confirms that playback has begun.
-    wrapper.style.visibility = "hidden";
-    wrapper.style.animationPlayState = "paused";
-    wrapper.hidden = false;
     const media = [visual, audio].filter(
       (element): element is HTMLMediaElement => element instanceof HTMLMediaElement,
     );
     try {
-      await new Promise<void>((resolve, reject) => {
-        const abort = () => finish(new Error("playback-canceled"));
-        const timeout = setTimeout(() => finish(new Error("media-play-timeout")), 60_000);
-        abortReadiness.add(abort);
-        function finish(error?: unknown) {
-          clearTimeout(timeout);
-          abortReadiness.delete(abort);
-          if (error) reject(error);
-          else resolve();
+      await Promise.all(readiness);
+      if (!activeWrappers.has(wrapper)) return;
+      // Allow decoding without revealing the first frame or starting animation.
+      wrapper.style.visibility = "hidden";
+      wrapper.style.animationPlayState = "paused";
+      wrapper.hidden = false;
+      const started = awaitable();
+      const abort = () => started.reject(new Error("playback-canceled"));
+      const timeout = setTimeout(() => started.reject(new Error("media-play-timeout")), 60_000);
+      abortReadiness.add(abort);
+      void Promise.all(media.map(async (element) => {
+        try {
+          await element.play();
+        } catch (error) {
+          diagnostic("media-failed", {
+            ...context,
+            reason: error instanceof Error ? error.name : "play-failed",
+          });
+          if (error instanceof Error && error.name === "NotAllowedError" && !muted) {
+            offerSound();
+            if (element instanceof HTMLVideoElement) {
+              element.muted = true;
+              await element.play();
+            }
+          } else throw error;
         }
-        void Promise.all(media.map(async (element) => {
-          try {
-            await element.play();
-          } catch (error) {
-            diagnostic("media-failed", {
-              ...context,
-              reason: error instanceof Error ? error.name : "play-failed",
-            });
-            if (error instanceof Error && error.name === "NotAllowedError" && !muted) {
-              offerSound();
-              if (element instanceof HTMLVideoElement) {
-                element.muted = true;
-                await element.play();
-              }
-            } else throw error;
-          }
-        })).then(() => finish(), finish);
+      })).then(() => started.resolve(), started.reject);
+      await started.finally(() => {
+        clearTimeout(timeout);
+        abortReadiness.delete(abort);
       });
     } catch (error) {
       diagnostic("media-failed", {
