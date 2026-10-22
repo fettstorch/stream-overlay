@@ -1,6 +1,6 @@
 # Contributing
 
-Use Bun 1.4.2 or newer. Clone with submodules and run `bun install --frozen-lockfile`.
+Use Bun 1.4.4 or newer. Clone with submodules and run `bun install --frozen-lockfile`.
 
 ## Find the code
 

@@ -1,4 +1,4 @@
-FROM oven/bun:1.4.2 AS source
+FROM oven/bun:1.4.4 AS source
 WORKDIR /app
 COPY package.json bun.lock tsconfig.json ./
 COPY apps ./apps
@@ -17,7 +17,7 @@ RUN VITE_ENABLE_CLOUD_PETS=true bun run --filter @streamface/web build && bun bu
 FROM source AS build
 RUN VITE_ENABLE_CLOUD_PETS=false bun run --filter @streamface/web build && bun build apps/server/src/server.ts --target bun --outdir dist/server
 
-FROM oven/bun:1.4.2-slim AS runtime
+FROM oven/bun:1.4.4-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production PORT=8000 WEB_DIST=/app/apps/web/dist AUTH_DATA_DIR=/data/auth
 RUN mkdir -p /data/auth && chown -R bun:bun /app /data && chmod 0700 /data/auth
